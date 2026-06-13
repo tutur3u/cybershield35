@@ -7,12 +7,10 @@ import {
 	FileSearch,
 	History,
 	LayoutDashboard,
-	LockKeyhole,
 	MessageSquareText,
 	Radar,
 	Settings,
 	ShieldCheck,
-	UsersRound,
 	type LucideIcon,
 } from "lucide-react";
 
@@ -54,42 +52,14 @@ export const socialSources = [
 		value: "facebook",
 		accent: "#1877f2",
 		iconSrc: "/brand-icons/facebook.svg",
-		coverage: "Posts, pages, groups, comments",
+		coverage: "Bài viết, trang, nhóm và bình luận công khai",
 	},
 	{
-		label: "YouTube",
-		value: "youtube",
-		accent: "#ef4444",
-		iconSrc: "/brand-icons/youtube.svg",
-		coverage: "Videos, descriptions, comment context",
-	},
-	{
-		label: "TikTok",
-		value: "tiktok",
-		accent: "#111827",
-		iconSrc: "/brand-icons/tiktok.svg",
-		coverage: "Public video links and captions",
-	},
-	{
-		label: "X",
-		value: "x",
-		accent: "#0f172a",
-		iconSrc: "/brand-icons/x.svg",
-		coverage: "Posts, threads, public conversation",
-	},
-	{
-		label: "Instagram",
-		value: "instagram",
-		accent: "#e4405f",
-		iconSrc: "/brand-icons/instagram.svg",
-		coverage: "Public posts and comments when available",
-	},
-	{
-		label: "Khác",
-		value: "other",
-		accent: "#64748b",
+		label: "Website tùy chỉnh",
+		value: "website",
+		accent: "#3b82f6",
 		iconSrc: null,
-		coverage: "Website, file, and pasted text sources",
+		coverage: "Liên kết website, tệp và văn bản do người vận hành cung cấp",
 	},
 ];
 
@@ -150,8 +120,6 @@ export const sourceModeIcons = {
 
 export const topBarItems = [
 	{ label: "Hệ thống hoạt động", icon: ShieldCheck },
-	{ label: "AI For Life - ai.daklak.gov.vn", icon: LockKeyhole },
-	{ label: "Analyst Team", icon: UsersRound },
 ];
 
 export const composerOptions = {

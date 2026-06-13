@@ -75,7 +75,7 @@ export function AuthDialog({
 			}
 		>
 			<div className="space-y-4">
-				<label className="block text-[12px] font-bold text-slate-700">
+				<label className="block text-[12px] font-bold text-[var(--muted-strong)]">
 					Short app token
 					<div className="mt-2 flex gap-2">
 						<input
@@ -83,15 +83,15 @@ export function AuthDialog({
 							onChange={(event) => setToken(event.target.value)}
 							placeholder="Dán token tại đây"
 							type="password"
-							className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-white px-3 text-[13px] text-slate-800 outline-none transition focus:border-[var(--accent)]"
+							className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
 						/>
-						<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-slate-500">
+						<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)]">
 							<KeyRound size={16} />
 						</span>
 					</div>
 				</label>
 				{error || auth.error ? (
-					<p className="rounded-md bg-red-50 p-3 text-[12px] font-semibold text-red-700">
+					<p className="rounded-md bg-[var(--danger-soft)] p-3 text-[12px] font-semibold text-[var(--danger-strong)]">
 						{error ?? auth.error}
 					</p>
 				) : null}
@@ -135,7 +135,7 @@ export function ScanDialog(props: {
 		>
 			<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
 				<div className="min-w-0 space-y-5">
-					<div className="grid grid-cols-3 gap-1 rounded-md border border-[var(--border)] bg-slate-50 p-1">
+					<div className="grid grid-cols-3 gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-1">
 						{sourceTabs.map((tab) => (
 							<button
 								type="button"
@@ -143,8 +143,8 @@ export function ScanDialog(props: {
 								onClick={() => props.setInputMode(tab.id)}
 								className={`h-10 rounded-[5px] text-[12px] font-bold transition ${
 									props.inputMode === tab.id
-										? "bg-white text-[var(--brand)] shadow-sm"
-										: "text-slate-500 hover:text-slate-800"
+										? "bg-[var(--surface)] text-[var(--brand)] shadow-sm"
+										: "text-[var(--muted)] hover:text-[var(--foreground)]"
 								}`}
 							>
 								{tab.label}
@@ -161,9 +161,9 @@ export function ScanDialog(props: {
 										value={props.urlInput}
 										onChange={(event) => props.setUrlInput(event.target.value)}
 										placeholder="https://facebook.com/example hoặc https://..."
-										className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-white px-3 text-[13px] text-slate-800 outline-none transition focus:border-[var(--accent)]"
+										className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
 									/>
-									<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-slate-500">
+									<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)]">
 										<Link2 size={16} />
 									</span>
 								</div>
@@ -176,14 +176,14 @@ export function ScanDialog(props: {
 						<div className="space-y-3">
 							<div>
 								<FieldLabel>Tải tệp lên</FieldLabel>
-								<p className="mt-1 text-[12px] text-slate-500">
+								<p className="mt-1 text-[12px] text-[var(--muted)]">
 									TXT, CSV, PDF, DOCX và định dạng văn bản phổ biến.
 								</p>
 							</div>
 							<button
 								type="button"
 								onClick={() => inputRef.current?.click()}
-								className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 text-center text-slate-600 transition hover:border-[var(--accent)] hover:bg-blue-50"
+								className="flex min-h-44 w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--surface-soft)] px-5 text-center text-[var(--muted-strong)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
 							>
 								<UploadCloud size={30} />
 								<span className="text-[13px] font-semibold">
@@ -210,33 +210,33 @@ export function ScanDialog(props: {
 								value={props.manualText}
 								onChange={(event) => props.setManualText(event.target.value)}
 								placeholder="Dán nội dung cần phân tích tại đây..."
-								className="mt-2 min-h-52 w-full resize-none rounded-md border border-[var(--border)] bg-white p-3 text-[13px] leading-6 text-slate-800 outline-none focus:border-[var(--accent)]"
+								className="mt-2 min-h-52 w-full resize-none rounded-md border border-[var(--border)] bg-[var(--surface)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 								maxLength={50000}
 							/>
-							<span className="mt-2 block text-right text-[11px] text-slate-500">
+							<span className="mt-2 block text-right text-[11px] text-[var(--muted)]">
 								{props.manualText.length.toLocaleString("vi-VN")} / 50.000
 							</span>
 						</label>
 					) : null}
 				</div>
 				<div className="space-y-3">
-					<p className="text-[13px] font-bold text-slate-800">
+					<p className="text-[13px] font-bold text-[var(--foreground)]">
 						Nhà cung cấp thu thập
 					</p>
 					{providerRows.map((provider) => (
 						<div
 							key={provider.label}
-							className="rounded-md border border-[var(--border)] bg-white p-3"
+							className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3"
 						>
 							<div className="flex items-center justify-between gap-3">
-								<p className="text-[12px] font-bold text-slate-800">
+								<p className="min-w-0 truncate text-[12px] font-bold text-[var(--foreground)]">
 									{provider.label}
 								</p>
-								<span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-700">
+								<span className="inline-flex h-6 shrink-0 items-center rounded-md bg-[var(--success-soft)] px-2 text-[10px] font-bold leading-none text-[var(--success-strong)]">
 									Hybrid
 								</span>
 							</div>
-							<p className="mt-1 text-[11px] leading-4 text-slate-500">
+							<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
 								{provider.helper}
 							</p>
 						</div>
@@ -306,7 +306,7 @@ export function CounterArgumentDialog(props: {
 					options={composerOptions.lengths}
 				/>
 			</div>
-			<label className="mt-4 flex items-center gap-2 rounded-md bg-green-50 p-3 text-[12px] font-semibold text-green-800">
+			<label className="mt-4 flex items-center gap-2 rounded-md bg-[var(--success-soft)] p-3 text-[12px] font-semibold text-[var(--success-strong)]">
 				<input type="checkbox" defaultChecked className="size-4 accent-[var(--brand)]" />
 				Chỉ sử dụng bằng chứng đã xác minh (Evidence only)
 			</label>
@@ -336,12 +336,12 @@ function Select(props: {
 	options: string[];
 }) {
 	return (
-		<label className="min-w-0 text-[12px] font-bold text-slate-700">
+		<label className="min-w-0 text-[12px] font-bold text-[var(--muted-strong)]">
 			{props.label}
 			<select
 				value={props.value}
 				onChange={(event) => props.onChange(event.target.value)}
-				className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-white px-3 text-[13px] text-slate-700 outline-none focus:border-[var(--accent)]"
+				className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 			>
 				{props.options.map((option) => (
 					<option key={option}>{option}</option>

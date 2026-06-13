@@ -3,6 +3,7 @@
 import { Bell, CircleHelp, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
 
 import { navItems, quickLinks, topBarItems } from "@/components/dashboard/dashboard-data";
 import {
@@ -75,35 +76,32 @@ export function Sidebar() {
 }
 
 export function TopBar({
-	notice,
 	onCycleTheme,
 	resolvedTheme,
 	themePreference,
 }: {
-	notice: string;
 	onCycleTheme: () => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
 }) {
 	return (
-		<header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-			<div className="flex min-w-0 flex-wrap items-center gap-3">
+		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+			<div className="flex min-w-0 items-center gap-3">
 				{topBarItems.map((item, index) => (
 					<div
 						key={item.label}
-						className="flex items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)]"
+						className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)]"
 					>
 						<item.icon
+							className={`shrink-0 ${index === 0 ? "text-[var(--brand)]" : "text-[var(--muted)]"}`}
 							size={15}
-							className={index === 0 ? "text-[var(--brand)]" : "text-[var(--muted)]"}
 						/>
 						<span className="truncate">{item.label}</span>
 					</div>
 				))}
 			</div>
-			<div className="flex min-w-0 flex-wrap items-center gap-3 text-[12px] font-semibold text-[var(--muted-strong)]">
-				<span>10:24 AM</span>
-				<span>23/05/2025</span>
+			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
+				<BrowserClock />
 				<ThemeToggleButton
 					onCycle={onCycleTheme}
 					preference={themePreference}
@@ -118,8 +116,65 @@ export function TopBar({
 						3
 					</span>
 				</button>
-				<span className="max-w-[320px] truncate text-[var(--muted)]">{notice}</span>
 			</div>
 		</header>
+	);
+}
+
+let clockSnapshot = 0;
+
+function subscribeClock(onStoreChange: () => void) {
+	const tick = () => {
+		clockSnapshot = Date.now();
+		onStoreChange();
+	};
+	tick();
+	const interval = window.setInterval(tick, 30_000);
+
+	return () => window.clearInterval(interval);
+}
+
+function getClockSnapshot() {
+	return clockSnapshot;
+}
+
+function getServerClockSnapshot() {
+	return 0;
+}
+
+function BrowserClock() {
+	const timestamp = useSyncExternalStore(
+		subscribeClock,
+		getClockSnapshot,
+		getServerClockSnapshot,
+	);
+
+	if (!timestamp) {
+		return (
+			<span
+				className="hidden whitespace-nowrap text-[var(--muted)] sm:inline"
+				suppressHydrationWarning
+			>
+				--:--, --/--/----
+			</span>
+		);
+	}
+
+	const date = new Date(timestamp);
+	const timeLabel = new Intl.DateTimeFormat("en-US", {
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: true,
+	}).format(date);
+	const dateLabel = new Intl.DateTimeFormat("vi-VN", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+	}).format(date);
+
+	return (
+		<span className="hidden whitespace-nowrap text-[var(--muted-strong)] sm:inline" suppressHydrationWarning>
+			{timeLabel}, {dateLabel}
+		</span>
 	);
 }

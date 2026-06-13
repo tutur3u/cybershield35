@@ -39,33 +39,35 @@ export function PageHeader({
 	title: string;
 }) {
 	return (
-		<div className="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-white px-4 py-4 shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
+		<div className="flex min-w-0 flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
 			<div className="flex min-w-0 items-start gap-3">
-				<span className="grid size-11 shrink-0 place-items-center rounded-md bg-green-50 text-[var(--brand)]">
+				<span className="grid size-11 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
 					<Icon size={22} />
 				</span>
 				<div className="min-w-0">
-					<h1 className="text-[20px] font-bold text-slate-950">{title}</h1>
-					<p className="mt-1 max-w-3xl text-[13px] leading-5 text-slate-500">
+					<h1 className="text-[20px] font-bold leading-7 text-[var(--foreground)]">
+						{title}
+					</h1>
+					<p className="mt-1 max-w-3xl text-[13px] leading-5 text-[var(--muted)]">
 						{description}
 					</p>
 				</div>
 			</div>
-			{actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+			{actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
 		</div>
 	);
 }
 
 export function MetricGrid() {
 	return (
-		<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+		<div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
 			{queueStats.map((stat) => (
-				<Panel key={stat.label}>
+				<Panel key={stat.label} className="h-full">
 					<div className="p-4">
 						<p className={`text-[26px] font-bold ${statColor(stat.tone)}`}>
 							{stat.value}
 						</p>
-			<p className="mt-1 text-[12px] font-semibold text-[var(--muted)]">
+						<p className="mt-1 text-[12px] font-semibold text-[var(--muted)]">
 							{stat.label}
 						</p>
 					</div>
@@ -149,18 +151,18 @@ export function QueueCard({
 	const visible = limit ? scans.slice(0, limit) : scans;
 
 	return (
-		<Panel>
+		<Panel className="h-full">
 			<PanelHeader
 				title="Hàng đợi quét"
 				description="Chọn một scan để xem phân tích, bằng chứng và bản nháp."
 			/>
-			<div className="divide-y divide-[var(--border)]">
+			<div className="divide-y divide-[var(--divider)]">
 				{visible.map((scan) => (
 					<Link
 						key={scan.id}
 						href={`/scans/${scan.id}`}
 						onClick={() => onSelectScan(scan.id)}
-						className={`grid w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_108px_92px] sm:items-center ${
+						className={`grid min-h-16 w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_96px_96px] sm:items-center ${
 							selectedScanId === scan.id
 								? "bg-[var(--accent-soft)]"
 								: "hover:bg-[var(--surface-soft)]"
@@ -198,14 +200,14 @@ export function ProviderStatus({
 	onOpenTestingKeys?: () => void;
 }) {
 	return (
-		<Panel>
+		<Panel className="h-full">
 			<PanelHeader
 				title="Provider adapters"
-				description="Server key được ưu tiên; browser-session key chỉ dùng khi server thiếu."
+				description="Server key trước; browser key khi thiếu."
 				action={
 					onOpenTestingKeys ? (
 						<SecondaryButton onClick={onOpenTestingKeys}>
-							<KeyRound size={14} /> Khóa kiểm thử
+							<KeyRound size={14} /> Khóa
 						</SecondaryButton>
 					) : null
 				}
@@ -214,14 +216,14 @@ export function ProviderStatus({
 				{providerRows.map((provider) => (
 					<div
 						key={provider.label}
-						className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
 					>
 						<div className="flex items-center justify-between gap-3">
-							<p className="text-[13px] font-bold text-[var(--foreground)]">
+							<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
 								{provider.label}
 							</p>
 							<span
-								className={`rounded-full px-2 py-1 text-[10px] font-bold ${providerStatusStyle(
+								className={`inline-flex h-6 shrink-0 items-center rounded-md px-2 text-[10px] font-bold leading-none ${providerStatusStyle(
 									providerStatus(provider.key, availability, clientSummary),
 								)}`}
 							>

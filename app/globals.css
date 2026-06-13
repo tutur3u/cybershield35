@@ -8,6 +8,7 @@
 	--surface-soft: #f8fafc;
 	--border: #dfe6ee;
 	--border-strong: #cbd5e1;
+	--divider: #e7edf5;
 	--muted: #64748b;
 	--muted-strong: #334155;
 	--brand: #38a169;
@@ -33,9 +34,10 @@
 	--foreground: #f3f7fb;
 	--surface: #161d27;
 	--surface-elevated: #1b2430;
-	--surface-soft: #202a37;
-	--border: #2c3948;
-	--border-strong: #3d4d60;
+	--surface-soft: #202936;
+	--border: #273444;
+	--border-strong: #3b4b5e;
+	--divider: #243040;
 	--muted: #94a3b8;
 	--muted-strong: #cbd5e1;
 	--brand: #52c17d;
@@ -160,13 +162,27 @@ button:disabled {
 	color: var(--danger-strong);
 }
 
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .border-slate-200,
 [data-theme="dark"] .border-slate-300,
 [data-theme="dark"] .border-green-200 {
 	border-color: var(--border-strong);
 }
 
 [data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-	border-color: var(--border);
+	border-color: var(--divider);
+}
+
+[data-theme="dark"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+	border-color: var(--divider);
+}
+
+[data-theme="dark"] .hover\:border-slate-300:hover {
+	border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .hover\:bg-slate-50:hover {
+	background-color: var(--surface-soft);
 }
 
 [data-theme="dark"] input,

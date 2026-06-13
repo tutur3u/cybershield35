@@ -79,9 +79,7 @@ export function CyberShieldDashboard({
 	const [detail, setDetail] = useState<ScanDetail | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
-	const [notice, setNotice] = useState(
-		"Chế độ hybrid: dùng dữ liệu mẫu khi thiếu khóa nhà cung cấp.",
-	);
+	const [, setNotice] = useState("");
 	const [auth, setAuth] = useState<AuthViewState>({ authenticated: false });
 	const [draft, setDraft] = useState<DraftShape>(demoDraft);
 	const [tone, setTone] = useState(
@@ -218,7 +216,6 @@ export function CyberShieldDashboard({
 				<Sidebar />
 				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
 					<TopBar
-						notice={notice}
 						onCycleTheme={cyclePreference}
 						resolvedTheme={resolvedTheme}
 						themePreference={preference}

@@ -98,10 +98,10 @@ export function EvidenceDetailsPage(
 						action={<RiskPill risk={evidence?.riskLevel ?? "medium"} />}
 					/>
 					<div className="space-y-4 p-4">
-						<p className="rounded-lg bg-slate-50 p-4 text-[15px] leading-7 text-slate-800">
+						<p className="rounded-lg bg-[var(--surface-soft)] p-4 text-[15px] leading-7 text-[var(--foreground)]">
 							"{evidence?.quote ?? "Không tìm thấy trích dẫn."}"
 						</p>
-						<p className="text-[13px] leading-6 text-slate-600">
+						<p className="text-[13px] leading-6 text-[var(--muted-strong)]">
 							{evidence?.summary ?? "Bằng chứng này chưa có tóm tắt."}
 						</p>
 						<DetailGrid
@@ -117,7 +117,7 @@ export function EvidenceDetailsPage(
 								href={evidence.sourceUrl}
 								target="_blank"
 								rel="noreferrer"
-								className="inline-flex h-10 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-slate-700"
+								className="inline-flex h-10 max-w-full items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 							>
 								Mở nguồn gốc
 							</a>
@@ -179,20 +179,20 @@ function ProviderRunPanel({ detail }: Pick<DashboardPageProps, "detail">) {
 	return (
 		<Panel>
 			<PanelHeader title="Provider runs" description="Lịch sử adapter đã chạy cho scan." />
-			<div className="divide-y divide-slate-100 p-4">
+			<div className="divide-y divide-[var(--divider)] p-4">
 				{runs.length ? (
 					runs.map((run, index) => (
 						<div key={String(run.id ?? index)} className="py-3">
-							<p className="text-[13px] font-bold text-slate-800">
+							<p className="text-[13px] font-bold text-[var(--foreground)]">
 								{String(run.provider ?? "Provider")}
 							</p>
-							<p className="mt-1 text-[12px] text-slate-500">
+							<p className="mt-1 text-[12px] text-[var(--muted)]">
 								{String(run.status ?? "completed")} - {formatTime(run.startedAt)}
 							</p>
 						</div>
 					))
 				) : (
-					<p className="text-[13px] leading-6 text-slate-500">
+					<p className="text-[13px] leading-6 text-[var(--muted)]">
 						Chưa có provider run chi tiết trong dữ liệu hiện tại.
 					</p>
 				)}
@@ -216,15 +216,15 @@ function AuditTimeline({
 	return (
 		<Panel>
 			<PanelHeader title="Nhật ký scan" />
-			<div className="divide-y divide-slate-100 p-4">
+			<div className="divide-y divide-[var(--divider)] p-4">
 				{events.map((event) => (
 					<div key={event.id ?? event.action} className="flex gap-3 py-3">
-						<Clock3 className="mt-0.5 shrink-0 text-slate-400" size={15} />
+						<Clock3 className="mt-0.5 shrink-0 text-[var(--muted)]" size={15} />
 						<div className="min-w-0">
-							<p className="text-[13px] font-bold text-slate-800">
+							<p className="text-[13px] font-bold text-[var(--foreground)]">
 								{event.action ?? "activity"}
 							</p>
-							<p className="mt-1 text-[11px] text-slate-500">
+							<p className="mt-1 text-[11px] text-[var(--muted)]">
 								{formatTime(event.createdAt)}
 							</p>
 						</div>
@@ -270,7 +270,7 @@ function DraftMetaPanel({ draft }: { draft: DashboardPageProps["draft"] }) {
 						["Created", formatTime(draft.createdAt)],
 					]}
 				/>
-				<p className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+				<p className="flex items-center gap-2 text-[11px] font-semibold text-[var(--muted)]">
 					<History size={13} /> Không tự động đăng hoặc xuất bản nội dung.
 				</p>
 			</div>
@@ -282,8 +282,12 @@ function MiniMetric({ label, value }: { label: string; value: ReactNode }) {
 	return (
 		<Panel>
 			<div className="p-4">
-				<p className="text-[11px] font-bold uppercase text-slate-500">{label}</p>
-				<div className="mt-2 text-[16px] font-bold text-slate-900">{value}</div>
+				<p className="text-[11px] font-bold uppercase text-[var(--muted)]">
+					{label}
+				</p>
+				<div className="mt-2 text-[16px] font-bold text-[var(--foreground)]">
+					{value}
+				</div>
 			</div>
 		</Panel>
 	);
@@ -294,8 +298,10 @@ function DetailGrid({ rows }: { rows: Array<[string, ReactNode]> }) {
 		<div className="grid gap-3 text-[13px] sm:grid-cols-[120px_minmax(0,1fr)]">
 			{rows.map(([label, value]) => (
 				<div key={label} className="contents">
-					<span className="font-semibold text-slate-500">{label}</span>
-					<span className="min-w-0 break-words text-slate-800">{value}</span>
+					<span className="font-semibold text-[var(--muted)]">{label}</span>
+					<span className="min-w-0 break-words text-[var(--foreground)]">
+						{value}
+					</span>
 				</div>
 			))}
 		</div>
@@ -306,7 +312,7 @@ function BackLink({ href, label }: { href: string; label: string }) {
 	return (
 		<Link
 			href={href}
-			className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-3 text-[12px] font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 		>
 			<ArrowLeft size={14} /> {label}
 		</Link>

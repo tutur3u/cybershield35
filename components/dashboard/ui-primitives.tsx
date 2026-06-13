@@ -11,7 +11,7 @@ export function Panel({
 }) {
 	return (
 		<section
-			className={`rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] ${className}`}
+			className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] ${className}`}
 		>
 			{children}
 		</section>
@@ -30,7 +30,7 @@ export function PanelHeader({
 	return (
 		<div className="flex min-w-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
 			<div className="min-w-0">
-				<h2 className="truncate text-[15px] font-bold text-[var(--foreground)]">
+				<h2 className="text-[15px] font-bold leading-6 text-[var(--foreground)]">
 					{title}
 				</h2>
 				{description ? (
@@ -39,7 +39,7 @@ export function PanelHeader({
 					</p>
 				) : null}
 			</div>
-			{action}
+			{action ? <div className="shrink-0">{action}</div> : null}
 		</div>
 	);
 }
@@ -62,7 +62,7 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 
 	return (
 		<span
-			className={`inline-flex h-6 items-center rounded-full px-2 text-[11px] font-bold ${styles[status] ?? styles.queued}`}
+			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
 		>
 			{labels[status] ?? status}
 		</span>
@@ -83,7 +83,7 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 
 	return (
 		<span
-			className={`inline-flex h-6 items-center rounded-full px-2 text-[11px] font-bold ${styles[risk] ?? styles.medium}`}
+			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
 		>
 			{labels[risk] ?? risk}
 		</span>
@@ -92,7 +92,7 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 
 export function ProgressBar({ value }: { value: number }) {
 	return (
-		<div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-soft)]">
+		<div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--neutral-soft)]">
 			<div
 				className="h-full rounded-full bg-[var(--accent)] transition-all"
 				style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
@@ -125,7 +125,7 @@ export function PrimaryButton({
 			type={type}
 			disabled={disabled}
 			onClick={onClick}
-			className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+			className="inline-flex h-11 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-strong)] disabled:opacity-60"
 		>
 			{children}
 		</button>
@@ -143,7 +143,7 @@ export function SecondaryButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 		>
 			{children}
 		</button>

@@ -70,15 +70,6 @@ export function detectSource(
 		};
 	}
 
-	if (isKnownSocialHost(url.hostname)) {
-		return {
-			type: "social",
-			provider: "browser_use",
-			normalizedInput: url.toString(),
-			label: "Social source",
-		};
-	}
-
 	return {
 		type: "url",
 		provider: "firecrawl",
@@ -97,17 +88,4 @@ function toUrl(input: string) {
 			return null;
 		}
 	}
-}
-
-function isKnownSocialHost(hostname: string) {
-	const normalized = hostname.replace(/^www\./, "").toLowerCase();
-	return [
-		"x.com",
-		"twitter.com",
-		"youtube.com",
-		"youtu.be",
-		"tiktok.com",
-		"threads.net",
-		"instagram.com",
-	].some((host) => normalized === host || normalized.endsWith(`.${host}`));
 }

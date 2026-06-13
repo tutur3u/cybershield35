@@ -1,14 +1,15 @@
+import Link from "next/link";
+
 import { alertRows, sentimentSlices, stanceRows } from "./dashboard-data";
 import type { EvidenceView, TopicCluster } from "./types";
 import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
 import { demoAnalysis } from "@/lib/domain/fixtures";
-import Link from "next/link";
 
 export function SentimentAndStance() {
 	return (
 		<Panel>
 			<PanelHeader title="Cảm xúc & lập trường" />
-			<div className="grid gap-5 p-4 sm:grid-cols-[170px_minmax(0,1fr)]">
+			<div className="grid items-center gap-5 p-4 sm:grid-cols-[170px_minmax(0,1fr)]">
 				<div
 					className="mx-auto size-32 rounded-full"
 					style={{
@@ -16,7 +17,7 @@ export function SentimentAndStance() {
 							"conic-gradient(#38a169 0 18%, #94a3b8 18% 50%, #ef4444 50% 100%)",
 					}}
 				>
-					<div className="m-6 grid size-20 place-items-center rounded-full bg-white text-[13px] font-bold text-slate-600">
+					<div className="m-6 grid size-20 place-items-center rounded-full bg-[var(--surface)] text-[13px] font-bold text-[var(--muted-strong)] shadow-[inset_0_0_0_1px_var(--border)]">
 						1.248
 					</div>
 				</div>
@@ -42,19 +43,19 @@ export function TopicPanel({ topics }: { topics: TopicCluster[] }) {
 	return (
 		<Panel>
 			<PanelHeader title="Cụm chủ đề nổi bật" />
-			<div className="divide-y divide-slate-100 p-4">
+			<div className="divide-y divide-[var(--divider)] p-4">
 				{topics.map((topic) => (
 					<div
 						key={topic.name}
-						className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_96px_84px_96px] sm:items-center"
+						className="grid min-h-14 gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_96px_84px_auto] sm:items-center"
 					>
-						<span className="truncate text-[13px] font-bold text-slate-800">
+						<span className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
 							{topic.name}
 						</span>
-						<span className="text-[12px] text-slate-500">
+						<span className="text-[12px] text-[var(--muted)]">
 							{topic.count.toLocaleString("vi-VN")} mẫu
 						</span>
-						<span className="text-[12px] font-semibold text-slate-600">
+						<span className="text-[12px] font-semibold text-[var(--muted-strong)]">
 							{topic.trend}
 						</span>
 						<RiskPill risk={topic.riskLevel} />
@@ -73,12 +74,12 @@ export function AlertPanel() {
 				{alertRows.map((row) => (
 					<div
 						key={row.label}
-						className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3"
+						className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
 					>
-						<span className="truncate text-[13px] font-bold text-slate-800">
+						<span className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
 							{row.label}
 						</span>
-						<span className="rounded-full bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700">
+						<span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--danger-soft)] text-[11px] font-bold text-[var(--danger-strong)]">
 							{row.count}
 						</span>
 					</div>
@@ -96,13 +97,15 @@ export function RiskFlagPanel({ analysis }: { analysis: typeof demoAnalysis }) {
 				{analysis.riskFlags.map((flag) => (
 					<div
 						key={flag.label}
-						className="rounded-lg border border-[var(--border)] bg-white p-3"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
 					>
 						<div className="flex items-center justify-between gap-3">
-							<p className="text-[13px] font-bold text-slate-800">{flag.label}</p>
+							<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
+								{flag.label}
+							</p>
 							<RiskPill risk={flag.severity} />
 						</div>
-						<p className="mt-1 text-[11px] text-slate-500">
+						<p className="mt-1 text-[11px] text-[var(--muted)]">
 							{flag.count} bằng chứng liên quan
 						</p>
 					</div>
@@ -126,21 +129,21 @@ export function EvidencePanel({
 	return (
 		<Panel>
 			<PanelHeader title={`Bằng chứng (${evidence.length})`} />
-			<div className="divide-y divide-slate-100 p-4">
+			<div className="divide-y divide-[var(--divider)] p-4">
 				{visible.map((item, index) => (
 					<Link
 						key={item.id}
 						href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
-						className="grid gap-3 py-3 sm:grid-cols-[32px_minmax(0,1fr)_120px]"
+						className="grid min-h-16 gap-3 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:items-center"
 					>
-						<span className="text-[12px] font-semibold text-slate-500">
+						<span className="text-[12px] font-semibold text-[var(--muted)]">
 							{index + 1}.
 						</span>
 						<div className="min-w-0">
-							<p className="text-[13px] leading-6 text-slate-800">
+							<p className="break-words text-[13px] leading-6 text-[var(--foreground)]">
 								"{item.quote}"
 							</p>
-							<p className="mt-1 truncate text-[11px] text-slate-500">
+							<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 								{item.sourceLabel ?? "Nguồn công khai"} - {item.author ?? "Public"}
 							</p>
 						</div>
@@ -163,14 +166,17 @@ function ProgressRow({
 }) {
 	return (
 		<div className="grid grid-cols-[84px_minmax(0,1fr)_42px] items-center gap-3 text-[12px]">
-			<span className="flex items-center gap-2 text-slate-600">
+			<span className="flex min-w-0 items-center gap-2 text-[var(--muted-strong)]">
 				{color ? (
-					<span className="size-2 rounded-sm" style={{ backgroundColor: color }} />
+					<span
+						className="size-2 shrink-0 rounded-sm"
+						style={{ backgroundColor: color }}
+					/>
 				) : null}
-				{label}
+				<span className="truncate">{label}</span>
 			</span>
 			<ProgressBar value={value} />
-			<span className="text-right font-bold text-slate-800">{value}%</span>
+			<span className="text-right font-bold text-[var(--foreground)]">{value}%</span>
 		</div>
 	);
 }
