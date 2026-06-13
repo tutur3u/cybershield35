@@ -291,18 +291,24 @@ export function ReportsPage(props: DashboardPageProps) {
 					</Panel>
 				))}
 			</div>
-			<div className="grid flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+			<div className="grid min-w-0 flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
 				<AnalysisSummary analysis={props.analysis} className="h-full" />
 				<Panel className="h-full">
 					<PanelHeader
 						title="Dữ liệu xuất"
 						description="Nội dung báo cáo lấy từ scan đang chọn, bằng chứng và bản nháp đã duyệt."
 					/>
-					<div className="grid h-full content-start gap-3 p-4">
-						<ReportReadiness label="Scan đang chọn" value={props.selectedScan?.title ?? "Demo scan"} />
+					<div className="grid min-w-0 content-start gap-3 p-4">
+						<ReportReadiness
+							label="Scan đang chọn"
+							value={props.selectedScan?.title ?? "Demo scan"}
+						/>
 						<ReportReadiness label="Bằng chứng" value={`${props.evidence.length} mục`} />
-						<ReportReadiness label="Bản nháp" value={props.draft.status ?? "needs_review"} />
-						<ReportReadiness label="Rủi ro" value={props.analysis.riskLevel} />
+						<ReportReadiness
+							label="Bản nháp"
+							value={reportDraftStatus(props.draft.status)}
+						/>
+						<ReportReadiness label="Rủi ro" value={reportRiskLabel(props.analysis.riskLevel)} />
 					</div>
 				</Panel>
 			</div>
@@ -312,15 +318,27 @@ export function ReportsPage(props: DashboardPageProps) {
 
 function ReportReadiness({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2">
+		<div className="grid min-h-12 min-w-0 gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 sm:grid-cols-[minmax(86px,0.8fr)_minmax(0,1.2fr)] sm:items-center sm:gap-3">
 			<span className="min-w-0 truncate text-[12px] font-semibold text-[var(--muted)]">
 				{label}
 			</span>
-			<span className="min-w-0 truncate text-right text-[12px] font-bold text-[var(--foreground)]">
+			<span className="min-w-0 break-words text-left text-[12px] font-bold leading-5 text-[var(--foreground)] sm:text-right">
 				{value}
 			</span>
 		</div>
 	);
+}
+
+function reportDraftStatus(status?: string) {
+	if (status === "approved") return "Đã duyệt";
+	if (status === "rejected") return "Từ chối";
+	return "Cần duyệt";
+}
+
+function reportRiskLabel(risk?: string) {
+	if (risk === "high") return "Cao";
+	if (risk === "low") return "Thấp";
+	return "Trung bình";
 }
 
 export function SettingsPage(props: DashboardPageProps) {
