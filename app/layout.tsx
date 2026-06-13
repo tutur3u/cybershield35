@@ -1,28 +1,27 @@
-import { Analytics } from "@vercel/analytics/next";
-import "@tuturuuu/ui/globals.css";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Be_Vietnam_Pro } from "next/font/google";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
-});
+import "./globals.css";
 
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
-	subsets: ["latin"],
+const beVietnam = Be_Vietnam_Pro({
+	subsets: ["latin", "vietnamese"],
+	weight: ["300", "400", "500", "600", "700", "800"],
+	variable: "--font-be-vietnam",
+	display: "swap",
 });
 
 export const metadata: Metadata = {
 	title: {
-		default: "Tuturuuu Starter",
-		template: "%s | Tuturuuu Starter",
+		default: "CyberShield 35 | AI For Life",
+		template: "%s | CyberShield 35",
 	},
-	description: "A modern Next.js starter for Tuturuuu projects.",
-	applicationName: "Tuturuuu Starter",
-	authors: [{ name: "Tuturuuu", url: "https://tuturuuu.com" }],
-	creator: "Tuturuuu",
-	publisher: "Tuturuuu",
+	description:
+		"Bảng điều khiển phân tích thảo luận công khai, bằng chứng và lập luận phản hồi cho AI For Life.",
+	applicationName: "CyberShield 35",
+	authors: [{ name: "AI For Life", url: "https://ai.daklak.gov.vn" }],
+	creator: "AI For Life",
+	publisher: "Dak Lak AI",
+	metadataBase: new URL("https://ai.daklak.gov.vn"),
 };
 
 export default function RootLayout({
@@ -31,14 +30,8 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html
-			lang="en"
-			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-		>
-			<Analytics />
-			<body className="flex min-h-full flex-col bg-root-background text-foreground">
-				{children}
-			</body>
+		<html lang="vi" className={`${beVietnam.variable} h-full antialiased`}>
+			<body>{children}</body>
 		</html>
 	);
 }

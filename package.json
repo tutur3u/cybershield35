@@ -14,15 +14,28 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+		"build": "node node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "eslint"
+		"lint": "node node_modules/eslint/bin/eslint.js",
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "worker": "bun scripts/worker.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.71",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^6.0.204",
+    "apify-client": "^2.23.4",
+    "browser-use-sdk": "^3.8.4",
+    "drizzle-orm": "^0.45.2",
+    "firecrawl": "^4.25.4",
+    "lucide-react": "^1.18.0",
     "next": "16.2.9",
+    "postgres": "^3.4.9",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",
@@ -30,6 +43,7 @@
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.5.0",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4.3.1",

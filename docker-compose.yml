@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cybershield
+      POSTGRES_PASSWORD: cybershield
+      POSTGRES_DB: cybershield35
+    ports:
+      - "5432:5432"
+    volumes:
+      - cybershield35-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cybershield -d cybershield35"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://cybershield:cybershield@postgres:5432/cybershield35
+      DEMO_MODE: ${DEMO_MODE:-true}
+      AUTH_DEMO_BYPASS: ${AUTH_DEMO_BYPASS:-false}
+      TUTURUUU_API_BASE_URL: ${TUTURUUU_API_BASE_URL:-}
+      TUTURUUU_CYBERSHIELD35_WORKSPACE_ID: ${TUTURUUU_CYBERSHIELD35_WORKSPACE_ID:-}
+      CYBERSHIELD35_APP_ID: ${CYBERSHIELD35_APP_ID:-}
+      CYBERSHIELD35_APP_SECRET: ${CYBERSHIELD35_APP_SECRET:-}
+      CYBERSHIELD35_SESSION_SECRET: ${CYBERSHIELD35_SESSION_SECRET:-}
+      CYBERSHIELD35_REQUESTED_SCOPES: ${CYBERSHIELD35_REQUESTED_SCOPES:-external-projects:read}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      BROWSER_USE_API_KEY: ${BROWSER_USE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+    ports:
+      - "3000:3000"
+    command: sh -lc "bun run db:migrate && bun run start"
+
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://cybershield:cybershield@postgres:5432/cybershield35
+      DEMO_MODE: ${DEMO_MODE:-true}
+      AUTH_DEMO_BYPASS: ${AUTH_DEMO_BYPASS:-false}
+      TUTURUUU_API_BASE_URL: ${TUTURUUU_API_BASE_URL:-}
+      TUTURUUU_CYBERSHIELD35_WORKSPACE_ID: ${TUTURUUU_CYBERSHIELD35_WORKSPACE_ID:-}
+      CYBERSHIELD35_APP_ID: ${CYBERSHIELD35_APP_ID:-}
+      CYBERSHIELD35_APP_SECRET: ${CYBERSHIELD35_APP_SECRET:-}
+      CYBERSHIELD35_SESSION_SECRET: ${CYBERSHIELD35_SESSION_SECRET:-}
+      CYBERSHIELD35_REQUESTED_SCOPES: ${CYBERSHIELD35_REQUESTED_SCOPES:-external-projects:read}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      BROWSER_USE_API_KEY: ${BROWSER_USE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+    command: sh -lc "bun run db:migrate && bun run worker"
+
+volumes:
+  cybershield35-postgres:

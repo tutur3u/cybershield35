@@ -1,5 +1,5 @@
 import { CyberShieldDashboard } from "@/components/dashboard/cybershield-dashboard";
 
-export default function Home() {
-	return <CyberShieldDashboard page="overview" />;
+export default function AuditPage() {
+	return <CyberShieldDashboard page="audit" />;
 }

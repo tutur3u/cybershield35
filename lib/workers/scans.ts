@@ -1,0 +1,473 @@
+import { desc, eq } from "drizzle-orm";
+
+import { db, sqlClient } from "@/lib/db/client";
+import {
+	analyses,
+	auditEvents,
+	counterArgumentDrafts,
+	cronHeartbeats,
+	evidenceItems,
+	providerRuns,
+	scanJobs,
+	sources,
+	type DraftStatus,
+	type ProviderName,
+	type ScanStatus,
+	type SourceType,
+} from "@/lib/db/schema";
+import { demoAnalysis, demoDraft, demoEvidence, demoScans } from "@/lib/domain/fixtures";
+import { detectSource } from "@/lib/domain/source-detection";
+import { analyzeEvidence, generateCounterArgument } from "@/lib/llm/generation";
+import { runProvider } from "@/lib/providers";
+
+type ClaimedJob = {
+	id: string;
+	source_id: string;
+	provider: ProviderName;
+	attempts: number;
+	max_attempts: number;
+};
+
+export type CreateScanInput = {
+	input: string;
+	fileName?: string;
+	mimeType?: string;
+	fileText?: string;
+	title?: string;
+};
+
+export async function createScan(input: CreateScanInput) {
+	const detection = detectSource(input.input, {
+		fileName: input.fileName,
+		mimeType: input.mimeType,
+	});
+
+	const [source] = await db
+		.insert(sources)
+		.values({
+			type: detection.type,
+			originalInput: input.input,
+			normalizedUrl:
+				detection.type === "text" || detection.type === "file"
+					? null
+					: detection.normalizedInput,
+			title: input.title ?? detection.label,
+			mimeType: input.mimeType,
+			fileName: input.fileName,
+			fileText: input.fileText,
+			metadata: { label: detection.label },
+		})
+		.returning();
+
+	if (!source) throw new Error("Failed to create source");
+
+	const [job] = await db
+		.insert(scanJobs)
+		.values({
+			sourceId: source.id,
+			provider: detection.provider,
+			status: "queued",
+			priority: detection.type.startsWith("facebook") ? 5 : 1,
+		})
+		.returning();
+
+	if (!job) throw new Error("Failed to create scan job");
+
+	await writeAudit("scan_job", job.id, "created", {
+		sourceType: source.type,
+		provider: job.provider,
+	});
+
+	return { scanId: job.id, status: job.status };
+}
+
+export async function listScans() {
+	const rows = await db
+		.select({
+			id: scanJobs.id,
+			status: scanJobs.status,
+			provider: scanJobs.provider,
+			createdAt: scanJobs.createdAt,
+			sourceType: sources.type,
+			title: sources.title,
+			normalizedUrl: sources.normalizedUrl,
+			fileName: sources.fileName,
+			riskLevel: analyses.riskLevel,
+		})
+		.from(scanJobs)
+		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
+		.leftJoin(analyses, eq(analyses.scanJobId, scanJobs.id))
+		.orderBy(desc(scanJobs.createdAt))
+		.limit(25);
+
+	return rows.map((row) => ({
+		id: row.id,
+		status: row.status,
+		provider: row.provider,
+		sourceType: row.sourceType,
+		title: row.title ?? row.fileName ?? row.normalizedUrl ?? "Nguồn chưa đặt tên",
+		sourceLabel: labelForSource(row.sourceType),
+		riskLevel: row.riskLevel ?? "medium",
+		progress: progressForStatus(row.status),
+		createdAt: row.createdAt.toISOString(),
+	}));
+}
+
+export async function getScanDetail(id: string) {
+	const rows = await db
+		.select()
+		.from(scanJobs)
+		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
+		.where(eq(scanJobs.id, id))
+		.limit(1);
+
+	const row = rows[0];
+	if (!row) return null;
+
+	const [analysis] = await db
+		.select()
+		.from(analyses)
+		.where(eq(analyses.scanJobId, id))
+		.limit(1);
+	const evidence = await db
+		.select()
+		.from(evidenceItems)
+		.where(eq(evidenceItems.scanJobId, id))
+		.orderBy(desc(evidenceItems.createdAt));
+	const drafts = await db
+		.select()
+		.from(counterArgumentDrafts)
+		.where(eq(counterArgumentDrafts.scanJobId, id))
+		.orderBy(desc(counterArgumentDrafts.createdAt));
+	const runs = await db
+		.select()
+		.from(providerRuns)
+		.where(eq(providerRuns.scanJobId, id))
+		.orderBy(desc(providerRuns.startedAt));
+	const audit = await db
+		.select()
+		.from(auditEvents)
+		.where(eq(auditEvents.entityId, id))
+		.orderBy(desc(auditEvents.createdAt));
+
+	return {
+		job: row.scan_jobs,
+		source: row.sources,
+		analysis,
+		evidence,
+		drafts,
+		providerRuns: runs,
+		audit,
+	};
+}
+
+export async function processNextJob() {
+	const claimed = await claimNextJob();
+	if (!claimed) return { processed: false };
+
+	try {
+		const [source] = await db
+			.select()
+			.from(sources)
+			.where(eq(sources.id, claimed.source_id))
+			.limit(1);
+
+		if (!source) throw new Error(`Source not found for job ${claimed.id}`);
+
+		const [run] = await db
+			.insert(providerRuns)
+			.values({
+				scanJobId: claimed.id,
+				provider: claimed.provider,
+				status: "running",
+				input: { sourceId: source.id, input: source.originalInput },
+			})
+			.returning();
+
+		if (!run) throw new Error("Failed to create provider run");
+
+		const result = await runProvider(claimed.provider, source);
+
+		await db
+			.update(providerRuns)
+			.set({
+				status: "completed",
+				output: result.raw,
+				completedAt: new Date(),
+			})
+			.where(eq(providerRuns.id, run.id));
+
+		const insertedEvidence =
+			result.evidence.length > 0
+				? await db
+						.insert(evidenceItems)
+						.values(
+							result.evidence.map((item) => ({
+								scanJobId: claimed.id,
+								sourceId: source.id,
+								provider: result.provider,
+								sourceUrl: item.sourceUrl,
+								sourceLabel: item.sourceLabel,
+								author: item.author,
+								publishedAt: item.publishedAt,
+								quote: item.quote,
+								summary: item.summary,
+								engagement: item.engagement,
+								stance: item.stance,
+								sentiment: item.sentiment,
+								riskLevel: item.riskLevel,
+								metadata: item.metadata,
+							})),
+						)
+						.returning()
+				: [];
+
+		const analysis = await analyzeEvidence(
+			insertedEvidence.map((item) => ({
+				id: item.id,
+				quote: item.quote,
+				summary: item.summary,
+				riskLevel: item.riskLevel,
+			})),
+		);
+
+		await db
+			.insert(analyses)
+			.values({
+				scanJobId: claimed.id,
+				riskLevel: analysis.riskLevel,
+				summary: analysis.summary,
+				stanceSummary: analysis.stanceSummary,
+				topicClusters: analysis.topicClusters,
+				claims: analysis.claims,
+				riskFlags: analysis.riskFlags,
+				sentiment: analysis.sentiment,
+			})
+			.onConflictDoUpdate({
+				target: analyses.scanJobId,
+				set: {
+					riskLevel: analysis.riskLevel,
+					summary: analysis.summary,
+					stanceSummary: analysis.stanceSummary,
+					topicClusters: analysis.topicClusters,
+					claims: analysis.claims,
+					riskFlags: analysis.riskFlags,
+					sentiment: analysis.sentiment,
+				},
+			});
+
+		await db
+			.update(scanJobs)
+			.set({
+				status: "completed",
+				completedAt: new Date(),
+				updatedAt: new Date(),
+				errorMessage: null,
+			})
+			.where(eq(scanJobs.id, claimed.id));
+
+		await writeAudit("scan_job", claimed.id, "processed", {
+			providerMode: result.mode,
+			evidenceCount: insertedEvidence.length,
+		});
+
+		return { processed: true, scanId: claimed.id };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		const nextStatus: ScanStatus =
+			claimed.attempts < claimed.max_attempts ? "retrying" : "failed";
+
+		await db
+			.update(scanJobs)
+			.set({
+				status: nextStatus,
+				errorMessage: message,
+				scheduledAt: nextStatus === "retrying" ? new Date(Date.now() + 60_000) : new Date(),
+				updatedAt: new Date(),
+				completedAt: nextStatus === "failed" ? new Date() : null,
+			})
+			.where(eq(scanJobs.id, claimed.id));
+
+		await writeAudit("scan_job", claimed.id, "failed", { message, nextStatus });
+		return { processed: true, scanId: claimed.id, error: message };
+	}
+}
+
+export async function generateDraftForScan(
+	scanId: string,
+	options: {
+		tone: string;
+		audience: string;
+		language: string;
+		length: string;
+		operatorNotes?: string | null;
+	},
+) {
+	const evidence = await db
+		.select()
+		.from(evidenceItems)
+		.where(eq(evidenceItems.scanJobId, scanId))
+		.orderBy(desc(evidenceItems.createdAt))
+		.limit(8);
+
+	const output = await generateCounterArgument({
+		evidence: evidence.map((item) => ({
+			id: item.id,
+			quote: item.quote,
+			summary: item.summary,
+		})),
+		...options,
+	});
+
+	const [draft] = await db
+		.insert(counterArgumentDrafts)
+		.values({
+			scanJobId: scanId,
+			status: "needs_review",
+			tone: options.tone,
+			audience: options.audience,
+			language: options.language,
+			length: options.length,
+			operatorNotes: options.operatorNotes,
+			body: output.body,
+			citations: output.citations,
+			safetyNotes: output.safetyNotes,
+		})
+		.returning();
+
+	if (!draft) throw new Error("Failed to generate draft");
+
+	await writeAudit("scan_job", scanId, "counter_argument_generated", {
+		draftId: draft.id,
+	});
+
+	return draft;
+}
+
+export async function reviewDraft(id: string, status: DraftStatus) {
+	const [draft] = await db
+		.update(counterArgumentDrafts)
+		.set({ status, updatedAt: new Date() })
+		.where(eq(counterArgumentDrafts.id, id))
+		.returning();
+
+	if (!draft) return null;
+	await writeAudit("counter_argument_draft", id, "review_status_updated", {
+		status,
+	});
+	return draft;
+}
+
+export async function heartbeat(serviceName = "worker") {
+	await db
+		.insert(cronHeartbeats)
+		.values({
+			serviceName,
+			lastSeenAt: new Date(),
+			metadata: { pid: process.pid, updatedAt: new Date().toISOString() },
+		})
+		.onConflictDoUpdate({
+			target: cronHeartbeats.serviceName,
+			set: {
+				lastSeenAt: new Date(),
+				metadata: { pid: process.pid, updatedAt: new Date().toISOString() },
+			},
+		});
+}
+
+export function demoScanDetail() {
+	const scan = demoScans[0] ?? {
+		createdAt: new Date().toISOString(),
+		id: "demo-scan-1",
+		provider: "demo" as const,
+		sourceType: "text" as const,
+		status: "queued" as const,
+		title: "Văn bản nhập thủ công",
+	};
+
+	return {
+		job: {
+			id: scan.id,
+			status: scan.status,
+			provider: scan.provider,
+			createdAt: new Date(scan.createdAt),
+		},
+		source: {
+			id: "demo-source",
+			type: scan.sourceType,
+			title: scan.title,
+			normalizedUrl: "https://facebook.com/example/posts/1",
+			createdAt: new Date(scan.createdAt),
+		},
+		analysis: demoAnalysis,
+		evidence: demoEvidence,
+		drafts: [demoDraft],
+		providerRuns: [],
+		audit: [],
+	};
+}
+
+async function claimNextJob() {
+	const rows = await sqlClient<ClaimedJob[]>`
+		update scan_jobs
+		set
+			status = 'running',
+			locked_at = now(),
+			started_at = coalesce(started_at, now()),
+			attempts = attempts + 1,
+			updated_at = now()
+		where id = (
+			select id
+			from scan_jobs
+			where status in ('queued', 'retrying')
+				and scheduled_at <= now()
+			order by priority desc, scheduled_at asc
+			for update skip locked
+			limit 1
+		)
+		returning id, source_id, provider, attempts, max_attempts
+	`;
+
+	return rows[0] ?? null;
+}
+
+async function writeAudit(
+	entityType: string,
+	entityId: string,
+	action: string,
+	payload: Record<string, unknown>,
+) {
+	await db.insert(auditEvents).values({
+		entityType,
+		entityId,
+		action,
+		payload,
+	});
+}
+
+function progressForStatus(status: ScanStatus) {
+	if (status === "completed") return 100;
+	if (status === "running") return 45;
+	if (status === "failed") return 0;
+	if (status === "retrying") return 25;
+	return 0;
+}
+
+function labelForSource(type: SourceType) {
+	switch (type) {
+		case "facebook_group":
+			return "Facebook group";
+		case "facebook_page":
+			return "Facebook page";
+		case "facebook_post":
+			return "Facebook post";
+		case "file":
+			return "Tệp";
+		case "text":
+			return "Văn bản";
+		case "social":
+			return "Mạng xã hội";
+		default:
+			return "Website";
+	}
+}
