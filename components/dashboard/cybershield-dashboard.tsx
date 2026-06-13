@@ -2,11 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { ChatDialog } from "@/components/dashboard/chat-dialog";
+import { ChatPage } from "@/components/dashboard/chat-page";
 import {
 	AuthDialog,
 	CounterArgumentDialog,
 	ScanDialog,
 } from "@/components/dashboard/dialogs";
+import { ReportDialog } from "@/components/dashboard/report-dialog";
 import {
 	runtimeForRequest,
 	useClientRuntimeCredentials,
@@ -18,6 +21,7 @@ import {
 	onSessionVerified,
 	refreshSession,
 	reviewDraft,
+	sendChatMessage,
 } from "@/components/dashboard/client-actions";
 import { composerOptions, type SourceTab } from "@/components/dashboard/dashboard-data";
 import {
@@ -43,9 +47,11 @@ import { TestingKeysDialog } from "@/components/dashboard/testing-keys-dialog";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type {
 	AuthViewState,
+	ChatMessage,
 	DashboardPage,
 	DraftShape,
 	ProviderAvailabilityView,
+	ReportSpec,
 	ScanDetail,
 	TopicCluster,
 } from "@/components/dashboard/types";
@@ -97,6 +103,12 @@ export function CyberShieldDashboard({
 	const [scanDialogOpen, setScanDialogOpen] = useState(false);
 	const [draftDialogOpen, setDraftDialogOpen] = useState(false);
 	const [testingKeysDialogOpen, setTestingKeysDialogOpen] = useState(false);
+	const [reportDialogOpen, setReportDialogOpen] = useState(false);
+	const [selectedReport, setSelectedReport] = useState<ReportSpec | null>(null);
+	const [chatDialogOpen, setChatDialogOpen] = useState(false);
+	const [chatDraft, setChatDraft] = useState("");
+	const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
+	const [isChatting, setIsChatting] = useState(false);
 	const [providerAvailability, setProviderAvailability] =
 		useState<ProviderAvailabilityView | null>(null);
 	const {
@@ -201,11 +213,21 @@ export function CyberShieldDashboard({
 		draft,
 		providerAvailability,
 		clientRuntimeSummary,
+		chatMessages,
+		isChatting,
 		onSelectScan: setSelectedScanId,
 		onOpenAuth: () => setAuthDialogOpen(true),
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
+		onOpenChatComposer: (preset) => {
+			setChatDraft(preset ?? "");
+			setChatDialogOpen(true);
+		},
 		onOpenTestingKeys: () => setTestingKeysDialogOpen(true),
+		onPrepareReport: (report) => {
+			setSelectedReport(report);
+			setReportDialogOpen(true);
+		},
 		onRefreshAuth: () => refreshSession(setAuth, setNotice),
 		onLogout: () => logout(setAuth, setNotice),
 		onReview: (status) => reviewDraft({ draft, status, setDraft, setNotice }),
@@ -302,6 +324,32 @@ export function CyberShieldDashboard({
 					}}
 				/>
 			) : null}
+			<ReportDialog
+				open={reportDialogOpen}
+				onClose={() => setReportDialogOpen(false)}
+				report={selectedReport}
+				selectedScan={selectedScan}
+				analysis={analysis}
+				evidence={evidence}
+				draft={draft}
+			/>
+			<ChatDialog
+				open={chatDialogOpen}
+				onClose={() => setChatDialogOpen(false)}
+				draft={chatDraft}
+				setDraft={setChatDraft}
+				isSending={isChatting}
+				onSend={(content) =>
+					sendChatMessage({
+						messages: chatMessages,
+						content,
+						clientRuntime: runtimeForRequest(clientRuntime),
+						setIsChatting,
+						setMessages: setChatMessages,
+						setNotice,
+					})
+				}
+			/>
 		</main>
 	);
 }
@@ -318,6 +366,15 @@ function renderPage(
 			return <AnalysisPage {...props} />;
 		case "counter-arguments":
 			return <CounterArgumentsPage {...props} />;
+		case "chat":
+			return (
+				<ChatPage
+					messages={props.chatMessages}
+					isSending={props.isChatting}
+					onOpenComposer={props.onOpenChatComposer}
+					onOpenTestingKeys={props.onOpenTestingKeys}
+				/>
+			);
 		case "scan-detail":
 			return <ScanDetailsPage {...props} scanId={routeIds.scanId} />;
 		case "evidence":
@@ -344,3 +401,14 @@ function renderPage(
 			return <OverviewPage {...props} />;
 	}
 }
+
+const initialChatMessages: ChatMessage[] = [
+	{
+		id: "chat-welcome",
+		role: "assistant",
+		content:
+			"Tôi có thể hỗ trợ phân tích rủi ro, kiểm tra bằng chứng và gợi ý phản hồi nội bộ. Nội dung chat không tự động đăng tải.",
+		createdAt: "2026-06-13T12:00:00.000Z",
+		mode: "demo",
+	},
+];

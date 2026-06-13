@@ -242,9 +242,15 @@ export function ProviderStatus({
 	);
 }
 
-export function AnalysisSummary({ analysis }: { analysis: typeof demoAnalysis }) {
+export function AnalysisSummary({
+	analysis,
+	className = "",
+}: {
+	analysis: typeof demoAnalysis;
+	className?: string;
+}) {
 	return (
-		<Panel>
+		<Panel className={className}>
 			<PanelHeader title="Tóm tắt phân tích" />
 			<div className="space-y-4 p-4">
 				<p className="text-[13px] leading-6 text-[var(--muted-strong)]">

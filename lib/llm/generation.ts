@@ -33,6 +33,18 @@ type LlmRuntime =
 			source: Exclude<CredentialSource, "demo">;
 	  };
 
+export type ChatInputMessage = {
+	role: "assistant" | "user";
+	content: string;
+};
+
+export type ChatReplyOutput = {
+	content: string;
+	mode: "live" | "demo";
+	provider: "openai" | "google" | "demo";
+	credentialSource: CredentialSource;
+};
+
 export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
 	const openAiKey = cleanSecret(process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY);
 	if (openAiKey) {
@@ -62,13 +74,13 @@ export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
 	};
 }
 
-function getModel(runtime?: ClientRuntime) {
+function getModelRuntime(runtime?: ClientRuntime) {
 	const resolved = resolveLlmRuntime(runtime);
 	if (!resolved) return null;
 
 	if (resolved.provider === "google") {
 		const provider = createGoogleGenerativeAI({ apiKey: resolved.apiKey });
-		return provider(resolved.model);
+		return { model: provider(resolved.model), resolved };
 	}
 
 	const provider = createOpenAI({
@@ -77,7 +89,11 @@ function getModel(runtime?: ClientRuntime) {
 		name: process.env.LLM_BASE_URL ? "openai-compatible" : "openai",
 	});
 
-	return provider(resolved.model);
+	return { model: provider(resolved.model), resolved };
+}
+
+function getModel(runtime?: ClientRuntime) {
+	return getModelRuntime(runtime)?.model ?? null;
 }
 
 export async function analyzeEvidence(
@@ -140,4 +156,57 @@ export async function generateCounterArgument(options: {
 			safetyNotes: demoDraft.safetyNotes as string[],
 		};
 	}
+}
+
+export async function generateChatReply(
+	messages: ChatInputMessage[],
+	runtime?: ClientRuntime,
+): Promise<ChatReplyOutput> {
+	const resolvedModel = getModelRuntime(runtime);
+	if (!resolvedModel) return demoChatReply(messages);
+
+	try {
+		const { text } = await generateText({
+			model: resolvedModel.model,
+			system:
+				"You are CyberShield 35's internal civic information analysis assistant. Answer in Vietnamese by default. Be concise, evidence-grounded, and operational. Do not claim access to secrets, do not recommend automated posting, and refuse requests for demographic targeting or manipulation.",
+			prompt: buildChatPrompt(messages),
+		});
+
+		return {
+			content: text,
+			mode: "live",
+			provider: resolvedModel.resolved.provider,
+			credentialSource: resolvedModel.resolved.source,
+		};
+	} catch {
+		return demoChatReply(messages);
+	}
+}
+
+function buildChatPrompt(messages: ChatInputMessage[]) {
+	return JSON.stringify({
+		task: "Continue this operator chat. Use the conversation only as context and avoid unsupported claims.",
+		messages: messages.slice(-12),
+	});
+}
+
+function demoChatReply(messages: ChatInputMessage[]): ChatReplyOutput {
+	const latest = messages
+		.slice()
+		.reverse()
+		.find((message) => message.role === "user")?.content;
+
+	return {
+		content: [
+			"Tôi đang ở chế độ demo vì chưa có khóa LLM hiệu lực trong server hoặc phiên trình duyệt.",
+			latest
+				? `Với yêu cầu: "${latest.slice(0, 220)}", hướng xử lý an toàn là kiểm tra bằng chứng đã lưu, tách rõ nhận định có nguồn hỗ trợ, rồi soạn phản hồi ở trạng thái cần duyệt.`
+				: "Bạn có thể hỏi về rủi ro, bằng chứng hoặc bản nháp phản hồi của scan đang chọn.",
+			"Không có nội dung nào được tự động đăng tải từ cuộc trao đổi này.",
+		].join("\n\n"),
+		mode: "demo",
+		provider: "demo",
+		credentialSource: "demo",
+	};
 }

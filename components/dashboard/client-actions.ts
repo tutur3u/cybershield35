@@ -4,6 +4,7 @@ import type { SourceTab } from "@/components/dashboard/dashboard-data";
 import type {
 	AdminSessionView,
 	AuthViewState,
+	ChatMessage,
 	DraftShape,
 } from "@/components/dashboard/types";
 import type { ScanStatus } from "@/lib/db/schema";
@@ -141,6 +142,81 @@ export async function reviewDraft(options: {
 			? "Đã ghi nhận phê duyệt của người vận hành."
 			: "Đã cập nhật trạng thái duyệt.",
 	);
+}
+
+export async function sendChatMessage(options: {
+	messages: ChatMessage[];
+	content: string;
+	clientRuntime?: ClientRuntime;
+	setIsChatting: (value: boolean) => void;
+	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+	setNotice: (notice: string) => void;
+}) {
+	const content = options.content.trim();
+	if (!content) return false;
+
+	const userMessage: ChatMessage = {
+		id: `chat-user-${Date.now()}`,
+		role: "user",
+		content,
+		createdAt: new Date().toISOString(),
+	};
+	const requestMessages = [...options.messages, userMessage];
+
+	options.setMessages((current) => [...current, userMessage]);
+	options.setIsChatting(true);
+	try {
+		const response = await fetch("/api/chat", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				messages: requestMessages.map((message) => ({
+					role: message.role,
+					content: message.content,
+				})),
+				clientRuntime: options.clientRuntime,
+			}),
+		});
+		const payload = await response.json();
+		if (!response.ok) throw new Error(payload.error ?? "Không thể chat với LLM");
+
+		const assistantMessage: ChatMessage = {
+			id: `chat-assistant-${Date.now()}`,
+			role: "assistant",
+			content: payload.reply.content,
+			createdAt: new Date().toISOString(),
+			mode: payload.reply.mode ?? "demo",
+		};
+
+		options.setMessages((current) => [...current, assistantMessage]);
+		options.setNotice(
+			payload.reply.mode === "live"
+				? "LLM đã phản hồi bằng provider đang cấu hình."
+				: "LLM đang phản hồi bằng chế độ demo.",
+		);
+		return true;
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Không thể gửi tin nhắn chat.";
+		options.setMessages((current) => [
+			...current,
+			{
+				id: `chat-error-${Date.now()}`,
+				role: "assistant",
+				content: [
+					"Chat đang dùng phản hồi demo vì phiên hiện tại chưa thể gọi API LLM.",
+					message,
+					"Bạn vẫn có thể kiểm tra luồng giao diện; để chạy live, hãy xác thực Tuturuuu hoặc thêm khóa kiểm thử trong Cấu hình.",
+				].join("\n\n"),
+				createdAt: new Date().toISOString(),
+				mode: "demo",
+			},
+		]);
+		options.setNotice(message);
+		return true;
+	} finally {
+		options.setIsChatting(false);
+	}
 }
 
 async function postScan(options: {

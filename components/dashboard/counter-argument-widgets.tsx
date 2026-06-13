@@ -52,7 +52,9 @@ export function SourceDetail({
 					</span>
 				</div>
 				<a
-					href={detail?.source?.normalizedUrl ?? "#"}
+					href={
+						detail?.source?.normalizedUrl ?? "https://facebook.com/example/posts/1"
+					}
 					target="_blank"
 					rel="noreferrer"
 					className="inline-flex h-10 max-w-full items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"

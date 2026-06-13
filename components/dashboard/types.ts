@@ -11,6 +11,7 @@ export type DashboardPage =
 	| "sources"
 	| "analysis"
 	| "counter-arguments"
+	| "chat"
 	| "scan-detail"
 	| "evidence"
 	| "evidence-detail"
@@ -97,4 +98,21 @@ export type ProviderAvailabilityView = {
 	googleGenerativeAi?: boolean;
 	llm?: boolean;
 	demoMode?: boolean;
+};
+
+export type ReportKind = "executive" | "evidence" | "operations";
+
+export type ReportSpec = {
+	kind: ReportKind;
+	title: string;
+	description: string;
+	sections: string[];
+};
+
+export type ChatMessage = {
+	id: string;
+	role: "assistant" | "user";
+	content: string;
+	createdAt: string;
+	mode?: "live" | "demo";
 };

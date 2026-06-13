@@ -5,9 +5,9 @@ import type { EvidenceView, TopicCluster } from "./types";
 import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
 import { demoAnalysis } from "@/lib/domain/fixtures";
 
-export function SentimentAndStance() {
+export function SentimentAndStance({ className = "" }: { className?: string }) {
 	return (
-		<Panel>
+		<Panel className={className}>
 			<PanelHeader title="Cảm xúc & lập trường" />
 			<div className="grid items-center gap-5 p-4 sm:grid-cols-[170px_minmax(0,1fr)]">
 				<div
@@ -39,11 +39,24 @@ export function SentimentAndStance() {
 	);
 }
 
-export function TopicPanel({ topics }: { topics: TopicCluster[] }) {
+export function TopicPanel({
+	className = "",
+	topics,
+}: {
+	className?: string;
+	topics: TopicCluster[];
+}) {
 	return (
-		<Panel>
+		<Panel className={`flex flex-col ${className}`}>
 			<PanelHeader title="Cụm chủ đề nổi bật" />
-			<div className="divide-y divide-[var(--divider)] p-4">
+			<div
+				className="grid flex-1 divide-y divide-[var(--divider)] p-4"
+				style={{
+					gridTemplateRows: topics.length
+						? `repeat(${topics.length}, minmax(58px, 1fr))`
+						: undefined,
+				}}
+			>
 				{topics.map((topic) => (
 					<div
 						key={topic.name}
@@ -66,11 +79,16 @@ export function TopicPanel({ topics }: { topics: TopicCluster[] }) {
 	);
 }
 
-export function AlertPanel() {
+export function AlertPanel({ className = "" }: { className?: string }) {
 	return (
-		<Panel>
+		<Panel className={`flex flex-col ${className}`}>
 			<PanelHeader title="Cảnh báo ưu tiên" />
-			<div className="space-y-3 p-4">
+			<div
+				className="grid flex-1 gap-3 p-4"
+				style={{
+					gridTemplateRows: `repeat(${alertRows.length}, minmax(48px, 1fr))`,
+				}}
+			>
 				{alertRows.map((row) => (
 					<div
 						key={row.label}
@@ -116,10 +134,12 @@ export function RiskFlagPanel({ analysis }: { analysis: typeof demoAnalysis }) {
 }
 
 export function EvidencePanel({
+	className = "",
 	evidence,
 	limit,
 	scanId,
 }: {
+	className?: string;
 	evidence: EvidenceView;
 	limit?: number;
 	scanId?: string;
@@ -127,7 +147,7 @@ export function EvidencePanel({
 	const visible = limit ? evidence.slice(0, limit) : evidence;
 
 	return (
-		<Panel>
+		<Panel className={className}>
 			<PanelHeader title={`Bằng chứng (${evidence.length})`} />
 			<div className="divide-y divide-[var(--divider)] p-4">
 				{visible.map((item, index) => (

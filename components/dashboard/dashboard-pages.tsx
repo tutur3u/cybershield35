@@ -28,6 +28,7 @@ import {
 } from "@/components/dashboard/counter-argument-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/dialogs";
 import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
+import { reportSpecs } from "@/components/dashboard/dashboard-data";
 import {
 	AnalysisSummary,
 	AuthSummary,
@@ -39,9 +40,11 @@ import {
 } from "@/components/dashboard/page-widgets";
 import type {
 	AuthViewState,
+	ChatMessage,
 	DraftShape,
 	EvidenceView,
 	ProviderAvailabilityView,
+	ReportSpec,
 	ScanDetail,
 	TopicCluster,
 } from "@/components/dashboard/types";
@@ -60,11 +63,15 @@ export type DashboardPageProps = {
 	draft: DraftShape;
 	providerAvailability: ProviderAvailabilityView | null;
 	clientRuntimeSummary: ClientRuntimeSummary;
+	chatMessages: ChatMessage[];
+	isChatting: boolean;
 	onSelectScan: (id: string) => void;
 	onOpenAuth: () => void;
 	onOpenScan: () => void;
 	onOpenDraft: () => void;
+	onOpenChatComposer: (preset?: string) => void;
 	onOpenTestingKeys: () => void;
+	onPrepareReport: (report: ReportSpec) => void;
 	onRefreshAuth: () => Promise<void>;
 	onLogout: () => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
@@ -169,14 +176,15 @@ export function AnalysisPage(props: DashboardPageProps) {
 					</Link>
 				}
 			/>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
 				<div className="space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
 					<TopicPanel topics={props.topics} />
+					<RiskFlagPanel analysis={props.analysis} />
 				</div>
-				<div className="space-y-5">
-					<SentimentAndStance />
-					<AlertPanel />
+				<div className="grid gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
+					<SentimentAndStance className="h-full" />
+					<AlertPanel className="h-full" />
 				</div>
 				<div className="xl:col-span-2">
 					<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
@@ -249,29 +257,33 @@ export function AlertsPage(props: DashboardPageProps) {
 
 export function ReportsPage(props: DashboardPageProps) {
 	return (
-		<div className="space-y-5">
+		<div className="flex min-h-[calc(100vh-7rem)] flex-col gap-5">
 			<PageHeader
 				icon={FileBarChart}
 				title="Báo cáo"
 				description="Các chế độ xuất báo cáo phục vụ trao đổi nội bộ và điều phối."
 			/>
-			<div className="grid gap-4 md:grid-cols-3">
-				{[
-					["Tóm tắt lãnh đạo", "Một trang về rủi ro, bằng chứng và khuyến nghị."],
-					["Bộ bằng chứng", "Danh sách trích dẫn, nguồn và mức rủi ro."],
-					["Nhật ký xử lý", "Dòng thời gian scan, provider và duyệt bản nháp."],
-				].map(([title, description]) => (
-					<Panel key={title}>
-						<div className="p-4">
+			<div className="grid items-stretch gap-4 md:grid-cols-3">
+				{reportSpecs.map((report) => (
+					<Panel key={report.kind} className="h-full">
+						<div className="flex h-full flex-col p-4">
 							<FileText className="text-[var(--accent)]" size={22} />
 							<h2 className="mt-3 text-[14px] font-bold text-[var(--foreground)]">
-								{title}
+								{report.title}
 							</h2>
 							<p className="mt-2 text-[12px] leading-5 text-[var(--muted)]">
-								{description}
+								{report.description}
 							</p>
+							<ul className="mt-3 flex-1 space-y-2 text-[11px] font-semibold text-[var(--muted-strong)]">
+								{report.sections.map((section) => (
+									<li key={section} className="flex gap-2">
+										<span className="mt-1 size-1.5 shrink-0 rounded-sm bg-[var(--accent)]" />
+										<span className="min-w-0">{section}</span>
+									</li>
+								))}
+							</ul>
 							<div className="mt-4">
-								<SecondaryButton>
+								<SecondaryButton onClick={() => props.onPrepareReport(report)}>
 									<FileBarChart size={14} /> Chuẩn bị báo cáo
 								</SecondaryButton>
 							</div>
@@ -279,7 +291,34 @@ export function ReportsPage(props: DashboardPageProps) {
 					</Panel>
 				))}
 			</div>
-			<AnalysisSummary analysis={props.analysis} />
+			<div className="grid flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+				<AnalysisSummary analysis={props.analysis} className="h-full" />
+				<Panel className="h-full">
+					<PanelHeader
+						title="Dữ liệu xuất"
+						description="Nội dung báo cáo lấy từ scan đang chọn, bằng chứng và bản nháp đã duyệt."
+					/>
+					<div className="grid h-full content-start gap-3 p-4">
+						<ReportReadiness label="Scan đang chọn" value={props.selectedScan?.title ?? "Demo scan"} />
+						<ReportReadiness label="Bằng chứng" value={`${props.evidence.length} mục`} />
+						<ReportReadiness label="Bản nháp" value={props.draft.status ?? "needs_review"} />
+						<ReportReadiness label="Rủi ro" value={props.analysis.riskLevel} />
+					</div>
+				</Panel>
+			</div>
+		</div>
+	);
+}
+
+function ReportReadiness({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2">
+			<span className="min-w-0 truncate text-[12px] font-semibold text-[var(--muted)]">
+				{label}
+			</span>
+			<span className="min-w-0 truncate text-right text-[12px] font-bold text-[var(--foreground)]">
+				{value}
+			</span>
 		</div>
 	);
 }

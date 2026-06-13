@@ -50,24 +50,26 @@ export function ScanDetailsPage(
 			/>
 			<ScanStatusStrip {...props} />
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-				<SourceDetail
-					selectedScan={props.selectedScan}
-					detail={props.detail}
-					analysis={props.analysis}
-				/>
-				<AnalysisSummary analysis={props.analysis} />
-				<ProviderRunPanel detail={props.detail} />
-				<TopicPanel topics={props.topics} />
-				<div className="xl:col-span-2">
-					<EvidencePanel evidence={props.evidence} limit={8} scanId={props.selectedScanId} />
+				<div className="space-y-5">
+					<SourceDetail
+						selectedScan={props.selectedScan}
+						detail={props.detail}
+						analysis={props.analysis}
+					/>
+					<ProviderRunPanel detail={props.detail} />
+					<AuditTimeline detail={props.detail} createdAt={props.selectedScan?.createdAt} />
 				</div>
-				<DraftReview
-					draft={props.draft}
-					onReview={props.onReview}
-					scanId={props.selectedScanId}
-				/>
-				<AuditTimeline detail={props.detail} createdAt={props.selectedScan?.createdAt} />
+				<div className="space-y-5">
+					<AnalysisSummary analysis={props.analysis} />
+					<TopicPanel topics={props.topics} />
+					<DraftReview
+						draft={props.draft}
+						onReview={props.onReview}
+						scanId={props.selectedScanId}
+					/>
+				</div>
 			</div>
+			<EvidencePanel evidence={props.evidence} limit={8} scanId={props.selectedScanId} />
 		</div>
 	);
 }
@@ -91,8 +93,8 @@ export function EvidenceDetailsPage(
 					</>
 				}
 			/>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<Panel>
+			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+				<Panel className="h-full">
 					<PanelHeader
 						title="Trích dẫn"
 						action={<RiskPill risk={evidence?.riskLevel ?? "medium"} />}
@@ -124,7 +126,10 @@ export function EvidenceDetailsPage(
 						) : null}
 					</div>
 				</Panel>
-				<EvidenceMetaPanel evidence={evidence} />
+				<div className="grid gap-5">
+					<EvidenceMetaPanel evidence={evidence} />
+					<EvidenceActionsPanel scanId={props.selectedScanId} />
+				</div>
 			</div>
 			<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
 		</div>
@@ -250,6 +255,34 @@ function EvidenceMetaPanel({ evidence }: { evidence?: DashboardPageProps["eviden
 						["Reactions", String(engagement?.reactions ?? "-")],
 					]}
 				/>
+			</div>
+		</Panel>
+	);
+}
+
+function EvidenceActionsPanel({ scanId }: { scanId: string }) {
+	return (
+		<Panel>
+			<PanelHeader title="Liên kết xử lý" />
+			<div className="space-y-3 p-4">
+				<Link
+					href={`/scans/${scanId}`}
+					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+				>
+					<span className="truncate">Mở scan liên quan</span>
+					<ArrowLeft className="rotate-180" size={14} />
+				</Link>
+				<Link
+					href="/counter-arguments"
+					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+				>
+					<span className="truncate">Soạn phản hồi từ bằng chứng</span>
+					<ArrowLeft className="rotate-180" size={14} />
+				</Link>
+				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[11px] leading-5 text-[var(--muted)]">
+					Bằng chứng này chỉ được dùng làm căn cứ nội bộ; mọi phản hồi phải qua
+					trạng thái duyệt thủ công trước khi xuất.
+				</p>
 			</div>
 		</Panel>
 	);

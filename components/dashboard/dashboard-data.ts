@@ -7,12 +7,15 @@ import {
 	FileSearch,
 	History,
 	LayoutDashboard,
+	MessageCircle,
 	MessageSquareText,
 	Radar,
 	Settings,
 	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react";
+
+import type { ReportSpec } from "@/components/dashboard/types";
 
 export type NavItem = {
 	label: string;
@@ -25,6 +28,7 @@ export const navItems: NavItem[] = [
 	{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
 	{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
 	{ label: "Lập luận phản hồi", href: "/counter-arguments", icon: MessageSquareText },
+	{ label: "Chat LLM", href: "/chat", icon: MessageCircle },
 	{ label: "Kho bằng chứng", href: "/evidence", icon: Database },
 	{ label: "Cảnh báo & Rủi ro", href: "/alerts", icon: AlertTriangle },
 	{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
@@ -128,3 +132,36 @@ export const composerOptions = {
 	languages: ["Tiếng Việt", "English"],
 	lengths: ["Ngắn", "Trung bình", "Dài"],
 };
+
+export const reportSpecs: ReportSpec[] = [
+	{
+		kind: "executive",
+		title: "Tóm tắt lãnh đạo",
+		description: "Một trang về rủi ro, bằng chứng và khuyến nghị.",
+		sections: [
+			"Mức rủi ro và lập trường chủ đạo",
+			"Cụm chủ đề cần ưu tiên",
+			"Khuyến nghị điều phối nội bộ",
+		],
+	},
+	{
+		kind: "evidence",
+		title: "Bộ bằng chứng",
+		description: "Danh sách trích dẫn, nguồn và mức rủi ro.",
+		sections: [
+			"Trích dẫn đã chuẩn hóa",
+			"Nguồn, tác giả công khai và tương tác",
+			"Liên kết scan và rủi ro",
+		],
+	},
+	{
+		kind: "operations",
+		title: "Nhật ký xử lý",
+		description: "Dòng thời gian scan, provider và duyệt bản nháp.",
+		sections: [
+			"Provider đã chạy",
+			"Trạng thái scan và audit",
+			"Hoạt động duyệt bản nháp",
+		],
+	},
+];

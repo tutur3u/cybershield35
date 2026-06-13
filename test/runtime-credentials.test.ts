@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { resolveLlmRuntime } from "@/lib/llm/generation";
+import { generateChatReply, resolveLlmRuntime } from "@/lib/llm/generation";
 import {
 	parseClientRuntime,
 	redactRuntimeSecrets,
@@ -100,5 +100,22 @@ describe("LLM provider selection", () => {
 			model: "gemini-2.5-flash",
 			source: "browser_session",
 		});
+	});
+
+	test("chat falls back to deterministic demo output without an effective key", async () => {
+		process.env.OPENAI_API_KEY = "";
+		process.env.LLM_API_KEY = "";
+		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "";
+
+		const reply = await generateChatReply([
+			{ role: "user", content: "Tóm tắt rủi ro của scan hiện tại" },
+		]);
+
+		expect(reply).toMatchObject({
+			mode: "demo",
+			provider: "demo",
+			credentialSource: "demo",
+		});
+		expect(reply.content).toContain("chế độ demo");
 	});
 });
