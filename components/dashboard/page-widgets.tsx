@@ -5,6 +5,7 @@ import {
 	Sparkles,
 	type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { providerRows, queueStats } from "@/components/dashboard/dashboard-data";
@@ -147,9 +148,9 @@ export function QueueCard({
 			/>
 			<div className="divide-y divide-slate-100">
 				{visible.map((scan) => (
-					<button
+					<Link
 						key={scan.id}
-						type="button"
+						href={`/scans/${scan.id}`}
 						onClick={() => onSelectScan(scan.id)}
 						className={`grid w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_108px_92px] sm:items-center ${
 							selectedScanId === scan.id ? "bg-blue-50/70" : "hover:bg-slate-50"
@@ -170,7 +171,7 @@ export function QueueCard({
 								<ProgressBar value={scan.progress} />
 							</div>
 						</div>
-					</button>
+					</Link>
 				))}
 			</div>
 		</Panel>
@@ -225,9 +226,11 @@ export function AnalysisSummary({ analysis }: { analysis: typeof demoAnalysis })
 export function DraftSnapshot({
 	draft,
 	onOpenDraft,
+	scanId,
 }: {
 	draft: DraftShape;
 	onOpenDraft: () => void;
+	scanId?: string;
 }) {
 	return (
 		<Panel>
@@ -246,6 +249,12 @@ export function DraftSnapshot({
 				<p className="mt-3 text-[11px] font-semibold text-slate-500">
 					Trạng thái: {draftStatusLabel(draft.status)}
 				</p>
+				<Link
+					href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
+					className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-slate-700"
+				>
+					Xem chi tiết
+				</Link>
 			</div>
 		</Panel>
 	);

@@ -2,6 +2,7 @@ import { alertRows, sentimentSlices, stanceRows } from "./dashboard-data";
 import type { EvidenceView, TopicCluster } from "./types";
 import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
 import { demoAnalysis } from "@/lib/domain/fixtures";
+import Link from "next/link";
 
 export function SentimentAndStance() {
 	return (
@@ -111,7 +112,15 @@ export function RiskFlagPanel({ analysis }: { analysis: typeof demoAnalysis }) {
 	);
 }
 
-export function EvidencePanel({ evidence, limit }: { evidence: EvidenceView; limit?: number }) {
+export function EvidencePanel({
+	evidence,
+	limit,
+	scanId,
+}: {
+	evidence: EvidenceView;
+	limit?: number;
+	scanId?: string;
+}) {
 	const visible = limit ? evidence.slice(0, limit) : evidence;
 
 	return (
@@ -119,8 +128,9 @@ export function EvidencePanel({ evidence, limit }: { evidence: EvidenceView; lim
 			<PanelHeader title={`Bằng chứng (${evidence.length})`} />
 			<div className="divide-y divide-slate-100 p-4">
 				{visible.map((item, index) => (
-					<div
+					<Link
 						key={item.id}
+						href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
 						className="grid gap-3 py-3 sm:grid-cols-[32px_minmax(0,1fr)_120px]"
 					>
 						<span className="text-[12px] font-semibold text-slate-500">
@@ -135,7 +145,7 @@ export function EvidencePanel({ evidence, limit }: { evidence: EvidenceView; lim
 							</p>
 						</div>
 						<RiskPill risk={item.riskLevel ?? "medium"} />
-					</div>
+					</Link>
 				))}
 			</div>
 		</Panel>

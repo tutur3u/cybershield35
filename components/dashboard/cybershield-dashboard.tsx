@@ -17,6 +17,11 @@ import {
 } from "@/components/dashboard/client-actions";
 import { composerOptions, type SourceTab } from "@/components/dashboard/dashboard-data";
 import {
+	DraftDetailsPage,
+	EvidenceDetailsPage,
+	ScanDetailsPage,
+} from "@/components/dashboard/detail-pages";
+import {
 	AlertsPage,
 	AnalysisPage,
 	AuditPage,
@@ -44,7 +49,17 @@ import {
 	type DashboardScan,
 } from "@/lib/domain/fixtures";
 
-export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPage }) {
+export function CyberShieldDashboard({
+	draftId,
+	evidenceId,
+	page = "overview",
+	scanId,
+}: {
+	draftId?: string;
+	evidenceId?: string;
+	page?: DashboardPage;
+	scanId?: string;
+}) {
 	const [inputMode, setInputMode] = useState<SourceTab>("url");
 	const [urlInput, setUrlInput] = useState("https://facebook.com/example/posts/1");
 	const [manualText, setManualText] = useState("");
@@ -52,7 +67,7 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 	const [operatorNotes, setOperatorNotes] = useState("");
 	const [scans, setScans] = useState<DashboardScan[]>(demoScans);
 	const [selectedScanId, setSelectedScanId] = useState(
-		demoScans[0]?.id ?? "demo-scan-1",
+		scanId ?? demoScans[0]?.id ?? "demo-scan-1",
 	);
 	const [detail, setDetail] = useState<ScanDetail | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
@@ -75,13 +90,14 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 	const [authDialogOpen, setAuthDialogOpen] = useState(false);
 	const [scanDialogOpen, setScanDialogOpen] = useState(false);
 	const [draftDialogOpen, setDraftDialogOpen] = useState(false);
+	const activeScanId = scanId ?? selectedScanId;
 
 	const selectedScan = useMemo(
 		() =>
-			scans.find((scan) => scan.id === selectedScanId) ??
+			scans.find((scan) => scan.id === activeScanId) ??
 			scans[0] ??
 			demoScans[0],
-		[scans, selectedScanId],
+		[activeScanId, scans],
 	);
 	const analysis = (detail?.analysis ?? demoAnalysis) as typeof demoAnalysis;
 	const evidence = detail?.evidence?.length ? detail.evidence : demoEvidence;
@@ -119,7 +135,7 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 				const firstScan = payload.scans[0];
 				if (!firstScan) return;
 				setScans(payload.scans);
-				setSelectedScanId(firstScan.id);
+				if (!scanId) setSelectedScanId(firstScan.id);
 				setNotice(
 					payload.mode === "live"
 						? "Đang đọc hàng đợi từ Postgres."
@@ -131,11 +147,11 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 		return () => {
 			alive = false;
 		};
-	}, []);
+	}, [scanId]);
 
 	useEffect(() => {
 		let alive = true;
-		fetch(`/api/scans/${selectedScanId}`, { cache: "no-store" })
+		fetch(`/api/scans/${activeScanId}`, { cache: "no-store" })
 			.then((response) => response.json())
 			.then((payload: { detail?: ScanDetail }) => {
 				if (!alive) return;
@@ -147,13 +163,13 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 		return () => {
 			alive = false;
 		};
-	}, [selectedScanId]);
+	}, [activeScanId]);
 
 	const pageProps: DashboardPageProps = {
 		auth,
 		scans,
 		selectedScan,
-		selectedScanId,
+		selectedScanId: activeScanId,
 		detail,
 		analysis,
 		topics,
@@ -170,12 +186,12 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] text-slate-950">
-			<div className="grid min-h-screen grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)]">
+			<div className="min-h-screen lg:pl-[248px]">
 				<Sidebar />
-				<section className="flex min-w-0 flex-col">
+				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
 					<TopBar notice={notice} />
 					<div className="flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
-						{renderPage(page, pageProps)}
+						{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
 					</div>
 				</section>
 			</div>
@@ -226,7 +242,7 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 				isDrafting={isDrafting}
 				onGenerate={() =>
 					generateDraft({
-						selectedScanId,
+						selectedScanId: activeScanId,
 						tone,
 						audience,
 						language,
@@ -242,7 +258,11 @@ export function CyberShieldDashboard({ page = "overview" }: { page?: DashboardPa
 	);
 }
 
-function renderPage(page: DashboardPage, props: DashboardPageProps) {
+function renderPage(
+	page: DashboardPage,
+	props: DashboardPageProps,
+	routeIds: { draftId?: string; evidenceId?: string; scanId?: string },
+) {
 	switch (page) {
 		case "sources":
 			return <SourcesPage {...props} />;
@@ -250,8 +270,14 @@ function renderPage(page: DashboardPage, props: DashboardPageProps) {
 			return <AnalysisPage {...props} />;
 		case "counter-arguments":
 			return <CounterArgumentsPage {...props} />;
+		case "scan-detail":
+			return <ScanDetailsPage {...props} scanId={routeIds.scanId} />;
 		case "evidence":
 			return <EvidencePage {...props} />;
+		case "evidence-detail":
+			return <EvidenceDetailsPage {...props} evidenceId={routeIds.evidenceId} />;
+		case "draft-detail":
+			return <DraftDetailsPage {...props} draftId={routeIds.draftId} />;
 		case "alerts":
 			return <AlertsPage {...props} />;
 		case "reports":

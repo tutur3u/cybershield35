@@ -10,7 +10,7 @@ export function Sidebar() {
 	const pathname = usePathname();
 
 	return (
-		<aside className="border-b border-[var(--border)] bg-white lg:border-b-0 lg:border-r">
+		<aside className="z-30 border-b border-[var(--border)] bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
 			<div className="flex min-h-[72px] flex-col lg:h-full">
 				<div className="flex h-16 items-center gap-3 border-b border-[var(--border)] px-4">
 					<div className="grid size-9 place-items-center rounded-md border border-green-200 bg-green-50 text-[var(--brand)]">
@@ -69,7 +69,7 @@ export function Sidebar() {
 
 export function TopBar({ notice }: { notice: string }) {
 	return (
-		<header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-white px-4 py-3">
+		<header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-white px-4 py-3">
 			<div className="flex min-w-0 flex-wrap items-center gap-3">
 				{topBarItems.map((item, index) => (
 					<div

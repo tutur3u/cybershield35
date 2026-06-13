@@ -97,7 +97,11 @@ export function OverviewPage(props: DashboardPageProps) {
 					limit={4}
 				/>
 				<AnalysisSummary analysis={props.analysis} />
-				<DraftSnapshot draft={props.draft} onOpenDraft={props.onOpenDraft} />
+				<DraftSnapshot
+					draft={props.draft}
+					onOpenDraft={props.onOpenDraft}
+					scanId={props.selectedScanId}
+				/>
 			</div>
 		</div>
 	);
@@ -165,7 +169,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 				<TopicPanel topics={props.topics} />
 				<AlertPanel />
 				<div className="xl:col-span-2">
-					<EvidencePanel evidence={props.evidence} limit={5} />
+					<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
 				</div>
 			</div>
 		</div>
@@ -191,9 +195,13 @@ export function CounterArgumentsPage(props: DashboardPageProps) {
 					detail={props.detail}
 					analysis={props.analysis}
 				/>
-				<DraftReview draft={props.draft} onReview={props.onReview} />
+				<DraftReview
+					draft={props.draft}
+					onReview={props.onReview}
+					scanId={props.selectedScanId}
+				/>
 				<div className="xl:col-span-2">
-					<EvidencePanel evidence={props.evidence} limit={8} />
+					<EvidencePanel evidence={props.evidence} limit={8} scanId={props.selectedScanId} />
 				</div>
 			</div>
 		</div>
@@ -208,7 +216,7 @@ export function EvidencePage(props: DashboardPageProps) {
 				title="Kho bằng chứng"
 				description="Các trích dẫn đã chuẩn hóa dùng cho phân tích và phản hồi nội bộ."
 			/>
-			<EvidencePanel evidence={props.evidence} />
+			<EvidencePanel evidence={props.evidence} scanId={props.selectedScanId} />
 		</div>
 	);
 }

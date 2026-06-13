@@ -5,6 +5,7 @@ import {
 	FileText,
 	Globe2,
 } from "lucide-react";
+import Link from "next/link";
 
 import type { DraftShape, ScanDetail } from "@/components/dashboard/types";
 import {
@@ -68,9 +69,11 @@ export function SourceDetail({
 export function DraftReview({
 	draft,
 	onReview,
+	scanId,
 }: {
 	draft: DraftShape;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
+	scanId?: string;
 }) {
 	return (
 		<Panel>
@@ -87,6 +90,12 @@ export function DraftReview({
 					{draft.body}
 				</p>
 				<div className="flex flex-wrap gap-2">
+					<Link
+						href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
+						className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-3 text-[12px] font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+					>
+						<FileText size={14} /> Chi tiết
+					</Link>
 					<SecondaryButton onClick={() => onReview("needs_review")}>
 						<FileText size={14} /> Cần duyệt
 					</SecondaryButton>
