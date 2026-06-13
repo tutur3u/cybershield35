@@ -62,7 +62,7 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 
 	return (
 		<span
-			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
+			className={`inline-flex h-6 min-w-[72px] max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
 		>
 			{labels[status] ?? status}
 		</span>
@@ -83,7 +83,7 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 
 	return (
 		<span
-			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
+			className={`inline-flex h-6 min-w-12 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
 		>
 			{labels[risk] ?? risk}
 		</span>

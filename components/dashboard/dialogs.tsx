@@ -232,7 +232,7 @@ export function ScanDialog(props: {
 								<p className="min-w-0 truncate text-[12px] font-bold text-[var(--foreground)]">
 									{provider.label}
 								</p>
-								<span className="inline-flex h-6 shrink-0 items-center rounded-md bg-[var(--success-soft)] px-2 text-[10px] font-bold leading-none text-[var(--success-strong)]">
+								<span className="inline-flex h-6 min-w-14 shrink-0 items-center justify-center rounded-md bg-[var(--success-soft)] px-2 text-center text-[10px] font-bold leading-none text-[var(--success-strong)]">
 									Hybrid
 								</span>
 							</div>

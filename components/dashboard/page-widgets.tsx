@@ -200,7 +200,7 @@ export function ProviderStatus({
 	onOpenTestingKeys?: () => void;
 }) {
 	return (
-		<Panel className="h-full">
+		<Panel>
 			<PanelHeader
 				title="Provider adapters"
 				description="Server key trước; browser key khi thiếu."
@@ -223,7 +223,7 @@ export function ProviderStatus({
 								{provider.label}
 							</p>
 							<span
-								className={`inline-flex h-6 shrink-0 items-center rounded-md px-2 text-[10px] font-bold leading-none ${providerStatusStyle(
+								className={`inline-flex h-6 min-w-12 shrink-0 items-center justify-center rounded-md px-2 text-center text-[10px] font-bold leading-none ${providerStatusStyle(
 									providerStatus(provider.key, availability, clientSummary),
 								)}`}
 							>
@@ -252,7 +252,7 @@ export function AnalysisSummary({ analysis }: { analysis: typeof demoAnalysis })
 				</p>
 				<div className="flex flex-wrap gap-2">
 					<RiskPill risk={analysis.riskLevel} />
-					<span className="inline-flex h-6 items-center rounded-full bg-[var(--accent-soft)] px-2 text-[11px] font-bold text-[var(--accent-strong)]">
+					<span className="inline-flex h-6 min-w-12 items-center justify-center rounded-md bg-[var(--accent-soft)] px-2.5 text-center text-[11px] font-bold leading-none text-[var(--accent-strong)]">
 						{analysis.stanceSummary}
 					</span>
 				</div>

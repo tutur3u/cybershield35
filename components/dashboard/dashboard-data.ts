@@ -33,9 +33,9 @@ export const navItems: NavItem[] = [
 ];
 
 export const quickLinks = [
-	"Quy trình 5 bước",
-	"Hướng dẫn sử dụng",
-	"Chính sách & Quy định",
+	{ label: "Quy trình 5 bước", href: "/guides/5-step-process" },
+	{ label: "Hướng dẫn sử dụng", href: "/guides/user-guide" },
+	{ label: "Chính sách & Quy định", href: "/guides/policies" },
 ];
 
 export const sourceTabs = [

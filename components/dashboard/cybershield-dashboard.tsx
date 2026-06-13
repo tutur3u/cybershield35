@@ -31,6 +31,7 @@ import {
 	AuditPage,
 	CounterArgumentsPage,
 	EvidencePage,
+	GuidePage,
 	OverviewPage,
 	ReportsPage,
 	SettingsPage,
@@ -333,6 +334,12 @@ function renderPage(
 			return <SettingsPage {...props} />;
 		case "audit":
 			return <AuditPage {...props} />;
+		case "guide-process":
+			return <GuidePage kind="process" />;
+		case "guide-user":
+			return <GuidePage kind="user" />;
+		case "guide-policies":
+			return <GuidePage kind="policies" />;
 		default:
 			return <OverviewPage {...props} />;
 	}

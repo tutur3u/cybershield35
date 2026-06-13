@@ -18,7 +18,10 @@ export type DashboardPage =
 	| "alerts"
 	| "reports"
 	| "settings"
-	| "audit";
+	| "audit"
+	| "guide-process"
+	| "guide-user"
+	| "guide-policies";
 
 export type AdminSessionView = {
 	appName: string | null;

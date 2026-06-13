@@ -82,7 +82,7 @@ export function DraftReview({
 			<PanelHeader
 				title="Bản nháp đang duyệt"
 				action={
-					<span className="inline-flex h-6 shrink-0 items-center rounded-md bg-[var(--warning-soft)] px-2.5 text-[11px] font-bold leading-none text-[var(--warning-strong)] whitespace-nowrap">
+					<span className="inline-flex h-6 min-w-[92px] shrink-0 items-center justify-center rounded-md bg-[var(--warning-soft)] px-2.5 text-center text-[11px] font-bold leading-none text-[var(--warning-strong)] whitespace-nowrap">
 						{draftStatusLabel(draft.status)}
 					</span>
 				}
