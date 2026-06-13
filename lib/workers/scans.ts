@@ -19,6 +19,13 @@ import { demoAnalysis, demoDraft, demoEvidence, demoScans } from "@/lib/domain/f
 import { detectSource } from "@/lib/domain/source-detection";
 import { analyzeEvidence, generateCounterArgument } from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
+import {
+	hasClientRuntimeKeys,
+	redactRuntimeSecrets,
+	runtimeKeySummary,
+	runtimeMode,
+	type ClientRuntime,
+} from "@/lib/runtime/client-runtime";
 
 type ClaimedJob = {
 	id: string;
@@ -36,7 +43,7 @@ export type CreateScanInput = {
 	title?: string;
 };
 
-export async function createScan(input: CreateScanInput) {
+export async function createScan(input: CreateScanInput, runtime?: ClientRuntime) {
 	const detection = detectSource(input.input, {
 		fileName: input.fileName,
 		mimeType: input.mimeType,
@@ -76,7 +83,23 @@ export async function createScan(input: CreateScanInput) {
 	await writeAudit("scan_job", job.id, "created", {
 		sourceType: source.type,
 		provider: job.provider,
+		runtimeMode: runtimeMode(runtime),
+		clientKeys: runtimeKeySummary(runtime),
 	});
+
+	if (hasClientRuntimeKeys(runtime)) {
+		const result = await processScanJobNow(job.id, runtime);
+		const [updatedJob] = await db
+			.select({ status: scanJobs.status })
+			.from(scanJobs)
+			.where(eq(scanJobs.id, job.id))
+			.limit(1);
+		return {
+			scanId: job.id,
+			status: updatedJob?.status ?? job.status,
+			mode: result.processed ? "inline" : "queued",
+		};
+	}
 
 	return { scanId: job.id, status: job.status };
 }
@@ -165,6 +188,17 @@ export async function processNextJob() {
 	const claimed = await claimNextJob();
 	if (!claimed) return { processed: false };
 
+	return processClaimedJob(claimed);
+}
+
+export async function processScanJobNow(scanId: string, runtime?: ClientRuntime) {
+	const claimed = await claimJobById(scanId);
+	if (!claimed) return { processed: false };
+
+	return processClaimedJob(claimed, runtime);
+}
+
+async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 	try {
 		const [source] = await db
 			.select()
@@ -180,13 +214,17 @@ export async function processNextJob() {
 				scanJobId: claimed.id,
 				provider: claimed.provider,
 				status: "running",
-				input: { sourceId: source.id, input: source.originalInput },
+				input: {
+					sourceId: source.id,
+					input: source.originalInput,
+					runtimeMode: runtimeMode(runtime),
+				},
 			})
 			.returning();
 
 		if (!run) throw new Error("Failed to create provider run");
 
-		const result = await runProvider(claimed.provider, source);
+		const result = await runProvider(claimed.provider, source, runtime);
 
 		await db
 			.update(providerRuns)
@@ -229,6 +267,7 @@ export async function processNextJob() {
 				summary: item.summary,
 				riskLevel: item.riskLevel,
 			})),
+			runtime,
 		);
 
 		await db
@@ -268,12 +307,14 @@ export async function processNextJob() {
 
 		await writeAudit("scan_job", claimed.id, "processed", {
 			providerMode: result.mode,
+			credentialSource: result.credentialSource,
 			evidenceCount: insertedEvidence.length,
 		});
 
 		return { processed: true, scanId: claimed.id };
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
+		const rawMessage = error instanceof Error ? error.message : String(error);
+		const message = redactRuntimeSecrets(rawMessage, runtime);
 		const nextStatus: ScanStatus =
 			claimed.attempts < claimed.max_attempts ? "retrying" : "failed";
 
@@ -302,6 +343,7 @@ export async function generateDraftForScan(
 		length: string;
 		operatorNotes?: string | null;
 	},
+	runtime?: ClientRuntime,
 ) {
 	const evidence = await db
 		.select()
@@ -317,7 +359,7 @@ export async function generateDraftForScan(
 			summary: item.summary,
 		})),
 		...options,
-	});
+	}, runtime);
 
 	const [draft] = await db
 		.insert(counterArgumentDrafts)
@@ -339,6 +381,8 @@ export async function generateDraftForScan(
 
 	await writeAudit("scan_job", scanId, "counter_argument_generated", {
 		draftId: draft.id,
+		runtimeMode: runtimeMode(runtime),
+		clientKeys: runtimeKeySummary(runtime),
 	});
 
 	return draft;
@@ -425,6 +469,24 @@ async function claimNextJob() {
 			for update skip locked
 			limit 1
 		)
+		returning id, source_id, provider, attempts, max_attempts
+	`;
+
+	return rows[0] ?? null;
+}
+
+async function claimJobById(scanId: string) {
+	const rows = await sqlClient<ClaimedJob[]>`
+		update scan_jobs
+		set
+			status = 'running',
+			locked_at = now(),
+			started_at = coalesce(started_at, now()),
+			attempts = attempts + 1,
+			updated_at = now()
+		where id = ${scanId}
+			and status in ('queued', 'retrying')
+			and scheduled_at <= now()
 		returning id, source_id, provider, attempts, max_attempts
 	`;
 

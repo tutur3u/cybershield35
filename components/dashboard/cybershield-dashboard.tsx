@@ -8,6 +8,10 @@ import {
 	ScanDialog,
 } from "@/components/dashboard/dialogs";
 import {
+	runtimeForRequest,
+	useClientRuntimeCredentials,
+} from "@/components/dashboard/runtime-credentials";
+import {
 	createScan,
 	generateDraft,
 	logout,
@@ -34,10 +38,13 @@ import {
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
+import { TestingKeysDialog } from "@/components/dashboard/testing-keys-dialog";
+import { useThemePreference } from "@/components/dashboard/theme";
 import type {
 	AuthViewState,
 	DashboardPage,
 	DraftShape,
+	ProviderAvailabilityView,
 	ScanDetail,
 	TopicCluster,
 } from "@/components/dashboard/types";
@@ -90,6 +97,16 @@ export function CyberShieldDashboard({
 	const [authDialogOpen, setAuthDialogOpen] = useState(false);
 	const [scanDialogOpen, setScanDialogOpen] = useState(false);
 	const [draftDialogOpen, setDraftDialogOpen] = useState(false);
+	const [testingKeysDialogOpen, setTestingKeysDialogOpen] = useState(false);
+	const [providerAvailability, setProviderAvailability] =
+		useState<ProviderAvailabilityView | null>(null);
+	const {
+		clearRuntime,
+		runtime: clientRuntime,
+		setRuntime: setClientRuntime,
+		summary: clientRuntimeSummary,
+	} = useClientRuntimeCredentials();
+	const { cyclePreference, preference, resolvedTheme } = useThemePreference();
 	const activeScanId = scanId ?? selectedScanId;
 
 	const selectedScan = useMemo(
@@ -144,6 +161,14 @@ export function CyberShieldDashboard({
 			})
 			.catch(() => setNotice("Đang hiển thị dữ liệu mẫu vì API chưa sẵn sàng."));
 
+		fetch("/api/health", { cache: "no-store" })
+			.then((response) => response.json())
+			.then((payload: { providers?: ProviderAvailabilityView }) => {
+				if (!alive) return;
+				setProviderAvailability(payload.providers ?? null);
+			})
+			.catch(() => setProviderAvailability(null));
+
 		return () => {
 			alive = false;
 		};
@@ -175,21 +200,29 @@ export function CyberShieldDashboard({
 		topics,
 		evidence,
 		draft,
+		providerAvailability,
+		clientRuntimeSummary,
 		onSelectScan: setSelectedScanId,
 		onOpenAuth: () => setAuthDialogOpen(true),
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
+		onOpenTestingKeys: () => setTestingKeysDialogOpen(true),
 		onRefreshAuth: () => refreshSession(setAuth, setNotice),
 		onLogout: () => logout(setAuth, setNotice),
 		onReview: (status) => reviewDraft({ draft, status, setDraft, setNotice }),
 	};
 
 	return (
-		<main className="min-h-screen bg-[var(--background)] text-slate-950">
+		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
 			<div className="min-h-screen lg:pl-[248px]">
 				<Sidebar />
 				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
-					<TopBar notice={notice} />
+					<TopBar
+						notice={notice}
+						onCycleTheme={cyclePreference}
+						resolvedTheme={resolvedTheme}
+						themePreference={preference}
+					/>
 					<div className="flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
 						{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
 					</div>
@@ -223,6 +256,7 @@ export function CyberShieldDashboard({
 						setScans,
 						setSelectedScanId,
 						setNotice,
+						clientRuntime: runtimeForRequest(clientRuntime),
 					})
 				}
 			/>
@@ -248,12 +282,28 @@ export function CyberShieldDashboard({
 						language,
 						length,
 						operatorNotes,
+						clientRuntime: runtimeForRequest(clientRuntime),
 						setIsDrafting,
 						setDraft,
 						setNotice,
 					})
 				}
 			/>
+			{testingKeysDialogOpen ? (
+				<TestingKeysDialog
+					open
+					onClose={() => setTestingKeysDialogOpen(false)}
+					runtime={clientRuntime}
+					onSave={(nextRuntime) => {
+						setClientRuntime(nextRuntime);
+						setNotice("Đã lưu khóa kiểm thử trong session trình duyệt.");
+					}}
+					onClear={() => {
+						clearRuntime();
+						setNotice("Đã xóa khóa kiểm thử khỏi session trình duyệt.");
+					}}
+				/>
+			) : null}
 		</main>
 	);
 }

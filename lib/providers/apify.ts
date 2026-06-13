@@ -1,5 +1,7 @@
 import { ApifyClient } from "apify-client";
 
+import { resolveCredential } from "@/lib/runtime/client-runtime";
+
 import type { ProviderAdapter } from "./types";
 
 const actorByProvider = {
@@ -11,14 +13,17 @@ const actorByProvider = {
 export function createApifyAdapter(
 	provider: keyof typeof actorByProvider,
 ): ProviderAdapter {
-	return async (source) => {
-		const token = process.env.APIFY_TOKEN;
-		if (!token || process.env.DEMO_MODE === "true") {
+	return async (source, runtime) => {
+		const credential = resolveCredential(
+			process.env.APIFY_TOKEN,
+			runtime?.keys.apifyToken,
+		);
+		if (!credential) {
 			const { runDemoProvider } = await import("./demo");
 			return runDemoProvider(source);
 		}
 
-		const client = new ApifyClient({ token });
+		const client = new ApifyClient({ token: credential.value });
 		const url = source.normalizedUrl ?? source.originalInput;
 		const actorInput = buildActorInput(provider, url);
 		const run = await client.actor(actorByProvider[provider]).call(actorInput);
@@ -29,6 +34,7 @@ export function createApifyAdapter(
 		return {
 			provider,
 			mode: "live",
+			credentialSource: credential.source,
 			raw: {
 				runId: run.id,
 				defaultDatasetId: run.defaultDatasetId,

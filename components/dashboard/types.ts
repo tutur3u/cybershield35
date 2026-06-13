@@ -85,3 +85,13 @@ export type DraftShape = {
 };
 
 export type EvidenceView = Array<Partial<EvidenceItemRow> & { id: string }>;
+
+export type ProviderAvailabilityView = {
+	apify?: boolean;
+	firecrawl?: boolean;
+	browserUse?: boolean;
+	openai?: boolean;
+	googleGenerativeAi?: boolean;
+	llm?: boolean;
+	demoMode?: boolean;
+};

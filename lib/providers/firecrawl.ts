@@ -1,15 +1,20 @@
 import { Firecrawl } from "firecrawl";
 
+import { resolveCredential } from "@/lib/runtime/client-runtime";
+
 import type { ProviderAdapter } from "./types";
 
-export const runFirecrawl: ProviderAdapter = async (source) => {
-	const apiKey = process.env.FIRECRAWL_API_KEY;
-	if (!apiKey || process.env.DEMO_MODE === "true") {
+export const runFirecrawl: ProviderAdapter = async (source, runtime) => {
+	const credential = resolveCredential(
+		process.env.FIRECRAWL_API_KEY,
+		runtime?.keys.firecrawlApiKey,
+	);
+	if (!credential) {
 		const { runDemoProvider } = await import("./demo");
 		return runDemoProvider(source);
 	}
 
-	const client = new Firecrawl({ apiKey });
+	const client = new Firecrawl({ apiKey: credential.value });
 	const url = source.normalizedUrl ?? source.originalInput;
 	const result = await client.scrape(url, { formats: ["markdown"] });
 	const markdown = result.markdown ?? "";
@@ -17,6 +22,7 @@ export const runFirecrawl: ProviderAdapter = async (source) => {
 	return {
 		provider: "firecrawl",
 		mode: "live",
+		credentialSource: credential.source,
 		raw: {
 			title: result.metadata?.title,
 			description: result.metadata?.description,
@@ -44,14 +50,17 @@ export const runFirecrawl: ProviderAdapter = async (source) => {
 	};
 };
 
-export const runFirecrawlParse: ProviderAdapter = async (source) => {
-	const apiKey = process.env.FIRECRAWL_API_KEY;
-	if (!apiKey || process.env.DEMO_MODE === "true" || !source.fileText) {
+export const runFirecrawlParse: ProviderAdapter = async (source, runtime) => {
+	const credential = resolveCredential(
+		process.env.FIRECRAWL_API_KEY,
+		runtime?.keys.firecrawlApiKey,
+	);
+	if (!credential || !source.fileText) {
 		const { runLocalText } = await import("./local-text");
 		return runLocalText(source);
 	}
 
-	const client = new Firecrawl({ apiKey });
+	const client = new Firecrawl({ apiKey: credential.value });
 	const file = {
 		data: Buffer.from(source.fileText, "utf8"),
 		filename: source.fileName ?? "upload.txt",
@@ -63,6 +72,7 @@ export const runFirecrawlParse: ProviderAdapter = async (source) => {
 	return {
 		provider: "firecrawl_parse",
 		mode: "live",
+		credentialSource: credential.source,
 		raw: { filename: source.fileName, markdown },
 		evidence: [
 			{

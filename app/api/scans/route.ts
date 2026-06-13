@@ -2,6 +2,11 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { demoScans } from "@/lib/domain/fixtures";
+import {
+	parseClientRuntime,
+	parseClientRuntimeFormValue,
+	redactRuntimeSecrets,
+} from "@/lib/runtime/client-runtime";
 import { createScan, listScans } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
@@ -9,6 +14,7 @@ export const runtime = "nodejs";
 const scanBodySchema = z.object({
 	input: z.string().min(1),
 	title: z.string().optional(),
+	clientRuntime: z.unknown().optional(),
 });
 
 export async function GET(request: Request) {
@@ -40,6 +46,8 @@ export async function POST(request: Request) {
 		return Response.json({ error: auth.error }, { status: auth.status });
 	}
 
+	let requestRuntime = parseClientRuntime(undefined);
+
 	try {
 		const contentType = request.headers.get("content-type") ?? "";
 
@@ -54,13 +62,17 @@ export async function POST(request: Request) {
 			}
 
 			const fileText = await readFileText(file);
-			const result = await createScan({
-				input: input || file.name,
-				title: title || file.name,
-				fileName: file.name,
-				mimeType: file.type || "application/octet-stream",
-				fileText,
-			});
+			requestRuntime = parseClientRuntimeFormValue(formData.get("clientRuntime"));
+			const result = await createScan(
+				{
+					input: input || file.name,
+					title: title || file.name,
+					fileName: file.name,
+					mimeType: file.type || "application/octet-stream",
+					fileText,
+				},
+				requestRuntime,
+			);
 			return Response.json(result, {
 				status: 201,
 				headers: authHeaders(auth),
@@ -68,7 +80,8 @@ export async function POST(request: Request) {
 		}
 
 		const body = scanBodySchema.parse(await request.json());
-		const result = await createScan(body);
+		requestRuntime = parseClientRuntime(body.clientRuntime);
+		const result = await createScan(body, requestRuntime);
 		return Response.json(result, { status: 201, headers: authHeaders(auth) });
 	} catch (error) {
 		if (error instanceof z.ZodError) {
@@ -83,7 +96,12 @@ export async function POST(request: Request) {
 		}
 
 		return Response.json(
-			{ error: error instanceof Error ? error.message : "Failed to create scan" },
+			{
+				error:
+					error instanceof Error
+						? redactRuntimeSecrets(error.message, requestRuntime)
+						: "Failed to create scan",
+			},
 			{ status: 500 },
 		);
 	}

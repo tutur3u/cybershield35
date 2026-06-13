@@ -22,7 +22,7 @@ export function Dialog({
 
 	return (
 		<div
-			className="fixed inset-0 z-50 grid place-items-center bg-slate-950/30 px-3 py-6 backdrop-blur-sm"
+			className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6 backdrop-blur-sm"
 			onClick={onClose}
 			role="presentation"
 		>
@@ -30,7 +30,7 @@ export function Dialog({
 				aria-modal="true"
 				role="dialog"
 				aria-labelledby="dashboard-dialog-title"
-				className={`max-h-[92vh] w-full overflow-y-auto rounded-lg border border-[var(--border)] bg-white shadow-2xl ${
+				className={`max-h-[92vh] w-full overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-2xl ${
 					size === "wide" ? "max-w-3xl" : "max-w-lg"
 				}`}
 				onClick={(event) => event.stopPropagation()}
@@ -39,12 +39,12 @@ export function Dialog({
 					<div className="min-w-0">
 						<h2
 							id="dashboard-dialog-title"
-							className="text-[16px] font-bold text-slate-950"
+							className="text-[16px] font-bold text-[var(--foreground)]"
 						>
 							{title}
 						</h2>
 						{description ? (
-							<p className="mt-1 text-[12px] leading-5 text-slate-500">
+							<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
 								{description}
 							</p>
 						) : null}
@@ -52,7 +52,7 @@ export function Dialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="grid size-8 shrink-0 place-items-center rounded-md border border-[var(--border)] text-slate-500 transition hover:bg-slate-50"
+						className="grid size-8 shrink-0 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)] transition hover:bg-[var(--surface-soft)]"
 						aria-label="Đóng"
 					>
 						<X size={15} />

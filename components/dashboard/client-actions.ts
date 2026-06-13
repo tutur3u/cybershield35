@@ -8,6 +8,7 @@ import type {
 } from "@/components/dashboard/types";
 import type { ScanStatus } from "@/lib/db/schema";
 import type { DashboardScan } from "@/lib/domain/fixtures";
+import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 
 export function onSessionVerified(
 	session: AdminSessionView,
@@ -51,6 +52,7 @@ export async function createScan(options: {
 	urlInput: string;
 	manualText: string;
 	selectedFile: File | null;
+	clientRuntime?: ClientRuntime;
 	setIsCreating: (value: boolean) => void;
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
 	setSelectedScanId: (id: string) => void;
@@ -65,7 +67,11 @@ export async function createScan(options: {
 		const pending = buildPendingScan(options, payload.scanId, payload.status);
 		options.setScans((current) => [pending, ...current]);
 		options.setSelectedScanId(pending.id);
-		options.setNotice("Đã tạo scan mới. Worker sẽ xử lý theo lịch mỗi phút.");
+		options.setNotice(
+			payload.mode === "inline"
+				? "Đã tạo scan và xử lý ngay bằng khóa kiểm thử trong session."
+				: "Đã tạo scan mới. Worker sẽ xử lý theo lịch mỗi phút.",
+		);
 		return true;
 	} catch (error) {
 		options.setNotice(error instanceof Error ? error.message : "Không thể tạo scan");
@@ -82,6 +88,7 @@ export async function generateDraft(options: {
 	language: string;
 	length: string;
 	operatorNotes: string;
+	clientRuntime?: ClientRuntime;
 	setIsDrafting: (value: boolean) => void;
 	setDraft: (draft: DraftShape) => void;
 	setNotice: (notice: string) => void;
@@ -99,6 +106,7 @@ export async function generateDraft(options: {
 					language: options.language,
 					length: options.length,
 					operatorNotes: options.operatorNotes,
+					clientRuntime: options.clientRuntime,
 				}),
 			},
 		);
@@ -140,11 +148,15 @@ async function postScan(options: {
 	urlInput: string;
 	manualText: string;
 	selectedFile: File | null;
+	clientRuntime?: ClientRuntime;
 }) {
 	if (options.inputMode === "file" && options.selectedFile) {
 		const form = new FormData();
 		form.set("file", options.selectedFile);
 		form.set("title", options.selectedFile.name);
+		if (options.clientRuntime) {
+			form.set("clientRuntime", JSON.stringify(options.clientRuntime));
+		}
 		return fetch("/api/scans", { method: "POST", body: form });
 	}
 
@@ -155,6 +167,7 @@ async function postScan(options: {
 		body: JSON.stringify({
 			input,
 			title: options.inputMode === "text" ? "Văn bản nhập thủ công" : undefined,
+			clientRuntime: options.clientRuntime,
 		}),
 	});
 }

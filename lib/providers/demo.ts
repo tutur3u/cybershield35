@@ -5,6 +5,7 @@ import type { ProviderAdapter } from "./types";
 export const runDemoProvider: ProviderAdapter = async (source) => ({
 	provider: source.type === "text" ? "local_text" : "demo",
 	mode: "demo",
+	credentialSource: "demo",
 	raw: {
 		reason: "Demo mode or missing provider credentials",
 		source: source.originalInput,

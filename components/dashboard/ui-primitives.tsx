@@ -11,7 +11,7 @@ export function Panel({
 }) {
 	return (
 		<section
-			className={`rounded-lg border border-[var(--border)] bg-white shadow-[var(--shadow-soft)] ${className}`}
+			className={`rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] ${className}`}
 		>
 			{children}
 		</section>
@@ -30,9 +30,13 @@ export function PanelHeader({
 	return (
 		<div className="flex min-w-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
 			<div className="min-w-0">
-				<h2 className="truncate text-[15px] font-bold text-slate-950">{title}</h2>
+				<h2 className="truncate text-[15px] font-bold text-[var(--foreground)]">
+					{title}
+				</h2>
 				{description ? (
-					<p className="mt-1 text-[12px] leading-5 text-slate-500">{description}</p>
+					<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+						{description}
+					</p>
 				) : null}
 			</div>
 			{action}
@@ -42,11 +46,11 @@ export function PanelHeader({
 
 export function StatusPill({ status }: { status: ScanStatus | string }) {
 	const styles: Record<string, string> = {
-		queued: "bg-slate-100 text-slate-600",
-		running: "bg-blue-50 text-blue-700",
-		completed: "bg-green-50 text-green-700",
-		failed: "bg-red-50 text-red-700",
-		retrying: "bg-amber-50 text-amber-700",
+		queued: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+		running: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+		completed: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+		failed: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+		retrying: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
 	};
 	const labels: Record<string, string> = {
 		queued: "Đang chờ",
@@ -67,9 +71,9 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 
 export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 	const styles: Record<string, string> = {
-		high: "bg-red-50 text-red-700",
-		medium: "bg-amber-50 text-amber-700",
-		low: "bg-green-50 text-green-700",
+		high: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+		medium: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+		low: "bg-[var(--success-soft)] text-[var(--success-strong)]",
 	};
 	const labels: Record<string, string> = {
 		high: "Cao",
@@ -88,7 +92,7 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 
 export function ProgressBar({ value }: { value: number }) {
 	return (
-		<div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+		<div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-soft)]">
 			<div
 				className="h-full rounded-full bg-[var(--accent)] transition-all"
 				style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
@@ -99,7 +103,7 @@ export function ProgressBar({ value }: { value: number }) {
 
 export function FieldLabel({ children }: { children: ReactNode }) {
 	return (
-		<label className="text-[12px] font-bold uppercase tracking-[0.02em] text-slate-600">
+		<label className="text-[12px] font-bold uppercase tracking-[0.02em] text-[var(--muted-strong)]">
 			{children}
 		</label>
 	);
@@ -121,7 +125,7 @@ export function PrimaryButton({
 			type={type}
 			disabled={disabled}
 			onClick={onClick}
-			className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
+			className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
 		>
 			{children}
 		</button>
@@ -139,7 +143,7 @@ export function SecondaryButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-white px-3 text-[12px] font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+			className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 		>
 			{children}
 		</button>

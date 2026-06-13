@@ -94,10 +94,21 @@ export const socialSources = [
 ];
 
 export const providerRows = [
-	{ label: "Apify", helper: "Facebook posts, comments, groups", active: true },
-	{ label: "Firecrawl", helper: "Web scrape, search, parse", active: true },
-	{ label: "Browser Use", helper: "Dynamic page enrichment", active: true },
-];
+	{
+		key: "googleGenerativeAi",
+		label: "Google AI",
+		helper: "Gemini analysis and response drafting",
+		active: true,
+	},
+	{ key: "apify", label: "Apify", helper: "Facebook posts, comments, groups", active: true },
+	{ key: "firecrawl", label: "Firecrawl", helper: "Web scrape, search, parse", active: true },
+	{
+		key: "browserUse",
+		label: "Browser Use",
+		helper: "Dynamic page enrichment",
+		active: true,
+	},
+] as const;
 
 export const queueStats = [
 	{ label: "Đang chờ", value: "12", tone: "neutral" },

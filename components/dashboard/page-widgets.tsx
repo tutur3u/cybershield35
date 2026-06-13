@@ -1,5 +1,6 @@
 import {
 	LogOut,
+	KeyRound,
 	RefreshCw,
 	ShieldCheck,
 	Sparkles,
@@ -9,7 +10,12 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { providerRows, queueStats } from "@/components/dashboard/dashboard-data";
-import type { AuthViewState, DraftShape } from "@/components/dashboard/types";
+import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
+import type {
+	AuthViewState,
+	DraftShape,
+	ProviderAvailabilityView,
+} from "@/components/dashboard/types";
 import {
 	Panel,
 	PanelHeader,
@@ -59,7 +65,7 @@ export function MetricGrid() {
 						<p className={`text-[26px] font-bold ${statColor(stat.tone)}`}>
 							{stat.value}
 						</p>
-						<p className="mt-1 text-[12px] font-semibold text-slate-500">
+			<p className="mt-1 text-[12px] font-semibold text-[var(--muted)]">
 							{stat.label}
 						</p>
 					</div>
@@ -88,7 +94,9 @@ export function AuthSummary({
 			<div className="space-y-4 p-4">
 				<div
 					className={`flex items-center gap-3 rounded-lg p-3 ${
-						authenticated ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-800"
+					authenticated
+						? "bg-[var(--success-soft)] text-[var(--success-strong)]"
+						: "bg-[var(--warning-soft)] text-[var(--warning-strong)]"
 					}`}
 				>
 					<ShieldCheck size={20} />
@@ -146,26 +154,28 @@ export function QueueCard({
 				title="Hàng đợi quét"
 				description="Chọn một scan để xem phân tích, bằng chứng và bản nháp."
 			/>
-			<div className="divide-y divide-slate-100">
+			<div className="divide-y divide-[var(--border)]">
 				{visible.map((scan) => (
 					<Link
 						key={scan.id}
 						href={`/scans/${scan.id}`}
 						onClick={() => onSelectScan(scan.id)}
 						className={`grid w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_108px_92px] sm:items-center ${
-							selectedScanId === scan.id ? "bg-blue-50/70" : "hover:bg-slate-50"
+							selectedScanId === scan.id
+								? "bg-[var(--accent-soft)]"
+								: "hover:bg-[var(--surface-soft)]"
 						}`}
 					>
 						<div className="min-w-0">
-							<p className="truncate text-[13px] font-bold text-slate-900">
+							<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 								{scan.title}
 							</p>
-							<p className="mt-1 truncate text-[11px] text-slate-500">
+							<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 								{scan.sourceLabel} - {providerLabel(scan.provider)}
 							</p>
 						</div>
 						<StatusPill status={scan.status} />
-						<div className="min-w-0 text-[11px] font-semibold text-slate-500 sm:text-right">
+						<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
 							{scan.progress}%
 							<div className="mt-1">
 								<ProgressBar value={scan.progress} />
@@ -178,25 +188,49 @@ export function QueueCard({
 	);
 }
 
-export function ProviderStatus() {
+export function ProviderStatus({
+	availability,
+	clientSummary,
+	onOpenTestingKeys,
+}: {
+	availability?: ProviderAvailabilityView;
+	clientSummary?: ClientRuntimeSummary;
+	onOpenTestingKeys?: () => void;
+}) {
 	return (
 		<Panel>
-			<PanelHeader title="Provider adapters" description="Live khi có env key, fixture khi demo." />
+			<PanelHeader
+				title="Provider adapters"
+				description="Server key được ưu tiên; browser-session key chỉ dùng khi server thiếu."
+				action={
+					onOpenTestingKeys ? (
+						<SecondaryButton onClick={onOpenTestingKeys}>
+							<KeyRound size={14} /> Khóa kiểm thử
+						</SecondaryButton>
+					) : null
+				}
+			/>
 			<div className="space-y-3 p-4">
 				{providerRows.map((provider) => (
 					<div
 						key={provider.label}
-						className="rounded-lg border border-[var(--border)] bg-white p-3"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"
 					>
 						<div className="flex items-center justify-between gap-3">
-							<p className="text-[13px] font-bold text-slate-800">
+							<p className="text-[13px] font-bold text-[var(--foreground)]">
 								{provider.label}
 							</p>
-							<span className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-700">
-								Sẵn sàng
+							<span
+								className={`rounded-full px-2 py-1 text-[10px] font-bold ${providerStatusStyle(
+									providerStatus(provider.key, availability, clientSummary),
+								)}`}
+							>
+								{providerStatusLabel(
+									providerStatus(provider.key, availability, clientSummary),
+								)}
 							</span>
 						</div>
-						<p className="mt-1 text-[11px] leading-4 text-slate-500">
+						<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
 							{provider.helper}
 						</p>
 					</div>
@@ -211,10 +245,12 @@ export function AnalysisSummary({ analysis }: { analysis: typeof demoAnalysis })
 		<Panel>
 			<PanelHeader title="Tóm tắt phân tích" />
 			<div className="space-y-4 p-4">
-				<p className="text-[13px] leading-6 text-slate-700">{analysis.summary}</p>
+				<p className="text-[13px] leading-6 text-[var(--muted-strong)]">
+					{analysis.summary}
+				</p>
 				<div className="flex flex-wrap gap-2">
 					<RiskPill risk={analysis.riskLevel} />
-					<span className="inline-flex h-6 items-center rounded-full bg-blue-50 px-2 text-[11px] font-bold text-blue-700">
+					<span className="inline-flex h-6 items-center rounded-full bg-[var(--accent-soft)] px-2 text-[11px] font-bold text-[var(--accent-strong)]">
 						{analysis.stanceSummary}
 					</span>
 				</div>
@@ -243,15 +279,15 @@ export function DraftSnapshot({
 				}
 			/>
 			<div className="p-4">
-				<p className="rounded-lg bg-slate-50 p-3 text-[13px] leading-6 text-slate-700">
+				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
 					{draft.body}
 				</p>
-				<p className="mt-3 text-[11px] font-semibold text-slate-500">
+				<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
 					Trạng thái: {draftStatusLabel(draft.status)}
 				</p>
 				<Link
 					href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
-					className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-slate-700"
+					className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)]"
 				>
 					Xem chi tiết
 				</Link>
@@ -262,9 +298,59 @@ export function DraftSnapshot({
 
 function statColor(tone: string) {
 	if (tone === "success") return "text-[var(--brand)]";
-	if (tone === "danger") return "text-red-600";
-	if (tone === "warning") return "text-amber-600";
-	return "text-slate-900";
+	if (tone === "danger") return "text-[var(--danger-strong)]";
+	if (tone === "warning") return "text-[var(--warning-strong)]";
+	return "text-[var(--foreground)]";
+}
+
+type ProviderStatusState = "server" | "browser_session" | "demo";
+
+function providerStatus(
+	key: string,
+	availability?: ProviderAvailabilityView,
+	clientSummary?: ClientRuntimeSummary,
+): ProviderStatusState {
+	if (key === "googleGenerativeAi") {
+		if (availability?.llm) return "server";
+		if (clientSummary?.googleGenerativeAi) return "browser_session";
+		return "demo";
+	}
+
+	if (key === "apify") {
+		if (availability?.apify) return "server";
+		if (clientSummary?.apify) return "browser_session";
+		return "demo";
+	}
+
+	if (key === "firecrawl") {
+		if (availability?.firecrawl) return "server";
+		if (clientSummary?.firecrawl) return "browser_session";
+		return "demo";
+	}
+
+	if (key === "browserUse") {
+		if (availability?.browserUse) return "server";
+		if (clientSummary?.browserUse) return "browser_session";
+		return "demo";
+	}
+
+	return "demo";
+}
+
+function providerStatusLabel(status: ProviderStatusState) {
+	if (status === "server") return "Server";
+	if (status === "browser_session") return "Browser";
+	return "Demo";
+}
+
+function providerStatusStyle(status: ProviderStatusState) {
+	if (status === "server") {
+		return "bg-[var(--success-soft)] text-[var(--success-strong)]";
+	}
+	if (status === "browser_session") {
+		return "bg-[var(--accent-soft)] text-[var(--accent-strong)]";
+	}
+	return "bg-[var(--neutral-soft)] text-[var(--muted-strong)]";
 }
 
 function providerLabel(provider: string) {

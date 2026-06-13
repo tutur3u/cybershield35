@@ -1,6 +1,8 @@
 import { BrowserUse } from "browser-use-sdk/v3";
 import { z } from "zod";
 
+import { resolveCredential } from "@/lib/runtime/client-runtime";
+
 import type { ProviderAdapter } from "./types";
 
 const browserUseSchema = z.object({
@@ -16,14 +18,17 @@ const browserUseSchema = z.object({
 	),
 });
 
-export const runBrowserUse: ProviderAdapter = async (source) => {
-	const apiKey = process.env.BROWSER_USE_API_KEY;
-	if (!apiKey || process.env.DEMO_MODE === "true") {
+export const runBrowserUse: ProviderAdapter = async (source, runtime) => {
+	const credential = resolveCredential(
+		process.env.BROWSER_USE_API_KEY,
+		runtime?.keys.browserUseApiKey,
+	);
+	if (!credential) {
 		const { runDemoProvider } = await import("./demo");
 		return runDemoProvider(source);
 	}
 
-	const client = new BrowserUse({ apiKey });
+	const client = new BrowserUse({ apiKey: credential.value });
 	const target = source.normalizedUrl ?? source.originalInput;
 	const result = await client.run(
 		`Extract public discussion evidence from ${target}. Return only public, non-sensitive topic discussion excerpts relevant to policy analysis. Do not post or interact beyond reading.`,
@@ -33,6 +38,7 @@ export const runBrowserUse: ProviderAdapter = async (source) => {
 	return {
 		provider: "browser_use",
 		mode: "live",
+		credentialSource: credential.source,
 		raw: { sessionId: result.id, output: result.output },
 		evidence: result.output.items.map((item) => ({
 			sourceUrl: item.url ?? target,

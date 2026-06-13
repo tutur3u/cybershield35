@@ -25,6 +25,7 @@ import {
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/dialogs";
+import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
 import {
 	AnalysisSummary,
 	AuthSummary,
@@ -38,6 +39,7 @@ import type {
 	AuthViewState,
 	DraftShape,
 	EvidenceView,
+	ProviderAvailabilityView,
 	ScanDetail,
 	TopicCluster,
 } from "@/components/dashboard/types";
@@ -55,10 +57,13 @@ export type DashboardPageProps = {
 	topics: TopicCluster[];
 	evidence: EvidenceView;
 	draft: DraftShape;
+	providerAvailability: ProviderAvailabilityView | null;
+	clientRuntimeSummary: ClientRuntimeSummary;
 	onSelectScan: (id: string) => void;
 	onOpenAuth: () => void;
 	onOpenScan: () => void;
 	onOpenDraft: () => void;
+	onOpenTestingKeys: () => void;
 	onRefreshAuth: () => Promise<void>;
 	onLogout: () => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
@@ -134,7 +139,11 @@ export function SourcesPage(props: DashboardPageProps) {
 						<SocialLogoGrid />
 					</div>
 				</Panel>
-				<ProviderStatus />
+				<ProviderStatus
+					availability={props.providerAvailability ?? undefined}
+					clientSummary={props.clientRuntimeSummary}
+					onOpenTestingKeys={props.onOpenTestingKeys}
+				/>
 				<div className="xl:col-span-2">
 					<QueueCard
 						scans={props.scans}
@@ -288,7 +297,11 @@ export function SettingsPage(props: DashboardPageProps) {
 				}
 			/>
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<ProviderStatus />
+				<ProviderStatus
+					availability={props.providerAvailability ?? undefined}
+					clientSummary={props.clientRuntimeSummary}
+					onOpenTestingKeys={props.onOpenTestingKeys}
+				/>
 				<AuthSummary
 					auth={props.auth}
 					onOpenAuth={props.onOpenAuth}

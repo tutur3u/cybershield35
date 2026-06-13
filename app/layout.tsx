@@ -1,7 +1,23 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import Script from "next/script";
 
 import "./globals.css";
+
+const themeBootScript = `
+(function(){
+	try {
+		var preference = localStorage.getItem("cybershield35:theme") || "system";
+		var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+		var resolved = preference === "dark" || (preference === "system" && systemDark) ? "dark" : "light";
+		document.documentElement.dataset.theme = resolved;
+		document.documentElement.dataset.themePreference = preference;
+	} catch (_) {
+		document.documentElement.dataset.theme = "light";
+		document.documentElement.dataset.themePreference = "system";
+	}
+})();
+`;
 
 const beVietnam = Be_Vietnam_Pro({
 	subsets: ["latin", "vietnamese"],
@@ -30,8 +46,19 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="vi" className={`${beVietnam.variable} h-full antialiased`}>
-			<body>{children}</body>
+		<html
+			lang="vi"
+			className={`${beVietnam.variable} h-full antialiased`}
+			suppressHydrationWarning
+		>
+			<body>
+				{children}
+				<Script
+					id="cybershield35-theme-boot"
+					strategy="beforeInteractive"
+					dangerouslySetInnerHTML={{ __html: themeBootScript }}
+				/>
+			</body>
 		</html>
 	);
 }

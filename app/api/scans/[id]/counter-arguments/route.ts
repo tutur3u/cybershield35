@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { demoDraft } from "@/lib/domain/fixtures";
+import {
+	parseClientRuntime,
+	redactRuntimeSecrets,
+} from "@/lib/runtime/client-runtime";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
@@ -12,6 +16,7 @@ const bodySchema = z.object({
 	language: z.string().min(2).default("vi"),
 	length: z.string().min(1).default("medium"),
 	operatorNotes: z.string().optional(),
+	clientRuntime: z.unknown().optional(),
 });
 
 export async function POST(
@@ -25,6 +30,7 @@ export async function POST(
 
 	const { id } = await context.params;
 	const body = bodySchema.parse(await request.json());
+	const runtime = parseClientRuntime(body.clientRuntime);
 
 	if (id.startsWith("demo")) {
 		return Response.json(
@@ -34,7 +40,7 @@ export async function POST(
 	}
 
 	try {
-		const draft = await generateDraftForScan(id, body);
+		const draft = await generateDraftForScan(id, body, runtime);
 		return Response.json(
 			{ draft, mode: "live" },
 			{ status: 201, headers: authHeaders(auth) },
@@ -44,7 +50,10 @@ export async function POST(
 			{
 				draft: demoDraft,
 				mode: "demo",
-				warning: error instanceof Error ? error.message : "Draft fallback used",
+				warning:
+					error instanceof Error
+						? redactRuntimeSecrets(error.message, runtime)
+						: "Draft fallback used",
 			},
 			{ status: 201, headers: authHeaders(auth) },
 		);

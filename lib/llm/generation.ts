@@ -1,8 +1,16 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 
 import { demoAnalysis, demoDraft } from "@/lib/domain/fixtures";
 import type { EvidenceItemRow } from "@/lib/db/schema";
+import {
+	cleanSecret,
+	DEFAULT_GOOGLE_GENERATIVE_AI_MODEL,
+	resolveCredential,
+	type ClientRuntime,
+	type CredentialSource,
+} from "@/lib/runtime/client-runtime";
 
 import {
 	analysisOutputSchema,
@@ -11,23 +19,72 @@ import {
 	type CounterArgumentOutput,
 } from "./schemas";
 
-function getModel() {
-	const apiKey = process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY;
-	if (!apiKey || process.env.DEMO_MODE === "true") return null;
+type LlmRuntime =
+	| {
+			provider: "openai";
+			apiKey: string;
+			model: string;
+			source: "server";
+	  }
+	| {
+			provider: "google";
+			apiKey: string;
+			model: string;
+			source: Exclude<CredentialSource, "demo">;
+	  };
+
+export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
+	const openAiKey = cleanSecret(process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY);
+	if (openAiKey) {
+		return {
+			provider: "openai",
+			apiKey: openAiKey,
+			model: process.env.LLM_MODEL ?? "gpt-4.1-mini",
+			source: "server",
+		};
+	}
+
+	const googleCredential = resolveCredential(
+		process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+		runtime?.keys.googleGenerativeAiApiKey,
+	);
+	if (!googleCredential) return null;
+
+	return {
+		provider: "google",
+		apiKey: googleCredential.value,
+		model:
+			(googleCredential.source === "server"
+				? cleanSecret(process.env.GOOGLE_GENERATIVE_AI_MODEL)
+				: cleanSecret(runtime?.keys.googleGenerativeAiModel)) ??
+			DEFAULT_GOOGLE_GENERATIVE_AI_MODEL,
+		source: googleCredential.source,
+	};
+}
+
+function getModel(runtime?: ClientRuntime) {
+	const resolved = resolveLlmRuntime(runtime);
+	if (!resolved) return null;
+
+	if (resolved.provider === "google") {
+		const provider = createGoogleGenerativeAI({ apiKey: resolved.apiKey });
+		return provider(resolved.model);
+	}
 
 	const provider = createOpenAI({
-		apiKey,
+		apiKey: resolved.apiKey,
 		baseURL: process.env.LLM_BASE_URL,
 		name: process.env.LLM_BASE_URL ? "openai-compatible" : "openai",
 	});
 
-	return provider(process.env.LLM_MODEL ?? "gpt-4.1-mini");
+	return provider(resolved.model);
 }
 
 export async function analyzeEvidence(
 	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary" | "riskLevel">>,
+	runtime?: ClientRuntime,
 ): Promise<AnalysisOutput> {
-	const model = getModel();
+	const model = getModel(runtime);
 	if (!model || evidence.length === 0) return demoAnalysis as AnalysisOutput;
 
 	try {
@@ -54,8 +111,8 @@ export async function generateCounterArgument(options: {
 	language: string;
 	length: string;
 	operatorNotes?: string | null;
-}): Promise<CounterArgumentOutput> {
-	const model = getModel();
+}, runtime?: ClientRuntime): Promise<CounterArgumentOutput> {
+	const model = getModel(runtime);
 	if (!model || options.evidence.length === 0) {
 		return {
 			body: demoDraft.body,

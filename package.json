@@ -14,15 +14,16 @@
   },
   "scripts": {
     "dev": "next dev",
-		"build": "node node_modules/next/dist/bin/next build",
+    "build": "node node_modules/next/dist/bin/next build",
     "start": "next start",
-		"lint": "node node_modules/eslint/bin/eslint.js",
+    "lint": "node node_modules/eslint/bin/eslint.js",
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "worker": "bun scripts/worker.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.82",
     "@ai-sdk/openai": "^3.0.71",
     "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.204",
