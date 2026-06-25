@@ -9,10 +9,12 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { providerRows, queueStats } from "@/components/dashboard/dashboard-data";
+import { providerRows } from "@/components/dashboard/dashboard-data";
 import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
 import type {
+	AnalysisView,
 	AuthViewState,
+	DashboardScan,
 	DraftShape,
 	ProviderAvailabilityView,
 } from "@/components/dashboard/types";
@@ -24,8 +26,6 @@ import {
 	SecondaryButton,
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
-import type { DashboardScan } from "@/lib/domain/fixtures";
-import { demoAnalysis } from "@/lib/domain/fixtures";
 
 export function PageHeader({
 	actions,
@@ -58,14 +58,21 @@ export function PageHeader({
 	);
 }
 
-export function MetricGrid() {
+export function MetricGrid({ scans }: { scans: DashboardScan[] }) {
+	const stats = [
+		{ label: "Đang chờ", value: countScans(scans, "queued"), tone: "neutral" },
+		{ label: "Đang quét", value: countScans(scans, "running"), tone: "warning" },
+		{ label: "Hoàn tất", value: countScans(scans, "completed"), tone: "success" },
+		{ label: "Lỗi", value: countScans(scans, "failed"), tone: "danger" },
+	];
+
 	return (
 		<div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
-			{queueStats.map((stat) => (
+			{stats.map((stat) => (
 				<Panel key={stat.label} className="h-full">
 					<div className="p-4">
 						<p className={`text-[26px] font-bold ${statColor(stat.tone)}`}>
-							{stat.value}
+							{stat.value.toLocaleString("vi-VN")}
 						</p>
 						<p className="mt-1 text-[12px] font-semibold text-[var(--muted)]">
 							{stat.label}
@@ -106,9 +113,7 @@ export function AuthSummary({
 						<p className="truncate text-[13px] font-bold">
 							{authenticated
 								? (auth.session?.user.email ?? auth.session?.user.id)
-								: auth.demoBypass
-									? "Local demo auth bypass đang bật"
-									: "Chưa có phiên riêng tư"}
+								: "Chưa có phiên riêng tư"}
 						</p>
 						<p className="mt-1 truncate text-[11px] opacity-80">
 							{authenticated
@@ -157,34 +162,40 @@ export function QueueCard({
 				description="Chọn một scan để xem phân tích, bằng chứng và bản nháp."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
-				{visible.map((scan) => (
-					<Link
-						key={scan.id}
-						href={`/scans/${scan.id}`}
-						onClick={() => onSelectScan(scan.id)}
-						className={`grid min-h-16 w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_96px_96px] sm:items-center ${
-							selectedScanId === scan.id
-								? "bg-[var(--accent-soft)]"
-								: "hover:bg-[var(--surface-soft)]"
-						}`}
-					>
-						<div className="min-w-0">
-							<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-								{scan.title}
-							</p>
-							<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
-								{scan.sourceLabel} - {providerLabel(scan.provider)}
-							</p>
-						</div>
-						<StatusPill status={scan.status} />
-						<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
-							{scan.progress}%
-							<div className="mt-1">
-								<ProgressBar value={scan.progress} />
+				{visible.length ? (
+					visible.map((scan) => (
+						<Link
+							key={scan.id}
+							href={`/scans/${scan.id}`}
+							onClick={() => onSelectScan(scan.id)}
+							className={`grid min-h-16 w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_96px_96px] sm:items-center ${
+								selectedScanId === scan.id
+									? "bg-[var(--accent-soft)]"
+									: "hover:bg-[var(--surface-soft)]"
+							}`}
+						>
+							<div className="min-w-0">
+								<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
+									{scan.title}
+								</p>
+								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
+									{scan.sourceLabel} - {providerLabel(scan.provider)}
+								</p>
 							</div>
-						</div>
-					</Link>
-				))}
+							<StatusPill status={scan.status} />
+							<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
+								{scan.progress}%
+								<div className="mt-1">
+									<ProgressBar value={scan.progress} />
+								</div>
+							</div>
+						</Link>
+					))
+				) : (
+					<p className="px-4 py-5 text-[12px] font-semibold text-[var(--muted)]">
+						Chưa có scan live. Tạo scan mới để bắt đầu thu thập.
+					</p>
+				)}
 			</div>
 		</Panel>
 	);
@@ -246,7 +257,7 @@ export function AnalysisSummary({
 	analysis,
 	className = "",
 }: {
-	analysis: typeof demoAnalysis;
+	analysis: AnalysisView;
 	className?: string;
 }) {
 	return (
@@ -272,7 +283,7 @@ export function DraftSnapshot({
 	onOpenDraft,
 	scanId,
 }: {
-	draft: DraftShape;
+	draft: DraftShape | null;
 	onOpenDraft: () => void;
 	scanId?: string;
 }) {
@@ -287,21 +298,33 @@ export function DraftSnapshot({
 				}
 			/>
 			<div className="p-4">
-				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
-					{draft.body}
-				</p>
-				<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
-					Trạng thái: {draftStatusLabel(draft.status)}
-				</p>
-				<Link
-					href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
-					className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)]"
-				>
-					Xem chi tiết
-				</Link>
+				{draft ? (
+					<>
+						<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
+							{draft.body}
+						</p>
+						<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
+							Trạng thái: {draftStatusLabel(draft.status)}
+						</p>
+						<Link
+							href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
+							className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)]"
+						>
+							Xem chi tiết
+						</Link>
+					</>
+				) : (
+					<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
+						Chưa có bản nháp live cho scan đang chọn.
+					</p>
+				)}
 			</div>
 		</Panel>
 	);
+}
+
+function countScans(scans: DashboardScan[], status: DashboardScan["status"]) {
+	return scans.filter((scan) => scan.status === status).length;
 }
 
 function statColor(tone: string) {
@@ -311,7 +334,7 @@ function statColor(tone: string) {
 	return "text-[var(--foreground)]";
 }
 
-type ProviderStatusState = "server" | "browser_session" | "demo";
+type ProviderStatusState = "server" | "browser_session" | "missing";
 
 function providerStatus(
 	key: string,
@@ -321,34 +344,34 @@ function providerStatus(
 	if (key === "googleGenerativeAi") {
 		if (availability?.llm) return "server";
 		if (clientSummary?.googleGenerativeAi) return "browser_session";
-		return "demo";
+		return "missing";
 	}
 
 	if (key === "apify") {
 		if (availability?.apify) return "server";
 		if (clientSummary?.apify) return "browser_session";
-		return "demo";
+		return "missing";
 	}
 
 	if (key === "firecrawl") {
 		if (availability?.firecrawl) return "server";
 		if (clientSummary?.firecrawl) return "browser_session";
-		return "demo";
+		return "missing";
 	}
 
 	if (key === "browserUse") {
 		if (availability?.browserUse) return "server";
 		if (clientSummary?.browserUse) return "browser_session";
-		return "demo";
+		return "missing";
 	}
 
-	return "demo";
+	return "missing";
 }
 
 function providerStatusLabel(status: ProviderStatusState) {
 	if (status === "server") return "Server";
 	if (status === "browser_session") return "Browser";
-	return "Demo";
+	return "Missing";
 }
 
 function providerStatusStyle(status: ProviderStatusState) {
@@ -366,7 +389,7 @@ function providerLabel(provider: string) {
 	if (provider.startsWith("firecrawl")) return "Firecrawl";
 	if (provider === "browser_use") return "Browser Use";
 	if (provider === "local_text") return "Local Text";
-	return "Demo";
+	return provider;
 }
 
 function draftStatusLabel(status?: string) {

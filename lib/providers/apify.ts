@@ -19,8 +19,7 @@ export function createApifyAdapter(
 			runtime?.keys.apifyToken,
 		);
 		if (!credential) {
-			const { runDemoProvider } = await import("./demo");
-			return runDemoProvider(source);
+			throw new Error("APIFY_TOKEN is required for Facebook source collection");
 		}
 
 		const client = new ApifyClient({ token: credential.value });

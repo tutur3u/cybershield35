@@ -13,13 +13,13 @@ import { useRef, useState } from "react";
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import {
 	composerOptions,
-	providerRows,
 	sourceTabs,
 	type SourceTab,
 } from "@/components/dashboard/dashboard-data";
 import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 import type { AdminSessionView, AuthViewState } from "@/components/dashboard/types";
 import { FieldLabel, PrimaryButton } from "@/components/dashboard/ui-primitives";
+import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 
 export { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 
@@ -68,11 +68,7 @@ export function AuthDialog({
 			open={open}
 			onClose={onClose}
 			title="Xác thực Tuturuuu"
-			description={
-				auth.demoBypass
-					? "Local demo bypass đang bật; token thật chỉ cần khi kiểm thử server riêng."
-					: "Dán short app token do Tuturuuu external app cấp cho phiên quản trị."
-			}
+			description="Dán short app token do Tuturuuu external app cấp cho phiên quản trị."
 		>
 			<div className="space-y-4">
 				<label className="block text-[12px] font-bold text-[var(--muted-strong)]">
@@ -115,10 +111,17 @@ export function ScanDialog(props: {
 	setManualText: (value: string) => void;
 	selectedFile: File | null;
 	setSelectedFile: (file: File | null) => void;
+	providerOverride?: ScanProviderOverride;
+	setProviderOverride: (provider?: ScanProviderOverride) => void;
 	isCreating: boolean;
 	onCreate: () => Promise<boolean>;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	function selectInputMode(mode: SourceTab) {
+		props.setInputMode(mode);
+		if (mode !== "url") props.setProviderOverride(undefined);
+	}
 
 	async function createAndClose() {
 		const created = await props.onCreate();
@@ -140,7 +143,7 @@ export function ScanDialog(props: {
 							<button
 								type="button"
 								key={tab.id}
-								onClick={() => props.setInputMode(tab.id)}
+								onClick={() => selectInputMode(tab.id)}
 								className={`h-10 rounded-[5px] text-[12px] font-bold transition ${
 									props.inputMode === tab.id
 										? "bg-[var(--surface)] text-[var(--brand)] shadow-sm"
@@ -223,24 +226,27 @@ export function ScanDialog(props: {
 					<p className="text-[13px] font-bold text-[var(--foreground)]">
 						Nhà cung cấp thu thập
 					</p>
-					{providerRows.map((provider) => (
-						<div
-							key={provider.label}
-							className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3"
-						>
-							<div className="flex items-center justify-between gap-3">
-								<p className="min-w-0 truncate text-[12px] font-bold text-[var(--foreground)]">
-									{provider.label}
-								</p>
-								<span className="inline-flex h-6 min-w-14 shrink-0 items-center justify-center rounded-md bg-[var(--success-soft)] px-2 text-center text-[10px] font-bold leading-none text-[var(--success-strong)]">
-									Hybrid
-								</span>
-							</div>
-							<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
-								{provider.helper}
-							</p>
-						</div>
-					))}
+					<div
+						className="space-y-2"
+						role="radiogroup"
+						aria-label="Nhà cung cấp thu thập"
+					>
+						<ProviderChoiceButton
+							active={!props.providerOverride}
+							label="Tự động"
+							badge="Mặc định"
+							helper={autoProviderHelper(props.inputMode)}
+							onClick={() => props.setProviderOverride(undefined)}
+						/>
+						<ProviderChoiceButton
+							active={props.providerOverride === "browser_use"}
+							disabled={props.inputMode !== "url"}
+							label="Browser Use"
+							badge="URL"
+							helper="Điều khiển trình duyệt cloud cho trang động hoặc khó scrape."
+							onClick={() => props.setProviderOverride("browser_use")}
+						/>
+					</div>
 					<PrimaryButton disabled={props.isCreating} onClick={createAndClose}>
 						<Play size={16} />
 						{props.isCreating ? "Đang tạo scan" : "Run scan"}
@@ -249,6 +255,54 @@ export function ScanDialog(props: {
 			</div>
 		</Dialog>
 	);
+}
+
+function ProviderChoiceButton({
+	active,
+	badge,
+	disabled,
+	helper,
+	label,
+	onClick,
+}: {
+	active: boolean;
+	badge: string;
+	disabled?: boolean;
+	helper: string;
+	label: string;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			role="radio"
+			aria-checked={active}
+			disabled={disabled}
+			onClick={onClick}
+			className={`w-full rounded-md border p-3 text-left transition ${
+				active
+					? "border-[var(--accent)] bg-[var(--accent-soft)]"
+					: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
+			} ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
+		>
+			<div className="flex items-center justify-between gap-3">
+				<p className="min-w-0 truncate text-[12px] font-bold text-[var(--foreground)]">
+					{label}
+				</p>
+				<span className="inline-flex h-6 min-w-14 shrink-0 items-center justify-center rounded-md bg-[var(--surface)] px-2 text-center text-[10px] font-bold leading-none text-[var(--muted-strong)]">
+					{badge}
+				</span>
+			</div>
+			<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">{helper}</p>
+		</button>
+	);
+}
+
+function autoProviderHelper(inputMode: SourceTab) {
+	if (inputMode === "file")
+		return "Tệp dùng parser tài liệu hoặc phân tích văn bản cục bộ.";
+	if (inputMode === "text") return "Văn bản thủ công dùng phân tích cục bộ.";
+	return "Facebook dùng Apify; website dùng Firecrawl theo nhận diện nguồn.";
 }
 
 export function CounterArgumentDialog(props: {

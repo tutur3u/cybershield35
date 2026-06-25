@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const DEFAULT_GOOGLE_GENERATIVE_AI_MODEL = "gemini-2.5-flash";
 
-export const credentialSourceSchema = z.enum(["server", "browser_session", "demo"]);
+export const credentialSourceSchema = z.enum(["server", "browser_session", "none"]);
 
 export const clientRuntimeKeysSchema = z
 	.object({
@@ -55,7 +55,7 @@ export function hasClientRuntimeKeys(runtime?: ClientRuntime | null) {
 export function resolveCredential(
 	serverValue: string | undefined,
 	clientValue: string | undefined,
-): { value: string; source: Exclude<CredentialSource, "demo"> } | null {
+): { value: string; source: Exclude<CredentialSource, "none"> } | null {
 	const server = cleanSecret(serverValue);
 	if (server) return { value: server, source: "server" };
 
@@ -66,7 +66,7 @@ export function resolveCredential(
 }
 
 export function runtimeMode(runtime?: ClientRuntime | null) {
-	return hasClientRuntimeKeys(runtime) ? "browser_session" : "server_or_demo";
+	return hasClientRuntimeKeys(runtime) ? "browser_session" : "server";
 }
 
 export function runtimeKeySummary(runtime?: ClientRuntime | null) {

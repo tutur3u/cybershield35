@@ -5,12 +5,13 @@ import type {
 	AdminSessionView,
 	AuthViewState,
 	ChatMessage,
+	DashboardScan,
 	DraftShape,
 	TrackedSourceView,
 } from "@/components/dashboard/types";
 import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
+import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
-import type { DashboardScan } from "@/lib/domain/fixtures";
 import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 
 export function onSessionVerified(
@@ -55,6 +56,7 @@ export async function createScan(options: {
 	urlInput: string;
 	manualText: string;
 	selectedFile: File | null;
+	providerOverride?: ScanProviderOverride;
 	clientRuntime?: ClientRuntime;
 	setIsCreating: (value: boolean) => void;
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
@@ -237,33 +239,15 @@ export async function sendChatMessage(options: {
 			role: "assistant",
 			content: payload.reply.content,
 			createdAt: new Date().toISOString(),
-			mode: payload.reply.mode ?? "demo",
+			mode: "live",
 		};
 
 		options.setMessages((current) => [...current, assistantMessage]);
-		options.setNotice(
-			payload.reply.mode === "live"
-				? "LLM đã phản hồi bằng provider đang cấu hình."
-				: "LLM đang phản hồi bằng chế độ demo.",
-		);
+		options.setNotice("LLM đã phản hồi bằng provider đang cấu hình.");
 		return true;
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "Không thể gửi tin nhắn chat.";
-		options.setMessages((current) => [
-			...current,
-			{
-				id: `chat-error-${Date.now()}`,
-				role: "assistant",
-				content: [
-					"Chat đang dùng phản hồi demo vì phiên hiện tại chưa thể gọi API LLM.",
-					message,
-					"Bạn vẫn có thể kiểm tra luồng giao diện; để chạy live, hãy xác thực Tuturuuu hoặc thêm khóa kiểm thử trong Cấu hình.",
-				].join("\n\n"),
-				createdAt: new Date().toISOString(),
-				mode: "demo",
-			},
-		]);
 		options.setNotice(message);
 		return true;
 	} finally {
@@ -276,6 +260,7 @@ async function postScan(options: {
 	urlInput: string;
 	manualText: string;
 	selectedFile: File | null;
+	providerOverride?: ScanProviderOverride;
 	clientRuntime?: ClientRuntime;
 }) {
 	if (options.inputMode === "file" && options.selectedFile) {
@@ -295,13 +280,20 @@ async function postScan(options: {
 		body: JSON.stringify({
 			input,
 			title: options.inputMode === "text" ? "Văn bản nhập thủ công" : undefined,
+			providerOverride:
+				options.inputMode === "url" ? options.providerOverride : undefined,
 			clientRuntime: options.clientRuntime,
 		}),
 	});
 }
 
 function buildPendingScan(
-	options: { inputMode: SourceTab; urlInput: string; selectedFile: File | null },
+	options: {
+		inputMode: SourceTab;
+		urlInput: string;
+		selectedFile: File | null;
+		providerOverride?: ScanProviderOverride;
+	},
 	scanId: string,
 	status: ScanStatus,
 ): DashboardScan {
@@ -356,9 +348,11 @@ function providerForPendingScan(options: {
 	inputMode: SourceTab;
 	urlInput: string;
 	selectedFile: File | null;
+	providerOverride?: ScanProviderOverride;
 }): ProviderName {
 	if (options.inputMode === "file") return "local_text";
 	if (options.inputMode === "text") return "local_text";
+	if (options.providerOverride) return options.providerOverride;
 	return detectSource(options.urlInput).provider;
 }
 

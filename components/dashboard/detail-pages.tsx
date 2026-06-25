@@ -16,6 +16,7 @@ import {
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
 import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages";
+import type { DraftShape } from "@/components/dashboard/types";
 import { AnalysisSummary, PageHeader } from "@/components/dashboard/page-widgets";
 import {
 	Panel,
@@ -57,7 +58,7 @@ export function ScanDetailsPage(
 						analysis={props.analysis}
 					/>
 					<ProviderRunPanel detail={props.detail} />
-					<AuditTimeline detail={props.detail} createdAt={props.selectedScan?.createdAt} />
+					<AuditTimeline detail={props.detail} />
 				</div>
 				<div className="space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
@@ -139,7 +140,7 @@ export function EvidenceDetailsPage(
 export function DraftDetailsPage(props: DashboardPageProps & { draftId?: string }) {
 	const draft =
 		props.detail?.drafts?.find((item) => item.id === props.draftId) ?? props.draft;
-	const draftShape = { ...props.draft, ...draft };
+	const draftShape = toDraftShape(draft, props.draft);
 
 	return (
 		<div className="space-y-5">
@@ -167,11 +168,21 @@ export function DraftDetailsPage(props: DashboardPageProps & { draftId?: string 
 	);
 }
 
+function toDraftShape(
+	draft: Partial<DraftShape> | null | undefined,
+	fallback: DraftShape | null,
+): DraftShape | null {
+	const id = draft?.id ?? fallback?.id;
+	const body = draft?.body ?? fallback?.body;
+	if (!id || !body) return null;
+	return { ...fallback, ...draft, id, body };
+}
+
 function ScanStatusStrip(props: DashboardPageProps) {
 	return (
 		<div className="grid gap-3 md:grid-cols-4">
 			<MiniMetric label="Trạng thái" value={<StatusPill status={props.selectedScan?.status ?? "queued"} />} />
-			<MiniMetric label="Provider" value={providerLabel(props.selectedScan?.provider ?? "demo")} />
+			<MiniMetric label="Provider" value={providerLabel(props.selectedScan?.provider ?? "none")} />
 			<MiniMetric label="Mức rủi ro" value={<RiskPill risk={props.analysis.riskLevel} />} />
 			<MiniMetric label="Bằng chứng" value={props.evidence.length.toLocaleString("vi-VN")} />
 		</div>
@@ -206,35 +217,32 @@ function ProviderRunPanel({ detail }: Pick<DashboardPageProps, "detail">) {
 	);
 }
 
-function AuditTimeline({
-	createdAt,
-	detail,
-}: Pick<DashboardPageProps, "detail"> & { createdAt?: string }) {
-	const events = detail?.audit?.length
-		? detail.audit
-		: [
-				{ id: "audit-source", action: "source_registered", createdAt },
-				{ id: "audit-provider", action: "provider_selected", createdAt },
-				{ id: "audit-review", action: "human_review_required", createdAt },
-			];
+function AuditTimeline({ detail }: Pick<DashboardPageProps, "detail">) {
+	const events = detail?.audit ?? [];
 
 	return (
 		<Panel>
 			<PanelHeader title="Nhật ký scan" />
 			<div className="divide-y divide-[var(--divider)] p-4">
-				{events.map((event) => (
-					<div key={event.id ?? event.action} className="flex gap-3 py-3">
-						<Clock3 className="mt-0.5 shrink-0 text-[var(--muted)]" size={15} />
-						<div className="min-w-0">
-							<p className="text-[13px] font-bold text-[var(--foreground)]">
-								{event.action ?? "activity"}
-							</p>
-							<p className="mt-1 text-[11px] text-[var(--muted)]">
-								{formatTime(event.createdAt)}
-							</p>
+				{events.length ? (
+					events.map((event) => (
+						<div key={event.id ?? event.action} className="flex gap-3 py-3">
+							<Clock3 className="mt-0.5 shrink-0 text-[var(--muted)]" size={15} />
+							<div className="min-w-0">
+								<p className="text-[13px] font-bold text-[var(--foreground)]">
+									{event.action ?? "activity"}
+								</p>
+								<p className="mt-1 text-[11px] text-[var(--muted)]">
+									{formatTime(event.createdAt)}
+								</p>
+							</div>
 						</div>
-					</div>
-				))}
+					))
+				) : (
+					<p className="py-3 text-[12px] font-semibold text-[var(--muted)]">
+						Chưa có nhật ký scan.
+					</p>
+				)}
 			</div>
 		</Panel>
 	);
@@ -295,12 +303,12 @@ function DraftMetaPanel({ draft }: { draft: DashboardPageProps["draft"] }) {
 			<div className="space-y-4 p-4">
 				<DetailGrid
 					rows={[
-						["Draft ID", draft.id],
-						["Tone", draft.tone ?? "Chưa đặt"],
-						["Audience", draft.audience ?? "Chưa đặt"],
-						["Language", draft.language ?? "vi"],
-						["Length", draft.length ?? "medium"],
-						["Created", formatTime(draft.createdAt)],
+						["Draft ID", draft?.id ?? "Chưa có"],
+						["Tone", draft?.tone ?? "Chưa đặt"],
+						["Audience", draft?.audience ?? "Chưa đặt"],
+						["Language", draft?.language ?? "vi"],
+						["Length", draft?.length ?? "medium"],
+						["Created", formatTime(draft?.createdAt)],
 					]}
 				/>
 				<p className="flex items-center gap-2 text-[11px] font-semibold text-[var(--muted)]">
@@ -357,11 +365,11 @@ function providerLabel(provider: string) {
 	if (provider.startsWith("firecrawl")) return "Firecrawl";
 	if (provider === "browser_use") return "Browser Use";
 	if (provider === "local_text") return "Local Text";
-	return "Demo";
+	return provider;
 }
 
 function formatTime(value?: unknown) {
-	if (!value) return "10:12 AM";
+	if (!value) return "Chưa có thời gian";
 	return new Intl.DateTimeFormat("vi-VN", {
 		hour: "2-digit",
 		minute: "2-digit",

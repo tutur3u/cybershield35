@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
-	allowUnauthenticatedDemo,
 	createSessionCookie,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
@@ -59,15 +58,13 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(safe.user.email).toBe("admin@example.com");
 	});
 
-	test("auth configuration and demo bypass are explicit", () => {
+	test("auth configuration requires Tuturuuu production credentials", () => {
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
 		process.env.CYBERSHIELD35_APP_SECRET = "secret";
 		expect(isTuturuuuAuthConfigured()).toBe(true);
 
-		process.env.DEMO_MODE = "true";
-		process.env.AUTH_DEMO_BYPASS = "true";
-		expect(allowUnauthenticatedDemo()).toBe(false);
+		expect(isTuturuuuAuthConfigured()).toBe(true);
 	});
 });

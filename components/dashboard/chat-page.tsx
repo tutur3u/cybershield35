@@ -146,7 +146,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 					{message.content}
 				</p>
 				<p className="mt-2 text-[10px] font-semibold uppercase text-[var(--muted)]">
-					{assistant ? `LLM ${message.mode ?? "demo"}` : "Người vận hành"} -{" "}
+					{assistant ? `LLM ${message.mode ?? "live"}` : "Người vận hành"} -{" "}
 					{formatMessageTime(message.createdAt)}
 				</p>
 			</div>

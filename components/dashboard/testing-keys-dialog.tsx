@@ -120,8 +120,8 @@ export function TestingKeysDialog({
 				<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3 text-[12px] leading-5 text-[var(--muted-strong)]">
 					<p className="font-bold text-[var(--foreground)]">Luồng ưu tiên</p>
 					<p className="mt-1">
-						Server key, rồi browser-session key, cuối cùng là fixture demo nếu thiếu
-						khóa hiệu lực.
+						Server key được ưu tiên; browser-session key chỉ dùng khi server chưa
+						cấu hình khóa tương ứng.
 					</p>
 				</div>
 			</div>

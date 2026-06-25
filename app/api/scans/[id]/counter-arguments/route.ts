@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { demoDraft } from "@/lib/domain/fixtures";
 import {
 	parseClientRuntime,
 	redactRuntimeSecrets,
@@ -32,13 +31,6 @@ export async function POST(
 	const body = bodySchema.parse(await request.json());
 	const runtime = parseClientRuntime(body.clientRuntime);
 
-	if (id.startsWith("demo")) {
-		return Response.json(
-			{ draft: demoDraft, mode: "demo" },
-			{ status: 201, headers: authHeaders(auth) },
-		);
-	}
-
 	try {
 		const draft = await generateDraftForScan(id, body, runtime);
 		return Response.json(
@@ -48,14 +40,12 @@ export async function POST(
 	} catch (error) {
 		return Response.json(
 			{
-				draft: demoDraft,
-				mode: "demo",
-				warning:
+				error:
 					error instanceof Error
 						? redactRuntimeSecrets(error.message, runtime)
-						: "Draft fallback used",
+						: "Failed to generate draft",
 			},
-			{ status: 201, headers: authHeaders(auth) },
+			{ status: 500, headers: authHeaders(auth) },
 		);
 	}
 }

@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { demoDraft } from "@/lib/domain/fixtures";
 import { reviewDraft } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
@@ -22,16 +21,6 @@ export async function POST(
 	const { id } = await context.params;
 	const { status } = bodySchema.parse(await request.json());
 
-	if (id.startsWith("draft-demo")) {
-		return Response.json(
-			{
-				draft: { ...demoDraft, status },
-				mode: "demo",
-			},
-			{ headers: authHeaders(auth) },
-		);
-	}
-
 	try {
 		const draft = await reviewDraft(id, status);
 		if (!draft) return Response.json({ error: "Draft not found" }, { status: 404 });
@@ -39,11 +28,9 @@ export async function POST(
 	} catch (error) {
 		return Response.json(
 			{
-				draft: { ...demoDraft, status },
-				mode: "demo",
-				warning: error instanceof Error ? error.message : "Review fallback used",
+				error: error instanceof Error ? error.message : "Failed to review draft",
 			},
-			{ headers: authHeaders(auth) },
+			{ status: 500, headers: authHeaders(auth) },
 		);
 	}
 }

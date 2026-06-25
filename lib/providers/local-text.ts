@@ -6,8 +6,8 @@ export const runLocalText: ProviderAdapter = async (source) => {
 
 	return {
 		provider: source.type === "file" ? "local_text" : "local_text",
-		mode: "demo",
-		credentialSource: "demo",
+		mode: "live",
+		credentialSource: "none",
 		raw: {
 			source: source.fileName ?? "manual-text",
 			length: text.length,

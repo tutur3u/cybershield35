@@ -24,8 +24,7 @@ export const runBrowserUse: ProviderAdapter = async (source, runtime) => {
 		runtime?.keys.browserUseApiKey,
 	);
 	if (!credential) {
-		const { runDemoProvider } = await import("./demo");
-		return runDemoProvider(source);
+		throw new Error("BROWSER_USE_API_KEY is required for Browser Use scans");
 	}
 
 	const client = new BrowserUse({ apiKey: credential.value });
@@ -34,13 +33,18 @@ export const runBrowserUse: ProviderAdapter = async (source, runtime) => {
 		`Extract public discussion evidence from ${target}. Return only public, non-sensitive topic discussion excerpts relevant to policy analysis. Do not post or interact beyond reading.`,
 		{ schema: browserUseSchema, timeout: 180_000 },
 	);
+	const items = result.output.items;
+
+	if (items.length === 0) {
+		throw new Error("Browser Use returned no evidence for the URL");
+	}
 
 	return {
 		provider: "browser_use",
 		mode: "live",
 		credentialSource: credential.source,
 		raw: { sessionId: result.id, output: result.output },
-		evidence: result.output.items.map((item) => ({
+		evidence: items.map((item) => ({
 			sourceUrl: item.url ?? target,
 			sourceLabel: item.sourceLabel ?? "Social source",
 			author: null,

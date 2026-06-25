@@ -3,7 +3,6 @@ import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 
 import { createApifyAdapter } from "./apify";
 import { runBrowserUse } from "./browser-use";
-import { runDemoProvider } from "./demo";
 import { runFirecrawl, runFirecrawlParse } from "./firecrawl";
 import { runLocalText } from "./local-text";
 import type { ProviderResult } from "./types";
@@ -26,9 +25,8 @@ export async function runProvider(
 			return runBrowserUse(source, runtime);
 		case "local_text":
 			return runLocalText(source);
-		case "demo":
 		default:
-			return runDemoProvider(source);
+			throw new Error(`Provider ${provider} is not available in production`);
 	}
 }
 
@@ -46,6 +44,5 @@ export function getProviderAvailability() {
 		openai: openAiConfigured,
 		googleGenerativeAi: googleConfigured,
 		llm: openAiConfigured || googleConfigured,
-		demoMode: process.env.DEMO_MODE === "true",
 	};
 }

@@ -49,14 +49,6 @@ export function isTuturuuuAuthConfigured() {
 	);
 }
 
-export function allowUnauthenticatedDemo() {
-	return (
-		process.env.DEMO_MODE === "true" &&
-		process.env.AUTH_DEMO_BYPASS === "true" &&
-		!isTuturuuuAuthConfigured()
-	);
-}
-
 export function getRequestedScopes() {
 	return (
 		process.env.CYBERSHIELD35_REQUESTED_SCOPES?.split(",")

@@ -16,7 +16,10 @@ import {
 	type ScanStatus,
 	type SourceType,
 } from "@/lib/db/schema";
-import { demoAnalysis, demoDraft, demoEvidence, demoScans } from "@/lib/domain/fixtures";
+import {
+	resolveScanProvider,
+	type ScanProviderOverride,
+} from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
 import { analyzeEvidence, generateCounterArgument } from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
@@ -42,6 +45,7 @@ export type CreateScanInput = {
 	mimeType?: string;
 	fileText?: string;
 	title?: string;
+	providerOverride?: ScanProviderOverride;
 };
 
 export async function createScan(input: CreateScanInput, runtime?: ClientRuntime) {
@@ -49,6 +53,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 		fileName: input.fileName,
 		mimeType: input.mimeType,
 	});
+	const provider = resolveScanProvider(detection, input.providerOverride);
 
 	const [source] = await adminDb
 		.insert(sources)
@@ -73,7 +78,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 		.insert(scanJobs)
 		.values({
 			sourceId: source.id,
-			provider: detection.provider,
+			provider,
 			status: "queued",
 			priority: detection.type.startsWith("facebook") ? 5 : 1,
 		})
@@ -436,38 +441,6 @@ export async function heartbeat(serviceName = "worker") {
 				metadata: { pid: process.pid, updatedAt: new Date().toISOString() },
 			},
 		});
-}
-
-export function demoScanDetail() {
-	const scan = demoScans[0] ?? {
-		createdAt: new Date().toISOString(),
-		id: "demo-scan-1",
-		provider: "demo" as const,
-		sourceType: "text" as const,
-		status: "queued" as const,
-		title: "Văn bản nhập thủ công",
-	};
-
-	return {
-		job: {
-			id: scan.id,
-			status: scan.status,
-			provider: scan.provider,
-			createdAt: new Date(scan.createdAt),
-		},
-		source: {
-			id: "demo-source",
-			type: scan.sourceType,
-			title: scan.title,
-			normalizedUrl: "https://facebook.com/example/posts/1",
-			createdAt: new Date(scan.createdAt),
-		},
-		analysis: demoAnalysis,
-		evidence: demoEvidence,
-		drafts: [demoDraft],
-		providerRuns: [],
-		audit: [],
-	};
 }
 
 async function claimNextJob() {
