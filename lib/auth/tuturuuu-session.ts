@@ -44,8 +44,7 @@ export function isTuturuuuAuthConfigured() {
 		process.env.TUTURUUU_API_BASE_URL &&
 			process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID &&
 			process.env.CYBERSHIELD35_APP_ID &&
-			process.env.CYBERSHIELD35_APP_SECRET &&
-			process.env.CYBERSHIELD35_SESSION_SECRET,
+			process.env.CYBERSHIELD35_APP_SECRET,
 	);
 }
 
@@ -268,11 +267,15 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 }
 
 function getSessionKey() {
-	const secret = process.env.CYBERSHIELD35_SESSION_SECRET;
-	if (!secret || secret.length < 32) {
-		throw new AuthError("CYBERSHIELD35_SESSION_SECRET must be at least 32 characters", 503);
+	const secret =
+		process.env.CYBERSHIELD35_SESSION_SECRET ?? process.env.CYBERSHIELD35_APP_SECRET;
+	if (!secret?.trim()) {
+		throw new AuthError(
+			"CYBERSHIELD35_SESSION_SECRET or CYBERSHIELD35_APP_SECRET is required",
+			503,
+		);
 	}
-	return createHash("sha256").update(secret).digest();
+	return createHash("sha256").update(secret.trim()).digest();
 }
 
 function buildExchangeUrl(apiBaseUrl: string) {

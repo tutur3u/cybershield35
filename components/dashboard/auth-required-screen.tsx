@@ -11,7 +11,6 @@ const authEnvVars = [
 	"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
 	"CYBERSHIELD35_APP_ID",
 	"CYBERSHIELD35_APP_SECRET",
-	"CYBERSHIELD35_SESSION_SECRET",
 ];
 
 const providerEnvVars = [
@@ -75,7 +74,7 @@ export function AuthRequiredScreen({
 						<SetupCard
 							icon={Server}
 							title="Tuturuuu Auth"
-							description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret dưới đây cho Production và Preview rồi redeploy."
+							description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret bắt buộc dưới đây cho Production và Preview rồi redeploy."
 							items={authEnvVars}
 						/>
 						<SetupCard
@@ -84,6 +83,24 @@ export function AuthRequiredScreen({
 							description="Các provider, LLM và Postgres cũng phải được cấu hình trên server. Không nhập secret trong trình duyệt."
 							items={providerEnvVars}
 						/>
+					</div>
+
+					<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+						<p className="text-[13px] font-bold text-[var(--foreground)]">
+							Optional session key
+						</p>
+						<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+							Có thể đặt{" "}
+							<code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]">
+								CYBERSHIELD35_SESSION_SECRET
+							</code>{" "}
+							để tách khóa mã hóa cookie khỏi app secret. Nếu bỏ trống, app
+							dùng{" "}
+							<code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]">
+								CYBERSHIELD35_APP_SECRET
+							</code>{" "}
+							giống Yashie.
+						</p>
 					</div>
 
 					<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">

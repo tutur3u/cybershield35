@@ -68,6 +68,30 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(isTuturuuuAuthConfigured()).toBe(true);
 	});
 
+	test("auth configuration does not require a dedicated session secret", () => {
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret-fallback";
+		delete process.env.CYBERSHIELD35_SESSION_SECRET;
+
+		expect(isTuturuuuAuthConfigured()).toBe(true);
+	});
+
+	test("falls back to the app secret for encrypted session cookies", async () => {
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret-fallback";
+		delete process.env.CYBERSHIELD35_SESSION_SECRET;
+
+		const cookie = createSessionCookie(session());
+		const request = new Request("http://localhost", {
+			headers: { cookie },
+		});
+
+		const restored = await readAdminSession(request);
+		expect(restored?.accessToken).toBe("ttr_app_access_secret");
+		expect(restored?.refreshToken).toBe("ttr_app_refresh_secret");
+	});
+
 	test("local auth bypass only works outside production on localhost", () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
