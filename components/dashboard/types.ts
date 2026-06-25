@@ -2,7 +2,10 @@ import type {
 	CounterArgumentDraftRow,
 	DraftStatus,
 	EvidenceItemRow,
+	ProviderName,
 	RiskLevel,
+	ScanStatus,
+	SourceType,
 } from "@/lib/db/schema";
 import type { demoAnalysis } from "@/lib/domain/fixtures";
 
@@ -98,6 +101,21 @@ export type ProviderAvailabilityView = {
 	googleGenerativeAi?: boolean;
 	llm?: boolean;
 	demoMode?: boolean;
+};
+
+export type TrackedSourceView = {
+	id: string;
+	displayName: string;
+	normalizedUrl: string;
+	type: SourceType;
+	provider: ProviderName;
+	isActive: boolean;
+	lastScanJobId?: string | null;
+	lastScanStatus?: ScanStatus | null;
+	lastScannedAt?: string | Date | null;
+	metadata?: Record<string, unknown>;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
 };
 
 export type ReportKind = "executive" | "evidence" | "operations";

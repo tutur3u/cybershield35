@@ -22,6 +22,7 @@ import {
 	refreshSession,
 	reviewDraft,
 	sendChatMessage,
+	scanTrackedSource,
 } from "@/components/dashboard/client-actions";
 import { composerOptions, type SourceTab } from "@/components/dashboard/dashboard-data";
 import {
@@ -53,6 +54,7 @@ import type {
 	ProviderAvailabilityView,
 	ReportSpec,
 	ScanDetail,
+	TrackedSourceView,
 	TopicCluster,
 } from "@/components/dashboard/types";
 import {
@@ -80,6 +82,7 @@ export function CyberShieldDashboard({
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [operatorNotes, setOperatorNotes] = useState("");
 	const [scans, setScans] = useState<DashboardScan[]>(demoScans);
+	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>([]);
 	const [selectedScanId, setSelectedScanId] = useState(
 		scanId ?? demoScans[0]?.id ?? "demo-scan-1",
 	);
@@ -180,6 +183,14 @@ export function CyberShieldDashboard({
 			})
 			.catch(() => setProviderAvailability(null));
 
+		fetch("/api/tracked-sources", { cache: "no-store" })
+			.then((response) => response.json())
+			.then((payload: { trackedSources?: TrackedSourceView[] }) => {
+				if (!alive || !payload.trackedSources) return;
+				setTrackedSources(payload.trackedSources);
+			})
+			.catch(() => setTrackedSources([]));
+
 		return () => {
 			alive = false;
 		};
@@ -215,6 +226,8 @@ export function CyberShieldDashboard({
 		clientRuntimeSummary,
 		chatMessages,
 		isChatting,
+		isCreating,
+		trackedSources,
 		onSelectScan: setSelectedScanId,
 		onOpenAuth: () => setAuthDialogOpen(true),
 		onOpenScan: () => setScanDialogOpen(true),
@@ -228,6 +241,16 @@ export function CyberShieldDashboard({
 			setSelectedReport(report);
 			setReportDialogOpen(true);
 		},
+		onScanTrackedSource: (trackedSource) =>
+			scanTrackedSource({
+				trackedSource,
+				clientRuntime: runtimeForRequest(clientRuntime),
+				setIsCreating,
+				setTrackedSources,
+				setScans,
+				setSelectedScanId,
+				setNotice,
+			}).then(() => undefined),
 		onRefreshAuth: () => refreshSession(setAuth, setNotice),
 		onLogout: () => logout(setAuth, setNotice),
 		onReview: (status) => reviewDraft({ draft, status, setDraft, setNotice }),

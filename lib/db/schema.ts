@@ -1,4 +1,5 @@
 import {
+	boolean,
 	index,
 	integer,
 	jsonb,
@@ -86,6 +87,31 @@ export const scanJobs = pgTable(
 	(table) => [
 		index("scan_jobs_queue_idx").on(table.status, table.scheduledAt, table.priority),
 		index("scan_jobs_source_idx").on(table.sourceId),
+	],
+);
+
+export const trackedSources = pgTable(
+	"tracked_sources",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		displayName: text("display_name").notNull(),
+		normalizedUrl: text("normalized_url").notNull(),
+		type: sourceTypeEnum("type").notNull(),
+		provider: providerNameEnum("provider").notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
+		lastScanJobId: uuid("last_scan_job_id").references(() => scanJobs.id, {
+			onDelete: "set null",
+		}),
+		lastScanStatus: scanStatusEnum("last_scan_status"),
+		lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("tracked_sources_url_unique").on(table.normalizedUrl),
+		index("tracked_sources_active_idx").on(table.isActive, table.updatedAt),
+		index("tracked_sources_last_scan_idx").on(table.lastScanJobId),
 	],
 );
 
@@ -209,6 +235,7 @@ export type DraftStatus = (typeof draftStatusEnum.enumValues)[number];
 export type SourceRow = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type ScanJobRow = typeof scanJobs.$inferSelect;
+export type TrackedSourceRow = typeof trackedSources.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;
 export type CounterArgumentDraftRow = typeof counterArgumentDrafts.$inferSelect;

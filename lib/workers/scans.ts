@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 
-import { db, sqlClient } from "@/lib/db/client";
+import { adminDb, adminSqlClient } from "@/lib/db/client";
 import {
 	analyses,
 	auditEvents,
@@ -10,6 +10,7 @@ import {
 	providerRuns,
 	scanJobs,
 	sources,
+	trackedSources,
 	type DraftStatus,
 	type ProviderName,
 	type ScanStatus,
@@ -49,7 +50,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 		mimeType: input.mimeType,
 	});
 
-	const [source] = await db
+	const [source] = await adminDb
 		.insert(sources)
 		.values({
 			type: detection.type,
@@ -68,7 +69,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 
 	if (!source) throw new Error("Failed to create source");
 
-	const [job] = await db
+	const [job] = await adminDb
 		.insert(scanJobs)
 		.values({
 			sourceId: source.id,
@@ -89,7 +90,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 
 	if (hasClientRuntimeKeys(runtime)) {
 		const result = await processScanJobNow(job.id, runtime);
-		const [updatedJob] = await db
+		const [updatedJob] = await adminDb
 			.select({ status: scanJobs.status })
 			.from(scanJobs)
 			.where(eq(scanJobs.id, job.id))
@@ -105,7 +106,7 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 }
 
 export async function listScans() {
-	const rows = await db
+	const rows = await adminDb
 		.select({
 			id: scanJobs.id,
 			status: scanJobs.status,
@@ -137,7 +138,7 @@ export async function listScans() {
 }
 
 export async function getScanDetail(id: string) {
-	const rows = await db
+	const rows = await adminDb
 		.select()
 		.from(scanJobs)
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
@@ -147,27 +148,27 @@ export async function getScanDetail(id: string) {
 	const row = rows[0];
 	if (!row) return null;
 
-	const [analysis] = await db
+	const [analysis] = await adminDb
 		.select()
 		.from(analyses)
 		.where(eq(analyses.scanJobId, id))
 		.limit(1);
-	const evidence = await db
+	const evidence = await adminDb
 		.select()
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, id))
 		.orderBy(desc(evidenceItems.createdAt));
-	const drafts = await db
+	const drafts = await adminDb
 		.select()
 		.from(counterArgumentDrafts)
 		.where(eq(counterArgumentDrafts.scanJobId, id))
 		.orderBy(desc(counterArgumentDrafts.createdAt));
-	const runs = await db
+	const runs = await adminDb
 		.select()
 		.from(providerRuns)
 		.where(eq(providerRuns.scanJobId, id))
 		.orderBy(desc(providerRuns.startedAt));
-	const audit = await db
+	const audit = await adminDb
 		.select()
 		.from(auditEvents)
 		.where(eq(auditEvents.entityId, id))
@@ -200,7 +201,7 @@ export async function processScanJobNow(scanId: string, runtime?: ClientRuntime)
 
 async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 	try {
-		const [source] = await db
+		const [source] = await adminDb
 			.select()
 			.from(sources)
 			.where(eq(sources.id, claimed.source_id))
@@ -208,7 +209,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 
 		if (!source) throw new Error(`Source not found for job ${claimed.id}`);
 
-		const [run] = await db
+		const [run] = await adminDb
 			.insert(providerRuns)
 			.values({
 				scanJobId: claimed.id,
@@ -226,7 +227,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 
 		const result = await runProvider(claimed.provider, source, runtime);
 
-		await db
+		await adminDb
 			.update(providerRuns)
 			.set({
 				status: "completed",
@@ -237,7 +238,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 
 		const insertedEvidence =
 			result.evidence.length > 0
-				? await db
+				? await adminDb
 						.insert(evidenceItems)
 						.values(
 							result.evidence.map((item) => ({
@@ -270,7 +271,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 			runtime,
 		);
 
-		await db
+		await adminDb
 			.insert(analyses)
 			.values({
 				scanJobId: claimed.id,
@@ -295,7 +296,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 				},
 			});
 
-		await db
+		await adminDb
 			.update(scanJobs)
 			.set({
 				status: "completed",
@@ -304,6 +305,8 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 				errorMessage: null,
 			})
 			.where(eq(scanJobs.id, claimed.id));
+
+		await updateTrackedSourceLastScan(claimed.id, "completed");
 
 		await writeAudit("scan_job", claimed.id, "processed", {
 			providerMode: result.mode,
@@ -318,7 +321,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 		const nextStatus: ScanStatus =
 			claimed.attempts < claimed.max_attempts ? "retrying" : "failed";
 
-		await db
+		await adminDb
 			.update(scanJobs)
 			.set({
 				status: nextStatus,
@@ -329,9 +332,25 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 			})
 			.where(eq(scanJobs.id, claimed.id));
 
+		await updateTrackedSourceLastScan(claimed.id, nextStatus);
+
 		await writeAudit("scan_job", claimed.id, "failed", { message, nextStatus });
 		return { processed: true, scanId: claimed.id, error: message };
 	}
+}
+
+export async function updateTrackedSourceLastScan(
+	scanId: string,
+	status: ScanStatus,
+) {
+	await adminDb
+		.update(trackedSources)
+		.set({
+			lastScanStatus: status,
+			lastScannedAt: new Date(),
+			updatedAt: new Date(),
+		})
+		.where(eq(trackedSources.lastScanJobId, scanId));
 }
 
 export async function generateDraftForScan(
@@ -345,7 +364,7 @@ export async function generateDraftForScan(
 	},
 	runtime?: ClientRuntime,
 ) {
-	const evidence = await db
+	const evidence = await adminDb
 		.select()
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, scanId))
@@ -361,7 +380,7 @@ export async function generateDraftForScan(
 		...options,
 	}, runtime);
 
-	const [draft] = await db
+	const [draft] = await adminDb
 		.insert(counterArgumentDrafts)
 		.values({
 			scanJobId: scanId,
@@ -389,7 +408,7 @@ export async function generateDraftForScan(
 }
 
 export async function reviewDraft(id: string, status: DraftStatus) {
-	const [draft] = await db
+	const [draft] = await adminDb
 		.update(counterArgumentDrafts)
 		.set({ status, updatedAt: new Date() })
 		.where(eq(counterArgumentDrafts.id, id))
@@ -403,7 +422,7 @@ export async function reviewDraft(id: string, status: DraftStatus) {
 }
 
 export async function heartbeat(serviceName = "worker") {
-	await db
+	await adminDb
 		.insert(cronHeartbeats)
 		.values({
 			serviceName,
@@ -452,7 +471,7 @@ export function demoScanDetail() {
 }
 
 async function claimNextJob() {
-	const rows = await sqlClient<ClaimedJob[]>`
+	const rows = await adminSqlClient<ClaimedJob[]>`
 		update scan_jobs
 		set
 			status = 'running',
@@ -476,7 +495,7 @@ async function claimNextJob() {
 }
 
 async function claimJobById(scanId: string) {
-	const rows = await sqlClient<ClaimedJob[]>`
+	const rows = await adminSqlClient<ClaimedJob[]>`
 		update scan_jobs
 		set
 			status = 'running',
@@ -499,7 +518,7 @@ async function writeAudit(
 	action: string,
 	payload: Record<string, unknown>,
 ) {
-	await db.insert(auditEvents).values({
+	await adminDb.insert(auditEvents).values({
 		entityType,
 		entityId,
 		action,

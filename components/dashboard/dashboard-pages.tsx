@@ -4,9 +4,11 @@ import {
 	CheckCircle2,
 	Clock3,
 	Database,
+	ExternalLink,
 	FileBarChart,
 	FileText,
 	MessageSquareText,
+	Play,
 	Plus,
 	Radar,
 	ScrollText,
@@ -46,6 +48,7 @@ import type {
 	ProviderAvailabilityView,
 	ReportSpec,
 	ScanDetail,
+	TrackedSourceView,
 	TopicCluster,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
@@ -65,6 +68,8 @@ export type DashboardPageProps = {
 	clientRuntimeSummary: ClientRuntimeSummary;
 	chatMessages: ChatMessage[];
 	isChatting: boolean;
+	isCreating: boolean;
+	trackedSources: TrackedSourceView[];
 	onSelectScan: (id: string) => void;
 	onOpenAuth: () => void;
 	onOpenScan: () => void;
@@ -72,6 +77,7 @@ export type DashboardPageProps = {
 	onOpenChatComposer: (preset?: string) => void;
 	onOpenTestingKeys: () => void;
 	onPrepareReport: (report: ReportSpec) => void;
+	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onRefreshAuth: () => Promise<void>;
 	onLogout: () => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
@@ -135,6 +141,11 @@ export function SourcesPage(props: DashboardPageProps) {
 			/>
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<div className="space-y-5">
+					<TrackedSourcesPanel
+						isCreating={props.isCreating}
+						onScanTrackedSource={props.onScanTrackedSource}
+						sources={props.trackedSources}
+					/>
 					<Panel>
 						<PanelHeader
 							title="Nguồn được hỗ trợ"
@@ -158,6 +169,97 @@ export function SourcesPage(props: DashboardPageProps) {
 			</div>
 		</div>
 	);
+}
+
+function TrackedSourcesPanel({
+	isCreating,
+	onScanTrackedSource,
+	sources,
+}: {
+	isCreating: boolean;
+	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
+	sources: TrackedSourceView[];
+}) {
+	return (
+		<Panel>
+			<PanelHeader
+				title="Nguồn theo dõi"
+				description="Các liên kết công khai được lưu để quét lại khi cần."
+			/>
+			<div className="divide-y divide-[var(--divider)]">
+				{sources.length ? (
+					sources.map((source) => (
+						<div
+							key={source.id}
+							className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_132px_112px] md:items-center"
+						>
+							<div className="min-w-0">
+								<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
+									{source.displayName}
+								</p>
+								<a
+									href={source.normalizedUrl}
+									target="_blank"
+									rel="noreferrer"
+									className="mt-1 inline-flex max-w-full items-center gap-1 text-[11px] font-semibold text-[var(--muted)] transition hover:text-[var(--accent-strong)]"
+								>
+									<span className="truncate">{source.normalizedUrl}</span>
+									<ExternalLink size={12} className="shrink-0" />
+								</a>
+							</div>
+							<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] md:text-right">
+								<p className="truncate">{providerLabel(source.provider)}</p>
+								<p className="mt-1 truncate">
+									{source.lastScanStatus
+										? `Lần cuối: ${scanStatusLabel(source.lastScanStatus)}`
+										: "Chưa quét"}
+								</p>
+							</div>
+							<button
+								type="button"
+								disabled={isCreating || !source.isActive}
+								onClick={() => onScanTrackedSource(source)}
+								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								<Play size={14} /> Quét
+							</button>
+						</div>
+					))
+				) : (
+					<p className="px-4 py-5 text-[12px] font-semibold text-[var(--muted)]">
+						Chưa tải được danh sách nguồn theo dõi.
+					</p>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
+function providerLabel(provider: string) {
+	const labels: Record<string, string> = {
+		apify_facebook_comments: "Apify comments",
+		apify_facebook_groups: "Apify groups",
+		apify_facebook_posts: "Apify posts",
+		firecrawl: "Firecrawl",
+		firecrawl_parse: "Firecrawl parse",
+		local_text: "Local text",
+		browser_use: "Browser Use",
+		demo: "Demo",
+	};
+
+	return labels[provider] ?? provider;
+}
+
+function scanStatusLabel(status: string) {
+	const labels: Record<string, string> = {
+		queued: "đang chờ",
+		running: "đang quét",
+		completed: "hoàn tất",
+		failed: "lỗi",
+		retrying: "thử lại",
+	};
+
+	return labels[status] ?? status;
 }
 
 export function AnalysisPage(props: DashboardPageProps) {

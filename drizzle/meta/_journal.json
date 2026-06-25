@@ -8,6 +8,20 @@
       "when": 1781345356203,
       "tag": "0000_amusing_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782388043092,
+      "tag": "0001_short_wendell_vaughn",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782396586311,
+      "tag": "0002_enable_rls_backend_admin",
+      "breakpoints": true
     }
   ]
 }
