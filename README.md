@@ -23,7 +23,12 @@ Required private auth environment:
 - `TUTURUUU_CYBERSHIELD35_WORKSPACE_ID`
 - `CYBERSHIELD35_APP_ID`
 - `CYBERSHIELD35_APP_SECRET`
-- `CYBERSHIELD35_SESSION_SECRET`, at least 32 characters
+
+Optional private auth environment:
+
+- `CYBERSHIELD35_SESSION_SECRET`, used only when you want cookie encryption to
+  rotate independently from `CYBERSHIELD35_APP_SECRET`. If unset, CyberShield
+  falls back to `CYBERSHIELD35_APP_SECRET`, matching Yashie.
 
 Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu session
 check only when the request host is localhost/loopback and `NODE_ENV` is not
@@ -38,4 +43,4 @@ If the login screen reports missing or invalid configuration on Vercel:
   `BROWSER_USE_API_KEY`, and `LLM_API_KEY` or the configured LLM equivalent.
 - Redeploy the latest `main` build after changing environment variables.
 - Verify that `TUTURUUU_API_BASE_URL` ends in `/api/v1` and that
-  `CYBERSHIELD35_SESSION_SECRET` is at least 32 characters.
+  `CYBERSHIELD35_APP_SECRET` is set server-side.
