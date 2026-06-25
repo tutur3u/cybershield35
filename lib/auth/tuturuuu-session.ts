@@ -39,13 +39,50 @@ export type SafeAdminSession = {
 	workspaceId: string | null;
 };
 
+export type EnvironmentDiagnosticStatus = "configured" | "invalid" | "missing" | "optional";
+
+export type EnvironmentDiagnostic = {
+	message: string;
+	name: string;
+	required: boolean;
+	status: EnvironmentDiagnosticStatus;
+};
+
+export type TuturuuuAuthDiagnostics = {
+	configured: boolean;
+	optional: EnvironmentDiagnostic[];
+	required: EnvironmentDiagnostic[];
+};
+
 export function isTuturuuuAuthConfigured() {
-	return Boolean(
-		process.env.TUTURUUU_API_BASE_URL &&
-			process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID &&
-			process.env.CYBERSHIELD35_APP_ID &&
-			process.env.CYBERSHIELD35_APP_SECRET,
-	);
+	return getTuturuuuAuthDiagnostics().configured;
+}
+
+export function getTuturuuuAuthDiagnostics(): TuturuuuAuthDiagnostics {
+	const required = [
+		diagnoseApiBaseUrl(),
+		diagnoseRequiredEnv(
+			"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
+			"Workspace id for the linked CyberShield external app.",
+		),
+		diagnoseRequiredEnv("CYBERSHIELD35_APP_ID", "External app id from Tuturuuu."),
+		diagnoseRequiredEnv(
+			"CYBERSHIELD35_APP_SECRET",
+			"External app secret from Tuturuuu. Also encrypts sessions when CYBERSHIELD35_SESSION_SECRET is unset.",
+		),
+	];
+	const optional = [
+		diagnoseOptionalEnv(
+			"CYBERSHIELD35_SESSION_SECRET",
+			"Dedicated cookie encryption key. If unset, CYBERSHIELD35_APP_SECRET is used like Yashie.",
+		),
+	];
+
+	return {
+		configured: required.every((item) => item.status === "configured"),
+		optional,
+		required,
+	};
 }
 
 export function allowLocalAuthBypass(request: Request) {
@@ -215,11 +252,99 @@ function getAuthConfig() {
 	const appId = process.env.CYBERSHIELD35_APP_ID;
 	const appSecret = process.env.CYBERSHIELD35_APP_SECRET;
 
-	if (!apiBaseUrl || !workspaceId || !appId || !appSecret) {
-		throw new AuthError("Tuturuuu external app auth is not configured", 503);
+	const diagnostics = getTuturuuuAuthDiagnostics();
+	if (!diagnostics.configured || !apiBaseUrl || !workspaceId || !appId || !appSecret) {
+		throw new AuthError(formatAuthConfigError(diagnostics), 503);
 	}
 
 	return { apiBaseUrl, appId, appSecret, workspaceId };
+}
+
+function diagnoseApiBaseUrl(): EnvironmentDiagnostic {
+	const value = cleanEnv(process.env.TUTURUUU_API_BASE_URL);
+	if (!value) {
+		return {
+			message: "Set the Tuturuuu API base URL, for example https://tuturuuu.com/api/v1.",
+			name: "TUTURUUU_API_BASE_URL",
+			required: true,
+			status: "missing",
+		};
+	}
+
+	try {
+		const url = new URL(value);
+		if (url.pathname.replace(/\/+$/u, "") !== "/api/v1") {
+			return {
+				message: "Must end with /api/v1 so token exchange routes resolve correctly.",
+				name: "TUTURUUU_API_BASE_URL",
+				required: true,
+				status: "invalid",
+			};
+		}
+	} catch {
+		return {
+			message: "Must be a valid absolute URL ending in /api/v1.",
+			name: "TUTURUUU_API_BASE_URL",
+			required: true,
+			status: "invalid",
+		};
+	}
+
+	return {
+		message: "Configured.",
+		name: "TUTURUUU_API_BASE_URL",
+		required: true,
+		status: "configured",
+	};
+}
+
+function diagnoseRequiredEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
+	if (!cleanEnv(process.env[name])) {
+		return {
+			message: "Missing. Set this server-side in Vercel and redeploy.",
+			name,
+			required: true,
+			status: "missing",
+		};
+	}
+
+	return {
+		message: configuredMessage,
+		name,
+		required: true,
+		status: "configured",
+	};
+}
+
+function diagnoseOptionalEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
+	if (!cleanEnv(process.env[name])) {
+		return {
+			message: "Optional. Not set; the app will use CYBERSHIELD35_APP_SECRET.",
+			name,
+			required: false,
+			status: "optional",
+		};
+	}
+
+	return {
+		message: configuredMessage,
+		name,
+		required: false,
+		status: "configured",
+	};
+}
+
+function formatAuthConfigError(diagnostics: TuturuuuAuthDiagnostics) {
+	const failing = diagnostics.required.filter((item) => item.status !== "configured");
+	if (!failing.length) return "Tuturuuu external app auth is not configured";
+	return `Tuturuuu auth config issue: ${failing
+		.map((item) => `${item.name} is ${item.status}`)
+		.join(", ")}`;
+}
+
+function cleanEnv(value: string | undefined) {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : null;
 }
 
 function getCookie(request: Request, name: string) {

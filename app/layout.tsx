@@ -69,7 +69,11 @@ export default async function RootLayout({
 						{children}
 					</DashboardAuthProvider>
 				) : (
-					<AuthRequiredScreen configured={auth.configured} error={auth.error} />
+					<AuthRequiredScreen
+						authDiagnostics={auth.authDiagnostics}
+						configured={auth.configured}
+						error={auth.error}
+					/>
 				)}
 				<Script
 					id="cybershield35-theme-boot"
