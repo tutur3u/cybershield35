@@ -66,7 +66,7 @@ export function detectSource(
 			type: "facebook_page",
 			provider: "apify_facebook_posts",
 			normalizedInput: url.toString(),
-			label: "Facebook page",
+			label: facebookPageLabel(url),
 		};
 	}
 
@@ -76,6 +76,11 @@ export function detectSource(
 		normalizedInput: url.toString(),
 		label: url.hostname.replace(/^www\./, ""),
 	};
+}
+
+function facebookPageLabel(url: URL) {
+	const handle = url.pathname.split("/").filter(Boolean)[0];
+	return handle || "Facebook page";
 }
 
 function toUrl(input: string) {

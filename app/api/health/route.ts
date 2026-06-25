@@ -1,4 +1,4 @@
-import { checkDatabase, db } from "@/lib/db/client";
+import { adminDb, checkDatabase } from "@/lib/db/client";
 import { cronHeartbeats } from "@/lib/db/schema";
 import { getProviderAvailability } from "@/lib/providers";
 import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
@@ -12,7 +12,7 @@ export async function GET() {
 
 	try {
 		database = await checkDatabase();
-		const rows = await db.select().from(cronHeartbeats).limit(1);
+		const rows = await adminDb.select().from(cronHeartbeats).limit(1);
 		cron = {
 			ok: rows.length > 0,
 			lastSeenAt: rows[0]?.lastSeenAt?.toISOString(),

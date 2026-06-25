@@ -21,6 +21,12 @@ describe("detectSource", () => {
 		);
 	});
 
+	test("labels Facebook pages with their public handle", () => {
+		expect(
+			detectSource("https://www.facebook.com/taynguyennanggiodaingan").label,
+		).toBe("taynguyennanggiodaingan");
+	});
+
 	test("routes generic URLs to Firecrawl", () => {
 		expect(detectSource("https://ai.daklak.gov.vn").provider).toBe("firecrawl");
 	});

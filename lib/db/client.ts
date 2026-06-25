@@ -1,3 +1,5 @@
+import "server-only";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -6,15 +8,15 @@ import * as schema from "./schema";
 const fallbackUrl =
 	"postgres://cybershield:cybershield@localhost:5432/cybershield35";
 
-export const databaseUrl = process.env.DATABASE_URL ?? fallbackUrl;
+export const adminDatabaseUrl = process.env.DATABASE_URL ?? fallbackUrl;
 
 const globalForDb = globalThis as unknown as {
-	cybershieldSql?: postgres.Sql;
+	cybershieldAdminSql?: postgres.Sql;
 };
 
-export const sqlClient =
-	globalForDb.cybershieldSql ??
-	postgres(databaseUrl, {
+export const adminSqlClient =
+	globalForDb.cybershieldAdminSql ??
+	postgres(adminDatabaseUrl, {
 		max: Number(process.env.DB_POOL_SIZE ?? 5),
 		prepare: false,
 		idle_timeout: 20,
@@ -22,13 +24,13 @@ export const sqlClient =
 	});
 
 if (process.env.NODE_ENV !== "production") {
-	globalForDb.cybershieldSql = sqlClient;
+	globalForDb.cybershieldAdminSql = adminSqlClient;
 }
 
-export const db = drizzle(sqlClient, { schema });
+export const adminDb = drizzle(adminSqlClient, { schema });
 
 export async function checkDatabase() {
 	const started = Date.now();
-	await sqlClient`select 1 as ok`;
+	await adminSqlClient`select 1 as ok`;
 	return { ok: true, latencyMs: Date.now() - started };
 }

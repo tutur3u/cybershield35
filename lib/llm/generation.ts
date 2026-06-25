@@ -46,7 +46,9 @@ export type ChatReplyOutput = {
 };
 
 export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
-	const openAiKey = cleanSecret(process.env.LLM_API_KEY ?? process.env.OPENAI_API_KEY);
+	const openAiKey =
+		cleanSecret(process.env.LLM_API_KEY) ??
+		cleanSecret(process.env.OPENAI_API_KEY);
 	if (openAiKey) {
 		return {
 			provider: "openai",

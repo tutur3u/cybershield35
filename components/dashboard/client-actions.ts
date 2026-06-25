@@ -6,8 +6,10 @@ import type {
 	AuthViewState,
 	ChatMessage,
 	DraftShape,
+	TrackedSourceView,
 } from "@/components/dashboard/types";
-import type { ScanStatus } from "@/lib/db/schema";
+import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
+import { detectSource } from "@/lib/domain/source-detection";
 import type { DashboardScan } from "@/lib/domain/fixtures";
 import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 
@@ -76,6 +78,56 @@ export async function createScan(options: {
 		return true;
 	} catch (error) {
 		options.setNotice(error instanceof Error ? error.message : "Không thể tạo scan");
+		return false;
+	} finally {
+		options.setIsCreating(false);
+	}
+}
+
+export async function scanTrackedSource(options: {
+	trackedSource: TrackedSourceView;
+	clientRuntime?: ClientRuntime;
+	setIsCreating: (value: boolean) => void;
+	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
+	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
+	setSelectedScanId: (id: string) => void;
+	setNotice: (notice: string) => void;
+}) {
+	options.setIsCreating(true);
+	try {
+		const response = await fetch(
+			`/api/tracked-sources/${options.trackedSource.id}/scan`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ clientRuntime: options.clientRuntime }),
+			},
+		);
+		const payload = await response.json();
+		if (!response.ok) throw new Error(payload.error ?? "Không thể quét nguồn theo dõi");
+
+		const nextTrackedSource =
+			(payload.trackedSource as TrackedSourceView | undefined) ??
+			options.trackedSource;
+		options.setTrackedSources((current) =>
+			current.map((source) =>
+				source.id === nextTrackedSource.id ? nextTrackedSource : source,
+			),
+		);
+
+		const pending = buildTrackedSourceScan(nextTrackedSource, payload.scan);
+		options.setScans((current) => [pending, ...current]);
+		options.setSelectedScanId(pending.id);
+		options.setNotice(
+			payload.scan?.mode === "inline"
+				? "Đã quét nguồn theo dõi ngay bằng khóa kiểm thử trong session."
+				: "Đã đưa nguồn theo dõi vào hàng đợi worker.",
+		);
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể quét nguồn theo dõi",
+		);
 		return false;
 	} finally {
 		options.setIsCreating(false);
@@ -263,22 +315,68 @@ function buildPendingScan(
 	return {
 		id: scanId,
 		status,
-		sourceType:
-			options.inputMode === "file"
-				? "file"
-				: options.inputMode === "text"
-					? "text"
-					: "url",
-		provider: "demo",
+		sourceType: sourceTypeForPendingScan(options),
+		provider: providerForPendingScan(options),
 		title,
-		sourceLabel:
-			options.inputMode === "url"
-				? "URL"
-				: options.inputMode === "file"
-					? "Tệp"
-					: "Văn bản",
+		sourceLabel: sourceLabelForType(sourceTypeForPendingScan(options)),
 		riskLevel: "medium",
 		progress: 0,
 		createdAt: new Date().toISOString(),
 	};
+}
+
+function buildTrackedSourceScan(
+	source: TrackedSourceView,
+	scan: { scanId?: string; status?: ScanStatus } | undefined,
+): DashboardScan {
+	return {
+		id: scan?.scanId ?? source.lastScanJobId ?? `tracked-${Date.now()}`,
+		status: scan?.status ?? source.lastScanStatus ?? "queued",
+		sourceType: source.type,
+		provider: source.provider,
+		title: source.displayName,
+		sourceLabel: sourceLabelForType(source.type),
+		riskLevel: "medium",
+		progress: scan?.status === "completed" ? 100 : 0,
+		createdAt: new Date().toISOString(),
+	};
+}
+
+function sourceTypeForPendingScan(options: {
+	inputMode: SourceTab;
+	urlInput: string;
+	selectedFile: File | null;
+}): SourceType {
+	if (options.inputMode === "file") return "file";
+	if (options.inputMode === "text") return "text";
+	return detectSource(options.urlInput).type;
+}
+
+function providerForPendingScan(options: {
+	inputMode: SourceTab;
+	urlInput: string;
+	selectedFile: File | null;
+}): ProviderName {
+	if (options.inputMode === "file") return "local_text";
+	if (options.inputMode === "text") return "local_text";
+	return detectSource(options.urlInput).provider;
+}
+
+function sourceLabelForType(type: SourceType) {
+	switch (type) {
+		case "facebook_group":
+			return "Facebook group";
+		case "facebook_page":
+			return "Facebook page";
+		case "facebook_post":
+			return "Facebook post";
+		case "file":
+			return "Tệp";
+		case "text":
+			return "Văn bản";
+		case "social":
+			return "Mạng xã hội";
+		default:
+			return "Website";
+	}
 }
