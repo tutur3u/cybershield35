@@ -2,10 +2,14 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
+import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
 import { resolveDashboardAuthFromRequest } from "@/lib/auth/dashboard-auth";
 import {
 	createSessionCookie,
+	getTuturuuuAuthDiagnostics,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 
@@ -209,7 +213,6 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(source).toContain("authDiagnostics.required");
-		expect(source).toContain("authDiagnostics.optional");
 		expect(source).toContain("statusLabel");
 		expect(source).toContain("Đã cấu hình");
 		expect(source).toContain("Sai cấu hình");
@@ -227,6 +230,67 @@ describe("dashboard auth gate", () => {
 		expect(source).not.toContain("Xác thực Tuturuuu");
 		expect(source).not.toContain("verify-app-token");
 		expect(source).not.toContain("<input");
+	});
+
+	test("configured unauthenticated screen hides admin setup diagnostics", () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.DATABASE_URL = "postgresql://example";
+		process.env.LLM_API_KEY = "llm-key";
+		process.env.APIFY_TOKEN = "apify-token";
+		process.env.FIRECRAWL_API_KEY = "firecrawl-key";
+		process.env.BROWSER_USE_API_KEY = "browser-use-key";
+
+		const markup = renderToStaticMarkup(
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: true,
+				error: "Authentication required",
+				loginHref: "https://tuturuuu.com/login?returnUrl=https%3A%2F%2Fcybershield.example.com%2Fverify-token",
+			}),
+		);
+
+		expect(markup).toContain("Đăng nhập để tiếp tục");
+		expect(markup).toContain("Đăng nhập bằng Tuturuuu");
+		expect(markup).toContain("/brand-icons/tuturuuu.svg");
+		expect(markup).not.toContain("Không có phiên quản trị hợp lệ");
+		expect(markup).not.toContain("Authentication required");
+		expect(markup).not.toContain("Tuturuuu Auth");
+		expect(markup).not.toContain("Runtime Services");
+		expect(markup).not.toContain("Local development");
+		expect(markup).not.toContain("TUTURUUU_API_BASE_URL");
+		expect(markup).not.toContain("DATABASE_URL");
+		expect(markup).not.toContain("AUTH_LOCAL_BYPASS");
+	});
+
+	test("misconfigured unauthenticated screen names blocking envs", () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		delete process.env.CYBERSHIELD35_APP_SECRET;
+		process.env.DATABASE_URL = "postgresql://example";
+		process.env.LLM_API_KEY = "llm-key";
+		process.env.APIFY_TOKEN = "apify-token";
+		process.env.FIRECRAWL_API_KEY = "firecrawl-key";
+		process.env.BROWSER_USE_API_KEY = "browser-use-key";
+
+		const markup = renderToStaticMarkup(
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: false,
+				error: "Authentication required",
+			}),
+		);
+
+		expect(markup).toContain("Cấu hình máy chủ chưa hoàn tất");
+		expect(markup).toContain("CYBERSHIELD35_APP_SECRET");
+		expect(markup).toContain("Thiếu");
+		expect(markup).not.toContain("CYBERSHIELD35_SESSION_SECRET");
+		expect(markup).not.toContain("Đăng nhập bằng Tuturuuu");
 	});
 
 	test("dashboard UI does not expose a browser token paste flow", () => {

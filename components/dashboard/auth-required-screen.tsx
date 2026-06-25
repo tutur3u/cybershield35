@@ -1,11 +1,10 @@
 import {
 	AlertTriangle,
-	CheckCircle2,
-	LogIn,
 	Server,
 	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 
 import type {
 	EnvironmentDiagnostic,
@@ -24,6 +23,13 @@ export function AuthRequiredScreen({
 	loginHref?: string;
 }) {
 	const runtimeDiagnostics = getRuntimeDiagnostics();
+	const authIssues = authDiagnostics.required.filter(isBlockingIssue);
+	const runtimeIssues = runtimeDiagnostics.filter(isBlockingIssue);
+	const setupIncomplete = authIssues.length > 0 || runtimeIssues.length > 0;
+
+	if (configured && loginHref && !setupIncomplete) {
+		return <CustomerLoginScreen loginHref={loginHref} />;
+	}
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
@@ -38,8 +44,7 @@ export function AuthRequiredScreen({
 								CyberShield 35
 							</h1>
 							<p className="mt-1 text-[13px] leading-5 text-[var(--muted)]">
-								Yêu cầu phiên Tuturuuu hợp lệ và cấu hình server-side trước
-								khi mở bảng điều khiển.
+								Cấu hình máy chủ phải hoàn tất trước khi mở bảng điều khiển.
 							</p>
 						</div>
 					</div>
@@ -54,50 +59,33 @@ export function AuthRequiredScreen({
 						<AlertTriangle size={20} className="mt-0.5 shrink-0" />
 						<div className="min-w-0">
 							<p className="text-[13px] font-bold">
-								{configured
-									? "Không có phiên quản trị hợp lệ"
-									: "Cấu hình Tuturuuu chưa hoàn tất trên máy chủ"}
+								Cấu hình máy chủ chưa hoàn tất
 							</p>
 							<p className="mt-1 text-[12px] leading-5 opacity-85">
-								{configured
-									? `${error ?? "Authentication required"}. Các env bắt buộc đã có; đăng nhập bằng Tuturuuu để tạo phiên quản trị.`
-									: "Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Vercel env rồi redeploy."}
+								{error && !configured ? `${error}. ` : ""}
+								Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Vercel
+								env rồi redeploy.
 							</p>
 						</div>
 					</div>
 
-					{configured && loginHref ? (
-						<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
-							<p className="text-[13px] font-bold text-[var(--foreground)]">
-								Phiên quản trị
-							</p>
-							<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
-								Cấu hình server đã sẵn sàng. Dùng Tuturuuu để xác thực và quay
-								lại CyberShield 35 tự động.
-							</p>
-							<a
-								href={loginHref}
-								className="mt-4 inline-flex h-11 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-strong)]"
-							>
-								<LogIn size={16} />
-								Đăng nhập bằng Tuturuuu
-							</a>
-						</div>
-					) : null}
-
 					<div className="mt-5 grid gap-4 lg:grid-cols-2">
-						<SetupCard
-							icon={Server}
-							title="Tuturuuu Auth"
-							description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret bắt buộc dưới đây cho Production và Preview rồi redeploy."
-							items={[...authDiagnostics.required, ...authDiagnostics.optional]}
-						/>
-						<SetupCard
-							icon={CheckCircle2}
-							title="Runtime Services"
-							description="Các provider, LLM và Postgres cũng phải được cấu hình trên server. Không nhập secret trong trình duyệt."
-							items={runtimeDiagnostics}
-						/>
+						{authIssues.length > 0 ? (
+							<SetupCard
+								icon={Server}
+								title="Tuturuuu Auth"
+								description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret bắt buộc dưới đây cho Production và Preview rồi redeploy."
+								items={authIssues}
+							/>
+						) : null}
+						{runtimeIssues.length > 0 ? (
+							<SetupCard
+								icon={Server}
+								title="Runtime Services"
+								description="Các provider, LLM và Postgres cũng phải được cấu hình trên server. Không nhập secret trong trình duyệt."
+								items={runtimeIssues}
+							/>
+						) : null}
 					</div>
 
 					<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
@@ -114,6 +102,51 @@ export function AuthRequiredScreen({
 							thật.
 						</p>
 					</div>
+				</section>
+			</div>
+		</main>
+	);
+}
+
+function CustomerLoginScreen({ loginHref }: { loginHref: string }) {
+	return (
+		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
+			<div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
+				<section className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-soft)]">
+					<div className="flex items-start gap-3">
+						<span className="grid size-12 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
+							<ShieldCheck size={24} />
+						</span>
+						<div className="min-w-0">
+							<p className="text-[13px] font-bold uppercase tracking-[0.04em] text-[var(--brand)]">
+								CyberShield 35
+							</p>
+							<h1 className="mt-1 text-[22px] font-bold leading-7 text-[var(--foreground)]">
+								Đăng nhập để tiếp tục
+							</h1>
+							<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
+								Sử dụng tài khoản Tuturuuu đã được cấp quyền để mở bảng điều
+								khiển.
+							</p>
+						</div>
+					</div>
+
+					<a
+						href={loginHref}
+						className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-strong)]"
+					>
+						<span className="grid size-6 shrink-0 place-items-center rounded bg-white">
+							<Image
+								src="/brand-icons/tuturuuu.svg"
+								alt=""
+								width={16}
+								height={16}
+								aria-hidden="true"
+								unoptimized
+							/>
+						</span>
+						Đăng nhập bằng Tuturuuu
+					</a>
 				</section>
 			</div>
 		</main>
@@ -172,6 +205,10 @@ function SetupCard({
 			</ul>
 		</div>
 	);
+}
+
+function isBlockingIssue(item: EnvironmentDiagnostic) {
+	return item.required && item.status !== "configured";
 }
 
 function getRuntimeDiagnostics(): EnvironmentDiagnostic[] {
