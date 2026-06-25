@@ -2,7 +2,6 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { SourceTab } from "@/components/dashboard/dashboard-data";
 import type {
-	AdminSessionView,
 	AuthViewState,
 	ChatMessage,
 	DashboardScan,
@@ -12,16 +11,6 @@ import type {
 import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
-import type { ClientRuntime } from "@/lib/runtime/client-runtime";
-
-export function onSessionVerified(
-	session: AdminSessionView,
-	setAuth: (auth: AuthViewState) => void,
-	setNotice: (notice: string) => void,
-) {
-	setAuth({ authenticated: true, configured: true, session });
-	setNotice("Đã xác thực bằng Tuturuuu external app login.");
-}
 
 export async function refreshSession(
 	setAuth: (auth: AuthViewState) => void,
@@ -57,7 +46,6 @@ export async function createScan(options: {
 	manualText: string;
 	selectedFile: File | null;
 	providerOverride?: ScanProviderOverride;
-	clientRuntime?: ClientRuntime;
 	setIsCreating: (value: boolean) => void;
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
 	setSelectedScanId: (id: string) => void;
@@ -72,11 +60,7 @@ export async function createScan(options: {
 		const pending = buildPendingScan(options, payload.scanId, payload.status);
 		options.setScans((current) => [pending, ...current]);
 		options.setSelectedScanId(pending.id);
-		options.setNotice(
-			payload.mode === "inline"
-				? "Đã tạo scan và xử lý ngay bằng khóa kiểm thử trong session."
-				: "Đã tạo scan mới. Worker sẽ xử lý theo lịch mỗi phút.",
-		);
+		options.setNotice("Đã tạo scan mới. Worker sẽ xử lý theo lịch mỗi phút.");
 		return true;
 	} catch (error) {
 		options.setNotice(error instanceof Error ? error.message : "Không thể tạo scan");
@@ -88,7 +72,6 @@ export async function createScan(options: {
 
 export async function scanTrackedSource(options: {
 	trackedSource: TrackedSourceView;
-	clientRuntime?: ClientRuntime;
 	setIsCreating: (value: boolean) => void;
 	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
@@ -102,7 +85,7 @@ export async function scanTrackedSource(options: {
 			{
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ clientRuntime: options.clientRuntime }),
+				body: JSON.stringify({}),
 			},
 		);
 		const payload = await response.json();
@@ -120,11 +103,7 @@ export async function scanTrackedSource(options: {
 		const pending = buildTrackedSourceScan(nextTrackedSource, payload.scan);
 		options.setScans((current) => [pending, ...current]);
 		options.setSelectedScanId(pending.id);
-		options.setNotice(
-			payload.scan?.mode === "inline"
-				? "Đã quét nguồn theo dõi ngay bằng khóa kiểm thử trong session."
-				: "Đã đưa nguồn theo dõi vào hàng đợi worker.",
-		);
+		options.setNotice("Đã đưa nguồn theo dõi vào hàng đợi worker.");
 		return true;
 	} catch (error) {
 		options.setNotice(
@@ -143,7 +122,6 @@ export async function generateDraft(options: {
 	language: string;
 	length: string;
 	operatorNotes: string;
-	clientRuntime?: ClientRuntime;
 	setIsDrafting: (value: boolean) => void;
 	setDraft: (draft: DraftShape) => void;
 	setNotice: (notice: string) => void;
@@ -161,7 +139,6 @@ export async function generateDraft(options: {
 					language: options.language,
 					length: options.length,
 					operatorNotes: options.operatorNotes,
-					clientRuntime: options.clientRuntime,
 				}),
 			},
 		);
@@ -201,7 +178,6 @@ export async function reviewDraft(options: {
 export async function sendChatMessage(options: {
 	messages: ChatMessage[];
 	content: string;
-	clientRuntime?: ClientRuntime;
 	setIsChatting: (value: boolean) => void;
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 	setNotice: (notice: string) => void;
@@ -228,7 +204,6 @@ export async function sendChatMessage(options: {
 					role: message.role,
 					content: message.content,
 				})),
-				clientRuntime: options.clientRuntime,
 			}),
 		});
 		const payload = await response.json();
@@ -261,15 +236,11 @@ async function postScan(options: {
 	manualText: string;
 	selectedFile: File | null;
 	providerOverride?: ScanProviderOverride;
-	clientRuntime?: ClientRuntime;
 }) {
 	if (options.inputMode === "file" && options.selectedFile) {
 		const form = new FormData();
 		form.set("file", options.selectedFile);
 		form.set("title", options.selectedFile.name);
-		if (options.clientRuntime) {
-			form.set("clientRuntime", JSON.stringify(options.clientRuntime));
-		}
 		return fetch("/api/scans", { method: "POST", body: form });
 	}
 
@@ -282,7 +253,6 @@ async function postScan(options: {
 			title: options.inputMode === "text" ? "Văn bản nhập thủ công" : undefined,
 			providerOverride:
 				options.inputMode === "url" ? options.providerOverride : undefined,
-			clientRuntime: options.clientRuntime,
 		}),
 	});
 }

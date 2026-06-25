@@ -1,14 +1,12 @@
 "use client";
 
 import {
-	KeyRound,
 	Link2,
 	Play,
-	ShieldCheck,
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import {
@@ -17,88 +15,10 @@ import {
 	type SourceTab,
 } from "@/components/dashboard/dashboard-data";
 import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
-import type { AdminSessionView, AuthViewState } from "@/components/dashboard/types";
 import { FieldLabel, PrimaryButton } from "@/components/dashboard/ui-primitives";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 
 export { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
-
-export function AuthDialog({
-	auth,
-	open,
-	onClose,
-	onVerified,
-}: {
-	auth: AuthViewState;
-	open: boolean;
-	onClose: () => void;
-	onVerified: (session: AdminSessionView) => void;
-}) {
-	const [token, setToken] = useState("");
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	async function verifyToken() {
-		setSubmitting(true);
-		setError(null);
-		try {
-			const response = await fetch("/api/auth/verify-app-token", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ token }),
-			});
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.error ?? "Không thể xác thực");
-			onVerified(payload.session);
-			setToken("");
-			onClose();
-		} catch (requestError) {
-			setError(
-				requestError instanceof Error
-					? requestError.message
-					: "Không thể xác thực Tuturuuu",
-			);
-		} finally {
-			setSubmitting(false);
-		}
-	}
-
-	return (
-		<Dialog
-			open={open}
-			onClose={onClose}
-			title="Xác thực Tuturuuu"
-			description="Dán short app token do Tuturuuu external app cấp cho phiên quản trị."
-		>
-			<div className="space-y-4">
-				<label className="block text-[12px] font-bold text-[var(--muted-strong)]">
-					Short app token
-					<div className="mt-2 flex gap-2">
-						<input
-							value={token}
-							onChange={(event) => setToken(event.target.value)}
-							placeholder="Dán token tại đây"
-							type="password"
-							className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
-						/>
-						<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)]">
-							<KeyRound size={16} />
-						</span>
-					</div>
-				</label>
-				{error || auth.error ? (
-					<p className="rounded-md bg-[var(--danger-soft)] p-3 text-[12px] font-semibold text-[var(--danger-strong)]">
-						{error ?? auth.error}
-					</p>
-				) : null}
-				<PrimaryButton disabled={submitting || !token.trim()} onClick={verifyToken}>
-					<ShieldCheck size={15} />
-					{submitting ? "Đang xác thực" : "Xác thực Tuturuuu"}
-				</PrimaryButton>
-			</div>
-		</Dialog>
-	);
-}
 
 export function ScanDialog(props: {
 	open: boolean;

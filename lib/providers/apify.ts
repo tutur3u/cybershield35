@@ -13,11 +13,8 @@ const actorByProvider = {
 export function createApifyAdapter(
 	provider: keyof typeof actorByProvider,
 ): ProviderAdapter {
-	return async (source, runtime) => {
-		const credential = resolveCredential(
-			process.env.APIFY_TOKEN,
-			runtime?.keys.apifyToken,
-		);
+	return async (source) => {
+		const credential = resolveCredential(process.env.APIFY_TOKEN);
 		if (!credential) {
 			throw new Error("APIFY_TOKEN is required for Facebook source collection");
 		}

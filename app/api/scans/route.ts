@@ -1,11 +1,6 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import {
-	parseClientRuntime,
-	parseClientRuntimeFormValue,
-	redactRuntimeSecrets,
-} from "@/lib/runtime/client-runtime";
 import { createScan, listScans } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
@@ -14,8 +9,7 @@ const scanBodySchema = z.object({
 	input: z.string().min(1),
 	title: z.string().optional(),
 	providerOverride: z.literal("browser_use").optional(),
-	clientRuntime: z.unknown().optional(),
-});
+}).strict();
 
 export async function GET(request: Request) {
 	const auth = await requireAdminSession(request);
@@ -44,8 +38,6 @@ export async function POST(request: Request) {
 		return Response.json({ error: auth.error }, { status: auth.status });
 	}
 
-	let requestRuntime = parseClientRuntime(undefined);
-
 	try {
 		const contentType = request.headers.get("content-type") ?? "";
 
@@ -58,19 +50,21 @@ export async function POST(request: Request) {
 			if (!(file instanceof File)) {
 				return Response.json({ error: "Missing file upload" }, { status: 400 });
 			}
+			if (formData.has("clientRuntime")) {
+				return Response.json(
+					{ error: "Provider keys must be configured on the server" },
+					{ status: 400, headers: authHeaders(auth) },
+				);
+			}
 
 			const fileText = await readFileText(file);
-			requestRuntime = parseClientRuntimeFormValue(formData.get("clientRuntime"));
-			const result = await createScan(
-				{
-					input: input || file.name,
-					title: title || file.name,
-					fileName: file.name,
-					mimeType: file.type || "application/octet-stream",
-					fileText,
-				},
-				requestRuntime,
-			);
+			const result = await createScan({
+				input: input || file.name,
+				title: title || file.name,
+				fileName: file.name,
+				mimeType: file.type || "application/octet-stream",
+				fileText,
+			});
 			return Response.json(result, {
 				status: 201,
 				headers: authHeaders(auth),
@@ -78,8 +72,7 @@ export async function POST(request: Request) {
 		}
 
 		const body = scanBodySchema.parse(await request.json());
-		requestRuntime = parseClientRuntime(body.clientRuntime);
-		const result = await createScan(body, requestRuntime);
+		const result = await createScan(body);
 		return Response.json(result, { status: 201, headers: authHeaders(auth) });
 	} catch (error) {
 		if (error instanceof z.ZodError) {
@@ -90,7 +83,7 @@ export async function POST(request: Request) {
 			{
 				error:
 					error instanceof Error
-						? redactRuntimeSecrets(error.message, requestRuntime)
+						? error.message
 						: "Failed to create scan",
 			},
 			{ status: 500 },

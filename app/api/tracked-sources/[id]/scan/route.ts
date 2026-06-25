@@ -1,11 +1,11 @@
+import { z } from "zod";
+
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import {
-	parseClientRuntime,
-	redactRuntimeSecrets,
-} from "@/lib/runtime/client-runtime";
 import { scanTrackedSource } from "@/lib/workers/tracked-sources";
 
 export const runtime = "nodejs";
+
+const bodySchema = z.object({}).strict();
 
 export async function POST(
 	request: Request,
@@ -17,11 +17,17 @@ export async function POST(
 	}
 
 	const body = await request.json().catch(() => ({}));
-	const requestRuntime = parseClientRuntime(body.clientRuntime);
+	const parsedBody = bodySchema.safeParse(body);
+	if (!parsedBody.success) {
+		return Response.json(
+			{ error: z.treeifyError(parsedBody.error) },
+			{ status: 400, headers: authHeaders(auth) },
+		);
+	}
 
 	try {
 		const { id } = await context.params;
-		const result = await scanTrackedSource(id, requestRuntime);
+		const result = await scanTrackedSource(id);
 		if (!result) {
 			return Response.json({ error: "Tracked source not found" }, { status: 404 });
 		}
@@ -39,7 +45,7 @@ export async function POST(
 			{
 				error:
 					error instanceof Error
-						? redactRuntimeSecrets(error.message, requestRuntime)
+						? error.message
 						: "Failed to scan tracked source",
 			},
 			{ status: 500, headers: authHeaders(auth) },

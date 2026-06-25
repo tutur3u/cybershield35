@@ -128,4 +128,52 @@ describe("dashboard auth gate", () => {
 			expect(source, file).not.toContain("ProtectedDashboard");
 		}
 	});
+
+	test("unauthenticated screen gives admin setup instructions instead of token entry", () => {
+		const source = readFileSync(
+			"components/dashboard/auth-required-screen.tsx",
+			"utf8",
+		);
+
+		for (const envName of [
+			"TUTURUUU_API_BASE_URL",
+			"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
+			"CYBERSHIELD35_APP_ID",
+			"CYBERSHIELD35_APP_SECRET",
+			"CYBERSHIELD35_SESSION_SECRET",
+			"AUTH_LOCAL_BYPASS",
+		]) {
+			expect(source).toContain(envName);
+		}
+
+		expect(source).not.toContain('"use client"');
+		expect(source).not.toContain("useRouter");
+		expect(source).not.toContain("useState");
+		expect(source).not.toContain("fetch(");
+		expect(source).not.toContain("Short app token");
+		expect(source).not.toContain("Dán token");
+		expect(source).not.toContain("Xác thực Tuturuuu");
+		expect(source).not.toContain("verify-app-token");
+		expect(source).not.toContain("<input");
+	});
+
+	test("dashboard UI does not expose a browser token paste flow", () => {
+		for (const file of [
+			"components/dashboard/cybershield-dashboard.tsx",
+			"components/dashboard/dashboard-pages.tsx",
+			"components/dashboard/dialogs.tsx",
+			"components/dashboard/page-widgets.tsx",
+			"components/dashboard/client-actions.ts",
+		]) {
+			const source = readFileSync(file, "utf8");
+			expect(source, file).not.toContain("AuthDialog");
+			expect(source, file).not.toContain("onOpenAuth");
+			expect(source, file).not.toContain("onSessionVerified");
+			expect(source, file).not.toContain("Short app token");
+			expect(source, file).not.toContain("Dán token");
+			expect(source, file).not.toContain("Xác thực Tuturuuu");
+			expect(source, file).not.toContain("verify-app-token");
+			expect(source, file).not.toContain("Quản lý phiên");
+		}
+	});
 });

@@ -1,6 +1,5 @@
 import {
 	Bot,
-	KeyRound,
 	MessageCircle,
 	Send,
 	ShieldCheck,
@@ -33,12 +32,10 @@ export function ChatPage({
 	isSending,
 	messages,
 	onOpenComposer,
-	onOpenTestingKeys,
 }: {
 	isSending: boolean;
 	messages: ChatMessage[];
 	onOpenComposer: (preset?: string) => void;
-	onOpenTestingKeys: () => void;
 }) {
 	return (
 		<div className="flex min-h-[calc(100vh-7rem)] flex-col gap-5">
@@ -47,14 +44,9 @@ export function ChatPage({
 				title="Chat LLM"
 				description="Trao đổi với LLM về phân tích, bằng chứng và phản hồi nội bộ."
 				actions={
-					<>
-						<SecondaryButton onClick={() => onOpenComposer()}>
-							<Send size={14} /> Soạn tin nhắn
-						</SecondaryButton>
-						<SecondaryButton onClick={onOpenTestingKeys}>
-							<KeyRound size={14} /> Khóa kiểm thử
-						</SecondaryButton>
-					</>
+					<SecondaryButton onClick={() => onOpenComposer()}>
+						<Send size={14} /> Soạn tin nhắn
+					</SecondaryButton>
 				}
 			/>
 			<div className="grid flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -112,8 +104,8 @@ export function ChatPage({
 					<Panel>
 						<PanelHeader title="Ràng buộc" />
 						<div className="space-y-3 p-4">
-							<Guardrail text="Ưu tiên server key, dùng browser-session key khi server chưa cấu hình." />
-							<Guardrail text="Không lưu khóa kiểm thử vào Postgres, audit log hoặc metadata nguồn." />
+							<Guardrail text="Chỉ dùng LLM key được cấu hình bằng biến môi trường server-side." />
+							<Guardrail text="Không nhập provider hoặc LLM key trong trình duyệt." />
 							<Guardrail text="Không yêu cầu LLM tự động đăng tải hoặc nhắm mục tiêu nhân khẩu học." />
 						</div>
 					</Panel>

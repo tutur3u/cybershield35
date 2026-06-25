@@ -5,21 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
-import {
-	AuthDialog,
-	CounterArgumentDialog,
-	ScanDialog,
-} from "@/components/dashboard/dialogs";
+import { CounterArgumentDialog, ScanDialog } from "@/components/dashboard/dialogs";
 import { ReportDialog } from "@/components/dashboard/report-dialog";
-import {
-	runtimeForRequest,
-	useClientRuntimeCredentials,
-} from "@/components/dashboard/runtime-credentials";
 import {
 	createScan,
 	generateDraft,
 	logout,
-	onSessionVerified,
 	refreshSession,
 	reviewDraft,
 	sendChatMessage,
@@ -45,7 +36,6 @@ import {
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
-import { TestingKeysDialog } from "@/components/dashboard/testing-keys-dialog";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import type {
@@ -106,10 +96,8 @@ export function CyberShieldDashboard({
 		composerOptions.languages[0] ?? "Tiếng Việt",
 	);
 	const [length, setLength] = useState(composerOptions.lengths[1] ?? "Trung bình");
-	const [authDialogOpen, setAuthDialogOpen] = useState(false);
 	const [scanDialogOpen, setScanDialogOpen] = useState(false);
 	const [draftDialogOpen, setDraftDialogOpen] = useState(false);
-	const [testingKeysDialogOpen, setTestingKeysDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
 	const [selectedReport, setSelectedReport] = useState<ReportSpec | null>(null);
 	const [chatDialogOpen, setChatDialogOpen] = useState(false);
@@ -118,12 +106,6 @@ export function CyberShieldDashboard({
 	const [isChatting, setIsChatting] = useState(false);
 	const [providerAvailability, setProviderAvailability] =
 		useState<ProviderAvailabilityView | null>(null);
-	const {
-		clearRuntime,
-		runtime: clientRuntime,
-		setRuntime: setClientRuntime,
-		summary: clientRuntimeSummary,
-	} = useClientRuntimeCredentials();
 	const { cyclePreference, preference, resolvedTheme } = useThemePreference();
 	const activeScanId = scanId ?? selectedScanId;
 
@@ -233,20 +215,17 @@ export function CyberShieldDashboard({
 		evidence,
 		draft,
 		providerAvailability,
-		clientRuntimeSummary,
 		chatMessages,
 		isChatting,
 		isCreating,
 		trackedSources,
 		onSelectScan: setSelectedScanId,
-		onOpenAuth: () => setAuthDialogOpen(true),
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
 		onOpenChatComposer: (preset) => {
 			setChatDraft(preset ?? "");
 			setChatDialogOpen(true);
 		},
-		onOpenTestingKeys: () => setTestingKeysDialogOpen(true),
 		onPrepareReport: (report) => {
 			setSelectedReport(report);
 			setReportDialogOpen(true);
@@ -254,7 +233,6 @@ export function CyberShieldDashboard({
 		onScanTrackedSource: (trackedSource) =>
 			scanTrackedSource({
 				trackedSource,
-				clientRuntime: runtimeForRequest(clientRuntime),
 				setIsCreating,
 				setTrackedSources,
 				setScans,
@@ -284,12 +262,6 @@ export function CyberShieldDashboard({
 					</div>
 				</section>
 			</div>
-			<AuthDialog
-				auth={auth}
-				open={authDialogOpen}
-				onClose={() => setAuthDialogOpen(false)}
-				onVerified={(session) => onSessionVerified(session, setAuth, setNotice)}
-			/>
 			<ScanDialog
 				open={scanDialogOpen}
 				onClose={() => setScanDialogOpen(false)}
@@ -315,7 +287,6 @@ export function CyberShieldDashboard({
 						setScans,
 						setSelectedScanId,
 						setNotice,
-						clientRuntime: runtimeForRequest(clientRuntime),
 					})
 				}
 			/>
@@ -341,28 +312,12 @@ export function CyberShieldDashboard({
 						language,
 						length,
 						operatorNotes,
-						clientRuntime: runtimeForRequest(clientRuntime),
 						setIsDrafting,
 						setDraft,
 						setNotice,
 					})
 				}
 			/>
-			{testingKeysDialogOpen ? (
-				<TestingKeysDialog
-					open
-					onClose={() => setTestingKeysDialogOpen(false)}
-					runtime={clientRuntime}
-					onSave={(nextRuntime) => {
-						setClientRuntime(nextRuntime);
-						setNotice("Đã lưu khóa kiểm thử trong session trình duyệt.");
-					}}
-					onClear={() => {
-						clearRuntime();
-						setNotice("Đã xóa khóa kiểm thử khỏi session trình duyệt.");
-					}}
-				/>
-			) : null}
 			<ReportDialog
 				open={reportDialogOpen}
 				onClose={() => setReportDialogOpen(false)}
@@ -382,7 +337,6 @@ export function CyberShieldDashboard({
 					sendChatMessage({
 						messages: chatMessages,
 						content,
-						clientRuntime: runtimeForRequest(clientRuntime),
 						setIsChatting,
 						setMessages: setChatMessages,
 						setNotice,
@@ -411,7 +365,6 @@ function renderPage(
 					messages={props.chatMessages}
 					isSending={props.isChatting}
 					onOpenComposer={props.onOpenChatComposer}
-					onOpenTestingKeys={props.onOpenTestingKeys}
 				/>
 			);
 		case "scan-detail":

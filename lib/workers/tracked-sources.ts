@@ -7,7 +7,6 @@ import {
 	toTrackedSourceSeed,
 	type TrackedSourceSeed,
 } from "@/lib/domain/tracked-sources";
-import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 import { createScan } from "@/lib/workers/scans";
 
 export async function ensureDefaultTrackedSources() {
@@ -45,7 +44,7 @@ export async function setTrackedSourceActive(id: string, isActive: boolean) {
 	return source ?? null;
 }
 
-export async function scanTrackedSource(id: string, runtime?: ClientRuntime) {
+export async function scanTrackedSource(id: string) {
 	const [source] = await adminDb
 		.select()
 		.from(trackedSources)
@@ -55,13 +54,10 @@ export async function scanTrackedSource(id: string, runtime?: ClientRuntime) {
 	if (!source) return null;
 	if (!source.isActive) throw new Error("Tracked source is inactive");
 
-	const scan = await createScan(
-		{
-			input: source.normalizedUrl,
-			title: source.displayName,
-		},
-		runtime,
-	);
+	const scan = await createScan({
+		input: source.normalizedUrl,
+		title: source.displayName,
+	});
 
 	const [updated] = await adminDb
 		.update(trackedSources)

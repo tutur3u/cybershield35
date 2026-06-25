@@ -18,11 +18,8 @@ const browserUseSchema = z.object({
 	),
 });
 
-export const runBrowserUse: ProviderAdapter = async (source, runtime) => {
-	const credential = resolveCredential(
-		process.env.BROWSER_USE_API_KEY,
-		runtime?.keys.browserUseApiKey,
-	);
+export const runBrowserUse: ProviderAdapter = async (source) => {
+	const credential = resolveCredential(process.env.BROWSER_USE_API_KEY);
 	if (!credential) {
 		throw new Error("BROWSER_USE_API_KEY is required for Browser Use scans");
 	}
