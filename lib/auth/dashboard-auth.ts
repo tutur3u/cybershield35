@@ -1,3 +1,4 @@
+import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
 	getTuturuuuAuthDiagnostics,
@@ -9,6 +10,7 @@ import {
 export type DashboardAuthResult =
 	| {
 			authenticated: true;
+			publicRoute?: false;
 			session: SafeAdminSession;
 	  }
 	| {
@@ -16,20 +18,50 @@ export type DashboardAuthResult =
 			configured: boolean;
 			error: string;
 			authDiagnostics: TuturuuuAuthDiagnostics;
+			loginHref?: string;
+			publicRoute?: false;
 			status: number;
+	  }
+	| {
+			authenticated: false;
+			authDiagnostics: TuturuuuAuthDiagnostics;
+			configured: boolean;
+			loginHref?: string;
+			publicRoute: true;
+			status: 200;
 	  };
 
 export async function resolveDashboardAuthFromRequest(
 	request: Request,
 ): Promise<DashboardAuthResult> {
+	const requestUrl = new URL(request.url);
+	const authDiagnostics = getTuturuuuAuthDiagnostics();
+	const loginHref = authDiagnostics.configured
+		? buildTuturuuuCentralizedLoginUrl({
+				appBaseUrl: requestUrl.origin,
+				nextUrl: `${requestUrl.pathname}${requestUrl.search}`,
+			})
+		: undefined;
+
+	if (isPublicAuthRoute(requestUrl.pathname)) {
+		return {
+			authenticated: false,
+			authDiagnostics,
+			configured: authDiagnostics.configured,
+			loginHref,
+			publicRoute: true,
+			status: 200,
+		};
+	}
+
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
-		const authDiagnostics = getTuturuuuAuthDiagnostics();
 		return {
 			authenticated: false,
 			authDiagnostics,
 			configured: authDiagnostics.configured,
 			error: auth.error,
+			loginHref,
 			status: auth.status,
 		};
 	}
@@ -38,6 +70,10 @@ export async function resolveDashboardAuthFromRequest(
 		authenticated: true,
 		session: toSafeSession(auth.session),
 	};
+}
+
+function isPublicAuthRoute(pathname: string) {
+	return pathname === "/verify-token";
 }
 
 export async function resolveDashboardAuthFromCurrentRequest() {
@@ -64,8 +100,10 @@ function requestUrlFromHeaders(headers: Headers) {
 	const protocol =
 		firstForwardedValue(headers.get("x-forwarded-proto")) ??
 		(isLoopbackHost(host) ? "http" : "https");
+	const pathname = safePathname(headers.get("x-cybershield-pathname"));
+	const search = safeSearch(headers.get("x-cybershield-search"));
 
-	return `${protocol}://${host}/`;
+	return `${protocol}://${host}${pathname}${search}`;
 }
 
 function firstForwardedValue(value: string | null) {
@@ -86,4 +124,13 @@ function isLoopbackHost(host: string) {
 		hostname === "0.0.0.0" ||
 		hostname === "::1"
 	);
+}
+
+function safePathname(value: string | null) {
+	return value?.startsWith("/") ? value : "/";
+}
+
+function safeSearch(value: string | null) {
+	if (!value) return "";
+	return value.startsWith("?") ? value : "";
 }

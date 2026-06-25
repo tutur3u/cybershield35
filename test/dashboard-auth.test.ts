@@ -102,6 +102,50 @@ describe("dashboard auth gate", () => {
 		);
 	});
 
+	test("returns a centralized Tuturuuu login href for configured blocked requests", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+
+		const auth = await resolveDashboardAuthFromRequest(
+			new Request("https://cybershield.example.com/sources?tab=facebook"),
+		);
+
+		if (auth.authenticated) throw new Error("Expected blocked request");
+		expect(auth.configured).toBe(true);
+		expect(auth.loginHref).toBeTruthy();
+
+		const loginUrl = new URL(auth.loginHref ?? "");
+		expect(loginUrl.origin).toBe("https://tuturuuu.com");
+		expect(loginUrl.pathname).toBe("/login");
+
+		const returnUrl = new URL(loginUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.origin).toBe("https://cybershield.example.com");
+		expect(returnUrl.pathname).toBe("/verify-token");
+		expect(returnUrl.searchParams.get("nextUrl")).toBe("/sources?tab=facebook");
+	});
+
+	test("allows the verify-token callback route to render before authentication", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+
+		const auth = await resolveDashboardAuthFromRequest(
+			new Request("https://cybershield.example.com/verify-token?token=short"),
+		);
+
+		expect(auth).toMatchObject({
+			authenticated: false,
+			publicRoute: true,
+			status: 200,
+		});
+	});
+
 	test("allows explicit localhost dev bypass", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
@@ -145,6 +189,8 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("AuthRequiredScreen");
 		expect(source).toContain("DashboardAuthProvider");
 		expect(source).toContain("auth.authenticated");
+		expect(source).toContain("auth.publicRoute");
+		expect(source).toContain("loginHref={auth.loginHref}");
 		expect(source).toContain("authDiagnostics={auth.authDiagnostics}");
 		expect(source).toContain("{children}");
 	});
@@ -168,6 +214,8 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("Đã cấu hình");
 		expect(source).toContain("Sai cấu hình");
 		expect(source).toContain("Thiếu");
+		expect(source).toContain("loginHref");
+		expect(source).toContain("Đăng nhập bằng Tuturuuu");
 		expect(source).toContain("AUTH_LOCAL_BYPASS");
 
 		expect(source).not.toContain('"use client"');
@@ -199,5 +247,18 @@ describe("dashboard auth gate", () => {
 			expect(source, file).not.toContain("verify-app-token");
 			expect(source, file).not.toContain("Quản lý phiên");
 		}
+	});
+
+	test("verify-token callback page completes login without manual token entry", () => {
+		const page = readFileSync("app/verify-token/page.tsx", "utf8");
+		const client = readFileSync("components/auth/verify-token-client.tsx", "utf8");
+
+		expect(page).toContain("VerifyTokenClient");
+		expect(client).toContain('searchParams.get("token")');
+		expect(client).toContain('fetch("/api/auth/verify-app-token"');
+		expect(client).toContain("router.replace(nextPath)");
+		expect(client).not.toContain("<input");
+		expect(client).not.toContain("Dán token");
+		expect(client).not.toContain("Short app token");
 	});
 });

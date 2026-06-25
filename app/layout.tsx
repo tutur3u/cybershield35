@@ -68,11 +68,14 @@ export default async function RootLayout({
 					>
 						{children}
 					</DashboardAuthProvider>
+				) : auth.publicRoute ? (
+					children
 				) : (
 					<AuthRequiredScreen
 						authDiagnostics={auth.authDiagnostics}
 						configured={auth.configured}
 						error={auth.error}
+						loginHref={auth.loginHref}
 					/>
 				)}
 				<Script

@@ -1,6 +1,7 @@
 import {
 	AlertTriangle,
 	CheckCircle2,
+	LogIn,
 	Server,
 	ShieldCheck,
 	type LucideIcon,
@@ -15,10 +16,12 @@ export function AuthRequiredScreen({
 	authDiagnostics,
 	configured,
 	error,
+	loginHref,
 }: {
 	authDiagnostics: TuturuuuAuthDiagnostics;
 	configured: boolean;
 	error?: string;
+	loginHref?: string;
 }) {
 	const runtimeDiagnostics = getRuntimeDiagnostics();
 
@@ -57,11 +60,30 @@ export function AuthRequiredScreen({
 							</p>
 							<p className="mt-1 text-[12px] leading-5 opacity-85">
 								{configured
-									? `${error ?? "Authentication required"}. Các env bắt buộc đã có; hãy mở từ Tuturuuu external app hoặc kiểm tra callback phiên.`
+									? `${error ?? "Authentication required"}. Các env bắt buộc đã có; đăng nhập bằng Tuturuuu để tạo phiên quản trị.`
 									: "Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Vercel env rồi redeploy."}
 							</p>
 						</div>
 					</div>
+
+					{configured && loginHref ? (
+						<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+							<p className="text-[13px] font-bold text-[var(--foreground)]">
+								Phiên quản trị
+							</p>
+							<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+								Cấu hình server đã sẵn sàng. Dùng Tuturuuu để xác thực và quay
+								lại CyberShield 35 tự động.
+							</p>
+							<a
+								href={loginHref}
+								className="mt-4 inline-flex h-11 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-strong)]"
+							>
+								<LogIn size={16} />
+								Đăng nhập bằng Tuturuuu
+							</a>
+						</div>
+					) : null}
 
 					<div className="mt-5 grid gap-4 lg:grid-cols-2">
 						<SetupCard
