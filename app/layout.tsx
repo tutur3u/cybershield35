@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import Script from "next/script";
 
+import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
+import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
+import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
+
 import "./globals.css";
 
 const themeBootScript = `
@@ -40,11 +44,13 @@ export const metadata: Metadata = {
 	metadataBase: new URL("https://ai.daklak.gov.vn"),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const auth = await resolveDashboardAuthFromCurrentRequest();
+
 	return (
 		<html
 			lang="vi"
@@ -52,7 +58,19 @@ export default function RootLayout({
 			suppressHydrationWarning
 		>
 			<body>
-				{children}
+				{auth.authenticated ? (
+					<DashboardAuthProvider
+						initialAuth={{
+							authenticated: true,
+							configured: true,
+							session: auth.session,
+						}}
+					>
+						{children}
+					</DashboardAuthProvider>
+				) : (
+					<AuthRequiredScreen configured={auth.configured} error={auth.error} />
+				)}
 				<Script
 					id="cybershield35-theme-boot"
 					strategy="beforeInteractive"

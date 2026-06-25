@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
+import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
 import {
 	AuthDialog,
 	CounterArgumentDialog,
@@ -61,17 +62,22 @@ import type {
 	TopicCluster,
 } from "@/components/dashboard/types";
 
+export type CyberShieldDashboardProps = {
+	draftId?: string;
+	evidenceId?: string;
+	initialAuth?: AuthViewState;
+	page?: DashboardPage;
+	scanId?: string;
+};
+
 export function CyberShieldDashboard({
 	draftId,
 	evidenceId,
+	initialAuth,
 	page = "overview",
 	scanId,
-}: {
-	draftId?: string;
-	evidenceId?: string;
-	page?: DashboardPage;
-	scanId?: string;
-}) {
+}: CyberShieldDashboardProps) {
+	const layoutAuth = useDashboardAuthState();
 	const [inputMode, setInputMode] = useState<SourceTab>("url");
 	const [urlInput, setUrlInput] = useState("https://facebook.com/example/posts/1");
 	const [manualText, setManualText] = useState("");
@@ -86,7 +92,9 @@ export function CyberShieldDashboard({
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
 	const [, setNotice] = useState("");
-	const [auth, setAuth] = useState<AuthViewState>({ authenticated: false });
+	const [auth, setAuth] = useState<AuthViewState>(
+		initialAuth ?? layoutAuth ?? { authenticated: false },
+	);
 	const [draft, setDraft] = useState<DraftShape | null>(null);
 	const [tone, setTone] = useState(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
