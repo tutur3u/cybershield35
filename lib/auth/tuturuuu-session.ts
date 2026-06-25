@@ -49,6 +49,28 @@ export function isTuturuuuAuthConfigured() {
 	);
 }
 
+export function allowLocalAuthBypass(request: Request) {
+	if (process.env.AUTH_LOCAL_BYPASS !== "true") return false;
+	if (process.env.NODE_ENV === "production") return false;
+
+	const host = request.headers.get("host") ?? new URL(request.url).host;
+	const hostname = hostnameFromHost(host);
+	return (
+		hostname === "localhost" ||
+		hostname === "127.0.0.1" ||
+		hostname === "0.0.0.0" ||
+		hostname === "::1"
+	);
+}
+
+function hostnameFromHost(host: string) {
+	if (host.startsWith("[")) {
+		return host.slice(1, host.indexOf("]")).toLowerCase();
+	}
+
+	return (host.split(":")[0] ?? "").toLowerCase();
+}
+
 export function getRequestedScopes() {
 	return (
 		process.env.CYBERSHIELD35_REQUESTED_SCOPES?.split(",")

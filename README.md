@@ -26,3 +26,7 @@ Required private auth environment:
 - `CYBERSHIELD35_APP_ID`
 - `CYBERSHIELD35_APP_SECRET`
 - `CYBERSHIELD35_SESSION_SECRET`, at least 32 characters
+
+Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu token
+handoff only when the request host is localhost/loopback and `NODE_ENV` is not
+`production`. Production always requires a valid Tuturuuu session.
