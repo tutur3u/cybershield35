@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
+import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
+	allowLocalAuthBypass,
 	createSessionCookie,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
@@ -64,7 +66,43 @@ describe("Tuturuuu encrypted admin session", () => {
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
 		process.env.CYBERSHIELD35_APP_SECRET = "secret";
 		expect(isTuturuuuAuthConfigured()).toBe(true);
+	});
 
-		expect(isTuturuuuAuthConfigured()).toBe(true);
+	test("local auth bypass only works outside production on localhost", () => {
+		process.env.AUTH_LOCAL_BYPASS = "true";
+		process.env.NODE_ENV = "development";
+
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(true);
+		expect(allowLocalAuthBypass(new Request("http://127.0.0.1:3000"))).toBe(true);
+		expect(allowLocalAuthBypass(new Request("http://0.0.0.0:3000"))).toBe(true);
+		expect(allowLocalAuthBypass(new Request("http://[::1]:3000"))).toBe(true);
+		expect(allowLocalAuthBypass(new Request("http://app.example.com"))).toBe(false);
+
+		process.env.NODE_ENV = "production";
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(false);
+	});
+
+	test("local auth bypass is explicit", () => {
+		process.env.NODE_ENV = "development";
+		delete process.env.AUTH_LOCAL_BYPASS;
+
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(false);
+	});
+
+	test("local auth bypass creates a local session only for dev localhost requests", async () => {
+		process.env.AUTH_LOCAL_BYPASS = "true";
+		process.env.NODE_ENV = "development";
+
+		const local = await requireAdminSession(new Request("http://localhost:3000"));
+		expect(local).toMatchObject({
+			kind: "live",
+			session: { user: { id: "local-dev" }, workspaceId: "local-dev" },
+		});
+
+		process.env.NODE_ENV = "production";
+		const production = await requireAdminSession(
+			new Request("http://localhost:3000"),
+		);
+		expect(production).toEqual({ error: "Authentication required", status: 401 });
 	});
 });

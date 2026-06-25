@@ -1,4 +1,5 @@
 import {
+	allowLocalAuthBypass,
 	createSessionCookie,
 	refreshAdminSession,
 	readAdminSession,
@@ -18,6 +19,10 @@ export type AdminAuthResult =
 	  };
 
 export async function requireAdminSession(request: Request): Promise<AdminAuthResult> {
+	if (allowLocalAuthBypass(request)) {
+		return { kind: "live", session: localDevSession(), setCookie: null };
+	}
+
 	let session = await readAdminSession(request);
 	if (!session) {
 		return { error: "Authentication required", status: 401 };
@@ -37,6 +42,24 @@ export async function requireAdminSession(request: Request): Promise<AdminAuthRe
 	}
 
 	return { kind: "live", session, setCookie: null };
+}
+
+function localDevSession(): TuturuuuAdminSession {
+	const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+	return {
+		accessToken: "local-dev-bypass",
+		app: { name: "cybershield35-local" },
+		createdAt: new Date().toISOString(),
+		expiresAt,
+		expiresIn: 3600,
+		refreshEarlySeconds: 60,
+		refreshExpiresAt: expiresAt,
+		refreshExpiresIn: 3600,
+		refreshToken: "local-dev-bypass",
+		tokenType: "Bearer",
+		user: { email: "local@localhost", id: "local-dev" },
+		workspaceId: "local-dev",
+	};
 }
 
 export function authHeaders(result: AdminAuthResult) {
