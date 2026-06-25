@@ -1,7 +1,8 @@
 import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
-	isTuturuuuAuthConfigured,
+	getTuturuuuAuthDiagnostics,
 	toSafeSession,
+	type TuturuuuAuthDiagnostics,
 	type SafeAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 
@@ -14,6 +15,7 @@ export type DashboardAuthResult =
 			authenticated: false;
 			configured: boolean;
 			error: string;
+			authDiagnostics: TuturuuuAuthDiagnostics;
 			status: number;
 	  };
 
@@ -22,9 +24,11 @@ export async function resolveDashboardAuthFromRequest(
 ): Promise<DashboardAuthResult> {
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
+		const authDiagnostics = getTuturuuuAuthDiagnostics();
 		return {
 			authenticated: false,
-			configured: isTuturuuuAuthConfigured(),
+			authDiagnostics,
+			configured: authDiagnostics.configured,
 			error: auth.error,
 			status: auth.status,
 		};

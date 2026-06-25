@@ -6,29 +6,22 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 
-const authEnvVars = [
-	"TUTURUUU_API_BASE_URL",
-	"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
-	"CYBERSHIELD35_APP_ID",
-	"CYBERSHIELD35_APP_SECRET",
-];
-
-const providerEnvVars = [
-	"DATABASE_URL",
-	"GOOGLE_GENERATIVE_AI_API_KEY",
-	"APIFY_TOKEN",
-	"FIRECRAWL_API_KEY",
-	"BROWSER_USE_API_KEY",
-	"LLM_API_KEY",
-];
+import type {
+	EnvironmentDiagnostic,
+	TuturuuuAuthDiagnostics,
+} from "@/lib/auth/tuturuuu-session";
 
 export function AuthRequiredScreen({
+	authDiagnostics,
 	configured,
 	error,
 }: {
+	authDiagnostics: TuturuuuAuthDiagnostics;
 	configured: boolean;
 	error?: string;
 }) {
+	const runtimeDiagnostics = getRuntimeDiagnostics();
+
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
 			<div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl items-center">
@@ -64,8 +57,8 @@ export function AuthRequiredScreen({
 							</p>
 							<p className="mt-1 text-[12px] leading-5 opacity-85">
 								{configured
-									? (error ?? "Authentication required")
-									: "Kiểm tra biến môi trường, triển khai lại ứng dụng, rồi mở lại trang."}
+									? `${error ?? "Authentication required"}. Các env bắt buộc đã có; hãy mở từ Tuturuuu external app hoặc kiểm tra callback phiên.`
+									: "Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Vercel env rồi redeploy."}
 							</p>
 						</div>
 					</div>
@@ -75,32 +68,14 @@ export function AuthRequiredScreen({
 							icon={Server}
 							title="Tuturuuu Auth"
 							description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret bắt buộc dưới đây cho Production và Preview rồi redeploy."
-							items={authEnvVars}
+							items={[...authDiagnostics.required, ...authDiagnostics.optional]}
 						/>
 						<SetupCard
 							icon={CheckCircle2}
 							title="Runtime Services"
 							description="Các provider, LLM và Postgres cũng phải được cấu hình trên server. Không nhập secret trong trình duyệt."
-							items={providerEnvVars}
+							items={runtimeDiagnostics}
 						/>
-					</div>
-
-					<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
-						<p className="text-[13px] font-bold text-[var(--foreground)]">
-							Optional session key
-						</p>
-						<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
-							Có thể đặt{" "}
-							<code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]">
-								CYBERSHIELD35_SESSION_SECRET
-							</code>{" "}
-							để tách khóa mã hóa cookie khỏi app secret. Nếu bỏ trống, app
-							dùng{" "}
-							<code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]">
-								CYBERSHIELD35_APP_SECRET
-							</code>{" "}
-							giống Yashie.
-						</p>
 					</div>
 
 					<div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
@@ -131,7 +106,7 @@ function SetupCard({
 }: {
 	description: string;
 	icon: LucideIcon;
-	items: string[];
+	items: EnvironmentDiagnostic[];
 	title: string;
 }) {
 	return (
@@ -152,13 +127,93 @@ function SetupCard({
 			<ul className="mt-4 space-y-2">
 				{items.map((item) => (
 					<li
-						key={item}
-						className="break-all rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] font-bold text-[var(--muted-strong)]"
+						key={item.name}
+						className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
 					>
-						{item}
+						<div className="flex items-start justify-between gap-3">
+							<code className="min-w-0 break-all text-[11px] font-bold text-[var(--foreground)]">
+								{item.name}
+							</code>
+							<span
+								className={`inline-flex h-6 shrink-0 items-center rounded-md px-2 text-[10px] font-bold ${statusStyle(
+									item.status,
+								)}`}
+							>
+								{statusLabel(item.status)}
+							</span>
+						</div>
+						<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
+							{item.message}
+						</p>
 					</li>
 				))}
 			</ul>
 		</div>
 	);
+}
+
+function getRuntimeDiagnostics(): EnvironmentDiagnostic[] {
+	const llmConfigured = Boolean(
+		cleanEnv(process.env.LLM_API_KEY) ||
+			cleanEnv(process.env.OPENAI_API_KEY) ||
+			cleanEnv(process.env.GOOGLE_GENERATIVE_AI_API_KEY),
+	);
+
+	return [
+		diagnoseRuntimeEnv("DATABASE_URL", "Postgres connection string for Neon."),
+		{
+			message: llmConfigured
+				? "Configured through LLM_API_KEY, OPENAI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY."
+				: "Missing. Set LLM_API_KEY, OPENAI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY.",
+			name: "LLM_API_KEY / OPENAI_API_KEY / GOOGLE_GENERATIVE_AI_API_KEY",
+			required: true,
+			status: llmConfigured ? "configured" : "missing",
+		},
+		diagnoseRuntimeEnv("APIFY_TOKEN", "Required for Facebook page, post, comment, and group collection."),
+		diagnoseRuntimeEnv("FIRECRAWL_API_KEY", "Required for website crawling and parsing."),
+		diagnoseRuntimeEnv("BROWSER_USE_API_KEY", "Required for Browser Use cloud browser automation."),
+	];
+}
+
+function diagnoseRuntimeEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
+	if (!cleanEnv(process.env[name])) {
+		return {
+			message: "Missing. Set this server-side in Vercel and redeploy.",
+			name,
+			required: true,
+			status: "missing",
+		};
+	}
+
+	return {
+		message: configuredMessage,
+		name,
+		required: true,
+		status: "configured",
+	};
+}
+
+function cleanEnv(value: string | undefined) {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : null;
+}
+
+function statusLabel(status: EnvironmentDiagnostic["status"]) {
+	if (status === "configured") return "Đã cấu hình";
+	if (status === "invalid") return "Sai cấu hình";
+	if (status === "missing") return "Thiếu";
+	return "Tùy chọn";
+}
+
+function statusStyle(status: EnvironmentDiagnostic["status"]) {
+	if (status === "configured") {
+		return "bg-[var(--success-soft)] text-[var(--success-strong)]";
+	}
+	if (status === "invalid") {
+		return "bg-[var(--danger-soft)] text-[var(--danger-strong)]";
+	}
+	if (status === "missing") {
+		return "bg-[var(--warning-soft)] text-[var(--warning-strong)]";
+	}
+	return "bg-[var(--accent-soft)] text-[var(--accent-strong)]";
 }

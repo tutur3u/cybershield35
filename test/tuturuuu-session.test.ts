@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
+	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
 	toSafeSession,
@@ -76,6 +77,41 @@ describe("Tuturuuu encrypted admin session", () => {
 		delete process.env.CYBERSHIELD35_SESSION_SECRET;
 
 		expect(isTuturuuuAuthConfigured()).toBe(true);
+	});
+
+	test("reports missing auth keys by name", () => {
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		delete process.env.CYBERSHIELD35_APP_SECRET;
+
+		const diagnostics = getTuturuuuAuthDiagnostics();
+
+		expect(diagnostics.configured).toBe(false);
+		expect(diagnostics.required).toContainEqual(
+			expect.objectContaining({
+				name: "CYBERSHIELD35_APP_SECRET",
+				status: "missing",
+			}),
+		);
+	});
+
+	test("reports a malformed Tuturuuu API base URL as invalid", () => {
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret-fallback";
+
+		const diagnostics = getTuturuuuAuthDiagnostics();
+
+		expect(diagnostics.configured).toBe(false);
+		expect(diagnostics.required).toContainEqual(
+			expect.objectContaining({
+				name: "TUTURUUU_API_BASE_URL",
+				status: "invalid",
+			}),
+		);
+		expect(isTuturuuuAuthConfigured()).toBe(false);
 	});
 
 	test("falls back to the app secret for encrypted session cookies", async () => {

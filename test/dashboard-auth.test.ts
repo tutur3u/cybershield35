@@ -76,6 +76,32 @@ describe("dashboard auth gate", () => {
 		});
 	});
 
+	test("returns auth environment diagnostics for blocked requests", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		delete process.env.CYBERSHIELD35_APP_SECRET;
+
+		const auth = await resolveDashboardAuthFromRequest(
+			new Request("https://cybershield.example.com"),
+		);
+
+		expect(auth).toMatchObject({
+			authenticated: false,
+			configured: false,
+			error: "Authentication required",
+		});
+
+		if (auth.authenticated) throw new Error("Expected blocked request");
+		expect(auth.authDiagnostics.required).toContainEqual(
+			expect.objectContaining({
+				name: "CYBERSHIELD35_APP_SECRET",
+				status: "missing",
+			}),
+		);
+	});
+
 	test("allows explicit localhost dev bypass", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
@@ -119,6 +145,7 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("AuthRequiredScreen");
 		expect(source).toContain("DashboardAuthProvider");
 		expect(source).toContain("auth.authenticated");
+		expect(source).toContain("authDiagnostics={auth.authDiagnostics}");
 		expect(source).toContain("{children}");
 	});
 
@@ -135,16 +162,13 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 
-		for (const envName of [
-			"TUTURUUU_API_BASE_URL",
-			"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
-			"CYBERSHIELD35_APP_ID",
-			"CYBERSHIELD35_APP_SECRET",
-			"CYBERSHIELD35_SESSION_SECRET",
-			"AUTH_LOCAL_BYPASS",
-		]) {
-			expect(source).toContain(envName);
-		}
+		expect(source).toContain("authDiagnostics.required");
+		expect(source).toContain("authDiagnostics.optional");
+		expect(source).toContain("statusLabel");
+		expect(source).toContain("Đã cấu hình");
+		expect(source).toContain("Sai cấu hình");
+		expect(source).toContain("Thiếu");
+		expect(source).toContain("AUTH_LOCAL_BYPASS");
 
 		expect(source).not.toContain('"use client"');
 		expect(source).not.toContain("useRouter");
