@@ -3,7 +3,7 @@ import type {
 	ProviderName,
 	SourceRow,
 } from "@/lib/db/schema";
-import type { ClientRuntime, CredentialSource } from "@/lib/runtime/client-runtime";
+import type { CredentialSource } from "@/lib/runtime/client-runtime";
 
 export type NormalizedEvidence = Pick<
 	EvidenceItemRow,
@@ -28,7 +28,4 @@ export type ProviderResult = {
 	evidence: NormalizedEvidence[];
 };
 
-export type ProviderAdapter = (
-	source: SourceRow,
-	runtime?: ClientRuntime,
-) => Promise<ProviderResult>;
+export type ProviderAdapter = (source: SourceRow) => Promise<ProviderResult>;

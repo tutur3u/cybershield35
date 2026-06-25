@@ -141,7 +141,7 @@ function buildReportText({
 		"Ràng buộc",
 		"- Báo cáo phục vụ trao đổi nội bộ.",
 		"- Không tự động đăng tải hoặc xuất bản.",
-		"- Không ghi hoặc xuất khóa kiểm thử từ phiên trình duyệt.",
+		"- Không ghi, nhập hoặc xuất provider key từ trình duyệt.",
 	];
 
 	return lines.join("\n");

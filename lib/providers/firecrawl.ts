@@ -4,11 +4,8 @@ import { resolveCredential } from "@/lib/runtime/client-runtime";
 
 import type { ProviderAdapter } from "./types";
 
-export const runFirecrawl: ProviderAdapter = async (source, runtime) => {
-	const credential = resolveCredential(
-		process.env.FIRECRAWL_API_KEY,
-		runtime?.keys.firecrawlApiKey,
-	);
+export const runFirecrawl: ProviderAdapter = async (source) => {
+	const credential = resolveCredential(process.env.FIRECRAWL_API_KEY);
 	if (!credential) {
 		throw new Error("FIRECRAWL_API_KEY is required for website scraping");
 	}
@@ -49,11 +46,8 @@ export const runFirecrawl: ProviderAdapter = async (source, runtime) => {
 	};
 };
 
-export const runFirecrawlParse: ProviderAdapter = async (source, runtime) => {
-	const credential = resolveCredential(
-		process.env.FIRECRAWL_API_KEY,
-		runtime?.keys.firecrawlApiKey,
-	);
+export const runFirecrawlParse: ProviderAdapter = async (source) => {
+	const credential = resolveCredential(process.env.FIRECRAWL_API_KEY);
 	if (!credential) throw new Error("FIRECRAWL_API_KEY is required for document parsing");
 	if (!source.fileText) throw new Error("Uploaded file text is required for parsing");
 

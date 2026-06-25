@@ -29,7 +29,6 @@ import {
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/dialogs";
-import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
 import { reportSpecs } from "@/components/dashboard/dashboard-data";
 import {
 	AnalysisSummary,
@@ -66,17 +65,14 @@ export type DashboardPageProps = {
 	evidence: EvidenceView;
 	draft: DraftShape | null;
 	providerAvailability: ProviderAvailabilityView | null;
-	clientRuntimeSummary: ClientRuntimeSummary;
 	chatMessages: ChatMessage[];
 	isChatting: boolean;
 	isCreating: boolean;
 	trackedSources: TrackedSourceView[];
 	onSelectScan: (id: string) => void;
-	onOpenAuth: () => void;
 	onOpenScan: () => void;
 	onOpenDraft: () => void;
 	onOpenChatComposer: (preset?: string) => void;
-	onOpenTestingKeys: () => void;
 	onPrepareReport: (report: ReportSpec) => void;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onRefreshAuth: () => Promise<void>;
@@ -106,7 +102,6 @@ export function OverviewPage(props: DashboardPageProps) {
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
 				<AuthSummary
 					auth={props.auth}
-					onOpenAuth={props.onOpenAuth}
 					onRefreshAuth={props.onRefreshAuth}
 					onLogout={props.onLogout}
 				/>
@@ -164,8 +159,6 @@ export function SourcesPage(props: DashboardPageProps) {
 				</div>
 				<ProviderStatus
 					availability={props.providerAvailability ?? undefined}
-					clientSummary={props.clientRuntimeSummary}
-					onOpenTestingKeys={props.onOpenTestingKeys}
 				/>
 			</div>
 		</div>
@@ -449,22 +442,14 @@ export function SettingsPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={ShieldCheck}
 				title="Cấu hình"
-				description="Trạng thái provider, khóa kiểm thử và xác thực Tuturuuu."
-				actions={
-					<SecondaryButton onClick={props.onOpenAuth}>
-						<ShieldCheck size={14} /> Quản lý phiên
-					</SecondaryButton>
-				}
+				description="Trạng thái provider server-side và xác thực Tuturuuu."
 			/>
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<ProviderStatus
 					availability={props.providerAvailability ?? undefined}
-					clientSummary={props.clientRuntimeSummary}
-					onOpenTestingKeys={props.onOpenTestingKeys}
 				/>
 				<AuthSummary
 					auth={props.auth}
-					onOpenAuth={props.onOpenAuth}
 					onRefreshAuth={props.onRefreshAuth}
 					onLogout={props.onLogout}
 				/>
@@ -613,7 +598,7 @@ const guideContent = {
 			},
 			{
 				title: "Tự động chọn adapter",
-				body: "Hệ thống ưu tiên khóa server và chỉ dùng khóa kiểm thử trong phiên trình duyệt khi server chưa cấu hình.",
+				body: "Hệ thống chọn adapter dựa trên nguồn và chỉ sử dụng key được cấu hình bằng biến môi trường server-side.",
 			},
 			{
 				title: "Chuẩn hóa bằng chứng",
@@ -644,12 +629,12 @@ const guideContent = {
 		primaryHref: "/settings",
 		steps: [
 			{
-				title: "Đăng nhập Tuturuuu",
-				body: "Mở Cấu hình hoặc Tổng quan, chọn quản lý phiên và dán short app token do external app cấp.",
+				title: "Phiên Tuturuuu",
+				body: "Admin cấu hình Tuturuuu Auth bằng biến môi trường server-side, redeploy ứng dụng, rồi người vận hành mở lại dashboard.",
 			},
 			{
-				title: "Thêm khóa kiểm thử",
-				body: "Trong Cấu hình, mở Khóa để lưu Google AI, Apify, Firecrawl hoặc Browser Use key vào sessionStorage của trình duyệt.",
+				title: "Kiểm tra cấu hình server",
+				body: "Trong Cấu hình, kiểm tra Google AI, Apify, Firecrawl và Browser Use đã có key server-side trước khi tạo scan.",
 			},
 			{
 				title: "Tạo scan",
@@ -665,9 +650,9 @@ const guideContent = {
 			},
 		],
 		notes: [
-			"Khóa kiểm thử chỉ tồn tại trong session trình duyệt hiện tại.",
+			"Không nhập hoặc lưu khóa provider trong trình duyệt.",
 			"Thông báo trên thanh trên cùng dẫn nhanh đến scan, bản nháp và cảnh báo cần xử lý.",
-			"Nếu API riêng tư trả 401, hãy đăng nhập lại bằng short app token trước khi thao tác.",
+			"Nếu API riêng tư trả 401, hãy kiểm tra phiên Tuturuuu và cấu hình server trước khi thao tác.",
 		],
 	},
 	policies: {
@@ -685,7 +670,7 @@ const guideContent = {
 			},
 			{
 				title: "Bảo mật khóa",
-				body: "Server key luôn được ưu tiên. Browser key chỉ dùng cho kiểm thử phiên hiện tại và không được lưu vào cơ sở dữ liệu.",
+				body: "Provider và LLM key chỉ được cấu hình bằng biến môi trường server-side; không nhập khóa vào trình duyệt.",
 			},
 			{
 				title: "Bằng chứng trước lập luận",

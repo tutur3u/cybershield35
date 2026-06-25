@@ -24,11 +24,8 @@ import { detectSource } from "@/lib/domain/source-detection";
 import { analyzeEvidence, generateCounterArgument } from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
 import {
-	hasClientRuntimeKeys,
-	redactRuntimeSecrets,
 	runtimeKeySummary,
 	runtimeMode,
-	type ClientRuntime,
 } from "@/lib/runtime/client-runtime";
 
 type ClaimedJob = {
@@ -48,7 +45,7 @@ export type CreateScanInput = {
 	providerOverride?: ScanProviderOverride;
 };
 
-export async function createScan(input: CreateScanInput, runtime?: ClientRuntime) {
+export async function createScan(input: CreateScanInput) {
 	const detection = detectSource(input.input, {
 		fileName: input.fileName,
 		mimeType: input.mimeType,
@@ -89,23 +86,9 @@ export async function createScan(input: CreateScanInput, runtime?: ClientRuntime
 	await writeAudit("scan_job", job.id, "created", {
 		sourceType: source.type,
 		provider: job.provider,
-		runtimeMode: runtimeMode(runtime),
-		clientKeys: runtimeKeySummary(runtime),
+		runtimeMode: runtimeMode(),
+		clientKeys: runtimeKeySummary(),
 	});
-
-	if (hasClientRuntimeKeys(runtime)) {
-		const result = await processScanJobNow(job.id, runtime);
-		const [updatedJob] = await adminDb
-			.select({ status: scanJobs.status })
-			.from(scanJobs)
-			.where(eq(scanJobs.id, job.id))
-			.limit(1);
-		return {
-			scanId: job.id,
-			status: updatedJob?.status ?? job.status,
-			mode: result.processed ? "inline" : "queued",
-		};
-	}
 
 	return { scanId: job.id, status: job.status };
 }
@@ -197,14 +180,14 @@ export async function processNextJob() {
 	return processClaimedJob(claimed);
 }
 
-export async function processScanJobNow(scanId: string, runtime?: ClientRuntime) {
+export async function processScanJobNow(scanId: string) {
 	const claimed = await claimJobById(scanId);
 	if (!claimed) return { processed: false };
 
-	return processClaimedJob(claimed, runtime);
+	return processClaimedJob(claimed);
 }
 
-async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
+async function processClaimedJob(claimed: ClaimedJob) {
 	try {
 		const [source] = await adminDb
 			.select()
@@ -223,14 +206,14 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 				input: {
 					sourceId: source.id,
 					input: source.originalInput,
-					runtimeMode: runtimeMode(runtime),
+					runtimeMode: runtimeMode(),
 				},
 			})
 			.returning();
 
 		if (!run) throw new Error("Failed to create provider run");
 
-		const result = await runProvider(claimed.provider, source, runtime);
+		const result = await runProvider(claimed.provider, source);
 
 		await adminDb
 			.update(providerRuns)
@@ -273,7 +256,6 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 				summary: item.summary,
 				riskLevel: item.riskLevel,
 			})),
-			runtime,
 		);
 
 		await adminDb
@@ -322,7 +304,7 @@ async function processClaimedJob(claimed: ClaimedJob, runtime?: ClientRuntime) {
 		return { processed: true, scanId: claimed.id };
 	} catch (error) {
 		const rawMessage = error instanceof Error ? error.message : String(error);
-		const message = redactRuntimeSecrets(rawMessage, runtime);
+		const message = rawMessage;
 		const nextStatus: ScanStatus =
 			claimed.attempts < claimed.max_attempts ? "retrying" : "failed";
 
@@ -367,7 +349,6 @@ export async function generateDraftForScan(
 		length: string;
 		operatorNotes?: string | null;
 	},
-	runtime?: ClientRuntime,
 ) {
 	const evidence = await adminDb
 		.select()
@@ -383,7 +364,7 @@ export async function generateDraftForScan(
 			summary: item.summary,
 		})),
 		...options,
-	}, runtime);
+	});
 
 	const [draft] = await adminDb
 		.insert(counterArgumentDrafts)
@@ -405,8 +386,8 @@ export async function generateDraftForScan(
 
 	await writeAudit("scan_job", scanId, "counter_argument_generated", {
 		draftId: draft.id,
-		runtimeMode: runtimeMode(runtime),
-		clientKeys: runtimeKeySummary(runtime),
+		runtimeMode: runtimeMode(),
+		clientKeys: runtimeKeySummary(),
 	});
 
 	return draft;

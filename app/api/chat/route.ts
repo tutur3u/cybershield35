@@ -2,10 +2,6 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { generateChatReply } from "@/lib/llm/generation";
-import {
-	parseClientRuntime,
-	redactRuntimeSecrets,
-} from "@/lib/runtime/client-runtime";
 
 export const runtime = "nodejs";
 
@@ -19,8 +15,7 @@ const chatBodySchema = z.object({
 		)
 		.min(1)
 		.max(24),
-	clientRuntime: z.unknown().optional(),
-});
+}).strict();
 
 export async function POST(request: Request) {
 	const auth = await requireAdminSession(request);
@@ -28,12 +23,9 @@ export async function POST(request: Request) {
 		return Response.json({ error: auth.error }, { status: auth.status });
 	}
 
-	let requestRuntime = parseClientRuntime(undefined);
-
 	try {
 		const body = chatBodySchema.parse(await request.json());
-		requestRuntime = parseClientRuntime(body.clientRuntime);
-		const reply = await generateChatReply(body.messages, requestRuntime);
+		const reply = await generateChatReply(body.messages);
 
 		return Response.json({ reply }, { headers: authHeaders(auth) });
 	} catch (error) {
@@ -45,7 +37,7 @@ export async function POST(request: Request) {
 			{
 				error:
 					error instanceof Error
-						? redactRuntimeSecrets(error.message, requestRuntime)
+						? error.message
 						: "Không thể gửi tin nhắn chat.",
 			},
 			{ status: 500, headers: authHeaders(auth) },

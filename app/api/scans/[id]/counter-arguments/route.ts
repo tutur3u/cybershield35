@@ -1,10 +1,6 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import {
-	parseClientRuntime,
-	redactRuntimeSecrets,
-} from "@/lib/runtime/client-runtime";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
@@ -15,8 +11,7 @@ const bodySchema = z.object({
 	language: z.string().min(2).default("vi"),
 	length: z.string().min(1).default("medium"),
 	operatorNotes: z.string().optional(),
-	clientRuntime: z.unknown().optional(),
-});
+}).strict();
 
 export async function POST(
 	request: Request,
@@ -29,10 +24,9 @@ export async function POST(
 
 	const { id } = await context.params;
 	const body = bodySchema.parse(await request.json());
-	const runtime = parseClientRuntime(body.clientRuntime);
 
 	try {
-		const draft = await generateDraftForScan(id, body, runtime);
+		const draft = await generateDraftForScan(id, body);
 		return Response.json(
 			{ draft, mode: "live" },
 			{ status: 201, headers: authHeaders(auth) },
@@ -42,7 +36,7 @@ export async function POST(
 			{
 				error:
 					error instanceof Error
-						? redactRuntimeSecrets(error.message, runtime)
+						? error.message
 						: "Failed to generate draft",
 			},
 			{ status: 500, headers: authHeaders(auth) },

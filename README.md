@@ -12,12 +12,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Tuturuuu external app login is required. The browser posts a short handoff token
-to `/api/auth/verify-app-token`; the server exchanges it with
-`TUTURUUU_API_BASE_URL` and stores the returned access and refresh tokens in an
-encrypted HttpOnly cookie. Do not expose
-`CYBERSHIELD35_APP_SECRET`, `CYBERSHIELD35_SESSION_SECRET`, provider keys, or LLM
-keys to the browser.
+Tuturuuu Auth is required in production. CyberShield 35 never asks operators to
+type app credentials, provider keys, or LLM secrets in the browser. Admins must
+configure every secret server-side, then restart or redeploy the app. The server
+stores validated Tuturuuu sessions in an encrypted HttpOnly cookie.
 
 Required private auth environment:
 
@@ -27,6 +25,17 @@ Required private auth environment:
 - `CYBERSHIELD35_APP_SECRET`
 - `CYBERSHIELD35_SESSION_SECRET`, at least 32 characters
 
-Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu token
-handoff only when the request host is localhost/loopback and `NODE_ENV` is not
+Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu session
+check only when the request host is localhost/loopback and `NODE_ENV` is not
 `production`. Production always requires a valid Tuturuuu session.
+
+If the login screen reports missing or invalid configuration on Vercel:
+
+- Open Project Settings, Environment Variables.
+- Set the required private auth environment for Production and Preview.
+- Set provider/runtime secrets such as `DATABASE_URL`,
+  `GOOGLE_GENERATIVE_AI_API_KEY`, `APIFY_TOKEN`, `FIRECRAWL_API_KEY`,
+  `BROWSER_USE_API_KEY`, and `LLM_API_KEY` or the configured LLM equivalent.
+- Redeploy the latest `main` build after changing environment variables.
+- Verify that `TUTURUUU_API_BASE_URL` ends in `/api/v1` and that
+  `CYBERSHIELD35_SESSION_SECRET` is at least 32 characters.

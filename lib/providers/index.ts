@@ -1,5 +1,4 @@
 import type { ProviderName, SourceRow } from "@/lib/db/schema";
-import type { ClientRuntime } from "@/lib/runtime/client-runtime";
 
 import { createApifyAdapter } from "./apify";
 import { runBrowserUse } from "./browser-use";
@@ -10,19 +9,18 @@ import type { ProviderResult } from "./types";
 export async function runProvider(
 	provider: ProviderName,
 	source: SourceRow,
-	runtime?: ClientRuntime,
 ): Promise<ProviderResult> {
 	switch (provider) {
 		case "apify_facebook_posts":
 		case "apify_facebook_comments":
 		case "apify_facebook_groups":
-			return createApifyAdapter(provider)(source, runtime);
+			return createApifyAdapter(provider)(source);
 		case "firecrawl":
-			return runFirecrawl(source, runtime);
+			return runFirecrawl(source);
 		case "firecrawl_parse":
-			return runFirecrawlParse(source, runtime);
+			return runFirecrawlParse(source);
 		case "browser_use":
-			return runBrowserUse(source, runtime);
+			return runBrowserUse(source);
 		case "local_text":
 			return runLocalText(source);
 		default:

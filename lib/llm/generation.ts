@@ -7,7 +7,6 @@ import {
 	cleanSecret,
 	DEFAULT_GOOGLE_GENERATIVE_AI_MODEL,
 	resolveCredential,
-	type ClientRuntime,
 	type CredentialSource,
 } from "@/lib/runtime/client-runtime";
 
@@ -44,7 +43,7 @@ export type ChatReplyOutput = {
 	credentialSource: CredentialSource;
 };
 
-export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
+export function resolveLlmRuntime(): LlmRuntime | null {
 	const openAiKey =
 		cleanSecret(process.env.LLM_API_KEY) ??
 		cleanSecret(process.env.OPENAI_API_KEY);
@@ -57,26 +56,21 @@ export function resolveLlmRuntime(runtime?: ClientRuntime): LlmRuntime | null {
 		};
 	}
 
-	const googleCredential = resolveCredential(
-		process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-		runtime?.keys.googleGenerativeAiApiKey,
-	);
+	const googleCredential = resolveCredential(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 	if (!googleCredential) return null;
 
 	return {
 		provider: "google",
 		apiKey: googleCredential.value,
 		model:
-			(googleCredential.source === "server"
-				? cleanSecret(process.env.GOOGLE_GENERATIVE_AI_MODEL)
-				: cleanSecret(runtime?.keys.googleGenerativeAiModel)) ??
+			cleanSecret(process.env.GOOGLE_GENERATIVE_AI_MODEL) ??
 			DEFAULT_GOOGLE_GENERATIVE_AI_MODEL,
 		source: googleCredential.source,
 	};
 }
 
-function getModelRuntime(runtime?: ClientRuntime) {
-	const resolved = resolveLlmRuntime(runtime);
+function getModelRuntime() {
+	const resolved = resolveLlmRuntime();
 	if (!resolved) return null;
 
 	if (resolved.provider === "google") {
@@ -93,15 +87,14 @@ function getModelRuntime(runtime?: ClientRuntime) {
 	return { model: provider(resolved.model), resolved };
 }
 
-function getModel(runtime?: ClientRuntime) {
-	return getModelRuntime(runtime)?.model ?? null;
+function getModel() {
+	return getModelRuntime()?.model ?? null;
 }
 
 export async function analyzeEvidence(
 	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary" | "riskLevel">>,
-	runtime?: ClientRuntime,
 ): Promise<AnalysisOutput> {
-	const model = getModel(runtime);
+	const model = getModel();
 	if (!model) throw new Error("LLM provider is not configured");
 	if (evidence.length === 0) throw new Error("Cannot analyze a scan without evidence");
 
@@ -125,8 +118,8 @@ export async function generateCounterArgument(options: {
 	language: string;
 	length: string;
 	operatorNotes?: string | null;
-}, runtime?: ClientRuntime): Promise<CounterArgumentOutput> {
-	const model = getModel(runtime);
+}): Promise<CounterArgumentOutput> {
+	const model = getModel();
 	if (!model || options.evidence.length === 0) {
 		throw new Error(
 			!model
@@ -150,9 +143,8 @@ export async function generateCounterArgument(options: {
 
 export async function generateChatReply(
 	messages: ChatInputMessage[],
-	runtime?: ClientRuntime,
 ): Promise<ChatReplyOutput> {
-	const resolvedModel = getModelRuntime(runtime);
+	const resolvedModel = getModelRuntime();
 	if (!resolvedModel) throw new Error("LLM provider is not configured");
 
 	const { text } = await generateText({

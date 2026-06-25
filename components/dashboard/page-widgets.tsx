@@ -1,6 +1,5 @@
 import {
 	LogOut,
-	KeyRound,
 	RefreshCw,
 	ShieldCheck,
 	Sparkles,
@@ -10,7 +9,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { providerRows } from "@/components/dashboard/dashboard-data";
-import type { ClientRuntimeSummary } from "@/components/dashboard/runtime-credentials";
 import type {
 	AnalysisView,
 	AuthViewState,
@@ -87,19 +85,17 @@ export function MetricGrid({ scans }: { scans: DashboardScan[] }) {
 export function AuthSummary({
 	auth,
 	onLogout,
-	onOpenAuth,
 	onRefreshAuth,
 }: {
 	auth: AuthViewState;
 	onLogout: () => Promise<void>;
-	onOpenAuth: () => void;
 	onRefreshAuth: () => Promise<void>;
 }) {
 	const authenticated = Boolean(auth.session);
 
 	return (
 		<Panel>
-			<PanelHeader title="Tuturuuu external app login" />
+			<PanelHeader title="Tuturuuu server auth" />
 			<div className="space-y-4 p-4">
 				<div
 					className={`flex items-center gap-3 rounded-lg p-3 ${
@@ -118,14 +114,11 @@ export function AuthSummary({
 						<p className="mt-1 truncate text-[11px] opacity-80">
 							{authenticated
 								? `Workspace: ${auth.session?.workspaceId ?? "linked"}`
-								: "Dùng nút quản lý phiên để dán short app token."}
+								: "Kiểm tra cấu hình server-side và mở lại sau khi redeploy."}
 						</p>
 					</div>
 				</div>
 				<div className="flex flex-wrap gap-2">
-					<SecondaryButton onClick={onOpenAuth}>
-						<ShieldCheck size={14} /> Quản lý phiên
-					</SecondaryButton>
 					{authenticated ? (
 						<>
 							<SecondaryButton onClick={onRefreshAuth}>
@@ -203,25 +196,14 @@ export function QueueCard({
 
 export function ProviderStatus({
 	availability,
-	clientSummary,
-	onOpenTestingKeys,
 }: {
 	availability?: ProviderAvailabilityView;
-	clientSummary?: ClientRuntimeSummary;
-	onOpenTestingKeys?: () => void;
 }) {
 	return (
 		<Panel>
 			<PanelHeader
 				title="Provider adapters"
-				description="Server key trước; browser key khi thiếu."
-				action={
-					onOpenTestingKeys ? (
-						<SecondaryButton onClick={onOpenTestingKeys}>
-							<KeyRound size={14} /> Khóa
-						</SecondaryButton>
-					) : null
-				}
+				description="Tất cả provider key phải được cấu hình bằng biến môi trường server-side."
 			/>
 			<div className="space-y-3 p-4">
 				{providerRows.map((provider) => (
@@ -235,11 +217,11 @@ export function ProviderStatus({
 							</p>
 							<span
 								className={`inline-flex h-6 min-w-12 shrink-0 items-center justify-center rounded-md px-2 text-center text-[10px] font-bold leading-none ${providerStatusStyle(
-									providerStatus(provider.key, availability, clientSummary),
+									providerStatus(provider.key, availability),
 								)}`}
 							>
 								{providerStatusLabel(
-									providerStatus(provider.key, availability, clientSummary),
+									providerStatus(provider.key, availability),
 								)}
 							</span>
 						</div>
@@ -334,34 +316,29 @@ function statColor(tone: string) {
 	return "text-[var(--foreground)]";
 }
 
-type ProviderStatusState = "server" | "browser_session" | "missing";
+type ProviderStatusState = "server" | "missing";
 
 function providerStatus(
 	key: string,
 	availability?: ProviderAvailabilityView,
-	clientSummary?: ClientRuntimeSummary,
 ): ProviderStatusState {
 	if (key === "googleGenerativeAi") {
 		if (availability?.llm) return "server";
-		if (clientSummary?.googleGenerativeAi) return "browser_session";
 		return "missing";
 	}
 
 	if (key === "apify") {
 		if (availability?.apify) return "server";
-		if (clientSummary?.apify) return "browser_session";
 		return "missing";
 	}
 
 	if (key === "firecrawl") {
 		if (availability?.firecrawl) return "server";
-		if (clientSummary?.firecrawl) return "browser_session";
 		return "missing";
 	}
 
 	if (key === "browserUse") {
 		if (availability?.browserUse) return "server";
-		if (clientSummary?.browserUse) return "browser_session";
 		return "missing";
 	}
 
@@ -370,16 +347,12 @@ function providerStatus(
 
 function providerStatusLabel(status: ProviderStatusState) {
 	if (status === "server") return "Server";
-	if (status === "browser_session") return "Browser";
 	return "Missing";
 }
 
 function providerStatusStyle(status: ProviderStatusState) {
 	if (status === "server") {
 		return "bg-[var(--success-soft)] text-[var(--success-strong)]";
-	}
-	if (status === "browser_session") {
-		return "bg-[var(--accent-soft)] text-[var(--accent-strong)]";
 	}
 	return "bg-[var(--neutral-soft)] text-[var(--muted-strong)]";
 }
