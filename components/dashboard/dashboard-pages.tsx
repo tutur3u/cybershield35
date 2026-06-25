@@ -41,8 +41,10 @@ import {
 	QueueCard,
 } from "@/components/dashboard/page-widgets";
 import type {
+	AnalysisView,
 	AuthViewState,
 	ChatMessage,
+	DashboardScan,
 	DraftShape,
 	EvidenceView,
 	ProviderAvailabilityView,
@@ -52,7 +54,6 @@ import type {
 	TopicCluster,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
-import { type DashboardScan, demoAnalysis } from "@/lib/domain/fixtures";
 
 export type DashboardPageProps = {
 	auth: AuthViewState;
@@ -60,10 +61,10 @@ export type DashboardPageProps = {
 	selectedScan?: DashboardScan;
 	selectedScanId: string;
 	detail: ScanDetail | null;
-	analysis: typeof demoAnalysis;
+	analysis: AnalysisView;
 	topics: TopicCluster[];
 	evidence: EvidenceView;
-	draft: DraftShape;
+	draft: DraftShape | null;
 	providerAvailability: ProviderAvailabilityView | null;
 	clientRuntimeSummary: ClientRuntimeSummary;
 	chatMessages: ChatMessage[];
@@ -101,7 +102,7 @@ export function OverviewPage(props: DashboardPageProps) {
 					</>
 				}
 			/>
-			<MetricGrid />
+			<MetricGrid scans={props.scans} />
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
 				<AuthSummary
 					auth={props.auth}
@@ -244,7 +245,6 @@ function providerLabel(provider: string) {
 		firecrawl_parse: "Firecrawl parse",
 		local_text: "Local text",
 		browser_use: "Browser Use",
-		demo: "Demo",
 	};
 
 	return labels[provider] ?? provider;
@@ -285,8 +285,8 @@ export function AnalysisPage(props: DashboardPageProps) {
 					<RiskFlagPanel analysis={props.analysis} />
 				</div>
 				<div className="grid gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
-					<SentimentAndStance className="h-full" />
-					<AlertPanel className="h-full" />
+					<SentimentAndStance analysis={props.analysis} className="h-full" />
+					<AlertPanel flags={props.analysis.riskFlags} className="h-full" />
 				</div>
 				<div className="xl:col-span-2">
 					<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
@@ -350,7 +350,7 @@ export function AlertsPage(props: DashboardPageProps) {
 				description="Tổng hợp cờ rủi ro và tín hiệu cần ưu tiên xử lý."
 			/>
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<AlertPanel />
+				<AlertPanel flags={props.analysis.riskFlags} />
 				<RiskFlagPanel analysis={props.analysis} />
 			</div>
 		</div>
@@ -403,12 +403,12 @@ export function ReportsPage(props: DashboardPageProps) {
 					<div className="grid min-w-0 content-start gap-3 p-4">
 						<ReportReadiness
 							label="Scan đang chọn"
-							value={props.selectedScan?.title ?? "Demo scan"}
+							value={props.selectedScan?.title ?? "Chưa chọn"}
 						/>
 						<ReportReadiness label="Bằng chứng" value={`${props.evidence.length} mục`} />
 						<ReportReadiness
 							label="Bản nháp"
-							value={reportDraftStatus(props.draft.status)}
+							value={reportDraftStatus(props.draft?.status)}
 						/>
 						<ReportReadiness label="Rủi ro" value={reportRiskLabel(props.analysis.riskLevel)} />
 					</div>
@@ -474,13 +474,7 @@ export function SettingsPage(props: DashboardPageProps) {
 }
 
 export function AuditPage(props: DashboardPageProps) {
-	const events = props.detail?.audit?.length
-		? props.detail.audit
-		: [
-				{ id: "audit-1", action: "source_registered", createdAt: props.selectedScan?.createdAt },
-				{ id: "audit-2", action: "provider_selected", createdAt: props.selectedScan?.createdAt },
-				{ id: "audit-3", action: "human_review_required", createdAt: props.draft.createdAt },
-			];
+	const events = props.detail?.audit ?? [];
 
 	return (
 		<div className="space-y-5">
@@ -496,24 +490,30 @@ export function AuditPage(props: DashboardPageProps) {
 					</h2>
 				</div>
 				<div className="divide-y divide-[var(--divider)] p-4">
-					{events.map((event) => (
-						<div
-							key={event.id ?? `${event.action}-${event.createdAt}`}
-							className="grid gap-2 py-3 sm:grid-cols-[180px_minmax(0,1fr)]"
-						>
-							<span className="text-[12px] font-semibold text-[var(--muted)]">
-								{formatTime(event.createdAt)}
-							</span>
-							<div className="min-w-0">
-								<p className="text-[13px] font-bold text-[var(--foreground)]">
-									{event.action ?? "activity"}
-								</p>
-								<p className="mt-1 text-[12px] text-[var(--muted)]">
-									Bản ghi phục vụ kiểm toán nội bộ và truy vết xử lý.
-								</p>
+					{events.length ? (
+						events.map((event) => (
+							<div
+								key={event.id ?? `${event.action}-${event.createdAt}`}
+								className="grid gap-2 py-3 sm:grid-cols-[180px_minmax(0,1fr)]"
+							>
+								<span className="text-[12px] font-semibold text-[var(--muted)]">
+									{formatTime(event.createdAt)}
+								</span>
+								<div className="min-w-0">
+									<p className="text-[13px] font-bold text-[var(--foreground)]">
+										{event.action ?? "activity"}
+									</p>
+									<p className="mt-1 text-[12px] text-[var(--muted)]">
+										Bản ghi phục vụ kiểm toán nội bộ và truy vết xử lý.
+									</p>
+								</div>
 							</div>
-						</div>
-					))}
+						))
+					) : (
+						<p className="py-3 text-[12px] font-semibold text-[var(--muted)]">
+							Chưa có sự kiện kiểm toán cho scan đang chọn.
+						</p>
+					)}
 				</div>
 			</Panel>
 		</div>
@@ -613,7 +613,7 @@ const guideContent = {
 			},
 			{
 				title: "Tự động chọn adapter",
-				body: "Hệ thống ưu tiên khóa server, dùng khóa kiểm thử trong phiên trình duyệt khi server chưa cấu hình, rồi mới dùng dữ liệu mẫu.",
+				body: "Hệ thống ưu tiên khóa server và chỉ dùng khóa kiểm thử trong phiên trình duyệt khi server chưa cấu hình.",
 			},
 			{
 				title: "Chuẩn hóa bằng chứng",
@@ -631,7 +631,7 @@ const guideContent = {
 		notes: [
 			"Không nhập khóa bí mật vào Postgres, audit log, metadata nguồn hoặc provider run.",
 			"Luôn kiểm tra bằng chứng trước khi phê duyệt bản nháp phản hồi.",
-			"Khi dữ liệu live chưa đủ, dùng chế độ demo để kiểm tra luồng thao tác thay vì suy diễn kết quả.",
+			"Khi dữ liệu live chưa đủ, tạo scan mới hoặc cấu hình provider còn thiếu thay vì suy diễn kết quả.",
 		],
 	},
 	user: {
@@ -667,7 +667,7 @@ const guideContent = {
 		notes: [
 			"Khóa kiểm thử chỉ tồn tại trong session trình duyệt hiện tại.",
 			"Thông báo trên thanh trên cùng dẫn nhanh đến scan, bản nháp và cảnh báo cần xử lý.",
-			"Nếu API riêng tư trả 401, dashboard vẫn hiển thị dữ liệu mẫu để thao tác giao diện.",
+			"Nếu API riêng tư trả 401, hãy đăng nhập lại bằng short app token trước khi thao tác.",
 		],
 	},
 	policies: {

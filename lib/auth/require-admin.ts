@@ -1,5 +1,4 @@
 import {
-	allowUnauthenticatedDemo,
 	createSessionCookie,
 	refreshAdminSession,
 	readAdminSession,
@@ -8,11 +7,6 @@ import {
 } from "@/lib/auth/tuturuuu-session";
 
 export type AdminAuthResult =
-	| {
-			kind: "demo";
-			session: null;
-			setCookie: null;
-	  }
 	| {
 			kind: "live";
 			session: TuturuuuAdminSession;
@@ -24,10 +18,6 @@ export type AdminAuthResult =
 	  };
 
 export async function requireAdminSession(request: Request): Promise<AdminAuthResult> {
-	if (allowUnauthenticatedDemo()) {
-		return { kind: "demo", session: null, setCookie: null };
-	}
-
 	let session = await readAdminSession(request);
 	if (!session) {
 		return { error: "Authentication required", status: 401 };

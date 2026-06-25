@@ -19,17 +19,6 @@ export async function GET(request: Request) {
 		);
 	}
 
-	if (auth.kind === "demo") {
-		return Response.json(
-			{
-				authenticated: false,
-				configured: false,
-				demoBypass: true,
-			},
-			{ headers: { "Cache-Control": "no-store" } },
-		);
-	}
-
 	return Response.json(
 		{
 			configured: true,

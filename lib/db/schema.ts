@@ -29,7 +29,6 @@ export const providerNameEnum = pgEnum("provider_name", [
 	"firecrawl_parse",
 	"browser_use",
 	"local_text",
-	"demo",
 ]);
 
 export const scanStatusEnum = pgEnum("scan_status", [

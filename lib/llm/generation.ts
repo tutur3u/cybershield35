@@ -2,7 +2,6 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 
-import { demoAnalysis, demoDraft } from "@/lib/domain/fixtures";
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import {
 	cleanSecret,
@@ -30,7 +29,7 @@ type LlmRuntime =
 			provider: "google";
 			apiKey: string;
 			model: string;
-			source: Exclude<CredentialSource, "demo">;
+			source: Exclude<CredentialSource, "none">;
 	  };
 
 export type ChatInputMessage = {
@@ -40,8 +39,8 @@ export type ChatInputMessage = {
 
 export type ChatReplyOutput = {
 	content: string;
-	mode: "live" | "demo";
-	provider: "openai" | "google" | "demo";
+	mode: "live";
+	provider: "openai" | "google";
 	credentialSource: CredentialSource;
 };
 
@@ -103,23 +102,20 @@ export async function analyzeEvidence(
 	runtime?: ClientRuntime,
 ): Promise<AnalysisOutput> {
 	const model = getModel(runtime);
-	if (!model || evidence.length === 0) return demoAnalysis as AnalysisOutput;
+	if (!model) throw new Error("LLM provider is not configured");
+	if (evidence.length === 0) throw new Error("Cannot analyze a scan without evidence");
 
-	try {
-		const { output } = await generateText({
-			model,
-			output: Output.object({ schema: analysisOutputSchema }),
-			system:
-				"You are an evidence-grounded civic information analyst. Return Vietnamese analysis only. Do not infer identity, do not recommend automated posting, and cite only provided evidence IDs.",
-			prompt: JSON.stringify({
-				task: "Analyze public topic discussion, claims, stance, risk flags, and sentiment.",
-				evidence,
-			}),
-		});
-		return output;
-	} catch {
-		return demoAnalysis as AnalysisOutput;
-	}
+	const { output } = await generateText({
+		model,
+		output: Output.object({ schema: analysisOutputSchema }),
+		system:
+			"You are an evidence-grounded civic information analyst. Return Vietnamese analysis only. Do not infer identity, do not recommend automated posting, and cite only provided evidence IDs.",
+		prompt: JSON.stringify({
+			task: "Analyze public topic discussion, claims, stance, risk flags, and sentiment.",
+			evidence,
+		}),
+	});
+	return output;
 }
 
 export async function generateCounterArgument(options: {
@@ -132,32 +128,24 @@ export async function generateCounterArgument(options: {
 }, runtime?: ClientRuntime): Promise<CounterArgumentOutput> {
 	const model = getModel(runtime);
 	if (!model || options.evidence.length === 0) {
-		return {
-			body: demoDraft.body,
-			citations: demoDraft.citations as CounterArgumentOutput["citations"],
-			safetyNotes: demoDraft.safetyNotes as string[],
-		};
+		throw new Error(
+			!model
+				? "LLM provider is not configured"
+				: "Cannot draft a response without evidence",
+		);
 	}
 
-	try {
-		const { output } = await generateText({
-			model,
-			output: Output.object({ schema: counterArgumentOutputSchema }),
-			system:
-				"You draft counter-arguments for human review. Use only supplied evidence, avoid unsupported claims, avoid demographic targeting, do not produce posting automation, and write in Vietnamese unless another language is requested.",
-			prompt: JSON.stringify({
-				task: "Prepare an evidence-only counter-argument draft.",
-				...options,
-			}),
-		});
-		return output;
-	} catch {
-		return {
-			body: demoDraft.body,
-			citations: demoDraft.citations as CounterArgumentOutput["citations"],
-			safetyNotes: demoDraft.safetyNotes as string[],
-		};
-	}
+	const { output } = await generateText({
+		model,
+		output: Output.object({ schema: counterArgumentOutputSchema }),
+		system:
+			"You draft counter-arguments for human review. Use only supplied evidence, avoid unsupported claims, avoid demographic targeting, do not produce posting automation, and write in Vietnamese unless another language is requested.",
+		prompt: JSON.stringify({
+			task: "Prepare an evidence-only counter-argument draft.",
+			...options,
+		}),
+	});
+	return output;
 }
 
 export async function generateChatReply(
@@ -165,25 +153,21 @@ export async function generateChatReply(
 	runtime?: ClientRuntime,
 ): Promise<ChatReplyOutput> {
 	const resolvedModel = getModelRuntime(runtime);
-	if (!resolvedModel) return demoChatReply(messages);
+	if (!resolvedModel) throw new Error("LLM provider is not configured");
 
-	try {
-		const { text } = await generateText({
-			model: resolvedModel.model,
-			system:
-				"You are CyberShield 35's internal civic information analysis assistant. Answer in Vietnamese by default. Be concise, evidence-grounded, and operational. Do not claim access to secrets, do not recommend automated posting, and refuse requests for demographic targeting or manipulation.",
-			prompt: buildChatPrompt(messages),
-		});
+	const { text } = await generateText({
+		model: resolvedModel.model,
+		system:
+			"You are CyberShield 35's internal civic information analysis assistant. Answer in Vietnamese by default. Be concise, evidence-grounded, and operational. Do not claim access to secrets, do not recommend automated posting, and refuse requests for demographic targeting or manipulation.",
+		prompt: buildChatPrompt(messages),
+	});
 
-		return {
-			content: text,
-			mode: "live",
-			provider: resolvedModel.resolved.provider,
-			credentialSource: resolvedModel.resolved.source,
-		};
-	} catch {
-		return demoChatReply(messages);
-	}
+	return {
+		content: text,
+		mode: "live",
+		provider: resolvedModel.resolved.provider,
+		credentialSource: resolvedModel.resolved.source,
+	};
 }
 
 function buildChatPrompt(messages: ChatInputMessage[]) {
@@ -191,24 +175,4 @@ function buildChatPrompt(messages: ChatInputMessage[]) {
 		task: "Continue this operator chat. Use the conversation only as context and avoid unsupported claims.",
 		messages: messages.slice(-12),
 	});
-}
-
-function demoChatReply(messages: ChatInputMessage[]): ChatReplyOutput {
-	const latest = messages
-		.slice()
-		.reverse()
-		.find((message) => message.role === "user")?.content;
-
-	return {
-		content: [
-			"Tôi đang ở chế độ demo vì chưa có khóa LLM hiệu lực trong server hoặc phiên trình duyệt.",
-			latest
-				? `Với yêu cầu: "${latest.slice(0, 220)}", hướng xử lý an toàn là kiểm tra bằng chứng đã lưu, tách rõ nhận định có nguồn hỗ trợ, rồi soạn phản hồi ở trạng thái cần duyệt.`
-				: "Bạn có thể hỏi về rủi ro, bằng chứng hoặc bản nháp phản hồi của scan đang chọn.",
-			"Không có nội dung nào được tự động đăng tải từ cuộc trao đổi này.",
-		].join("\n\n"),
-		mode: "demo",
-		provider: "demo",
-		credentialSource: "demo",
-	};
 }

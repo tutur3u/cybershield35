@@ -1,5 +1,5 @@
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { demoScanDetail, getScanDetail } from "@/lib/workers/scans";
+import { getScanDetail } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
 
@@ -14,13 +14,6 @@ export async function GET(
 
 	const { id } = await context.params;
 
-	if (id.startsWith("demo")) {
-		return Response.json(
-			{ detail: demoScanDetail(), mode: "demo" },
-			{ headers: authHeaders(auth) },
-		);
-	}
-
 	try {
 		const detail = await getScanDetail(id);
 		if (!detail) return Response.json({ error: "Scan not found" }, { status: 404 });
@@ -28,11 +21,9 @@ export async function GET(
 	} catch (error) {
 		return Response.json(
 			{
-				detail: demoScanDetail(),
-				mode: "demo",
-				warning: error instanceof Error ? error.message : "Database unavailable",
+				error: error instanceof Error ? error.message : "Database unavailable",
 			},
-			{ headers: authHeaders(auth) },
+			{ status: 503, headers: authHeaders(auth) },
 		);
 	}
 }

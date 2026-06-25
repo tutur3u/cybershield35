@@ -28,12 +28,10 @@ export async function GET(request: Request) {
 	} catch (error) {
 		return Response.json(
 			{
-				trackedSources: [],
-				mode: "demo",
-				warning:
+				error:
 					error instanceof Error ? error.message : "Tracked sources unavailable",
 			},
-			{ headers: authHeaders(auth) },
+			{ status: 503, headers: authHeaders(auth) },
 		);
 	}
 }

@@ -5,12 +5,13 @@ import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import type {
+	AnalysisView,
+	DashboardScan,
 	DraftShape,
 	EvidenceView,
 	ReportSpec,
 } from "@/components/dashboard/types";
 import { PrimaryButton, SecondaryButton } from "@/components/dashboard/ui-primitives";
-import type { DashboardScan, demoAnalysis } from "@/lib/domain/fixtures";
 
 export function ReportDialog({
 	analysis,
@@ -21,8 +22,8 @@ export function ReportDialog({
 	report,
 	selectedScan,
 }: {
-	analysis: typeof demoAnalysis;
-	draft: DraftShape;
+	analysis: AnalysisView;
+	draft: DraftShape | null;
 	evidence: EvidenceView;
 	onClose: () => void;
 	open: boolean;
@@ -109,8 +110,8 @@ function buildReportText({
 	report,
 	selectedScan,
 }: {
-	analysis: typeof demoAnalysis;
-	draft: DraftShape;
+	analysis: AnalysisView;
+	draft: DraftShape | null;
 	evidence: EvidenceView;
 	report: ReportSpec;
 	selectedScan?: DashboardScan;
@@ -119,7 +120,7 @@ function buildReportText({
 		`CyberShield 35 - ${report.title}`,
 		`Scan: ${selectedScan?.title ?? "Chưa chọn"}`,
 		`Nguồn: ${selectedScan?.sourceLabel ?? "Nguồn công khai"}`,
-		`Trạng thái: ${selectedScan?.status ?? "demo"}`,
+		`Trạng thái: ${selectedScan?.status ?? "chưa có scan live"}`,
 		`Mức rủi ro: ${analysis.riskLevel}`,
 		"",
 		"Tóm tắt phân tích",
@@ -135,7 +136,7 @@ function buildReportText({
 		}),
 		"",
 		"Bản nháp phản hồi liên quan",
-		draft.body,
+		draft?.body ?? "Chưa có bản nháp live cho scan đang chọn.",
 		"",
 		"Ràng buộc",
 		"- Báo cáo phục vụ trao đổi nội bộ.",

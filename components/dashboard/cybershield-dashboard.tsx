@@ -46,9 +46,12 @@ import {
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { TestingKeysDialog } from "@/components/dashboard/testing-keys-dialog";
 import { useThemePreference } from "@/components/dashboard/theme";
+import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import type {
+	AnalysisView,
 	AuthViewState,
 	ChatMessage,
+	DashboardScan,
 	DashboardPage,
 	DraftShape,
 	ProviderAvailabilityView,
@@ -57,13 +60,6 @@ import type {
 	TrackedSourceView,
 	TopicCluster,
 } from "@/components/dashboard/types";
-import {
-	demoAnalysis,
-	demoDraft,
-	demoEvidence,
-	demoScans,
-	type DashboardScan,
-} from "@/lib/domain/fixtures";
 
 export function CyberShieldDashboard({
 	draftId,
@@ -80,18 +76,18 @@ export function CyberShieldDashboard({
 	const [urlInput, setUrlInput] = useState("https://facebook.com/example/posts/1");
 	const [manualText, setManualText] = useState("");
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [scanProviderOverride, setScanProviderOverride] =
+		useState<ScanProviderOverride>();
 	const [operatorNotes, setOperatorNotes] = useState("");
-	const [scans, setScans] = useState<DashboardScan[]>(demoScans);
+	const [scans, setScans] = useState<DashboardScan[]>([]);
 	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>([]);
-	const [selectedScanId, setSelectedScanId] = useState(
-		scanId ?? demoScans[0]?.id ?? "demo-scan-1",
-	);
+	const [selectedScanId, setSelectedScanId] = useState(scanId ?? "");
 	const [detail, setDetail] = useState<ScanDetail | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
 	const [, setNotice] = useState("");
 	const [auth, setAuth] = useState<AuthViewState>({ authenticated: false });
-	const [draft, setDraft] = useState<DraftShape>(demoDraft);
+	const [draft, setDraft] = useState<DraftShape | null>(null);
 	const [tone, setTone] = useState(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
 	);
@@ -124,15 +120,12 @@ export function CyberShieldDashboard({
 	const activeScanId = scanId ?? selectedScanId;
 
 	const selectedScan = useMemo(
-		() =>
-			scans.find((scan) => scan.id === activeScanId) ??
-			scans[0] ??
-			demoScans[0],
+		() => scans.find((scan) => scan.id === activeScanId) ?? scans[0],
 		[activeScanId, scans],
 	);
-	const analysis = (detail?.analysis ?? demoAnalysis) as typeof demoAnalysis;
-	const evidence = detail?.evidence?.length ? detail.evidence : demoEvidence;
-	const topics = (analysis.topicClusters ?? demoAnalysis.topicClusters) as TopicCluster[];
+	const analysis = toAnalysisView(detail?.analysis);
+	const evidence = detail?.evidence ?? [];
+	const topics = analysis.topicClusters;
 
 	useEffect(() => {
 		let alive = true;
@@ -147,7 +140,6 @@ export function CyberShieldDashboard({
 					setAuth({
 						authenticated: false,
 						configured: payload.configured,
-						demoBypass: payload.demoBypass,
 						error: payload.error,
 					});
 				}
@@ -162,18 +154,21 @@ export function CyberShieldDashboard({
 		fetch("/api/scans", { cache: "no-store" })
 			.then((response) => response.json())
 			.then((payload: { scans?: DashboardScan[]; mode?: string }) => {
-				if (!alive || !payload.scans?.length) return;
+				if (!alive) return;
+				if (!payload.scans?.length) {
+					setScans([]);
+					setSelectedScanId(scanId ?? "");
+					setDetail(null);
+					setDraft(null);
+					return;
+				}
 				const firstScan = payload.scans[0];
 				if (!firstScan) return;
 				setScans(payload.scans);
 				if (!scanId) setSelectedScanId(firstScan.id);
-				setNotice(
-					payload.mode === "live"
-						? "Đang đọc hàng đợi từ Postgres."
-						: "Local demo auth bypass đang bật; dữ liệu vẫn đọc từ Postgres khi có.",
-				);
+				setNotice("Đang đọc hàng đợi từ Postgres.");
 			})
-			.catch(() => setNotice("Đang hiển thị dữ liệu mẫu vì API chưa sẵn sàng."));
+			.catch(() => setNotice("Không thể tải hàng đợi scan live."));
 
 		fetch("/api/health", { cache: "no-store" })
 			.then((response) => response.json())
@@ -197,15 +192,22 @@ export function CyberShieldDashboard({
 	}, [scanId]);
 
 	useEffect(() => {
+		if (!activeScanId) {
+			return;
+		}
+
 		let alive = true;
 		fetch(`/api/scans/${activeScanId}`, { cache: "no-store" })
 			.then((response) => response.json())
 			.then((payload: { detail?: ScanDetail }) => {
 				if (!alive) return;
 				setDetail(payload.detail ?? null);
-				setDraft((payload.detail?.drafts?.[0] as DraftShape) ?? demoDraft);
+				setDraft((payload.detail?.drafts?.[0] as DraftShape | undefined) ?? null);
 			})
-			.catch(() => setDetail(null));
+			.catch(() => {
+				setDetail(null);
+				setDraft(null);
+			});
 
 		return () => {
 			alive = false;
@@ -253,7 +255,10 @@ export function CyberShieldDashboard({
 			}).then(() => undefined),
 		onRefreshAuth: () => refreshSession(setAuth, setNotice),
 		onLogout: () => logout(setAuth, setNotice),
-		onReview: (status) => reviewDraft({ draft, status, setDraft, setNotice }),
+		onReview: (status) =>
+			draft
+				? reviewDraft({ draft, status, setDraft, setNotice })
+				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
 	};
 
 	return (
@@ -288,6 +293,8 @@ export function CyberShieldDashboard({
 				setManualText={setManualText}
 				selectedFile={selectedFile}
 				setSelectedFile={setSelectedFile}
+				providerOverride={scanProviderOverride}
+				setProviderOverride={setScanProviderOverride}
 				isCreating={isCreating}
 				onCreate={() =>
 					createScan({
@@ -295,6 +302,7 @@ export function CyberShieldDashboard({
 						urlInput,
 						manualText,
 						selectedFile,
+						providerOverride: scanProviderOverride,
 						setIsCreating,
 						setScans,
 						setSelectedScanId,
@@ -431,7 +439,50 @@ const initialChatMessages: ChatMessage[] = [
 		role: "assistant",
 		content:
 			"Tôi có thể hỗ trợ phân tích rủi ro, kiểm tra bằng chứng và gợi ý phản hồi nội bộ. Nội dung chat không tự động đăng tải.",
-		createdAt: "2026-06-13T12:00:00.000Z",
-		mode: "demo",
+		createdAt: new Date().toISOString(),
 	},
 ];
+
+const emptyAnalysis: AnalysisView = {
+	riskLevel: "low",
+	summary: "Chưa có phân tích live. Hãy tạo hoặc chọn một scan đã xử lý.",
+	stanceSummary: "Chưa có dữ liệu",
+	topicClusters: [],
+	riskFlags: [],
+	sentiment: { positive: 0, neutral: 0, negative: 0, total: 0 },
+};
+
+function toAnalysisView(input: ScanDetail["analysis"]): AnalysisView {
+	if (!input) return emptyAnalysis;
+
+	return {
+		...input,
+		riskLevel: input.riskLevel ?? "low",
+		summary: input.summary ?? emptyAnalysis.summary,
+		stanceSummary: input.stanceSummary ?? emptyAnalysis.stanceSummary,
+		topicClusters: isTopicClusterArray(input.topicClusters)
+			? input.topicClusters
+			: [],
+		riskFlags: isRiskFlagArray(input.riskFlags) ? input.riskFlags : [],
+		sentiment: normalizeSentiment(input.sentiment),
+	};
+}
+
+function normalizeSentiment(input: unknown): AnalysisView["sentiment"] {
+	if (!input || typeof input !== "object") return emptyAnalysis.sentiment;
+	const value = input as Partial<AnalysisView["sentiment"]>;
+	return {
+		positive: Number(value.positive ?? 0),
+		neutral: Number(value.neutral ?? 0),
+		negative: Number(value.negative ?? 0),
+		total: Number(value.total ?? 0),
+	};
+}
+
+function isTopicClusterArray(input: unknown): input is TopicCluster[] {
+	return Array.isArray(input);
+}
+
+function isRiskFlagArray(input: unknown): input is AnalysisView["riskFlags"] {
+	return Array.isArray(input);
+}

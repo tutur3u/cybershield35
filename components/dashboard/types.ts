@@ -1,4 +1,5 @@
 import type {
+	AnalysisRow,
 	CounterArgumentDraftRow,
 	DraftStatus,
 	EvidenceItemRow,
@@ -7,7 +8,6 @@ import type {
 	ScanStatus,
 	SourceType,
 } from "@/lib/db/schema";
-import type { demoAnalysis } from "@/lib/domain/fixtures";
 
 export type DashboardPage =
 	| "overview"
@@ -42,9 +42,20 @@ export type AdminSessionView = {
 export type AuthViewState = {
 	authenticated: boolean;
 	configured?: boolean;
-	demoBypass?: boolean;
 	error?: string;
 	session?: AdminSessionView;
+};
+
+export type DashboardScan = {
+	id: string;
+	status: ScanStatus;
+	sourceType: SourceType;
+	provider: ProviderName;
+	title: string;
+	sourceLabel: string;
+	riskLevel: RiskLevel;
+	progress: number;
+	createdAt: string;
 };
 
 export type ScanDetail = {
@@ -56,7 +67,7 @@ export type ScanDetail = {
 		fileName?: string | null;
 		createdAt?: string;
 	};
-	analysis?: typeof demoAnalysis;
+	analysis?: AnalysisView | AnalysisRow | null;
 	evidence?: Array<Partial<EvidenceItemRow> & { id: string }>;
 	drafts?: Array<Partial<CounterArgumentDraftRow> & { id: string }>;
 	providerRuns?: Array<Record<string, unknown>>;
@@ -73,6 +84,29 @@ export type TopicCluster = {
 	count: number;
 	trend: string;
 	riskLevel: RiskLevel;
+};
+
+export type RiskFlagView = {
+	label: string;
+	count: number;
+	severity: RiskLevel;
+};
+
+export type AnalysisView = Omit<
+	Partial<AnalysisRow>,
+	"riskFlags" | "sentiment" | "topicClusters"
+> & {
+	riskLevel: RiskLevel;
+	summary: string;
+	stanceSummary: string;
+	topicClusters: TopicCluster[];
+	riskFlags: RiskFlagView[];
+	sentiment: {
+		positive: number;
+		neutral: number;
+		negative: number;
+		total: number;
+	};
 };
 
 export type DraftShape = {
@@ -100,7 +134,6 @@ export type ProviderAvailabilityView = {
 	openai?: boolean;
 	googleGenerativeAi?: boolean;
 	llm?: boolean;
-	demoMode?: boolean;
 };
 
 export type TrackedSourceView = {
@@ -132,5 +165,5 @@ export type ChatMessage = {
 	role: "assistant" | "user";
 	content: string;
 	createdAt: string;
-	mode?: "live" | "demo";
+	mode?: "live";
 };

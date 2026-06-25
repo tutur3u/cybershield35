@@ -85,11 +85,10 @@ describe("LLM provider selection", () => {
 		});
 	});
 
-	test("browser Google keys are live fallback even when demo mode is true", () => {
+	test("browser Google keys are live fallback when server keys are missing", () => {
 		process.env.OPENAI_API_KEY = "";
 		process.env.LLM_API_KEY = "";
 		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "";
-		process.env.DEMO_MODE = "true";
 
 		const runtime = parseClientRuntime({
 			keys: { googleGenerativeAiApiKey: "google-browser-key" },
@@ -102,20 +101,15 @@ describe("LLM provider selection", () => {
 		});
 	});
 
-	test("chat falls back to deterministic demo output without an effective key", async () => {
+	test("chat requires a configured LLM provider", async () => {
 		process.env.OPENAI_API_KEY = "";
 		process.env.LLM_API_KEY = "";
 		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "";
 
-		const reply = await generateChatReply([
-			{ role: "user", content: "Tóm tắt rủi ro của scan hiện tại" },
-		]);
-
-		expect(reply).toMatchObject({
-			mode: "demo",
-			provider: "demo",
-			credentialSource: "demo",
-		});
-		expect(reply.content).toContain("chế độ demo");
+		await expect(
+			generateChatReply([
+				{ role: "user", content: "Tóm tắt rủi ro của scan hiện tại" },
+			]),
+		).rejects.toThrow("LLM provider is not configured");
 	});
 });

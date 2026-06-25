@@ -22,7 +22,7 @@ export type NormalizedEvidence = Pick<
 
 export type ProviderResult = {
 	provider: ProviderName;
-	mode: "live" | "demo";
+	mode: "live";
 	credentialSource: CredentialSource;
 	raw: Record<string, unknown>;
 	evidence: NormalizedEvidence[];

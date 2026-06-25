@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { demoScans } from "@/lib/domain/fixtures";
 import {
 	parseClientRuntime,
 	parseClientRuntimeFormValue,
@@ -14,6 +13,7 @@ export const runtime = "nodejs";
 const scanBodySchema = z.object({
 	input: z.string().min(1),
 	title: z.string().optional(),
+	providerOverride: z.literal("browser_use").optional(),
 	clientRuntime: z.unknown().optional(),
 });
 
@@ -25,17 +25,15 @@ export async function GET(request: Request) {
 
 	try {
 		return Response.json(
-			{ scans: await listScans(), mode: auth.kind === "demo" ? "demo" : "live" },
+			{ scans: await listScans(), mode: "live" },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {
 		return Response.json(
 			{
-				scans: demoScans,
-				mode: "demo",
-				warning: error instanceof Error ? error.message : "Database unavailable",
+				error: error instanceof Error ? error.message : "Database unavailable",
 			},
-			{ headers: authHeaders(auth) },
+			{ status: 503, headers: authHeaders(auth) },
 		);
 	}
 }
@@ -86,13 +84,6 @@ export async function POST(request: Request) {
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			return Response.json({ error: z.treeifyError(error) }, { status: 400 });
-		}
-
-		if (process.env.DEMO_MODE === "true") {
-			return Response.json(
-				{ scanId: `demo-${Date.now()}`, status: "queued", mode: "demo" },
-				{ status: 201, headers: authHeaders(auth) },
-			);
 		}
 
 		return Response.json(

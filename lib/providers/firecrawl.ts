@@ -10,8 +10,7 @@ export const runFirecrawl: ProviderAdapter = async (source, runtime) => {
 		runtime?.keys.firecrawlApiKey,
 	);
 	if (!credential) {
-		const { runDemoProvider } = await import("./demo");
-		return runDemoProvider(source);
+		throw new Error("FIRECRAWL_API_KEY is required for website scraping");
 	}
 
 	const client = new Firecrawl({ apiKey: credential.value });
@@ -55,10 +54,8 @@ export const runFirecrawlParse: ProviderAdapter = async (source, runtime) => {
 		process.env.FIRECRAWL_API_KEY,
 		runtime?.keys.firecrawlApiKey,
 	);
-	if (!credential || !source.fileText) {
-		const { runLocalText } = await import("./local-text");
-		return runLocalText(source);
-	}
+	if (!credential) throw new Error("FIRECRAWL_API_KEY is required for document parsing");
+	if (!source.fileText) throw new Error("Uploaded file text is required for parsing");
 
 	const client = new Firecrawl({ apiKey: credential.value });
 	const file = {
