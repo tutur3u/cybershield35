@@ -32,7 +32,7 @@ export function sanitizeNextPath(
 	}
 }
 
-function getTuturuuuWebAppUrl() {
+export function getTuturuuuWebAppUrl() {
 	const configured =
 		process.env.TUTURUUU_WEB_APP_URL ?? process.env.NEXT_PUBLIC_TUTURUUU_WEB_APP_URL;
 	if (configured?.trim()) return trimTrailingSlash(configured.trim());

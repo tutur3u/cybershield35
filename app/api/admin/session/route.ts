@@ -4,12 +4,17 @@ import {
 	toSafeSession,
 } from "@/lib/auth/tuturuuu-session";
 import { buildLocalLoginPath, safePostLoginPath } from "@/lib/auth/routes";
+import {
+	buildTuturuuuScopeApprovalUrl,
+	isTuturuuuScopeNotAllowedError,
+} from "@/lib/auth/scope-approval";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
 	const configured = isTuturuuuAuthConfigured();
-	const loginHref = buildLoginHref(request);
+	const nextPath = getNextPath(request);
+	const loginHref = buildLoginHref(nextPath);
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
 		return Response.json(
@@ -18,6 +23,17 @@ export async function GET(request: Request) {
 				configured,
 				error: auth.error,
 				loginHref,
+				scopeApprovalHref:
+					configured &&
+					isTuturuuuScopeNotAllowedError({
+						error: auth.error,
+						status: auth.status,
+					})
+						? buildTuturuuuScopeApprovalUrl({
+								appBaseUrl: new URL(request.url).origin,
+								nextUrl: nextPath,
+							})
+						: undefined,
 			},
 			{ status: auth.status, headers: { "Cache-Control": "no-store" } },
 		);
@@ -38,9 +54,11 @@ export async function GET(request: Request) {
 	);
 }
 
-function buildLoginHref(request: Request) {
+function getNextPath(request: Request) {
 	const requestUrl = new URL(request.url);
-	return buildLocalLoginPath(
-		safePostLoginPath(requestUrl.searchParams.get("nextUrl"), requestUrl.origin),
-	);
+	return safePostLoginPath(requestUrl.searchParams.get("nextUrl"), requestUrl.origin);
+}
+
+function buildLoginHref(nextPath: string) {
+	return buildLocalLoginPath(nextPath);
 }

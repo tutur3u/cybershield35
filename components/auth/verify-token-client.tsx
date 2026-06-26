@@ -9,6 +9,7 @@ type VerificationState = "failed" | "loading" | "success";
 
 type VerificationResponse = {
 	error?: string;
+	scopeApprovalHref?: string;
 	session?: {
 		authenticated?: boolean;
 		user?: {
@@ -37,6 +38,7 @@ export function VerifyTokenClient() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [error, setError] = useState<string | null>(null);
+	const [scopeApprovalHref, setScopeApprovalHref] = useState<string | null>(null);
 	const [state, setState] = useState<VerificationState>("loading");
 	const nextPath = useMemo(
 		() =>
@@ -68,7 +70,7 @@ export function VerifyTokenClient() {
 
 			try {
 				const response = await fetch("/api/auth/verify-app-token", {
-					body: JSON.stringify({ token }),
+					body: JSON.stringify({ nextUrl: nextPath, token }),
 					headers: { "Content-Type": "application/json" },
 					method: "POST",
 				});
@@ -77,6 +79,7 @@ export function VerifyTokenClient() {
 					.catch(() => null)) as VerificationResponse | null;
 
 				if (!response.ok || !data?.session?.authenticated || !data.session.user?.id) {
+					setScopeApprovalHref(data?.scopeApprovalHref ?? null);
 					throw new Error(data?.error || "Không thể xác thực phiên Tuturuuu.");
 				}
 
@@ -120,6 +123,14 @@ export function VerifyTokenClient() {
 				>
 					Đăng nhập lại bằng Tuturuuu
 				</Link>
+				{scopeApprovalHref ? (
+					<Link
+						href={scopeApprovalHref}
+						className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+					>
+						Duyệt quyền trong Tuturuuu
+					</Link>
+				) : null}
 			</>
 		);
 	}

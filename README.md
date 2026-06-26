@@ -36,6 +36,10 @@ Optional private auth environment:
   falls back to `CYBERSHIELD35_APP_SECRET`, matching Yashie.
 - `TUTURUUU_WEB_APP_URL`, defaults to `https://tuturuuu.com` and is used to build
   the centralized login URL.
+- `TUTURUUU_EXTERNAL_APP_APPROVAL_URL`, defaults to
+  `${TUTURUUU_WEB_APP_URL}/vi/internal/infrastructure/external-apps/approve` and
+  is used only for the admin quick action when Tuturuuu rejects newly requested
+  app scopes.
 
 Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu session
 check only when the request host is localhost/loopback and `NODE_ENV` is not

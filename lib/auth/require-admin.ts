@@ -3,10 +3,12 @@ import {
 	createSessionCookie,
 	refreshAdminSession,
 	readAdminSession,
+	sanitizeAuthError,
 	sessionNeedsIdentityRefresh,
 	sessionNeedsRefresh,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
+import { isTuturuuuScopeNotAllowedError } from "@/lib/auth/scope-approval";
 
 export type AdminAuthResult =
 	| {
@@ -39,7 +41,17 @@ export async function requireAdminSession(
 				session,
 				setCookie: createSessionCookie(session),
 			};
-		} catch {
+		} catch (error) {
+			const safe = sanitizeAuthError(error);
+			if (
+				isTuturuuuScopeNotAllowedError({
+					error: safe.message,
+					status: safe.status,
+				})
+			) {
+				return { error: safe.message, status: safe.status };
+			}
+
 			return { error: "Tuturuuu admin session expired", status: 401 };
 		}
 	}

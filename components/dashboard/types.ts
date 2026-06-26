@@ -45,6 +45,7 @@ export type AuthViewState = {
 	configured?: boolean;
 	error?: string;
 	loginHref?: string;
+	scopeApprovalHref?: string;
 	session?: AdminSessionView;
 };
 
