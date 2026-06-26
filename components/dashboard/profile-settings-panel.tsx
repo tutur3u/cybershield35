@@ -43,7 +43,7 @@ export function ProfileSettingsPanel({
 	const hasChanges = cleanedDisplayName !== currentDisplayName;
 	const canSave =
 		Boolean(session) && Boolean(cleanedDisplayName) && hasChanges && !busyAction;
-	const previewName = cleanedDisplayName || currentDisplayName || "Tuturuuu";
+	const previewName = cleanedDisplayName || currentDisplayName || "Tài khoản";
 	const initials = useMemo(() => getInitials(previewName), [previewName]);
 
 	async function submitProfile(
@@ -75,7 +75,7 @@ export function ProfileSettingsPanel({
 			onProfileUpdated(payload.session);
 			setDisplayName(payload.session.user.displayName ?? "");
 			setAvatarUrl(payload.session.user.avatarUrl ?? "");
-			setSuccess("Đã cập nhật hồ sơ Tuturuuu.");
+			setSuccess("Đã cập nhật hồ sơ tài khoản.");
 		} catch (profileError) {
 			setError(
 				profileError instanceof Error
@@ -124,7 +124,7 @@ export function ProfileSettingsPanel({
 				method: "PUT",
 			});
 			if (!storageResponse.ok) {
-				throw new Error("Không thể tải ảnh lên Tuturuuu Storage.");
+				throw new Error("Không thể tải ảnh lên kho lưu trữ.");
 			}
 
 			setBusyAction(null);
@@ -265,7 +265,7 @@ export function ProfileSettingsPanel({
 	return (
 		<Panel>
 			<PanelHeader
-				title="Hồ sơ Tuturuuu"
+				title="Hồ sơ tài khoản"
 				description="Tên hiển thị và ảnh đại diện dùng cho phiên đăng nhập hiện tại."
 			/>
 			<div className="p-4">

@@ -21,7 +21,7 @@ export async function logout(
 ) {
 	await fetch("/api/auth/logout", { method: "POST" });
 	setAuth({ authenticated: false, configured: true, loginHref });
-	setNotice("Đã đăng xuất khỏi phiên Tuturuuu.");
+	setNotice("Đã đăng xuất khỏi phiên hiện tại.");
 }
 
 export async function createScan(options: {

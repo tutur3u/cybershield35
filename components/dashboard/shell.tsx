@@ -204,21 +204,33 @@ function BrandmarkLink({
 			onBlur={scheduleBrandmarkCollapse}
 			onPointerEnter={expandBrandmark}
 			onPointerLeave={scheduleBrandmarkCollapse}
-			className={`group relative inline-flex h-10 w-[168px] min-w-0 items-center overflow-hidden rounded-md border px-3 text-[18px] font-bold transition-all duration-300 ${
+			className={`inline-flex h-10 min-w-0 items-center overflow-hidden text-[18px] font-bold transition-[max-width,opacity] duration-300 ease-out ${
 				collapsed ? "hidden lg:hidden" : "inline-flex"
 			} ${
+				collapsed || compact ? "max-w-[48px]" : "max-w-[168px]"
+			} ${
 				active
-					? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--brand)] shadow-[0_0_18px_rgb(34_197_94/0.14)]"
-					: "border-transparent text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
+					? "text-[var(--brand)]"
+					: "text-[var(--foreground)] hover:text-[var(--brand)]"
 			}`}
 		>
-			<span className="pointer-events-none absolute inset-y-1 left-1 w-7 -translate-x-10 rounded-full bg-[linear-gradient(90deg,transparent,rgb(34_197_94/0.42),transparent)] opacity-0 blur-[1px] transition-all duration-700 group-hover:translate-x-[150px] group-hover:opacity-100" />
 			<span
 				aria-hidden="true"
-				className="pointer-events-none absolute right-2 top-1/2 h-5 w-8 -translate-y-1/2 rounded-[3px] border border-[var(--success-border)] opacity-35 [background-image:linear-gradient(rgba(34,197,94,0.25)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.2)_1px,transparent_1px)] [background-size:6px_6px]"
-			/>
-			<span className="relative z-10 block truncate transition-transform duration-300">
-				{collapsed || compact ? "CS35" : "CyberShield35"}
+				className={`block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
+					collapsed || compact ? "max-w-[48px] opacity-100" : "max-w-0 opacity-0"
+				}`}
+			>
+				CS35
+			</span>
+			<span
+				aria-hidden={collapsed || compact}
+				className={`block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
+					collapsed || compact
+						? "max-w-0 opacity-0"
+						: "max-w-[168px] opacity-100"
+				}`}
+			>
+				CyberShield35
 			</span>
 		</Link>
 	);
@@ -421,7 +433,7 @@ function AccountMenu({
 				className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] ${dropdownItemFocusClass}`}
 			>
 				<UserRound size={15} />
-				Hồ sơ Tuturuuu
+				Hồ sơ tài khoản
 			</DropdownMenuItem>
 			<DropdownMenuItem
 				onSelect={() => {
@@ -520,7 +532,7 @@ function getSessionIdentity(auth: AuthViewState) {
 	const avatarUrl = cleanIdentityValue(auth.session?.user.avatarUrl);
 	const displayName = cleanIdentityValue(auth.session?.user.displayName);
 	const email = cleanIdentityValue(auth.session?.user.email);
-	const primary = displayName ?? email ?? "Tài khoản Tuturuuu";
+	const primary = displayName ?? email ?? "Tài khoản";
 	const secondary =
 		displayName && email && displayName !== email ? email : null;
 

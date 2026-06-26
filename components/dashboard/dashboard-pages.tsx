@@ -775,8 +775,8 @@ const guideContent = {
 		primaryHref: "/settings",
 		steps: [
 			{
-				title: "Phiên Tuturuuu",
-				body: "Admin cấu hình Tuturuuu Auth bằng biến môi trường server-side, redeploy ứng dụng, rồi người vận hành mở lại dashboard.",
+				title: "Phiên đăng nhập",
+				body: "Admin cấu hình auth bằng biến môi trường server-side, redeploy ứng dụng, rồi người vận hành mở lại dashboard.",
 			},
 			{
 				title: "Kiểm tra cấu hình server",
@@ -798,7 +798,7 @@ const guideContent = {
 		notes: [
 			"Không nhập hoặc lưu khóa provider trong trình duyệt.",
 			"Nhật ký hoạt động ghi lại các thao tác vận hành quan trọng để truy vết sau mỗi phiên.",
-			"Nếu API riêng tư trả 401, hãy kiểm tra phiên Tuturuuu và cấu hình server trước khi thao tác.",
+			"Nếu API riêng tư trả 401, hãy kiểm tra phiên đăng nhập và cấu hình server trước khi thao tác.",
 		],
 	},
 	policies: {
