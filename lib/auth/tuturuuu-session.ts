@@ -10,6 +10,10 @@ import { z } from "zod";
 const SESSION_COOKIE_NAME = "cybershield35_admin_session";
 const REQUESTED_SCOPES = [
 	"workspace:session",
+	"workspace:members:read",
+	"workspace:members:write",
+	"workspace:roles:read",
+	"workspace:roles:write",
 	"users:profile:read",
 	"users:profile:write",
 ] as const;

@@ -41,6 +41,11 @@ Optional private auth environment:
   is used only for the admin quick action when Tuturuuu rejects newly requested
   app scopes.
 
+CyberShield requests these code-owned external-app scopes during login:
+`workspace:session`, `workspace:members:read`, `workspace:members:write`,
+`workspace:roles:read`, `workspace:roles:write`, `users:profile:read`, and
+`users:profile:write`. Do not configure requested scopes in the browser.
+
 Local development can set `AUTH_LOCAL_BYPASS=true` to skip the Tuturuuu session
 check only when the request host is localhost/loopback and `NODE_ENV` is not
 `production`. Production always requires a valid Tuturuuu session.

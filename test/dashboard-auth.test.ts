@@ -360,6 +360,10 @@ describe("dashboard auth gate", () => {
 			expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
 			expect(approvalUrl.searchParams.getAll("scope")).toEqual([
 				"workspace:session",
+				"workspace:members:read",
+				"workspace:members:write",
+				"workspace:roles:read",
+				"workspace:roles:write",
 				"users:profile:read",
 				"users:profile:write",
 			]);
@@ -685,6 +689,7 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/dashboard-pages.tsx",
 			"components/dashboard/profile-settings-panel.tsx",
 			"components/dashboard/shell.tsx",
+			"components/dashboard/workspace-members-page.tsx",
 		]) {
 			const source = readFileSync(file, "utf8");
 			expect(source, file).not.toContain("Hồ sơ Tuturuuu");
@@ -790,6 +795,34 @@ describe("dashboard auth gate", () => {
 		expect(evidenceRoute).toContain("export async function POST");
 		expect(evidenceItemRoute).toContain("export async function PATCH");
 		expect(evidenceItemRoute).toContain("export async function DELETE");
+	});
+
+	test("dashboard exposes workspace member management through the shared layout", () => {
+		const data = readFileSync("components/dashboard/dashboard-data.ts", "utf8");
+		const types = readFileSync("components/dashboard/types.ts", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const page = readFileSync(
+			"components/dashboard/workspace-members-page.tsx",
+			"utf8",
+		);
+		const appPage = readFileSync("app/members/page.tsx", "utf8");
+		const proxy = readFileSync("lib/workspace-members/proxy.ts", "utf8");
+
+		expect(data).toContain('href: "/members"');
+		expect(data).toContain("Thành viên");
+		expect(types).toContain('| "members"');
+		expect(dashboard).toContain('case "members"');
+		expect(appPage).toContain('page="members"');
+		expect(page).toContain('fetch("/api/workspace/members"');
+		expect(page).toContain("/api/workspace/members/invitations");
+		expect(page).toContain("/api/workspace/members/default-admin");
+		expect(page).toContain("confirmDefaultAdminDisable");
+		expect(proxy).toContain("getBearerForPlatformRequest");
+		expect(proxy).toContain("Authorization: auth.authorization");
+		expect(proxy).not.toContain("CYBERSHIELD35_APP_SECRET");
 	});
 
 	test("dashboard exposes manual scan run actions for when cron is unavailable", () => {
