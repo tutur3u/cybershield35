@@ -17,8 +17,13 @@ const exchangeResponseSchema = z.object({
 	refreshToken: z.string().min(1),
 	tokenType: z.string().optional(),
 	user: z.object({
+		display_name: z.string().nullable().optional(),
+		displayName: z.string().nullable().optional(),
 		email: z.string().nullable().optional(),
+		full_name: z.string().nullable().optional(),
+		fullName: z.string().nullable().optional(),
 		id: z.string(),
+		name: z.string().nullable().optional(),
 	}),
 	workspaceId: z.string().nullable().optional(),
 });
@@ -33,10 +38,10 @@ export type SafeAdminSession = {
 	expiresAt: string;
 	refreshExpiresAt: string;
 	user: {
+		displayName: string | null;
 		email: string | null;
 		id: string;
 	};
-	workspaceId: string | null;
 };
 
 export type EnvironmentDiagnosticStatus = "configured" | "invalid" | "missing" | "optional";
@@ -154,11 +159,25 @@ export function toSafeSession(session: TuturuuuAdminSession): SafeAdminSession {
 		expiresAt: session.expiresAt,
 		refreshExpiresAt: session.refreshExpiresAt,
 		user: {
+			displayName: firstCleanString(
+				session.user.displayName,
+				session.user.display_name,
+				session.user.name,
+				session.user.fullName,
+				session.user.full_name,
+			),
 			email: session.user.email ?? null,
 			id: session.user.id,
 		},
-		workspaceId: session.workspaceId ?? null,
 	};
+}
+
+function firstCleanString(...values: Array<string | null | undefined>) {
+	for (const value of values) {
+		const cleaned = value?.trim();
+		if (cleaned) return cleaned;
+	}
+	return null;
 }
 
 export function sessionNeedsRefresh(session: TuturuuuAdminSession) {

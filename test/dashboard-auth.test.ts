@@ -29,7 +29,7 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
 		tokenType: "Bearer",
-		user: { email: "admin@example.com", id: "user-1" },
+		user: { displayName: "Admin Example", email: "admin@example.com", id: "user-1" },
 		workspaceId: "workspace-1",
 	};
 }
@@ -241,8 +241,9 @@ describe("dashboard auth gate", () => {
 
 		expect(auth).toMatchObject({
 			authenticated: true,
-			session: { user: { id: "local-dev" }, workspaceId: "local-dev" },
+			session: { user: { displayName: "Local Admin", id: "local-dev" } },
 		});
+		expect(JSON.stringify(auth)).not.toContain("workspaceId");
 	});
 
 	test("accepts a valid encrypted Tuturuuu session cookie", async () => {
@@ -259,12 +260,17 @@ describe("dashboard auth gate", () => {
 			authenticated: true,
 			session: {
 				appName: "cybershield35",
-				user: { email: "admin@example.com", id: "user-1" },
-				workspaceId: "workspace-1",
+				user: {
+					displayName: "Admin Example",
+					email: "admin@example.com",
+					id: "user-1",
+				},
 			},
 		});
 		expect(JSON.stringify(auth)).not.toContain("access-token");
 		expect(JSON.stringify(auth)).not.toContain("refresh-token");
+		expect(JSON.stringify(auth)).not.toContain("workspace-1");
+		expect(JSON.stringify(auth)).not.toContain("workspaceId");
 	});
 
 	test("root layout redirects protected pages before rendering protected children", () => {
@@ -420,14 +426,35 @@ describe("dashboard auth gate", () => {
 		const widgets = readFileSync("components/dashboard/page-widgets.tsx", "utf8");
 
 		expect(shell).toContain("function AccountMenu");
-		expect(shell).toContain("onRefreshAuth");
+		expect(shell).toContain("@tuturuuu/ui/dropdown-menu");
+		expect(shell).toContain("@tuturuuu/ui/custom/tuturuuu-logo");
+		expect(shell).toContain("DropdownMenuSub");
+		expect(shell).toContain("DropdownMenuRadioGroup");
+		expect(shell).toContain("TuturuuLogo");
 		expect(shell).toContain("onLogout");
 		expect(shell).toContain("onSelectTheme");
 		expect(shell).toContain("themeLabel");
+		expect(shell).toContain("displayName");
+		expect(shell).toContain("email");
+		expect(shell).not.toContain("onRefreshAuth");
+		expect(shell).not.toContain("Làm mới phiên");
+		expect(shell).not.toContain("workspaceId");
+		expect(shell).not.toContain("Workspace đã liên kết");
 		expect(shell).not.toContain("ThemeToggleButton");
 		expect(pages).not.toContain("AuthSummary");
 		expect(widgets).not.toContain("AuthSummary");
 		expect(widgets).not.toContain("Tuturuuu server auth");
+	});
+
+	test("notification dropdown has no mock operational items", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const pages = readFileSync("components/dashboard/dashboard-pages.tsx", "utf8");
+
+		expect(shell).toContain("const notifications: OperationalNotification[] = []");
+		expect(shell).not.toContain("Scan Facebook đang chạy");
+		expect(shell).not.toContain("Bản nháp cần duyệt");
+		expect(shell).not.toContain("Cảnh báo rủi ro cao");
+		expect(pages).not.toContain("Thông báo trên thanh trên cùng");
 	});
 
 	test("verify-token callback page completes login without manual token entry", () => {

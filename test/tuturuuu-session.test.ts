@@ -26,7 +26,7 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresIn: 3600,
 		refreshToken: "ttr_app_refresh_secret",
 		tokenType: "Bearer",
-		user: { email: "admin@example.com", id: "user-1" },
+		user: { displayName: "Admin Example", email: "admin@example.com", id: "user-1" },
 		workspaceId: "workspace-1",
 	};
 }
@@ -59,6 +59,8 @@ describe("Tuturuuu encrypted admin session", () => {
 		const safe = toSafeSession(session());
 		expect(JSON.stringify(safe)).not.toContain("ttr_app_access_secret");
 		expect(JSON.stringify(safe)).not.toContain("ttr_app_refresh_secret");
+		expect(JSON.stringify(safe)).not.toContain("workspace-1");
+		expect(safe.user.displayName).toBe("Admin Example");
 		expect(safe.user.email).toBe("admin@example.com");
 	});
 

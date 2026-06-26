@@ -1,20 +1,32 @@
 "use client";
 
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
+} from "@tuturuuu/ui/dropdown-menu";
+import { TuturuuLogo } from "@tuturuuu/ui/custom/tuturuuu-logo";
+import {
 	Bell,
 	Check,
 	CheckCircle2,
 	ChevronDown,
 	CircleHelp,
-	ExternalLink,
 	Laptop,
 	LogOut,
 	Moon,
-	RefreshCw,
+	Palette,
 	ShieldCheck,
 	Sun,
 	UserCircle,
-	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +35,17 @@ import { useState, useSyncExternalStore } from "react";
 import { navItems, quickLinks, topBarItems } from "@/components/dashboard/dashboard-data";
 import { themeLabel, type ResolvedTheme, type ThemePreference } from "@/components/dashboard/theme";
 import type { AuthViewState } from "@/components/dashboard/types";
+
+type OperationalNotification = {
+	description: string;
+	href: string;
+	id: string;
+	time: string;
+	title: string;
+	tone: string;
+};
+
+const notifications: OperationalNotification[] = [];
 
 export function Sidebar() {
 	const pathname = usePathname();
@@ -95,29 +118,19 @@ export function Sidebar() {
 export function TopBar({
 	auth,
 	onLogout,
-	onRefreshAuth,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
 }: {
 	auth: AuthViewState;
 	onLogout: () => Promise<void>;
-	onRefreshAuth: () => Promise<void>;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
 }) {
 	const [accountOpen, setAccountOpen] = useState(false);
-	const [notificationsOpen, setNotificationsOpen] = useState(false);
-	const [readIds, setReadIds] = useState<string[]>([]);
-	const unreadCount = notifications.filter(
-		(notification) => !readIds.includes(notification.id),
-	).length;
-	const identity = auth.session?.user.email ?? auth.session?.user.id ?? "Tài khoản";
-
-	function markRead(id: string) {
-		setReadIds((current) => (current.includes(id) ? current : [...current, id]));
-	}
+	const unreadCount = notifications.length;
+	const identity = getSessionIdentity(auth);
 
 	return (
 		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
@@ -137,125 +150,91 @@ export function TopBar({
 			</div>
 			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
 				<BrowserClock />
-				<div className="relative">
-					<button
-						type="button"
-						aria-expanded={notificationsOpen}
-						aria-haspopup="menu"
-						aria-label="Mở thông báo"
-						onClick={() => setNotificationsOpen((open) => !open)}
-						className="relative grid size-8 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-					>
-						<Bell size={15} />
-						{unreadCount ? (
-							<span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] text-white">
-								{unreadCount}
-							</span>
-						) : null}
-					</button>
-					{notificationsOpen ? (
-						<div
-							role="menu"
-							className="absolute right-0 top-11 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							aria-label="Mở thông báo"
+							className="relative grid size-8 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							<div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-								<div className="min-w-0">
-									<p className="text-[13px] font-bold text-[var(--foreground)]">
-										Thông báo vận hành
-									</p>
-									<p className="mt-0.5 text-[11px] text-[var(--muted)]">
-										{unreadCount} mục cần kiểm tra
-									</p>
-								</div>
-								<button
-									type="button"
-									aria-label="Đóng thông báo"
-									onClick={() => setNotificationsOpen(false)}
-									className="grid size-8 shrink-0 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
-								>
-									<X size={14} />
-								</button>
-							</div>
-							<div className="max-h-[340px] overflow-y-auto p-2">
-								{notifications.map((notification) => {
-									const read = readIds.includes(notification.id);
-
-									return (
-										<Link
-											key={notification.id}
-											href={notification.href}
-											role="menuitem"
-											onClick={() => markRead(notification.id)}
-											className="flex gap-3 rounded-md p-3 transition hover:bg-[var(--surface-soft)]"
-										>
-											<span
-												className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-md ${
-													read
-														? "bg-[var(--neutral-soft)] text-[var(--muted)]"
-														: notification.tone
-												}`}
-											>
-												<CheckCircle2 size={14} />
-											</span>
-											<span className="min-w-0">
-												<span className="flex items-center justify-between gap-3">
-													<span className="truncate text-[12px] font-bold text-[var(--foreground)]">
-														{notification.title}
-													</span>
-													<span className="shrink-0 text-[10px] font-semibold text-[var(--muted)]">
-														{notification.time}
-													</span>
-												</span>
-												<span className="mt-1 block text-[11px] leading-4 text-[var(--muted)]">
-													{notification.description}
-												</span>
-											</span>
-										</Link>
-									);
-								})}
-							</div>
-							<div className="border-t border-[var(--border)] p-2">
-								<Link
-									href="/audit"
-									onClick={() => setNotificationsOpen(false)}
-									className="flex h-9 items-center justify-center gap-2 rounded-md text-[12px] font-bold text-[var(--accent)] transition hover:bg-[var(--accent-soft)]"
-								>
-									Xem nhật ký hoạt động <ExternalLink size={13} />
-								</Link>
-							</div>
-						</div>
-					) : null}
-				</div>
-				<div className="relative">
-					<button
-						type="button"
-						aria-expanded={accountOpen}
-						aria-haspopup="menu"
-						aria-label="Mở tài khoản"
-						onClick={() => setAccountOpen((open) => !open)}
-						className="flex h-9 max-w-[220px] items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+							<Bell size={15} />
+							{unreadCount ? (
+								<span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-red-500 text-[9px] text-white">
+									{unreadCount}
+								</span>
+							) : null}
+						</button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent
+						align="end"
+						className="w-[min(360px,calc(100vw-2rem))] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0 text-[var(--foreground)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
 					>
-						<UserCircle size={17} className="shrink-0" />
-						<span className="hidden min-w-0 truncate text-[12px] font-bold sm:block">
-							{identity}
-						</span>
-						<ChevronDown
-							size={14}
-							className={`shrink-0 transition-transform ${accountOpen ? "rotate-180" : ""}`}
-						/>
-					</button>
-					{accountOpen ? (
-						<AccountMenu
-							auth={auth}
-							onClose={() => setAccountOpen(false)}
-							onLogout={onLogout}
-							onRefreshAuth={onRefreshAuth}
-							onSelectTheme={onSelectTheme}
-							resolvedTheme={resolvedTheme}
-							themePreference={themePreference}
-						/>
-					) : null}
-				</div>
+						<div className="border-b border-[var(--border)] px-4 py-3">
+							<p className="text-[13px] font-bold text-[var(--foreground)]">
+								Thông báo vận hành
+							</p>
+							{notifications.length ? (
+								<p className="mt-0.5 text-[11px] text-[var(--muted)]">
+									{notifications.length} mục cần kiểm tra
+								</p>
+							) : null}
+						</div>
+						<div className={notifications.length ? "max-h-[340px] overflow-y-auto p-2" : "h-2"}>
+							{notifications.map((notification) => (
+								<Link
+									key={notification.id}
+									href={notification.href}
+									className="flex gap-3 rounded-md p-3 transition hover:bg-[var(--surface-soft)]"
+								>
+									<span
+										className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-md ${notification.tone}`}
+									>
+										<CheckCircle2 size={14} />
+									</span>
+									<span className="min-w-0">
+										<span className="flex items-center justify-between gap-3">
+											<span className="truncate text-[12px] font-bold text-[var(--foreground)]">
+												{notification.title}
+											</span>
+											<span className="shrink-0 text-[10px] font-semibold text-[var(--muted)]">
+												{notification.time}
+											</span>
+										</span>
+										<span className="mt-1 block text-[11px] leading-4 text-[var(--muted)]">
+											{notification.description}
+										</span>
+									</span>
+								</Link>
+							))}
+						</div>
+					</DropdownMenuContent>
+				</DropdownMenu>
+				<DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							aria-label="Mở tài khoản"
+							className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+						>
+							<UserCircle size={17} className="shrink-0" />
+							<span className="hidden min-w-0 truncate text-[12px] font-bold sm:block">
+								{identity.primary}
+							</span>
+							<ChevronDown
+								size={14}
+								className={`shrink-0 transition-transform ${accountOpen ? "rotate-180" : ""}`}
+							/>
+						</button>
+					</DropdownMenuTrigger>
+					<AccountMenu
+						auth={auth}
+						onClose={() => setAccountOpen(false)}
+						onLogout={onLogout}
+						onSelectTheme={onSelectTheme}
+						resolvedTheme={resolvedTheme}
+						themePreference={themePreference}
+					/>
+				</DropdownMenu>
 			</div>
 		</header>
 	);
@@ -265,7 +244,6 @@ function AccountMenu({
 	auth,
 	onClose,
 	onLogout,
-	onRefreshAuth,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -273,138 +251,107 @@ function AccountMenu({
 	auth: AuthViewState;
 	onClose: () => void;
 	onLogout: () => Promise<void>;
-	onRefreshAuth: () => Promise<void>;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
 }) {
-	const identity = auth.session?.user.email ?? auth.session?.user.id ?? "Chưa xác định";
-	const workspace = auth.session?.workspaceId ?? "Workspace đã liên kết";
+	const identity = getSessionIdentity(auth);
 
 	return (
-		<div
-			role="menu"
-			className="absolute right-0 top-11 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
+		<DropdownMenuContent
+			align="end"
+			className="w-[min(340px,calc(100vw-2rem))] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 text-[var(--foreground)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
 		>
-			<div className="flex items-start gap-3 border-b border-[var(--border)] px-4 py-3">
-				<span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
-					<ShieldCheck size={18} />
+			<DropdownMenuLabel className="flex items-start gap-3 rounded-md px-3 py-3">
+				<span className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-white">
+					<TuturuuLogo width={22} height={22} alt="" aria-hidden="true" />
 				</span>
-				<div className="min-w-0">
-					<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-						{identity}
-					</p>
-					<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-						{workspace}
-					</p>
-				</div>
-			</div>
-			<div className="space-y-4 p-3">
-				<div>
-					<p className="px-1 text-[11px] font-bold uppercase text-[var(--muted)]">
-						Giao diện
-					</p>
-					<div className="mt-2 grid gap-1">
+				<span className="min-w-0">
+					<span className="block truncate text-[13px] font-bold text-[var(--foreground)]">
+						{identity.primary}
+					</span>
+					{identity.secondary ? (
+						<span className="mt-1 block truncate text-[11px] font-semibold text-[var(--muted)]">
+							{identity.secondary}
+						</span>
+					) : null}
+				</span>
+			</DropdownMenuLabel>
+			<DropdownMenuSeparator className="bg-[var(--border)]" />
+			<DropdownMenuSub>
+				<DropdownMenuSubTrigger className="mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] data-[state=open]:bg-[var(--surface-soft)] data-[state=open]:text-[var(--foreground)]">
+					<Palette size={15} />
+					<span>Giao diện</span>
+					<span className="ml-auto mr-2 text-[11px] font-semibold text-[var(--muted)]">
+						{themeLabel(themePreference)}
+					</span>
+				</DropdownMenuSubTrigger>
+				<DropdownMenuSubContent className="min-w-44 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 text-[var(--foreground)] shadow-[0_18px_50px_rgb(0_0_0/0.2)]">
+					<DropdownMenuRadioGroup
+						value={themePreference}
+						onValueChange={(value) => onSelectTheme(value as ThemePreference)}
+					>
 						{themeOptions.map((option) => {
 							const Icon = themeOptionIcon(option);
 							const active = themePreference === option;
 
 							return (
-								<button
+								<DropdownMenuRadioItem
 									key={option}
-									type="button"
-									role="menuitemradio"
-									aria-checked={active}
-									onClick={() => onSelectTheme(option)}
-									className={`flex min-h-11 items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition ${
-										active
-											? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-											: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
-									}`}
+									value={option}
+									className="rounded-md py-2 pr-2 pl-8 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)]"
 								>
-									<span className="flex min-w-0 items-center gap-2">
-										<Icon size={15} className="shrink-0" />
-										<span className="min-w-0">
-											<span className="block truncate text-[12px] font-bold">
-												{themeLabel(option)}
-											</span>
-											{option === "system" ? (
-												<span className="block truncate text-[10px] font-semibold opacity-75">
-													Đang dùng {themeLabel(resolvedTheme)}
-												</span>
-											) : null}
-										</span>
+									<Icon size={15} />
+									<span className="min-w-0 flex-1 truncate">
+										{themeLabel(option)}
 									</span>
-									{active ? <Check size={14} className="shrink-0" /> : null}
-								</button>
+									{option === "system" ? (
+										<span className="ml-2 truncate text-[10px] font-semibold text-[var(--muted)]">
+											{themeLabel(resolvedTheme)}
+										</span>
+									) : null}
+									{active ? <Check size={14} className="ml-auto" /> : null}
+								</DropdownMenuRadioItem>
 							);
 						})}
-					</div>
-				</div>
-				<div className="grid gap-2 border-t border-[var(--border)] pt-3">
-					<button
-						type="button"
-						role="menuitem"
-						onClick={async () => {
-							await onRefreshAuth();
-							onClose();
-						}}
-						className="flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
-					>
-						<RefreshCw size={15} />
-						Làm mới phiên
-					</button>
-					<button
-						type="button"
-						role="menuitem"
-						onClick={async () => {
-							await onLogout();
-							onClose();
-						}}
-						className="flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
-					>
-						<LogOut size={15} />
-						Đăng xuất
-					</button>
-				</div>
-			</div>
-		</div>
+					</DropdownMenuRadioGroup>
+				</DropdownMenuSubContent>
+			</DropdownMenuSub>
+			<DropdownMenuSeparator className="bg-[var(--border)]" />
+			<DropdownMenuItem
+				variant="destructive"
+				onSelect={() => {
+					void onLogout().finally(onClose);
+				}}
+				className="mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--danger-strong)] focus:bg-[var(--danger-soft)] focus:text-[var(--danger-strong)]"
+			>
+				<LogOut size={15} />
+				Đăng xuất
+			</DropdownMenuItem>
+		</DropdownMenuContent>
 	);
 }
 
 const themeOptions: ThemePreference[] = ["system", "light", "dark"];
 
+function getSessionIdentity(auth: AuthViewState) {
+	const displayName = cleanIdentityValue(auth.session?.user.displayName);
+	const email = cleanIdentityValue(auth.session?.user.email);
+	const primary = displayName ?? email ?? "Tài khoản Tuturuuu";
+	const secondary = displayName && email && displayName !== email ? email : null;
+
+	return { primary, secondary };
+}
+
+function cleanIdentityValue(value: string | null | undefined) {
+	const cleaned = value?.trim();
+	return cleaned || null;
+}
+
 function themeOptionIcon(option: ThemePreference) {
 	if (option === "system") return Laptop;
 	return option === "dark" ? Moon : Sun;
 }
-
-const notifications = [
-	{
-		id: "scan-running",
-		title: "Scan Facebook đang chạy",
-		description: "Bài viết chính sách đang được Apify thu thập bình luận công khai.",
-		href: "/sources",
-		time: "2 phút",
-		tone: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-	},
-	{
-		id: "draft-review",
-		title: "Bản nháp cần duyệt",
-		description: "Một lập luận phản hồi đã sẵn sàng để kiểm tra bằng chứng.",
-		href: "/counter-arguments",
-		time: "8 phút",
-		tone: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
-	},
-	{
-		id: "risk-alert",
-		title: "Cảnh báo rủi ro cao",
-		description: "Cụm chủ đề sai lệch có mức ưu tiên cao trong hàng đợi phân tích.",
-		href: "/alerts",
-		time: "14 phút",
-		tone: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
-	},
-] as const;
 
 let clockSnapshot = 0;
 

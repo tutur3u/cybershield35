@@ -11,7 +11,6 @@ import {
 	createScan,
 	generateDraft,
 	logout,
-	refreshSession,
 	reviewDraft,
 	sendChatMessage,
 	scanTrackedSource,
@@ -277,7 +276,6 @@ export function CyberShieldDashboard({
 					<TopBar
 						auth={auth}
 						onLogout={() => logout(setAuth, setNotice, auth.loginHref)}
-						onRefreshAuth={() => refreshSession(setAuth, setNotice, auth.loginHref)}
 						onSelectTheme={setPreference}
 						resolvedTheme={resolvedTheme}
 						themePreference={preference}

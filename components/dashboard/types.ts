@@ -33,10 +33,10 @@ export type AdminSessionView = {
 	expiresAt: string;
 	refreshExpiresAt: string;
 	user: {
+		displayName: string | null;
 		email: string | null;
 		id: string;
 	};
-	workspaceId: string | null;
 };
 
 export type AuthViewState = {

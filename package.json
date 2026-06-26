@@ -25,6 +25,7 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
     "@ai-sdk/openai": "^3.0.71",
+    "@tuturuuu/ui": "0.7.0",
     "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.204",
     "apify-client": "^2.23.4",
@@ -50,5 +51,14 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3"
-  }
+  },
+  "trustedDependencies": [
+    "@mongodb-js/zstd",
+    "@parcel/watcher",
+    "@swc/core",
+    "baileys",
+    "node-liblzma",
+    "protobufjs",
+    "unrs-resolver"
+  ]
 }

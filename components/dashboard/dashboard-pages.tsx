@@ -632,7 +632,7 @@ const guideContent = {
 		],
 		notes: [
 			"Không nhập hoặc lưu khóa provider trong trình duyệt.",
-			"Thông báo trên thanh trên cùng dẫn nhanh đến scan, bản nháp và cảnh báo cần xử lý.",
+			"Nhật ký hoạt động ghi lại các thao tác vận hành quan trọng để truy vết sau mỗi phiên.",
 			"Nếu API riêng tư trả 401, hãy kiểm tra phiên Tuturuuu và cấu hình server trước khi thao tác.",
 		],
 	},
