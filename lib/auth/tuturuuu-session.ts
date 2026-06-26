@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { z } from "zod";
 
 const SESSION_COOKIE_NAME = "cybershield35_admin_session";
-const DEFAULT_SCOPES = ["workspace:session"];
+const REQUESTED_SCOPES = ["workspace:session"] as const;
 const REFRESH_SKEW_SECONDS = 90;
 
 const exchangeResponseSchema = z.object({
@@ -108,11 +108,7 @@ function hostnameFromHost(host: string) {
 }
 
 export function getRequestedScopes() {
-	return (
-		process.env.CYBERSHIELD35_REQUESTED_SCOPES?.split(",")
-			.map((scope) => scope.trim())
-			.filter(Boolean) ?? DEFAULT_SCOPES
-	);
+	return [...REQUESTED_SCOPES];
 }
 
 export async function exchangeTuturuuuAppToken(input: {
