@@ -496,7 +496,7 @@ describe("dashboard auth gate", () => {
 		expect(markup).not.toContain("Đăng nhập bằng Tuturuuu");
 	});
 
-	test("locked dashboard renders Tuturuuu approval action only when provided", () => {
+	test("locked dashboard renders approval action only when provided", () => {
 		const withoutApproval = renderToStaticMarkup(
 			createElement(LockedDashboard, {
 				error: "Requested scope is not allowed for this app",
@@ -504,7 +504,7 @@ describe("dashboard auth gate", () => {
 			}),
 		);
 		expect(withoutApproval).toContain("Đăng nhập lại");
-		expect(withoutApproval).not.toContain("Duyệt quyền trong Tuturuuu");
+		expect(withoutApproval).not.toContain("Duyệt quyền truy cập");
 
 		const withApproval = renderToStaticMarkup(
 			createElement(LockedDashboard, {
@@ -515,7 +515,7 @@ describe("dashboard auth gate", () => {
 			}),
 		);
 		expect(withApproval).toContain("Đăng nhập lại");
-		expect(withApproval).toContain("Duyệt quyền trong Tuturuuu");
+		expect(withApproval).toContain("Duyệt quyền truy cập");
 		expect(withApproval).toContain(
 			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
 		);
@@ -607,14 +607,18 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("BRANDMARK_RECOLLAPSE_DELAY_MS");
 		expect(shell).toContain("onPointerEnter");
 		expect(shell).toContain("onPointerLeave");
+		expect(shell).toContain("transition-[max-width,opacity]");
 		expect(shell).toContain('href="/"');
 		expect(shell).toContain("pathname === \"/\"");
 		expect(shell).toContain("collapsed ? \"hidden lg:hidden\" :");
+		expect(shell).not.toContain("bg-[linear-gradient");
+		expect(shell).not.toContain("[background-image:");
+		expect(shell).not.toContain("shadow-[0_0_18px");
 		expect(shell).not.toContain("ShieldCheck");
 		expect(shell).not.toContain("CyberShield 35");
 	});
 
-	test("Tuturuuu profile editing lives in the account menu dialog", () => {
+	test("profile editing lives in the account menu dialog", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
@@ -626,11 +630,29 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(shell).toContain("onOpenProfile");
-		expect(shell).toContain("Hồ sơ Tuturuuu");
+		expect(shell).toContain("Hồ sơ tài khoản");
 		expect(dashboard).toContain("profileDialogOpen");
 		expect(dashboard).toContain("ProfileSettingsPanel");
 		expect(dashboard).toContain("setProfileDialogOpen(true)");
 		expect(pages).not.toContain("ProfileSettingsPanel");
+	});
+
+	test("authenticated dashboard copy does not mention Tuturuuu by name", () => {
+		for (const file of [
+			"components/dashboard/client-actions.ts",
+			"components/dashboard/cybershield-dashboard.tsx",
+			"components/dashboard/dashboard-pages.tsx",
+			"components/dashboard/profile-settings-panel.tsx",
+			"components/dashboard/shell.tsx",
+		]) {
+			const source = readFileSync(file, "utf8");
+			expect(source, file).not.toContain("Hồ sơ Tuturuuu");
+			expect(source, file).not.toContain("Tài khoản Tuturuuu");
+			expect(source, file).not.toContain("Phiên Tuturuuu");
+			expect(source, file).not.toContain("Tuturuuu external app");
+			expect(source, file).not.toContain("Duyệt quyền trong Tuturuuu");
+			expect(source, file).not.toContain("Tuturuuu Storage");
+		}
 	});
 
 	test("account dropdown owns server settings and notification empty state", () => {
@@ -780,10 +802,28 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain("router.replace(nextPath)");
 		expect(client).toContain("href={retryHref}");
 		expect(client).toContain("scopeApprovalHref");
-		expect(client).toContain("Duyệt quyền trong Tuturuuu");
+		expect(client).toContain("Duyệt quyền truy cập");
 		expect(client).not.toContain("<input");
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
+	});
+
+	test("auth provider branding stays on the login surface", () => {
+		const loginPage = readFileSync("app/login/page.tsx", "utf8");
+		const loginScreen = readFileSync(
+			"components/dashboard/auth-required-screen.tsx",
+			"utf8",
+		);
+		const verifyPage = readFileSync("app/verify-token/page.tsx", "utf8");
+		const verifyClient = readFileSync(
+			"components/auth/verify-token-client.tsx",
+			"utf8",
+		);
+
+		expect(loginPage).toContain("Tuturuuu");
+		expect(loginScreen).toContain("Tuturuuu");
+		expect(verifyPage).not.toContain("Tuturuuu");
+		expect(verifyClient).not.toContain("Tuturuuu");
 	});
 
 	test("verify-token callback does not return to the dashboard without a token", () => {
@@ -794,7 +834,7 @@ describe("dashboard auth gate", () => {
 
 		expect(client).toContain("if (!token) {");
 		expect(client).toContain('setState("failed")');
-		expect(client).toContain("Phiên đăng nhập Tuturuuu không hợp lệ");
+		expect(client).toContain("Phiên đăng nhập không hợp lệ");
 		expect(client).toContain("/login?nextUrl=");
 		expect(client).not.toContain(
 			"if (!token) {\n\t\t\t\trouter.replace(nextPath)",
@@ -812,9 +852,7 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("if (!auth.authenticated)");
 		expect(source).toContain("<LockedDashboard");
 		expect(source).toContain("scopeApprovalHref={auth.scopeApprovalHref}");
-		expect(source).toContain(
-			"Duyệt quyền trong Tuturuuu",
-		);
+		expect(source).toContain("Duyệt quyền truy cập");
 		expect(source).toContain("export function LockedDashboard");
 		expect(source).toContain("href={loginHref}");
 		expect(source).not.toContain('href="/"');

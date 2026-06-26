@@ -180,7 +180,7 @@ export function CyberShieldDashboard({
 						loginHref: payload.loginHref,
 						session: payload.session,
 					});
-					setNotice("Đã xác thực bằng Tuturuuu external app login.");
+					setNotice("Đã xác thực phiên đăng nhập.");
 				} else {
 					setAuth({
 						authenticated: false,
@@ -194,7 +194,7 @@ export function CyberShieldDashboard({
 			.catch(() =>
 				setAuth((current) => ({
 					authenticated: false,
-					error: "Không thể kiểm tra phiên Tuturuuu.",
+					error: "Không thể kiểm tra phiên đăng nhập.",
 					loginHref: current.loginHref,
 				})),
 			);
@@ -589,7 +589,7 @@ export function CyberShieldDashboard({
 			<Dialog
 				open={profileDialogOpen}
 				onClose={() => setProfileDialogOpen(false)}
-				title="Hồ sơ Tuturuuu"
+				title="Hồ sơ tài khoản"
 				description="Tên hiển thị và ảnh đại diện cho phiên đang đăng nhập."
 				size="wide"
 			>
@@ -657,7 +657,7 @@ export function LockedDashboard({
 							</h1>
 							<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
 								{error ??
-									"Phiên Tuturuuu không hợp lệ. Vui lòng đăng nhập lại để mở bảng điều khiển."}
+									"Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại để mở bảng điều khiển."}
 							</p>
 						</div>
 					</div>
@@ -683,7 +683,7 @@ export function LockedDashboard({
 							href={scopeApprovalHref}
 							className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							Duyệt quyền trong Tuturuuu
+							Duyệt quyền truy cập
 						</a>
 					) : null}
 				</section>

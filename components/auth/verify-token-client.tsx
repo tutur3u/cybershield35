@@ -62,7 +62,7 @@ export function VerifyTokenClient() {
 
 			if (!token) {
 				setError(
-					"Phiên đăng nhập Tuturuuu không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
+					"Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
 				);
 				setState("failed");
 				return;
@@ -80,7 +80,7 @@ export function VerifyTokenClient() {
 
 				if (!response.ok || !data?.session?.authenticated || !data.session.user?.id) {
 					setScopeApprovalHref(data?.scopeApprovalHref ?? null);
-					throw new Error(data?.error || "Không thể xác thực phiên Tuturuuu.");
+					throw new Error(data?.error || "Không thể xác thực phiên đăng nhập.");
 				}
 
 				if (cancelled) return;
@@ -92,7 +92,7 @@ export function VerifyTokenClient() {
 				setError(
 					verificationError instanceof Error
 						? verificationError.message
-						: "Không thể xác thực phiên Tuturuuu.",
+						: "Không thể xác thực phiên đăng nhập.",
 				);
 				setState("failed");
 			}
@@ -121,14 +121,14 @@ export function VerifyTokenClient() {
 					href={retryHref}
 					className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
-					Đăng nhập lại bằng Tuturuuu
+					Đăng nhập lại
 				</Link>
 				{scopeApprovalHref ? (
 					<Link
 						href={scopeApprovalHref}
 						className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
 					>
-						Duyệt quyền trong Tuturuuu
+						Duyệt quyền truy cập
 					</Link>
 				) : null}
 			</>
@@ -145,7 +145,7 @@ export function VerifyTokenClient() {
 				)}
 			</span>
 			<h1 className="mt-5 text-[22px] font-bold leading-7">
-				{state === "success" ? "Đã kết nối" : "Đang kết nối Tuturuuu"}
+				{state === "success" ? "Đã kết nối" : "Đang kết nối phiên"}
 			</h1>
 			<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
 				Đang hoàn tất xác thực quản trị và chuyển về bảng điều khiển.

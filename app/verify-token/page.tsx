@@ -6,8 +6,8 @@ import { VerifyTokenClient } from "@/components/auth/verify-token-client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-	title: "Đăng nhập Tuturuuu",
-	description: "Hoàn tất xác thực Tuturuuu cho CyberShield 35.",
+	title: "Đăng nhập",
+	description: "Hoàn tất xác thực cho CyberShield 35.",
 };
 
 function VerifyTokenFallback() {
@@ -17,7 +17,7 @@ function VerifyTokenFallback() {
 				...
 			</span>
 			<h1 className="mt-5 text-[22px] font-bold leading-7">
-				Đang kết nối Tuturuuu
+				Đang kết nối phiên
 			</h1>
 			<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
 				Đang hoàn tất xác thực quản trị và chuyển về bảng điều khiển.
