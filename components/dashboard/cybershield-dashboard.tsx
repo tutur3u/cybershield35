@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
-import { Dialog } from "@/components/dashboard/dialog-frame";
 import {
 	CounterArgumentDialog,
 	EvidenceEditDialog,
@@ -23,7 +22,6 @@ import {
 	deleteScanRecord,
 	deleteTrackedSourceRecord,
 	generateDraft,
-	logout,
 	reviewDraft,
 	runScanRecord,
 	sendChatMessage,
@@ -55,21 +53,15 @@ import {
 	SourcesPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
-import { ProviderStatus } from "@/components/dashboard/page-widgets";
-import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
-import { Sidebar, TopBar } from "@/components/dashboard/shell";
-import { useThemePreference } from "@/components/dashboard/theme";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import type {
 	AnalysisView,
-	AdminSessionView,
 	AuthViewState,
 	ChatMessage,
 	DashboardScan,
 	DashboardPage,
 	DraftShape,
 	EvidenceView,
-	ProviderAvailabilityView,
 	ReportSpec,
 	ScanDetail,
 	TrackedSourceView,
@@ -106,9 +98,7 @@ export function CyberShieldDashboard({
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
 	const [, setNotice] = useState("");
-	const [auth, setAuth] = useState<AuthViewState>(
-		initialAuth ?? layoutAuth ?? { authenticated: false },
-	);
+	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
 	const [draft, setDraft] = useState<DraftShape | null>(null);
 	const [tone, setTone] = useState(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
@@ -133,9 +123,6 @@ export function CyberShieldDashboard({
 	const [chatDraft, setChatDraft] = useState("");
 	const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
 	const [isChatting, setIsChatting] = useState(false);
-	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 	const [scanEditDialogOpen, setScanEditDialogOpen] = useState(false);
 	const [scanBeingEdited, setScanBeingEdited] = useState<DashboardScan | null>(
 		null,
@@ -144,9 +131,6 @@ export function CyberShieldDashboard({
 	const [evidenceBeingEdited, setEvidenceBeingEdited] = useState<
 		EvidenceView[number] | null
 	>(null);
-	const [providerAvailability, setProviderAvailability] =
-		useState<ProviderAvailabilityView | null>(null);
-	const { preference, resolvedTheme, setPreference } = useThemePreference();
 	const activeScanId = scanId ?? selectedScanId;
 
 	const selectedScan = useMemo(
@@ -163,46 +147,6 @@ export function CyberShieldDashboard({
 		],
 		[customReports, hiddenReportKinds],
 	);
-
-	useEffect(() => {
-		let alive = true;
-		const nextUrl = `${window.location.pathname}${window.location.search}`;
-		fetch(`/api/admin/session?nextUrl=${encodeURIComponent(nextUrl)}`, {
-			cache: "no-store",
-		})
-			.then(async (response) => {
-				const payload = await response.json();
-				if (!alive) return;
-				if (response.ok && payload.session) {
-					setAuth({
-						authenticated: true,
-						configured: true,
-						loginHref: payload.loginHref,
-						session: payload.session,
-					});
-					setNotice("Đã xác thực phiên đăng nhập.");
-				} else {
-					setAuth({
-						authenticated: false,
-						configured: payload.configured,
-						error: payload.error,
-						loginHref: payload.loginHref,
-						scopeApprovalHref: payload.scopeApprovalHref,
-					});
-				}
-			})
-			.catch(() =>
-				setAuth((current) => ({
-					authenticated: false,
-					error: "Không thể kiểm tra phiên đăng nhập.",
-					loginHref: current.loginHref,
-				})),
-			);
-
-		return () => {
-			alive = false;
-		};
-	}, []);
 
 	useEffect(() => {
 		if (!auth.authenticated) {
@@ -228,14 +172,6 @@ export function CyberShieldDashboard({
 				setNotice("Đang đọc hàng đợi từ Postgres.");
 			})
 			.catch(() => setNotice("Không thể tải hàng đợi scan live."));
-
-		fetch("/api/health", { cache: "no-store" })
-			.then((response) => response.json())
-			.then((payload: { providers?: ProviderAvailabilityView }) => {
-				if (!alive) return;
-				setProviderAvailability(payload.providers ?? null);
-			})
-			.catch(() => setProviderAvailability(null));
 
 		fetch("/api/tracked-sources", { cache: "no-store" })
 			.then((response) => response.json())
@@ -282,7 +218,6 @@ export function CyberShieldDashboard({
 		topics,
 		evidence,
 		draft,
-		providerAvailability,
 		chatMessages,
 		isChatting,
 		isCreating,
@@ -387,14 +322,6 @@ export function CyberShieldDashboard({
 			draft
 				? reviewDraft({ draft, status, setDraft, setNotice })
 				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
-		onProfileUpdated: (session: AdminSessionView) => {
-			setAuth((current) => ({
-				...current,
-				authenticated: true,
-				configured: true,
-				session,
-			}));
-		},
 		reports,
 	};
 
@@ -439,31 +366,8 @@ export function CyberShieldDashboard({
 	}
 
 	return (
-		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-			<div
-				className={`min-h-screen transition-[padding] duration-200 ${
-					sidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]"
-				}`}
-			>
-				<Sidebar
-					collapsed={sidebarCollapsed}
-					onToggle={() => setSidebarCollapsed((current) => !current)}
-				/>
-				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
-					<TopBar
-						auth={auth}
-						onLogout={() => logout(setAuth, setNotice, auth.loginHref)}
-						onOpenProfile={() => setProfileDialogOpen(true)}
-						onOpenSettings={() => setSettingsDialogOpen(true)}
-						onSelectTheme={setPreference}
-						resolvedTheme={resolvedTheme}
-						themePreference={preference}
-					/>
-					<div className="flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
-						{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
-					</div>
-				</section>
-			</div>
+		<>
+			{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
 			<ScanDialog
 				open={scanDialogOpen}
 				onClose={() => setScanDialogOpen(false)}
@@ -586,36 +490,7 @@ export function CyberShieldDashboard({
 					})
 				}
 			/>
-			<Dialog
-				open={profileDialogOpen}
-				onClose={() => setProfileDialogOpen(false)}
-				title="Hồ sơ tài khoản"
-				description="Tên hiển thị và ảnh đại diện cho phiên đang đăng nhập."
-				size="wide"
-			>
-				<ProfileSettingsPanel
-					auth={auth}
-					embedded
-					onProfileUpdated={(session) => {
-						setAuth((current) => ({
-							...current,
-							authenticated: true,
-							configured: true,
-							session,
-						}));
-					}}
-				/>
-			</Dialog>
-			<Dialog
-				open={settingsDialogOpen}
-				onClose={() => setSettingsDialogOpen(false)}
-				title="Cấu hình máy chủ"
-				description="Trạng thái provider server-side và khóa vận hành hiện có."
-				size="wide"
-			>
-				<ProviderStatus availability={providerAvailability ?? undefined} />
-			</Dialog>
-		</main>
+		</>
 	);
 }
 

@@ -370,14 +370,22 @@ describe("dashboard auth gate", () => {
 
 	test("root layout redirects protected pages before rendering protected children", () => {
 		const source = readFileSync("app/layout.tsx", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
 
 		expect(source).toContain("resolveDashboardAuthFromCurrentRequest");
 		expect(source).toContain("redirect(auth.loginPath)");
-		expect(source).toContain("DashboardAuthProvider");
+		expect(source).toContain("DashboardLayoutShell");
+		expect(source).toContain("<DashboardLayoutShell");
 		expect(source).toContain("auth.authenticated");
 		expect(source).toContain("auth.publicRoute");
 		expect(source).toContain("{children}");
 		expect(source).not.toContain("AuthRequiredScreen");
+		expect(dashboard).not.toContain("<Sidebar");
+		expect(dashboard).not.toContain("<TopBar");
+		expect(dashboard).not.toContain("sidebarCollapsed");
 	});
 
 	test("app pages do not own the route protection boundary", () => {
@@ -579,8 +587,8 @@ describe("dashboard auth gate", () => {
 
 	test("dashboard chrome removes legacy status copy and supports collapsing the sidebar", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
-		const dashboard = readFileSync(
-			"components/dashboard/cybershield-dashboard.tsx",
+		const layoutShell = readFileSync(
+			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
 		);
 		const data = readFileSync(
@@ -591,10 +599,27 @@ describe("dashboard auth gate", () => {
 		expect(shell).not.toContain("Admin Control");
 		expect(shell).not.toContain("topBarItems");
 		expect(data).not.toContain("Hệ thống hoạt động");
-		expect(dashboard).toContain("sidebarCollapsed");
+		expect(layoutShell).toContain("sidebarCollapsed");
 		expect(shell).toContain("PanelLeftClose");
 		expect(shell).toContain("PanelLeftOpen");
 		expect(shell).toContain("aria-label={collapsed ? \"Mở rộng sidebar\" : \"Thu gọn sidebar\"}");
+	});
+
+	test("collapsed sidebar navigation uses tooltips from the layout shell", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const layoutShell = readFileSync(
+			"components/dashboard/dashboard-layout-shell.tsx",
+			"utf8",
+		);
+
+		expect(shell).toContain("@tuturuuu/ui/tooltip");
+		expect(shell).toContain("TooltipProvider");
+		expect(shell).toContain("TooltipTrigger");
+		expect(shell).toContain("TooltipContent");
+		expect(shell).toContain("side=\"right\"");
+		expect(shell).toContain("collapsed ? item.label : undefined");
+		expect(layoutShell).toContain("<Sidebar");
+		expect(layoutShell).toContain("<TopBar");
 	});
 
 	test("sidebar uses the CyberShield35 wordmark as the home link", () => {
@@ -628,6 +653,10 @@ describe("dashboard auth gate", () => {
 
 	test("profile editing lives in the account menu dialog", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const layoutShell = readFileSync(
+			"components/dashboard/dashboard-layout-shell.tsx",
+			"utf8",
+		);
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
 			"utf8",
@@ -639,9 +668,13 @@ describe("dashboard auth gate", () => {
 
 		expect(shell).toContain("onOpenProfile");
 		expect(shell).toContain("Hồ sơ tài khoản");
-		expect(dashboard).toContain("profileDialogOpen");
-		expect(dashboard).toContain("ProfileSettingsPanel");
-		expect(dashboard).toContain("setProfileDialogOpen(true)");
+		expect(layoutShell).toContain("profileDialogOpen");
+		expect(layoutShell).toContain("ProfileSettingsPanel");
+		expect(layoutShell).toContain("setProfileDialogOpen(true)");
+		expect(layoutShell).toContain("currentLoginHref");
+		expect(layoutShell).toContain("nextUrl");
+		expect(dashboard).not.toContain("profileDialogOpen");
+		expect(dashboard).not.toContain("ProfileSettingsPanel");
 		expect(pages).not.toContain("ProfileSettingsPanel");
 	});
 
@@ -665,6 +698,10 @@ describe("dashboard auth gate", () => {
 
 	test("account dropdown owns server settings and notification empty state", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const layoutShell = readFileSync(
+			"components/dashboard/dashboard-layout-shell.tsx",
+			"utf8",
+		);
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
 			"utf8",
@@ -681,8 +718,10 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("onOpenSettings");
 		expect(shell).toContain("Cấu hình máy chủ");
 		expect(shell).toContain("Không có thông báo mới");
-		expect(dashboard).toContain("settingsDialogOpen");
-		expect(dashboard).toContain("<ProviderStatus");
+		expect(layoutShell).toContain("settingsDialogOpen");
+		expect(layoutShell).toContain("<ProviderStatus");
+		expect(dashboard).not.toContain("settingsDialogOpen");
+		expect(dashboard).not.toContain("<ProviderStatus");
 		expect(pages).not.toContain("<ProviderStatus");
 		expect(data).not.toContain('href: "/settings"');
 	});

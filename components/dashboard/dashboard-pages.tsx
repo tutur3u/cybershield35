@@ -43,13 +43,11 @@ import {
 } from "@/components/dashboard/page-widgets";
 import type {
 	AnalysisView,
-	AdminSessionView,
 	AuthViewState,
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
 	EvidenceView,
-	ProviderAvailabilityView,
 	ReportSpec,
 	ScanDetail,
 	TrackedSourceView,
@@ -66,7 +64,6 @@ export type DashboardPageProps = {
 	topics: TopicCluster[];
 	evidence: EvidenceView;
 	draft: DraftShape | null;
-	providerAvailability: ProviderAvailabilityView | null;
 	chatMessages: ChatMessage[];
 	isChatting: boolean;
 	isCreating: boolean;
@@ -97,7 +94,6 @@ export type DashboardPageProps = {
 	onDeleteTrackedSource: (source: TrackedSourceView) => Promise<boolean>;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
-	onProfileUpdated: (session: AdminSessionView) => void;
 	reports: ReportSpec[];
 };
 

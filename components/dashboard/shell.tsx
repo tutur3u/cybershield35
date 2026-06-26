@@ -14,6 +14,12 @@ import {
 	DropdownMenuTrigger,
 } from "@tuturuuu/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@tuturuuu/ui/avatar";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@tuturuuu/ui/tooltip";
 import "slot-text/style.css";
 import { SlotText } from "slot-text/react";
 import {
@@ -98,32 +104,46 @@ export function Sidebar({
 					</button>
 				</div>
 				<nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-4">
-					{navItems.map((item) => {
-						const active =
-							item.href === "/"
-								? pathname === "/"
-								: pathname.startsWith(item.href);
+					<TooltipProvider delayDuration={120}>
+						{navItems.map((item) => {
+							const active =
+								item.href === "/"
+									? pathname === "/"
+									: pathname.startsWith(item.href);
 
-						return (
-							<Link
-								key={item.label}
-								href={item.href}
-								title={collapsed ? item.label : undefined}
-								className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
-									collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
-								} ${
-									active
-										? "bg-[var(--brand)] text-white shadow-sm"
-										: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
-								}`}
-							>
-								<item.icon size={17} strokeWidth={2.1} />
-								<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
-									{item.label}
-								</span>
-							</Link>
-						);
-					})}
+							return (
+								<Tooltip key={item.label}>
+									<TooltipTrigger asChild>
+										<Link
+											href={item.href}
+											title={collapsed ? item.label : undefined}
+											className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
+												collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
+											} ${
+												active
+													? "bg-[var(--brand)] text-white shadow-sm"
+													: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+											}`}
+										>
+											<item.icon size={17} strokeWidth={2.1} />
+											<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
+												{item.label}
+											</span>
+										</Link>
+									</TooltipTrigger>
+									{collapsed ? (
+										<TooltipContent
+											side="right"
+											sideOffset={10}
+											className="hidden rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)] shadow-[0_12px_30px_rgb(0_0_0/0.22)] lg:block"
+										>
+											{item.label}
+										</TooltipContent>
+									) : null}
+								</Tooltip>
+							);
+						})}
+					</TooltipProvider>
 				</nav>
 				<div
 					className={`mt-auto hidden p-3 lg:block ${collapsed ? "lg:hidden" : ""}`}
