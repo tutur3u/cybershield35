@@ -15,6 +15,7 @@ export type DashboardPage =
 	| "analysis"
 	| "counter-arguments"
 	| "chat"
+	| "members"
 	| "scan-detail"
 	| "evidence"
 	| "evidence-detail"
@@ -47,6 +48,34 @@ export type AuthViewState = {
 	loginHref?: string;
 	scopeApprovalHref?: string;
 	session?: AdminSessionView;
+};
+
+export type WorkspaceMemberRole = "admin" | "member";
+
+export type WorkspaceMemberView = {
+	avatarUrl: string | null;
+	displayName: string | null;
+	email: string | null;
+	id: string;
+	isCreator: boolean;
+	isCurrentUser: boolean;
+	role: WorkspaceMemberRole;
+	roleSources: Array<"admin" | "creator" | "default" | "role">;
+};
+
+export type WorkspaceInvitationView = {
+	createdAt: string | null;
+	email: string;
+};
+
+export type WorkspaceMembersResponse = {
+	context: {
+		canManageMembers: boolean;
+		canManageRoles: boolean;
+		defaultAdminEnabled: boolean;
+	};
+	invitations: WorkspaceInvitationView[];
+	members: WorkspaceMemberView[];
 };
 
 export type DashboardScan = {

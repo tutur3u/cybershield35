@@ -47,6 +47,7 @@ import {
 	CounterArgumentsPage,
 	EvidencePage,
 	GuidePage,
+	MembersPage,
 	OverviewPage,
 	ReportsPage,
 	SettingsPage,
@@ -587,6 +588,8 @@ function renderPage(
 					onOpenComposer={props.onOpenChatComposer}
 				/>
 			);
+		case "members":
+			return <MembersPage />;
 		case "scan-detail":
 			return <ScanDetailsPage {...props} scanId={routeIds.scanId} />;
 		case "evidence":

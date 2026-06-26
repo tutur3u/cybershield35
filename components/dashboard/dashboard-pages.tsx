@@ -54,6 +54,7 @@ import type {
 	TopicCluster,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
+import { WorkspaceMembersPage } from "@/components/dashboard/workspace-members-page";
 
 export type DashboardPageProps = {
 	scans: DashboardScan[];
@@ -179,6 +180,10 @@ export function SourcesPage(props: DashboardPageProps) {
 			</div>
 		</div>
 	);
+}
+
+export function MembersPage() {
+	return <WorkspaceMembersPage />;
 }
 
 function TrackedSourcesPanel({

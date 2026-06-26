@@ -10,6 +10,7 @@ import {
 	MessageCircle,
 	MessageSquareText,
 	Radar,
+	UsersRound,
 	type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ export const navItems: NavItem[] = [
 	{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
 	{ label: "Lập luận phản hồi", href: "/counter-arguments", icon: MessageSquareText },
 	{ label: "Chat LLM", href: "/chat", icon: MessageCircle },
+	{ label: "Thành viên", href: "/members", icon: UsersRound },
 	{ label: "Kho bằng chứng", href: "/evidence", icon: Database },
 	{ label: "Cảnh báo & Rủi ro", href: "/alerts", icon: AlertTriangle },
 	{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
