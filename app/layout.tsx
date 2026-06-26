@@ -3,7 +3,7 @@ import { Be_Vietnam_Pro } from "next/font/google";
 import { redirect } from "next/navigation";
 import Script from "next/script";
 
-import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
+import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
 
 import "./globals.css";
@@ -63,7 +63,7 @@ export default async function RootLayout({
 		>
 			<body>
 				{auth.authenticated ? (
-					<DashboardAuthProvider
+					<DashboardLayoutShell
 						initialAuth={{
 							authenticated: true,
 							configured: true,
@@ -71,7 +71,7 @@ export default async function RootLayout({
 						}}
 					>
 						{children}
-					</DashboardAuthProvider>
+					</DashboardLayoutShell>
 				) : (
 					children
 				)}
