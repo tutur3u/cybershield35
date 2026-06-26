@@ -39,6 +39,7 @@ import { useThemePreference } from "@/components/dashboard/theme";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import type {
 	AnalysisView,
+	AdminSessionView,
 	AuthViewState,
 	ChatMessage,
 	DashboardScan,
@@ -238,6 +239,7 @@ export function CyberShieldDashboard({
 		isChatting,
 		isCreating,
 		trackedSources,
+		auth,
 		onSelectScan: setSelectedScanId,
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
@@ -262,6 +264,14 @@ export function CyberShieldDashboard({
 			draft
 				? reviewDraft({ draft, status, setDraft, setNotice })
 				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
+		onProfileUpdated: (session: AdminSessionView) => {
+			setAuth((current) => ({
+				...current,
+				authenticated: true,
+				configured: true,
+				session,
+			}));
+		},
 	};
 
 	if (!auth.authenticated) {

@@ -95,11 +95,15 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(isTuturuuuAuthConfigured()).toBe(true);
 	});
 
-	test("requests the code-owned workspace session scope", () => {
+	test("requests the code-owned workspace and profile scopes", () => {
 		process.env.CYBERSHIELD35_REQUESTED_SCOPES =
 			"external-projects:*,workspace:session";
 
-		expect(getRequestedScopes()).toEqual(["workspace:session"]);
+		expect(getRequestedScopes()).toEqual([
+			"workspace:session",
+			"users:profile:read",
+			"users:profile:write",
+		]);
 	});
 
 	test("auth configuration does not require a dedicated session secret", () => {

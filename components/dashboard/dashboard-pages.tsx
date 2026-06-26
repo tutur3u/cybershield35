@@ -38,8 +38,11 @@ import {
 	ProviderStatus,
 	QueueCard,
 } from "@/components/dashboard/page-widgets";
+import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import type {
 	AnalysisView,
+	AdminSessionView,
+	AuthViewState,
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
@@ -66,6 +69,7 @@ export type DashboardPageProps = {
 	isChatting: boolean;
 	isCreating: boolean;
 	trackedSources: TrackedSourceView[];
+	auth: AuthViewState;
 	onSelectScan: (id: string) => void;
 	onOpenScan: () => void;
 	onOpenDraft: () => void;
@@ -73,6 +77,7 @@ export type DashboardPageProps = {
 	onPrepareReport: (report: ReportSpec) => void;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
+	onProfileUpdated: (session: AdminSessionView) => void;
 };
 
 export function OverviewPage(props: DashboardPageProps) {
@@ -433,6 +438,10 @@ export function SettingsPage(props: DashboardPageProps) {
 				icon={ShieldCheck}
 				title="Cấu hình"
 				description="Trạng thái provider server-side, LLM và cơ sở dữ liệu vận hành."
+			/>
+			<ProfileSettingsPanel
+				auth={props.auth}
+				onProfileUpdated={props.onProfileUpdated}
 			/>
 			<ProviderStatus availability={props.providerAvailability ?? undefined} />
 		</div>
