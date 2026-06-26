@@ -325,4 +325,26 @@ describe("dashboard auth gate", () => {
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
 	});
+
+	test("verify-token callback does not return to the dashboard without a token", () => {
+		const client = readFileSync("components/auth/verify-token-client.tsx", "utf8");
+
+		expect(client).toContain('if (!token) {');
+		expect(client).toContain("setState(\"failed\")");
+		expect(client).toContain("Phiên đăng nhập Tuturuuu không hợp lệ");
+		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.replace(nextPath)");
+		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.refresh()");
+	});
+
+	test("dashboard client locks instead of rendering the app shell without auth", () => {
+		const source = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+
+		expect(source).toContain("if (!auth.authenticated)");
+		expect(source).toContain("<LockedDashboard error={auth.error} />");
+		expect(source).toContain("function LockedDashboard");
+		expect(source).toContain("Đăng nhập để tiếp tục");
+	});
 });

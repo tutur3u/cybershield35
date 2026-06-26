@@ -55,8 +55,10 @@ export function VerifyTokenClient() {
 			const token = searchParams.get("token");
 
 			if (!token) {
-				router.replace(nextPath);
-				router.refresh();
+				setError(
+					"Phiên đăng nhập Tuturuuu không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
+				);
+				setState("failed");
 				return;
 			}
 
@@ -112,7 +114,7 @@ export function VerifyTokenClient() {
 					href="/"
 					className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
-					Quay lại CyberShield 35
+					Đăng nhập lại bằng Tuturuuu
 				</Link>
 			</>
 		);
