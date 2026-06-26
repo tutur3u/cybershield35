@@ -603,7 +603,6 @@ async function claimJobById(scanId: string) {
 			updated_at = now()
 		where id = ${scanId}
 			and status in ('queued', 'retrying')
-			and scheduled_at <= now()
 		returning id, source_id, provider, attempts, max_attempts
 	`;
 

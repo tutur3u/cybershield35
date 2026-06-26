@@ -268,6 +268,41 @@ export async function deleteScanRecord(options: {
 	}
 }
 
+export async function runScanRecord(options: {
+	scan: DashboardScan;
+	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
+	setNotice: (notice: string) => void;
+	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
+}) {
+	try {
+		const response = await fetch(`/api/scans/${options.scan.id}/run`, {
+			method: "POST",
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể chạy scan thủ công");
+		}
+
+		const scan = payload.scan as DashboardScan | null | undefined;
+		if (scan) {
+			options.setScans((current) =>
+				current.map((item) => (item.id === scan.id ? scan : item)),
+			);
+		}
+		if (payload.detail) {
+			options.setDetail(payload.detail as ScanDetail);
+		}
+
+		options.setNotice("Đã chạy scan thủ công.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể chạy scan thủ công",
+		);
+		return false;
+	}
+}
+
 export type EvidenceMutationValues = {
 	author: string;
 	quote: string;

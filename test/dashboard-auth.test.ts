@@ -597,6 +597,23 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("aria-label={collapsed ? \"Mở rộng sidebar\" : \"Thu gọn sidebar\"}");
 	});
 
+	test("sidebar uses the CyberShield35 wordmark as the home link", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+
+		expect(shell).toContain("CyberShield35");
+		expect(shell).toContain("CS35");
+		expect(shell).toContain("BrandmarkLink");
+		expect(shell).toContain("BRANDMARK_IDLE_COLLAPSE_MS");
+		expect(shell).toContain("BRANDMARK_RECOLLAPSE_DELAY_MS");
+		expect(shell).toContain("onPointerEnter");
+		expect(shell).toContain("onPointerLeave");
+		expect(shell).toContain('href="/"');
+		expect(shell).toContain("pathname === \"/\"");
+		expect(shell).toContain("collapsed ? \"hidden lg:hidden\" :");
+		expect(shell).not.toContain("ShieldCheck");
+		expect(shell).not.toContain("CyberShield 35");
+	});
+
 	test("Tuturuuu profile editing lives in the account menu dialog", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const dashboard = readFileSync(
@@ -614,6 +631,30 @@ describe("dashboard auth gate", () => {
 		expect(dashboard).toContain("ProfileSettingsPanel");
 		expect(dashboard).toContain("setProfileDialogOpen(true)");
 		expect(pages).not.toContain("ProfileSettingsPanel");
+	});
+
+	test("account dropdown owns server settings and notification empty state", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const data = readFileSync(
+			"components/dashboard/dashboard-data.ts",
+			"utf8",
+		);
+
+		expect(shell).toContain("onOpenSettings");
+		expect(shell).toContain("Cấu hình máy chủ");
+		expect(shell).toContain("Không có thông báo mới");
+		expect(dashboard).toContain("settingsDialogOpen");
+		expect(dashboard).toContain("<ProviderStatus");
+		expect(pages).not.toContain("<ProviderStatus");
+		expect(data).not.toContain('href: "/settings"');
 	});
 
 	test("profile editor uploads avatar files through the Cybershield proxy instead of accepting media links", () => {
@@ -680,6 +721,34 @@ describe("dashboard auth gate", () => {
 		expect(evidenceRoute).toContain("export async function POST");
 		expect(evidenceItemRoute).toContain("export async function PATCH");
 		expect(evidenceItemRoute).toContain("export async function DELETE");
+	});
+
+	test("dashboard exposes manual scan run actions for when cron is unavailable", () => {
+		const runRoute = readFileSync("app/api/scans/[id]/run/route.ts", "utf8");
+		const actions = readFileSync(
+			"components/dashboard/client-actions.ts",
+			"utf8",
+		);
+		const widgets = readFileSync(
+			"components/dashboard/page-widgets.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+
+		expect(runRoute).toContain("export async function POST");
+		expect(runRoute).toContain("processScanJobNow");
+		expect(actions).toContain("runScanRecord");
+		expect(widgets).toContain("onRunScan");
+		expect(widgets).toContain("aria-label=\"Chạy scan ngay\"");
+		expect(pages).toContain("onRunScan");
+		expect(dashboard).toContain("runScanRecord");
 	});
 
 	test("notification dropdown has no mock operational items", () => {

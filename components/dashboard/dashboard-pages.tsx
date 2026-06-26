@@ -39,7 +39,6 @@ import {
 	DraftSnapshot,
 	MetricGrid,
 	PageHeader,
-	ProviderStatus,
 	QueueCard,
 } from "@/components/dashboard/page-widgets";
 import type {
@@ -86,6 +85,7 @@ export type DashboardPageProps = {
 	onDeleteEvidence: (evidence: EvidenceView[number]) => Promise<void>;
 	onEditScan: (scan: DashboardScan) => void;
 	onDeleteScan: (scan: DashboardScan) => Promise<void>;
+	onRunScan: (scan: DashboardScan) => Promise<void>;
 	onCreateTrackedSource: (input: {
 		displayName: string;
 		url: string;
@@ -127,6 +127,7 @@ export function OverviewPage(props: DashboardPageProps) {
 					onSelectScan={props.onSelectScan}
 					onEditScan={props.onEditScan}
 					onDeleteScan={props.onDeleteScan}
+					onRunScan={props.onRunScan}
 					limit={4}
 				/>
 				<AnalysisSummary analysis={props.analysis} />
@@ -153,35 +154,31 @@ export function SourcesPage(props: DashboardPageProps) {
 					</SecondaryButton>
 				}
 			/>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<div className="space-y-5">
-					<TrackedSourcesPanel
-						isCreating={props.isCreating}
-						onCreateTrackedSource={props.onCreateTrackedSource}
-						onDeleteTrackedSource={props.onDeleteTrackedSource}
-						onScanTrackedSource={props.onScanTrackedSource}
-						onUpdateTrackedSource={props.onUpdateTrackedSource}
-						sources={props.trackedSources}
+			<div className="space-y-5">
+				<TrackedSourcesPanel
+					isCreating={props.isCreating}
+					onCreateTrackedSource={props.onCreateTrackedSource}
+					onDeleteTrackedSource={props.onDeleteTrackedSource}
+					onScanTrackedSource={props.onScanTrackedSource}
+					onUpdateTrackedSource={props.onUpdateTrackedSource}
+					sources={props.trackedSources}
+				/>
+				<Panel>
+					<PanelHeader
+						title="Nguồn được hỗ trợ"
+						description="Chỉ nhận Facebook công khai và liên kết website tùy chỉnh trong giai đoạn này."
 					/>
-					<Panel>
-						<PanelHeader
-							title="Nguồn được hỗ trợ"
-							description="Chỉ nhận Facebook công khai và liên kết website tùy chỉnh trong giai đoạn này."
-						/>
-						<div className="p-4">
-							<SocialLogoGrid />
-						</div>
-					</Panel>
-					<QueueCard
-						scans={props.scans}
-						selectedScanId={props.selectedScanId}
-						onSelectScan={props.onSelectScan}
-						onEditScan={props.onEditScan}
-						onDeleteScan={props.onDeleteScan}
-					/>
-				</div>
-				<ProviderStatus
-					availability={props.providerAvailability ?? undefined}
+					<div className="p-4">
+						<SocialLogoGrid />
+					</div>
+				</Panel>
+				<QueueCard
+					scans={props.scans}
+					selectedScanId={props.selectedScanId}
+					onSelectScan={props.onSelectScan}
+					onEditScan={props.onEditScan}
+					onDeleteScan={props.onDeleteScan}
+					onRunScan={props.onRunScan}
 				/>
 			</div>
 		</div>
@@ -595,15 +592,14 @@ function reportRiskLabel(risk?: string) {
 	return "Trung bình";
 }
 
-export function SettingsPage(props: DashboardPageProps) {
+export function SettingsPage() {
 	return (
 		<div className="space-y-5">
 			<PageHeader
 				icon={ShieldCheck}
 				title="Cấu hình"
-				description="Trạng thái provider server-side, LLM và cơ sở dữ liệu vận hành."
+				description="Mở menu tài khoản để xem cấu hình máy chủ trong hộp thoại."
 			/>
-			<ProviderStatus availability={props.providerAvailability ?? undefined} />
 		</div>
 	);
 }
