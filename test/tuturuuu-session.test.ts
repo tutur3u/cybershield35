@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
+	getRequestedScopes,
 	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
@@ -67,6 +68,12 @@ describe("Tuturuuu encrypted admin session", () => {
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
 		process.env.CYBERSHIELD35_APP_SECRET = "secret";
 		expect(isTuturuuuAuthConfigured()).toBe(true);
+	});
+
+	test("requests a workspace session scope by default", () => {
+		delete process.env.CYBERSHIELD35_REQUESTED_SCOPES;
+
+		expect(getRequestedScopes()).toEqual(["workspace:session"]);
 	});
 
 	test("auth configuration does not require a dedicated session secret", () => {
