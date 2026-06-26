@@ -12,32 +12,6 @@ import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
 
-export async function refreshSession(
-	setAuth: (auth: AuthViewState) => void,
-	setNotice: (notice: string) => void,
-	loginHref?: string,
-) {
-	const response = await fetch("/api/auth/session/refresh", { method: "POST" });
-	const payload = await response.json();
-	if (response.ok && payload.session) {
-		setAuth({
-			authenticated: true,
-			configured: true,
-			loginHref,
-			session: payload.session,
-		});
-		setNotice("Phiên Tuturuuu đã được làm mới.");
-		return;
-	}
-	setAuth({
-		authenticated: false,
-		configured: payload.configured,
-		error: payload.error ?? "Không thể làm mới phiên.",
-		loginHref,
-	});
-	setNotice(payload.error ?? "Không thể làm mới phiên Tuturuuu.");
-}
-
 export async function logout(
 	setAuth: (auth: AuthViewState) => void,
 	setNotice: (notice: string) => void,

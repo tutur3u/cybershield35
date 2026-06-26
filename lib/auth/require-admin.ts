@@ -57,7 +57,7 @@ function localDevSession(): TuturuuuAdminSession {
 		refreshExpiresIn: 3600,
 		refreshToken: "local-dev-bypass",
 		tokenType: "Bearer",
-		user: { email: "local@localhost", id: "local-dev" },
+		user: { displayName: "Local Admin", email: "local@localhost", id: "local-dev" },
 		workspaceId: "local-dev",
 	};
 }
