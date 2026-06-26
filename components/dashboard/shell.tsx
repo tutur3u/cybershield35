@@ -14,6 +14,8 @@ import {
 	DropdownMenuTrigger,
 } from "@tuturuuu/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@tuturuuu/ui/avatar";
+import "slot-text/style.css";
+import { SlotText } from "slot-text/react";
 import {
 	Bell,
 	Check,
@@ -196,6 +198,9 @@ function BrandmarkLink({
 		}, BRANDMARK_RECOLLAPSE_DELAY_MS);
 	}
 
+	const brandmarkText = collapsed || compact ? "CS35" : "CyberShield35";
+	const brandmarkDirection = collapsed || compact ? "down" : "up";
+
 	return (
 		<Link
 			href="/"
@@ -204,34 +209,28 @@ function BrandmarkLink({
 			onBlur={scheduleBrandmarkCollapse}
 			onPointerEnter={expandBrandmark}
 			onPointerLeave={scheduleBrandmarkCollapse}
-			className={`inline-flex h-10 min-w-0 items-center overflow-hidden text-[18px] font-bold transition-[max-width,opacity] duration-300 ease-out ${
+			className={`inline-flex h-10 min-w-0 items-center text-[18px] font-bold leading-[1.35] transition-colors duration-200 ${
 				collapsed ? "hidden lg:hidden" : "inline-flex"
-			} ${
-				collapsed || compact ? "max-w-[48px]" : "max-w-[168px]"
 			} ${
 				active
 					? "text-[var(--brand)]"
 					: "text-[var(--foreground)] hover:text-[var(--brand)]"
 			}`}
 		>
-			<span
+			<SlotText
 				aria-hidden="true"
-				className={`block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
-					collapsed || compact ? "max-w-[48px] opacity-100" : "max-w-0 opacity-0"
-				}`}
-			>
-				CS35
-			</span>
-			<span
-				aria-hidden={collapsed || compact}
-				className={`block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${
-					collapsed || compact
-						? "max-w-0 opacity-0"
-						: "max-w-[168px] opacity-100"
-				}`}
-			>
-				CyberShield35
-			</span>
+				className="min-h-[1.35em] leading-[1.35] [&_.char-slot]:leading-[1.45]"
+				text={brandmarkText}
+				options={{
+					bounce: 0.32,
+					direction: brandmarkDirection,
+					duration: 260,
+					exitOffset: 36,
+					interrupt: true,
+					skipUnchanged: false,
+					stagger: 28,
+				}}
+			/>
 		</Link>
 	);
 }
