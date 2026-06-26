@@ -1,12 +1,14 @@
 "use client";
 
 import {
+	FileText,
 	Link2,
 	Play,
+	Save,
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import {
@@ -16,6 +18,11 @@ import {
 } from "@/components/dashboard/dashboard-data";
 import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 import { FieldLabel, PrimaryButton } from "@/components/dashboard/ui-primitives";
+import type {
+	DashboardScan,
+	EvidenceView,
+	ReportSpec,
+} from "@/components/dashboard/types";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 
 export { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
@@ -301,6 +308,360 @@ export function CounterArgumentDialog(props: {
 			</div>
 		</Dialog>
 	);
+}
+
+type ScanEditDialogProps = {
+	onClose: () => void;
+	onSave: (
+		scan: DashboardScan,
+		values: { status: DashboardScan["status"]; title: string },
+	) => Promise<boolean>;
+	open: boolean;
+	scan: DashboardScan | null;
+};
+
+export function ScanEditDialog(props: ScanEditDialogProps) {
+	if (!props.open) return null;
+	return <ScanEditDialogContent {...props} />;
+}
+
+function ScanEditDialogContent({
+	onClose,
+	onSave,
+	scan,
+}: ScanEditDialogProps) {
+	const [title, setTitle] = useState(scan?.title ?? "");
+	const [status, setStatus] = useState<DashboardScan["status"]>(
+		scan?.status ?? "queued",
+	);
+
+	async function saveAndClose() {
+		if (!scan) return;
+		const saved = await onSave(scan, { status, title: title.trim() });
+		if (saved) onClose();
+	}
+
+	return (
+		<Dialog
+			open={true}
+			onClose={onClose}
+			title="Chỉnh scan"
+			description="Cập nhật tên hiển thị và trạng thái vận hành."
+		>
+			<div className="space-y-4">
+				<label className="block">
+					<FieldLabel>Tên scan</FieldLabel>
+					<input
+						value={title}
+						onChange={(event) => setTitle(event.target.value)}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						maxLength={240}
+					/>
+				</label>
+				<label className="block">
+					<FieldLabel>Trạng thái</FieldLabel>
+					<select
+						value={status}
+						onChange={(event) =>
+							setStatus(event.target.value as DashboardScan["status"])
+						}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+					>
+						<option value="queued">Đang chờ</option>
+						<option value="running">Đang quét</option>
+						<option value="retrying">Thử lại</option>
+						<option value="completed">Hoàn tất</option>
+						<option value="failed">Lỗi</option>
+					</select>
+				</label>
+				<PrimaryButton disabled={!scan || !title.trim()} onClick={saveAndClose}>
+					<Save size={15} /> Lưu scan
+				</PrimaryButton>
+			</div>
+		</Dialog>
+	);
+}
+
+type EvidenceEditDialogProps = {
+	evidence: EvidenceView[number] | null;
+	onClose: () => void;
+	onSubmit: (
+		values: EvidenceFormValues,
+		evidence: EvidenceView[number] | null,
+	) => Promise<boolean>;
+	open: boolean;
+	scanId: string;
+};
+
+export function EvidenceEditDialog(props: EvidenceEditDialogProps) {
+	if (!props.open) return null;
+	return <EvidenceEditDialogContent {...props} />;
+}
+
+function EvidenceEditDialogContent({
+	evidence,
+	onClose,
+	onSubmit,
+	scanId,
+}: EvidenceEditDialogProps) {
+	const [values, setValues] = useState<EvidenceFormValues>(
+		evidenceValuesFromItem(evidence),
+	);
+
+	async function submitAndClose() {
+		const saved = await onSubmit(values, evidence);
+		if (saved) onClose();
+	}
+
+	return (
+		<Dialog
+			open={true}
+			onClose={onClose}
+			title={evidence ? "Chỉnh bằng chứng" : "Thêm bằng chứng"}
+			description="Bằng chứng được gắn với scan đang chọn."
+			size="wide"
+		>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<label className="block sm:col-span-2">
+					<FieldLabel>Trích dẫn</FieldLabel>
+					<textarea
+						value={values.quote}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								quote: event.target.value,
+							}))
+						}
+						className="mt-2 min-h-28 w-full resize-none rounded-md border border-[var(--border)] bg-[var(--surface)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						maxLength={4000}
+					/>
+				</label>
+				<label className="block sm:col-span-2">
+					<FieldLabel>Tóm tắt</FieldLabel>
+					<textarea
+						value={values.summary}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								summary: event.target.value,
+							}))
+						}
+						className="mt-2 min-h-24 w-full resize-none rounded-md border border-[var(--border)] bg-[var(--surface)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						maxLength={4000}
+					/>
+				</label>
+				<label className="block">
+					<FieldLabel>Nguồn</FieldLabel>
+					<input
+						value={values.sourceLabel}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								sourceLabel: event.target.value,
+							}))
+						}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						maxLength={240}
+					/>
+				</label>
+				<label className="block">
+					<FieldLabel>Tác giả</FieldLabel>
+					<input
+						value={values.author}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								author: event.target.value,
+							}))
+						}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						maxLength={160}
+					/>
+				</label>
+				<label className="block">
+					<FieldLabel>Liên kết nguồn</FieldLabel>
+					<input
+						value={values.sourceUrl}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								sourceUrl: event.target.value,
+							}))
+						}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						placeholder="https://..."
+					/>
+				</label>
+				<label className="block">
+					<FieldLabel>Rủi ro</FieldLabel>
+					<select
+						value={values.riskLevel}
+						onChange={(event) =>
+							setValues((current) => ({
+								...current,
+								riskLevel: event.target.value as EvidenceFormValues["riskLevel"],
+							}))
+						}
+						className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+					>
+						<option value="low">Thấp</option>
+						<option value="medium">Trung bình</option>
+						<option value="high">Cao</option>
+					</select>
+				</label>
+			</div>
+			<div className="mt-4">
+				<PrimaryButton
+					disabled={!scanId || !values.quote.trim() || !values.summary.trim()}
+					onClick={submitAndClose}
+				>
+					<Save size={15} /> Lưu bằng chứng
+				</PrimaryButton>
+			</div>
+		</Dialog>
+	);
+}
+
+type ReportPresetDialogProps = {
+	onClose: () => void;
+	onSubmit: (
+		values: { description: string; sections: string[]; title: string },
+		report: ReportSpec | null,
+	) => void;
+	open: boolean;
+	report: ReportSpec | null;
+};
+
+export function ReportPresetDialog(props: ReportPresetDialogProps) {
+	if (!props.open) return null;
+	return <ReportPresetDialogContent {...props} />;
+}
+
+function ReportPresetDialogContent({
+	onClose,
+	onSubmit,
+	report,
+}: ReportPresetDialogProps) {
+	const [title, setTitle] = useState(report?.title ?? "");
+	const [description, setDescription] = useState(report?.description ?? "");
+	const [sections, setSections] = useState(report?.sections.join("\n") ?? "");
+
+	function submitAndClose() {
+		const normalizedSections = sections
+			.split("\n")
+			.map((section) => section.trim())
+			.filter(Boolean);
+		if (!title.trim() || !description.trim() || !normalizedSections.length) return;
+
+		onSubmit(
+			{
+				description: description.trim(),
+				sections: normalizedSections,
+				title: title.trim(),
+			},
+			report,
+		);
+		onClose();
+	}
+
+	return (
+		<Dialog
+			open={true}
+			onClose={onClose}
+			title={report ? "Chỉnh preset báo cáo" : "Tạo preset báo cáo"}
+			description="Preset quyết định cấu trúc bản xem trước xuất từ dữ liệu đang chọn."
+			size="wide"
+		>
+			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+				<div className="space-y-4">
+					<label className="block">
+						<FieldLabel>Tên báo cáo</FieldLabel>
+						<input
+							value={title}
+							onChange={(event) => setTitle(event.target.value)}
+							className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						/>
+					</label>
+					<label className="block">
+						<FieldLabel>Mô tả</FieldLabel>
+						<textarea
+							value={description}
+							onChange={(event) => setDescription(event.target.value)}
+							className="mt-2 min-h-24 w-full resize-none rounded-md border border-[var(--border)] bg-[var(--surface)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						/>
+					</label>
+					<label className="block">
+						<FieldLabel>Các phần</FieldLabel>
+						<textarea
+							value={sections}
+							onChange={(event) => setSections(event.target.value)}
+							className="mt-2 min-h-36 w-full resize-none rounded-md border border-[var(--border)] bg-[var(--surface)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+						/>
+					</label>
+				</div>
+				<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+					<FileText className="text-[var(--accent)]" size={22} />
+					<p className="mt-3 text-[13px] font-bold text-[var(--foreground)]">
+						{title.trim() || "Preset báo cáo"}
+					</p>
+					<p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+						{description.trim() || "Mô tả sẽ hiển thị trong thẻ báo cáo."}
+					</p>
+				</div>
+			</div>
+			<div className="mt-4">
+				<PrimaryButton
+					disabled={
+						!title.trim() ||
+						!description.trim() ||
+						!sections
+							.split("\n")
+							.some((section) => Boolean(section.trim()))
+					}
+					onClick={submitAndClose}
+				>
+					<Save size={15} /> Lưu preset
+				</PrimaryButton>
+			</div>
+		</Dialog>
+	);
+}
+
+export type EvidenceFormValues = {
+	author: string;
+	quote: string;
+	riskLevel: "low" | "medium" | "high";
+	sourceLabel: string;
+	sourceUrl: string;
+	summary: string;
+};
+
+const emptyEvidenceValues: EvidenceFormValues = {
+	author: "",
+	quote: "",
+	riskLevel: "medium",
+	sourceLabel: "",
+	sourceUrl: "",
+	summary: "",
+};
+
+function evidenceValuesFromItem(
+	evidence: EvidenceView[number] | null,
+): EvidenceFormValues {
+	if (!evidence) return emptyEvidenceValues;
+
+	return {
+		author: stringValue(evidence.author),
+		quote: stringValue(evidence.quote),
+		riskLevel: evidence.riskLevel ?? "medium",
+		sourceLabel: stringValue(evidence.sourceLabel),
+		sourceUrl: stringValue(evidence.sourceUrl),
+		summary: stringValue(evidence.summary),
+	};
+}
+
+function stringValue(value: unknown) {
+	return typeof value === "string" ? value : "";
 }
 
 function Select(props: {

@@ -1,3 +1,4 @@
+import { Edit3, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 import type { AnalysisView, EvidenceView, RiskFlagView, TopicCluster } from "./types";
@@ -160,11 +161,15 @@ export function EvidencePanel({
 	className = "",
 	evidence,
 	limit,
+	onDeleteEvidence,
+	onEditEvidence,
 	scanId,
 }: {
 	className?: string;
 	evidence: EvidenceView;
 	limit?: number;
+	onDeleteEvidence?: (evidence: EvidenceView[number]) => Promise<void>;
+	onEditEvidence?: (evidence: EvidenceView[number]) => void;
 	scanId?: string;
 }) {
 	const visible = limit ? evidence.slice(0, limit) : evidence;
@@ -175,24 +180,50 @@ export function EvidencePanel({
 			<div className="divide-y divide-[var(--divider)] p-4">
 				{visible.length ? (
 					visible.map((item, index) => (
-						<Link
+						<div
 							key={item.id}
-							href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
-							className="grid min-h-16 gap-3 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:items-center"
+							className="grid min-h-16 gap-3 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] sm:items-center"
 						>
 							<span className="text-[12px] font-semibold text-[var(--muted)]">
 								{index + 1}.
 							</span>
-							<div className="min-w-0">
+							<Link
+								href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
+								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+							>
 								<p className="break-words text-[13px] leading-6 text-[var(--foreground)]">
 									"{item.quote}"
 								</p>
 								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 									{item.sourceLabel ?? "Nguồn công khai"} - {item.author ?? "Public"}
 								</p>
-							</div>
+							</Link>
 							<RiskPill risk={item.riskLevel ?? "medium"} />
-						</Link>
+							{onEditEvidence || onDeleteEvidence ? (
+								<div className="flex gap-2 sm:justify-end">
+									{onEditEvidence ? (
+										<button
+											type="button"
+											onClick={() => onEditEvidence(item)}
+											className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+											aria-label="Chỉnh bằng chứng"
+										>
+											<Edit3 size={14} />
+										</button>
+									) : null}
+									{onDeleteEvidence ? (
+										<button
+											type="button"
+											onClick={() => void onDeleteEvidence(item)}
+											className="grid size-9 place-items-center rounded-md border border-[var(--danger-border)] text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
+											aria-label="Xóa bằng chứng"
+										>
+											<Trash2 size={14} />
+										</button>
+									) : null}
+								</div>
+							) : null}
+						</div>
 					))
 				) : (
 					<EmptyPanelText>Chưa có bằng chứng. Tạo hoặc xử lý một scan live.</EmptyPanelText>

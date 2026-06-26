@@ -11,7 +11,6 @@ import {
 	MessageSquareText,
 	Radar,
 	Settings,
-	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react";
 
@@ -121,10 +120,6 @@ export const sourceModeIcons = {
 	file: FileSearch,
 	text: MessageSquareText,
 };
-
-export const topBarItems = [
-	{ label: "Hệ thống hoạt động", icon: ShieldCheck },
-];
 
 export const composerOptions = {
 	tones: ["Điềm tĩnh, khách quan", "Ngắn gọn, trực diện", "Giải thích thân thiện"],

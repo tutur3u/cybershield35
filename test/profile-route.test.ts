@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { PATCH } from "@/app/api/auth/profile/route";
+import { createAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 import {
 	createSessionCookie,
 	readAdminSession,
@@ -96,12 +97,14 @@ describe("Tuturuuu profile proxy route", () => {
 		});
 	});
 
-	test("rejects invalid profile payloads before forwarding to Tuturuuu", async () => {
+	test("rejects browser-provided avatar URLs before forwarding to Tuturuuu", async () => {
 		const cookie = createSessionCookie(session());
 		const fetchMock = mock(() => Promise.resolve(new Response("{}")));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-		const response = await PATCH(request({ avatar_url: "not-a-url" }, cookie));
+		const response = await PATCH(
+			request({ avatar_url: "https://example.com/new.png" }, cookie),
+		);
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({
@@ -112,6 +115,12 @@ describe("Tuturuuu profile proxy route", () => {
 
 	test("forwards valid PATCH data and refreshes the encrypted session cookie", async () => {
 		const cookie = createSessionCookie(session());
+		const publicUrl = "https://storage.example.com/avatars/user-1/123.png";
+		const uploadProof = createAvatarUploadProof({
+			filePath: "user-1/123.png",
+			publicUrl,
+			userId: "user-1",
+		});
 		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
 			const pathname = new URL(String(url)).pathname;
 			if (pathname.endsWith("/users/me/profile")) {
@@ -121,7 +130,7 @@ describe("Tuturuuu profile proxy route", () => {
 					"Content-Type": "application/json",
 				});
 				expect(JSON.parse(String(init?.body))).toEqual({
-					avatar_url: "https://example.com/new.png",
+					avatar_url: publicUrl,
 					display_name: "Updated Admin",
 				});
 				return Promise.resolve(
@@ -138,14 +147,17 @@ describe("Tuturuuu profile proxy route", () => {
 					"users:profile:write",
 				],
 			});
-			return Promise.resolve(Response.json(exchangeBody()));
+			return Promise.resolve(Response.json(exchangeBody({ avatarUrl: publicUrl })));
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const response = await PATCH(
 			request(
 				{
-					avatar_url: "https://example.com/new.png",
+					avatar_upload: {
+						public_url: publicUrl,
+						upload_proof: uploadProof,
+					},
 					display_name: "  Updated Admin  ",
 				},
 				cookie,
@@ -155,12 +167,12 @@ describe("Tuturuuu profile proxy route", () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({
 			profile: {
-				avatar_url: "https://example.com/new.png",
+				avatar_url: publicUrl,
 				display_name: "Updated Admin",
 			},
 			session: {
 				user: {
-					avatarUrl: "https://example.com/new.png",
+					avatarUrl: publicUrl,
 					displayName: "Updated Admin",
 				},
 			},

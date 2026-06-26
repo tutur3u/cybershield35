@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { verifyAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 import {
 	buildTuturuuuApiUrl,
 	createSessionCookie,
@@ -16,9 +17,13 @@ const MAX_DISPLAY_NAME_LENGTH = 100;
 
 const profilePatchSchema = z
 	.object({
-		avatar_url: z
-			.preprocess((value) => (value === "" ? null : value), z.url().nullable())
+		avatar_upload: z
+			.object({
+				public_url: z.url(),
+				upload_proof: z.string().min(1),
+			})
 			.optional(),
+		avatar_url: z.null().optional(),
 		display_name: z
 			.preprocess(
 				(value) => (typeof value === "string" ? value.trim() : value),
@@ -80,9 +85,24 @@ export async function PATCH(request: Request) {
 		if (!parsed.success || Object.keys(parsed.data).length === 0) {
 			return json({ error: "Invalid profile payload" }, { status: 400 });
 		}
+		if (parsed.data.avatar_upload && parsed.data.avatar_url !== undefined) {
+			return json({ error: "Invalid profile payload" }, { status: 400 });
+		}
+		if (
+			parsed.data.avatar_upload &&
+			!verifyAvatarUploadProof({
+				proof: parsed.data.avatar_upload.upload_proof,
+				publicUrl: parsed.data.avatar_upload.public_url,
+				userId: auth.session.user.id,
+			})
+		) {
+			return json({ error: "Invalid avatar upload proof" }, { status: 400 });
+		}
+
+		const profilePatch = toTuturuuuProfilePatch(parsed.data);
 
 		const response = await fetch(buildTuturuuuApiUrl("users/me/profile"), {
-			body: JSON.stringify(parsed.data),
+			body: JSON.stringify(profilePatch),
 			cache: "no-store",
 			headers: {
 				Authorization: auth.authorization,
@@ -111,6 +131,18 @@ export async function PATCH(request: Request) {
 		const safe = sanitizeAuthError(error);
 		return json({ error: safe.message }, { status: safe.status });
 	}
+}
+
+function toTuturuuuProfilePatch(profile: z.infer<typeof profilePatchSchema>) {
+	return {
+		...(profile.avatar_upload
+			? { avatar_url: profile.avatar_upload.public_url }
+			: {}),
+		...(profile.avatar_url === null ? { avatar_url: null } : {}),
+		...(profile.display_name !== undefined
+			? { display_name: profile.display_name }
+			: {}),
+	};
 }
 
 function toSafeProfileFromProfile(profile: z.infer<typeof profileResponseSchema>) {

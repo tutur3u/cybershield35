@@ -5,17 +5,37 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
-import { CounterArgumentDialog, ScanDialog } from "@/components/dashboard/dialogs";
+import { Dialog } from "@/components/dashboard/dialog-frame";
+import {
+	CounterArgumentDialog,
+	EvidenceEditDialog,
+	ReportPresetDialog,
+	ScanDialog,
+	ScanEditDialog,
+	type EvidenceFormValues,
+} from "@/components/dashboard/dialogs";
 import { ReportDialog } from "@/components/dashboard/report-dialog";
 import {
+	createEvidenceRecord,
 	createScan,
+	createTrackedSourceRecord,
+	deleteEvidenceRecord,
+	deleteScanRecord,
+	deleteTrackedSourceRecord,
 	generateDraft,
 	logout,
 	reviewDraft,
 	sendChatMessage,
 	scanTrackedSource,
+	updateEvidenceRecord,
+	updateScanRecord,
+	updateTrackedSourceRecord,
 } from "@/components/dashboard/client-actions";
-import { composerOptions, type SourceTab } from "@/components/dashboard/dashboard-data";
+import {
+	composerOptions,
+	reportSpecs,
+	type SourceTab,
+} from "@/components/dashboard/dashboard-data";
 import {
 	DraftDetailsPage,
 	EvidenceDetailsPage,
@@ -34,6 +54,7 @@ import {
 	SourcesPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
+import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
@@ -45,6 +66,7 @@ import type {
 	DashboardScan,
 	DashboardPage,
 	DraftShape,
+	EvidenceView,
 	ProviderAvailabilityView,
 	ReportSpec,
 	ScanDetail,
@@ -100,10 +122,25 @@ export function CyberShieldDashboard({
 	const [draftDialogOpen, setDraftDialogOpen] = useState(false);
 	const [reportDialogOpen, setReportDialogOpen] = useState(false);
 	const [selectedReport, setSelectedReport] = useState<ReportSpec | null>(null);
+	const [reportPresetDialogOpen, setReportPresetDialogOpen] = useState(false);
+	const [reportPresetBeingEdited, setReportPresetBeingEdited] =
+		useState<ReportSpec | null>(null);
+	const [customReports, setCustomReports] = useState<ReportSpec[]>([]);
+	const [hiddenReportKinds, setHiddenReportKinds] = useState<string[]>([]);
 	const [chatDialogOpen, setChatDialogOpen] = useState(false);
 	const [chatDraft, setChatDraft] = useState("");
 	const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
 	const [isChatting, setIsChatting] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+	const [scanEditDialogOpen, setScanEditDialogOpen] = useState(false);
+	const [scanBeingEdited, setScanBeingEdited] = useState<DashboardScan | null>(
+		null,
+	);
+	const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+	const [evidenceBeingEdited, setEvidenceBeingEdited] = useState<
+		EvidenceView[number] | null
+	>(null);
 	const [providerAvailability, setProviderAvailability] =
 		useState<ProviderAvailabilityView | null>(null);
 	const { preference, resolvedTheme, setPreference } = useThemePreference();
@@ -116,6 +153,13 @@ export function CyberShieldDashboard({
 	const analysis = toAnalysisView(detail?.analysis);
 	const evidence = detail?.evidence ?? [];
 	const topics = analysis.topicClusters;
+	const reports = useMemo(
+		() => [
+			...reportSpecs.filter((report) => !hiddenReportKinds.includes(report.kind)),
+			...customReports,
+		],
+		[customReports, hiddenReportKinds],
+	);
 
 	useEffect(() => {
 		let alive = true;
@@ -252,6 +296,74 @@ export function CyberShieldDashboard({
 			setSelectedReport(report);
 			setReportDialogOpen(true);
 		},
+		onCreateReport: () => {
+			setReportPresetBeingEdited(null);
+			setReportPresetDialogOpen(true);
+		},
+		onEditReport: (report) => {
+			setReportPresetBeingEdited(report);
+			setReportPresetDialogOpen(true);
+		},
+		onDeleteReport: (report) => {
+			if (report.kind.startsWith("custom-")) {
+				setCustomReports((current) =>
+					current.filter((item) => item.kind !== report.kind),
+				);
+			} else {
+				setHiddenReportKinds((current) =>
+					current.includes(report.kind) ? current : [...current, report.kind],
+				);
+			}
+			if (selectedReport?.kind === report.kind) setReportDialogOpen(false);
+			setNotice("Đã xóa preset báo cáo.");
+		},
+		onCreateEvidence: () => {
+			setEvidenceBeingEdited(null);
+			setEvidenceDialogOpen(true);
+		},
+		onEditEvidence: (item) => {
+			setEvidenceBeingEdited(item);
+			setEvidenceDialogOpen(true);
+		},
+		onDeleteEvidence: (item) =>
+			deleteEvidenceRecord({
+				evidence: item,
+				setDetail,
+				setNotice,
+			}).then(() => undefined),
+		onEditScan: (scan) => {
+			setScanBeingEdited(scan);
+			setScanEditDialogOpen(true);
+		},
+		onDeleteScan: (scan) =>
+			deleteScanRecord({
+				scan,
+				selectedScanId: activeScanId,
+				setDetail,
+				setDraft,
+				setNotice,
+				setScans,
+				setSelectedScanId,
+			}).then(() => undefined),
+		onCreateTrackedSource: (input) =>
+			createTrackedSourceRecord({
+				...input,
+				setNotice,
+				setTrackedSources,
+			}),
+		onUpdateTrackedSource: (trackedSource, input) =>
+			updateTrackedSourceRecord({
+				...input,
+				setNotice,
+				setTrackedSources,
+				trackedSource,
+			}),
+		onDeleteTrackedSource: (trackedSource) =>
+			deleteTrackedSourceRecord({
+				setNotice,
+				setTrackedSources,
+				trackedSource,
+			}),
 		onScanTrackedSource: (trackedSource) =>
 			scanTrackedSource({
 				trackedSource,
@@ -273,6 +385,37 @@ export function CyberShieldDashboard({
 				session,
 			}));
 		},
+		reports,
+	};
+
+	const onUpdateReport = (
+		values: { description: string; sections: string[]; title: string },
+		report: ReportSpec | null,
+	) => {
+		if (!report) {
+			setCustomReports((current) => [
+				...current,
+				{ ...values, kind: createCustomReportKind() },
+			]);
+			setNotice("Đã tạo preset báo cáo.");
+			return;
+		}
+
+		const nextReport = { ...report, ...values };
+		if (report.kind.startsWith("custom-")) {
+			setCustomReports((current) =>
+				current.map((item) => (item.kind === report.kind ? nextReport : item)),
+			);
+		} else {
+			setHiddenReportKinds((current) =>
+				current.includes(report.kind) ? current : [...current, report.kind],
+			);
+			setCustomReports((current) => [
+				...current,
+				{ ...nextReport, kind: createCustomReportKind() },
+			]);
+		}
+		setNotice("Đã cập nhật preset báo cáo.");
 	};
 
 	if (!auth.authenticated) {
@@ -287,12 +430,20 @@ export function CyberShieldDashboard({
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-			<div className="min-h-screen lg:pl-[248px]">
-				<Sidebar />
+			<div
+				className={`min-h-screen transition-[padding] duration-200 ${
+					sidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]"
+				}`}
+			>
+				<Sidebar
+					collapsed={sidebarCollapsed}
+					onToggle={() => setSidebarCollapsed((current) => !current)}
+				/>
 				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
 					<TopBar
 						auth={auth}
 						onLogout={() => logout(setAuth, setNotice, auth.loginHref)}
+						onOpenProfile={() => setProfileDialogOpen(true)}
 						onSelectTheme={setPreference}
 						resolvedTheme={resolvedTheme}
 						themePreference={preference}
@@ -358,6 +509,47 @@ export function CyberShieldDashboard({
 					})
 				}
 			/>
+			<ScanEditDialog
+				open={scanEditDialogOpen}
+				onClose={() => setScanEditDialogOpen(false)}
+				scan={scanBeingEdited}
+				onSave={(scan, values) =>
+					updateScanRecord({
+						scan,
+						setNotice,
+						setScans,
+						status: values.status,
+						title: values.title,
+					})
+				}
+			/>
+			<EvidenceEditDialog
+				open={evidenceDialogOpen}
+				onClose={() => setEvidenceDialogOpen(false)}
+				evidence={evidenceBeingEdited}
+				scanId={activeScanId}
+				onSubmit={(values: EvidenceFormValues, item) =>
+					item
+						? updateEvidenceRecord({
+								evidence: item,
+								setDetail,
+								setNotice,
+								values,
+							})
+						: createEvidenceRecord({
+								scanId: activeScanId,
+								setDetail,
+								setNotice,
+								values,
+							})
+				}
+			/>
+			<ReportPresetDialog
+				open={reportPresetDialogOpen}
+				onClose={() => setReportPresetDialogOpen(false)}
+				report={reportPresetBeingEdited}
+				onSubmit={onUpdateReport}
+			/>
 			<ReportDialog
 				open={reportDialogOpen}
 				onClose={() => setReportDialogOpen(false)}
@@ -383,6 +575,26 @@ export function CyberShieldDashboard({
 					})
 				}
 			/>
+			<Dialog
+				open={profileDialogOpen}
+				onClose={() => setProfileDialogOpen(false)}
+				title="Hồ sơ Tuturuuu"
+				description="Tên hiển thị và ảnh đại diện cho phiên đang đăng nhập."
+				size="wide"
+			>
+				<ProfileSettingsPanel
+					auth={auth}
+					embedded
+					onProfileUpdated={(session) => {
+						setAuth((current) => ({
+							...current,
+							authenticated: true,
+							configured: true,
+							session,
+						}));
+					}}
+				/>
+			</Dialog>
 		</main>
 	);
 }
@@ -559,4 +771,12 @@ function isTopicClusterArray(input: unknown): input is TopicCluster[] {
 
 function isRiskFlagArray(input: unknown): input is AnalysisView["riskFlags"] {
 	return Array.isArray(input);
+}
+
+function createCustomReportKind() {
+	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+		return `custom-${crypto.randomUUID()}`;
+	}
+
+	return `custom-${Date.now()}`;
 }

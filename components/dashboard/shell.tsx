@@ -24,18 +24,17 @@ import {
 	LogOut,
 	Moon,
 	Palette,
+	PanelLeftClose,
+	PanelLeftOpen,
 	ShieldCheck,
 	Sun,
+	UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
-import {
-	navItems,
-	quickLinks,
-	topBarItems,
-} from "@/components/dashboard/dashboard-data";
+import { navItems, quickLinks } from "@/components/dashboard/dashboard-data";
 import {
 	themeLabel,
 	type ResolvedTheme,
@@ -56,24 +55,46 @@ const notifications: OperationalNotification[] = [];
 const dropdownItemFocusClass =
 	"outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[highlighted]:outline-none data-[highlighted]:ring-0";
 
-export function Sidebar() {
+export function Sidebar({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean;
+	onToggle: () => void;
+}) {
 	const pathname = usePathname();
 
 	return (
-		<aside className="z-30 border-b border-[var(--border)] bg-[var(--surface)] lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+		<aside
+			className={`z-30 border-b border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:overflow-y-auto lg:border-b-0 lg:border-r ${
+				collapsed ? "lg:w-[76px]" : "lg:w-[248px]"
+			}`}
+		>
 			<div className="flex min-h-[72px] flex-col lg:h-full">
-				<div className="flex h-16 items-center gap-3 border-b border-[var(--border)] px-4">
+				<div
+					className={`flex h-16 items-center gap-3 border-b border-[var(--border)] px-4 ${
+						collapsed ? "lg:justify-center lg:px-3" : ""
+					}`}
+				>
 					<div className="grid size-9 place-items-center rounded-md border border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--brand)]">
 						<ShieldCheck size={22} strokeWidth={2.4} />
 					</div>
-					<div className="min-w-0">
+					<div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
 						<p className="truncate text-[18px] font-bold text-[var(--foreground)]">
 							CyberShield 35
 						</p>
-						<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-							Admin Control
-						</p>
 					</div>
+					<button
+						type="button"
+						aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+						title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+						onClick={onToggle}
+						className={`ml-auto hidden size-8 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] lg:grid ${
+							collapsed ? "lg:ml-0" : ""
+						}`}
+					>
+						{collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+					</button>
 				</div>
 				<nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-4">
 					{navItems.map((item) => {
@@ -86,19 +107,26 @@ export function Sidebar() {
 							<Link
 								key={item.label}
 								href={item.href}
-								className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:gap-3 lg:text-[13px] ${
+								title={collapsed ? item.label : undefined}
+								className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
+									collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
+								} ${
 									active
 										? "bg-[var(--brand)] text-white shadow-sm"
 										: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
 								}`}
 							>
 								<item.icon size={17} strokeWidth={2.1} />
-								<span className="truncate">{item.label}</span>
+								<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
+									{item.label}
+								</span>
 							</Link>
 						);
 					})}
 				</nav>
-				<div className="mt-auto hidden p-3 lg:block">
+				<div
+					className={`mt-auto hidden p-3 lg:block ${collapsed ? "lg:hidden" : ""}`}
+				>
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3">
 						<p className="text-[13px] font-bold text-[var(--foreground)]">
 							Hướng dẫn nhanh
@@ -129,12 +157,14 @@ export function Sidebar() {
 export function TopBar({
 	auth,
 	onLogout,
+	onOpenProfile,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
 }: {
 	auth: AuthViewState;
 	onLogout: () => Promise<void>;
+	onOpenProfile: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -144,21 +174,7 @@ export function TopBar({
 	const identity = getSessionIdentity(auth);
 
 	return (
-		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-			<div className="flex min-w-0 items-center gap-3">
-				{topBarItems.map((item, index) => (
-					<div
-						key={item.label}
-						className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)]"
-					>
-						<item.icon
-							className={`shrink-0 ${index === 0 ? "text-[var(--brand)]" : "text-[var(--muted)]"}`}
-							size={15}
-						/>
-						<span className="truncate">{item.label}</span>
-					</div>
-				))}
-			</div>
+		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-end gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
 			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
 				<BrowserClock />
 				<DropdownMenu>
@@ -251,6 +267,7 @@ export function TopBar({
 						auth={auth}
 						onClose={() => setAccountOpen(false)}
 						onLogout={onLogout}
+						onOpenProfile={onOpenProfile}
 						onSelectTheme={onSelectTheme}
 						resolvedTheme={resolvedTheme}
 						themePreference={themePreference}
@@ -265,6 +282,7 @@ function AccountMenu({
 	auth,
 	onClose,
 	onLogout,
+	onOpenProfile,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -272,6 +290,7 @@ function AccountMenu({
 	auth: AuthViewState;
 	onClose: () => void;
 	onLogout: () => Promise<void>;
+	onOpenProfile: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -301,6 +320,16 @@ function AccountMenu({
 				</span>
 			</DropdownMenuLabel>
 			<DropdownMenuSeparator className="bg-[var(--border)]" />
+			<DropdownMenuItem
+				onSelect={() => {
+					onOpenProfile();
+					onClose();
+				}}
+				className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] ${dropdownItemFocusClass}`}
+			>
+				<UserRound size={15} />
+				Hồ sơ Tuturuuu
+			</DropdownMenuItem>
 			<DropdownMenuSub>
 				<DropdownMenuSubTrigger
 					className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] data-[state=open]:bg-[var(--surface-soft)] data-[state=open]:text-[var(--foreground)] ${dropdownItemFocusClass}`}

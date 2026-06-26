@@ -13,6 +13,7 @@ import {
 	trackedSources,
 	type DraftStatus,
 	type ProviderName,
+	type RiskLevel,
 	type ScanStatus,
 	type SourceType,
 } from "@/lib/db/schema";
@@ -43,6 +44,34 @@ export type CreateScanInput = {
 	fileText?: string;
 	title?: string;
 	providerOverride?: ScanProviderOverride;
+};
+
+export type UpdateScanInput = {
+	status?: ScanStatus;
+	title?: string;
+};
+
+export type CreateEvidenceInput = {
+	author?: string | null;
+	quote: string;
+	riskLevel?: RiskLevel;
+	scanJobId: string;
+	sentiment?: string;
+	sourceLabel?: string | null;
+	sourceUrl?: string | null;
+	stance?: string;
+	summary: string;
+};
+
+export type UpdateEvidenceInput = {
+	author?: string | null;
+	quote?: string;
+	riskLevel?: RiskLevel;
+	sentiment?: string;
+	sourceLabel?: string | null;
+	sourceUrl?: string | null;
+	stance?: string;
+	summary?: string;
 };
 
 export async function createScan(input: CreateScanInput) {
@@ -112,17 +141,7 @@ export async function listScans() {
 		.orderBy(desc(scanJobs.createdAt))
 		.limit(25);
 
-	return rows.map((row) => ({
-		id: row.id,
-		status: row.status,
-		provider: row.provider,
-		sourceType: row.sourceType,
-		title: row.title ?? row.fileName ?? row.normalizedUrl ?? "Nguồn chưa đặt tên",
-		sourceLabel: labelForSource(row.sourceType),
-		riskLevel: row.riskLevel ?? "medium",
-		progress: progressForStatus(row.status),
-		createdAt: row.createdAt.toISOString(),
-	}));
+	return rows.map(toDashboardScan);
 }
 
 export async function getScanDetail(id: string) {
@@ -171,6 +190,131 @@ export async function getScanDetail(id: string) {
 		providerRuns: runs,
 		audit,
 	};
+}
+
+export async function updateScan(id: string, input: UpdateScanInput) {
+	const [job] = await adminDb
+		.select({ sourceId: scanJobs.sourceId })
+		.from(scanJobs)
+		.where(eq(scanJobs.id, id))
+		.limit(1);
+
+	if (!job) return null;
+
+	if (input.title !== undefined) {
+		await adminDb
+			.update(sources)
+			.set({ title: input.title })
+			.where(eq(sources.id, job.sourceId));
+	}
+
+	if (input.status !== undefined) {
+		const completedAt =
+			input.status === "completed" || input.status === "failed"
+				? new Date()
+				: null;
+		await adminDb
+			.update(scanJobs)
+			.set({
+				completedAt,
+				status: input.status,
+				updatedAt: new Date(),
+			})
+			.where(eq(scanJobs.id, id));
+	}
+
+	await writeAudit("scan_job", id, "updated", {
+		status: input.status,
+		title: input.title,
+	});
+
+	return getScanSummary(id);
+}
+
+export async function deleteScan(id: string) {
+	const [job] = await adminDb
+		.select({ sourceId: scanJobs.sourceId })
+		.from(scanJobs)
+		.where(eq(scanJobs.id, id))
+		.limit(1);
+
+	if (!job) return false;
+
+	await writeAudit("scan_job", id, "deleted", {});
+	await adminDb.delete(sources).where(eq(sources.id, job.sourceId));
+	return true;
+}
+
+export async function createEvidence(input: CreateEvidenceInput) {
+	const [job] = await adminDb
+		.select({
+			provider: scanJobs.provider,
+			sourceId: scanJobs.sourceId,
+		})
+		.from(scanJobs)
+		.where(eq(scanJobs.id, input.scanJobId))
+		.limit(1);
+
+	if (!job) return null;
+
+	const [item] = await adminDb
+		.insert(evidenceItems)
+		.values({
+			author: input.author,
+			provider: job.provider,
+			quote: input.quote,
+			riskLevel: input.riskLevel ?? "medium",
+			scanJobId: input.scanJobId,
+			sentiment: input.sentiment ?? "neutral",
+			sourceId: job.sourceId,
+			sourceLabel: input.sourceLabel,
+			sourceUrl: input.sourceUrl,
+			stance: input.stance ?? "neutral",
+			summary: input.summary,
+		})
+		.returning();
+
+	if (!item) throw new Error("Failed to create evidence");
+	await writeAudit("evidence_item", item.id, "created", {
+		scanJobId: input.scanJobId,
+	});
+	return item;
+}
+
+export async function updateEvidence(id: string, input: UpdateEvidenceInput) {
+	const [item] = await adminDb
+		.update(evidenceItems)
+		.set({
+			...(input.author !== undefined ? { author: input.author } : {}),
+			...(input.quote !== undefined ? { quote: input.quote } : {}),
+			...(input.riskLevel !== undefined ? { riskLevel: input.riskLevel } : {}),
+			...(input.sentiment !== undefined ? { sentiment: input.sentiment } : {}),
+			...(input.sourceLabel !== undefined
+				? { sourceLabel: input.sourceLabel }
+				: {}),
+			...(input.sourceUrl !== undefined ? { sourceUrl: input.sourceUrl } : {}),
+			...(input.stance !== undefined ? { stance: input.stance } : {}),
+			...(input.summary !== undefined ? { summary: input.summary } : {}),
+		})
+		.where(eq(evidenceItems.id, id))
+		.returning();
+
+	if (!item) return null;
+	await writeAudit("evidence_item", id, "updated", {});
+	return item;
+}
+
+export async function deleteEvidence(id: string) {
+	const [item] = await adminDb
+		.delete(evidenceItems)
+		.where(eq(evidenceItems.id, id))
+		.returning();
+
+	if (!item) return null;
+	await writeAudit("evidence_item", id, "deleted", {
+		scanJobId: item.scanJobId,
+	});
+	return item;
 }
 
 export async function processNextJob() {
@@ -466,6 +610,29 @@ async function claimJobById(scanId: string) {
 	return rows[0] ?? null;
 }
 
+async function getScanSummary(id: string) {
+	const rows = await adminDb
+		.select({
+			id: scanJobs.id,
+			status: scanJobs.status,
+			provider: scanJobs.provider,
+			createdAt: scanJobs.createdAt,
+			sourceType: sources.type,
+			title: sources.title,
+			normalizedUrl: sources.normalizedUrl,
+			fileName: sources.fileName,
+			riskLevel: analyses.riskLevel,
+		})
+		.from(scanJobs)
+		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
+		.leftJoin(analyses, eq(analyses.scanJobId, scanJobs.id))
+		.where(eq(scanJobs.id, id))
+		.limit(1);
+
+	const row = rows[0];
+	return row ? toDashboardScan(row) : null;
+}
+
 async function writeAudit(
 	entityType: string,
 	entityId: string,
@@ -478,6 +645,30 @@ async function writeAudit(
 		action,
 		payload,
 	});
+}
+
+function toDashboardScan(row: {
+	createdAt: Date;
+	fileName: string | null;
+	id: string;
+	normalizedUrl: string | null;
+	provider: ProviderName;
+	riskLevel: RiskLevel | null;
+	sourceType: SourceType;
+	status: ScanStatus;
+	title: string | null;
+}) {
+	return {
+		id: row.id,
+		status: row.status,
+		provider: row.provider,
+		sourceType: row.sourceType,
+		title: row.title ?? row.fileName ?? row.normalizedUrl ?? "Nguồn chưa đặt tên",
+		sourceLabel: labelForSource(row.sourceType),
+		riskLevel: row.riskLevel ?? "medium",
+		progress: progressForStatus(row.status),
+		createdAt: row.createdAt.toISOString(),
+	};
 }
 
 function progressForStatus(status: ScanStatus) {

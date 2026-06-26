@@ -1,5 +1,7 @@
 import {
+	Edit3,
 	Sparkles,
+	Trash2,
 	type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -80,11 +82,15 @@ export function MetricGrid({ scans }: { scans: DashboardScan[] }) {
 
 export function QueueCard({
 	limit,
+	onDeleteScan,
+	onEditScan,
 	onSelectScan,
 	scans,
 	selectedScanId,
 }: {
 	limit?: number;
+	onDeleteScan?: (scan: DashboardScan) => Promise<void>;
+	onEditScan?: (scan: DashboardScan) => void;
 	onSelectScan: (id: string) => void;
 	scans: DashboardScan[];
 	selectedScanId: string;
@@ -100,24 +106,26 @@ export function QueueCard({
 			<div className="divide-y divide-[var(--divider)]">
 				{visible.length ? (
 					visible.map((scan) => (
-						<Link
+						<div
 							key={scan.id}
-							href={`/scans/${scan.id}`}
-							onClick={() => onSelectScan(scan.id)}
-							className={`grid min-h-16 w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_96px_96px] sm:items-center ${
+							className={`grid min-h-16 w-full gap-3 px-4 py-3 text-left transition sm:grid-cols-[minmax(0,1fr)_96px_96px_auto] sm:items-center ${
 								selectedScanId === scan.id
 									? "bg-[var(--accent-soft)]"
 									: "hover:bg-[var(--surface-soft)]"
 							}`}
 						>
-							<div className="min-w-0">
+							<Link
+								href={`/scans/${scan.id}`}
+								onClick={() => onSelectScan(scan.id)}
+								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+							>
 								<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 									{scan.title}
 								</p>
 								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 									{scan.sourceLabel} - {providerLabel(scan.provider)}
 								</p>
-							</div>
+							</Link>
 							<StatusPill status={scan.status} />
 							<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
 								{scan.progress}%
@@ -125,7 +133,31 @@ export function QueueCard({
 									<ProgressBar value={scan.progress} />
 								</div>
 							</div>
-						</Link>
+							{onEditScan || onDeleteScan ? (
+								<div className="flex gap-2 sm:justify-end">
+									{onEditScan ? (
+										<button
+											type="button"
+											onClick={() => onEditScan(scan)}
+											className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+											aria-label="Chỉnh scan"
+										>
+											<Edit3 size={14} />
+										</button>
+									) : null}
+									{onDeleteScan ? (
+										<button
+											type="button"
+											onClick={() => void onDeleteScan(scan)}
+											className="grid size-9 place-items-center rounded-md border border-[var(--danger-border)] text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
+											aria-label="Xóa scan"
+										>
+											<Trash2 size={14} />
+										</button>
+									) : null}
+								</div>
+							) : null}
+						</div>
 					))
 				) : (
 					<p className="px-4 py-5 text-[12px] font-semibold text-[var(--muted)]">
