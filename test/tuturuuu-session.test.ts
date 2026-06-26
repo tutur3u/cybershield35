@@ -70,8 +70,9 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(isTuturuuuAuthConfigured()).toBe(true);
 	});
 
-	test("requests a workspace session scope by default", () => {
-		delete process.env.CYBERSHIELD35_REQUESTED_SCOPES;
+	test("requests the code-owned workspace session scope", () => {
+		process.env.CYBERSHIELD35_REQUESTED_SCOPES =
+			"external-projects:*,workspace:session";
 
 		expect(getRequestedScopes()).toEqual(["workspace:session"]);
 	});
