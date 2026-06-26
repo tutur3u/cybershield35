@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { NextRequest } from "next/server";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -12,6 +13,7 @@ import {
 	getTuturuuuAuthDiagnostics,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
+import { proxy } from "@/proxy";
 
 const originalEnv = { ...process.env };
 
@@ -150,6 +152,85 @@ describe("dashboard auth gate", () => {
 		});
 	});
 
+	test("allows the login page to render before authentication", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+
+		const auth = await resolveDashboardAuthFromRequest(
+			new Request("https://cybershield.example.com/login?nextUrl=/sources"),
+		);
+
+		expect(auth).toMatchObject({
+			authenticated: false,
+			publicRoute: true,
+			status: 200,
+		});
+		if (auth.authenticated) throw new Error("Expected public login route");
+		expect(auth.loginPath).toBe("/login?nextUrl=%2Fsources");
+
+		const loginUrl = new URL(auth.loginHref ?? "");
+		const returnUrl = new URL(loginUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.pathname).toBe("/verify-token");
+		expect(returnUrl.searchParams.get("nextUrl")).toBe("/sources");
+	});
+
+	test("proxy redirects unauthenticated protected routes to /login", async () => {
+		process.env.NODE_ENV = "production";
+
+		const response = await proxy(
+			new NextRequest("https://cybershield.example.com/sources?tab=facebook"),
+		);
+
+		expect(response.status).toBe(307);
+		const location = new URL(response.headers.get("location") ?? "");
+		expect(location.origin).toBe("https://cybershield.example.com");
+		expect(location.pathname).toBe("/login");
+		expect(location.searchParams.get("nextUrl")).toBe("/sources?tab=facebook");
+	});
+
+	test("proxy lets public auth routes render without a session", async () => {
+		process.env.NODE_ENV = "production";
+
+		const loginResponse = await proxy(
+			new NextRequest("https://cybershield.example.com/login?nextUrl=/sources"),
+		);
+		const verifyResponse = await proxy(
+			new NextRequest("https://cybershield.example.com/verify-token?token=short"),
+		);
+
+		expect(loginResponse.status).toBe(200);
+		expect(loginResponse.headers.get("location")).toBeNull();
+		expect(verifyResponse.status).toBe(200);
+		expect(verifyResponse.headers.get("location")).toBeNull();
+	});
+
+	test("proxy allows valid sessions and skips the login page for them", async () => {
+		process.env.NODE_ENV = "production";
+		const cookie = createSessionCookie(session());
+
+		const protectedResponse = await proxy(
+			new NextRequest("https://cybershield.example.com/sources", {
+				headers: { cookie },
+			}),
+		);
+		const loginResponse = await proxy(
+			new NextRequest("https://cybershield.example.com/login?nextUrl=/sources", {
+				headers: { cookie },
+			}),
+		);
+
+		expect(protectedResponse.status).toBe(200);
+		expect(protectedResponse.headers.get("location")).toBeNull();
+		expect(loginResponse.status).toBe(307);
+		expect(new URL(loginResponse.headers.get("location") ?? "").pathname).toBe(
+			"/sources",
+		);
+	});
+
 	test("allows explicit localhost dev bypass", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
@@ -186,17 +267,16 @@ describe("dashboard auth gate", () => {
 		expect(JSON.stringify(auth)).not.toContain("refresh-token");
 	});
 
-	test("root layout gates app pages before rendering protected children", () => {
+	test("root layout redirects protected pages before rendering protected children", () => {
 		const source = readFileSync("app/layout.tsx", "utf8");
 
 		expect(source).toContain("resolveDashboardAuthFromCurrentRequest");
-		expect(source).toContain("AuthRequiredScreen");
+		expect(source).toContain("redirect(auth.loginPath)");
 		expect(source).toContain("DashboardAuthProvider");
 		expect(source).toContain("auth.authenticated");
 		expect(source).toContain("auth.publicRoute");
-		expect(source).toContain("loginHref={auth.loginHref}");
-		expect(source).toContain("authDiagnostics={auth.authDiagnostics}");
 		expect(source).toContain("{children}");
+		expect(source).not.toContain("AuthRequiredScreen");
 	});
 
 	test("app pages do not own the route protection boundary", () => {
@@ -264,6 +344,27 @@ describe("dashboard auth gate", () => {
 		expect(markup).not.toContain("TUTURUUU_API_BASE_URL");
 		expect(markup).not.toContain("DATABASE_URL");
 		expect(markup).not.toContain("AUTH_LOCAL_BYPASS");
+	});
+
+	test("login route owns the customer-facing Tuturuuu login flow", () => {
+		const source = readFileSync("app/login/page.tsx", "utf8");
+
+		expect(source).toContain("AuthRequiredScreen");
+		expect(source).toContain("buildTuturuuuCentralizedLoginUrl");
+		expect(source).toContain("safePostLoginPath");
+		expect(source).toContain("readAdminSession");
+		expect(source).toContain("redirect(nextPath)");
+		expect(source).not.toContain("<input");
+		expect(source).not.toContain("Dán token");
+		expect(source).not.toContain("Short app token");
+	});
+
+	test("session status endpoint returns the local login route", () => {
+		const source = readFileSync("app/api/admin/session/route.ts", "utf8");
+
+		expect(source).toContain("buildLocalLoginPath");
+		expect(source).toContain("safePostLoginPath");
+		expect(source).not.toContain("buildTuturuuuCentralizedLoginUrl");
 	});
 
 	test("misconfigured unauthenticated screen names blocking envs", () => {
@@ -337,6 +438,7 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain('searchParams.get("token")');
 		expect(client).toContain('fetch("/api/auth/verify-app-token"');
 		expect(client).toContain("router.replace(nextPath)");
+		expect(client).toContain('href={retryHref}');
 		expect(client).not.toContain("<input");
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
@@ -348,8 +450,10 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain('if (!token) {');
 		expect(client).toContain("setState(\"failed\")");
 		expect(client).toContain("Phiên đăng nhập Tuturuuu không hợp lệ");
+		expect(client).toContain("/login?nextUrl=");
 		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.replace(nextPath)");
 		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.refresh()");
+		expect(client).not.toContain('href="/"');
 	});
 
 	test("dashboard client locks instead of rendering the app shell without auth", () => {

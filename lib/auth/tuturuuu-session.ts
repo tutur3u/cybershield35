@@ -166,6 +166,10 @@ export function sessionNeedsRefresh(session: TuturuuuAdminSession) {
 	return Date.parse(session.expiresAt) <= Date.now() + refreshEarlySeconds * 1000;
 }
 
+export function sessionCanRefresh(session: TuturuuuAdminSession) {
+	return Date.parse(session.refreshExpiresAt) > Date.now();
+}
+
 export async function readAdminSession(request: Request) {
 	const cookieValue = getCookie(request, SESSION_COOKIE_NAME);
 	if (!cookieValue) return null;

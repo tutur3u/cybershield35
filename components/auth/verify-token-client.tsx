@@ -47,6 +47,10 @@ export function VerifyTokenClient() {
 			),
 		[searchParams],
 	);
+	const retryHref = useMemo(
+		() => `/login?nextUrl=${encodeURIComponent(nextPath)}`,
+		[nextPath],
+	);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -111,7 +115,7 @@ export function VerifyTokenClient() {
 					{error}
 				</p>
 				<Link
-					href="/"
+					href={retryHref}
 					className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
 					Đăng nhập lại bằng Tuturuuu

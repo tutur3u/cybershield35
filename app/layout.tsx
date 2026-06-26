@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import { redirect } from "next/navigation";
 import Script from "next/script";
 
-import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
 
@@ -51,6 +51,10 @@ export default async function RootLayout({
 }>) {
 	const auth = await resolveDashboardAuthFromCurrentRequest();
 
+	if (!auth.authenticated && !auth.publicRoute) {
+		redirect(auth.loginPath);
+	}
+
 	return (
 		<html
 			lang="vi"
@@ -68,15 +72,8 @@ export default async function RootLayout({
 					>
 						{children}
 					</DashboardAuthProvider>
-				) : auth.publicRoute ? (
-					children
 				) : (
-					<AuthRequiredScreen
-						authDiagnostics={auth.authDiagnostics}
-						configured={auth.configured}
-						error={auth.error}
-						loginHref={auth.loginHref}
-					/>
+					children
 				)}
 				<Script
 					id="cybershield35-theme-boot"
