@@ -187,8 +187,8 @@ export function ProfileSettingsPanel({
 function readProfileError(payload: unknown) {
 	if (payload && typeof payload === "object") {
 		const candidate = payload as { error?: unknown; message?: unknown };
-		if (typeof candidate.error === "string") return candidate.error;
 		if (typeof candidate.message === "string") return candidate.message;
+		if (typeof candidate.error === "string") return candidate.error;
 	}
 
 	return "Không thể cập nhật hồ sơ.";
