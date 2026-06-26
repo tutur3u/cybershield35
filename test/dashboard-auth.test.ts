@@ -29,7 +29,12 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
 		tokenType: "Bearer",
-		user: { displayName: "Admin Example", email: "admin@example.com", id: "user-1" },
+		user: {
+			avatarUrl: "https://example.com/admin.png",
+			displayName: "Admin Example",
+			email: "admin@example.com",
+			id: "user-1",
+		},
 		workspaceId: "workspace-1",
 	};
 }
@@ -199,7 +204,9 @@ describe("dashboard auth gate", () => {
 			new NextRequest("https://cybershield.example.com/login?nextUrl=/sources"),
 		);
 		const verifyResponse = await proxy(
-			new NextRequest("https://cybershield.example.com/verify-token?token=short"),
+			new NextRequest(
+				"https://cybershield.example.com/verify-token?token=short",
+			),
 		);
 
 		expect(loginResponse.status).toBe(200);
@@ -218,9 +225,12 @@ describe("dashboard auth gate", () => {
 			}),
 		);
 		const loginResponse = await proxy(
-			new NextRequest("https://cybershield.example.com/login?nextUrl=/sources", {
-				headers: { cookie },
-			}),
+			new NextRequest(
+				"https://cybershield.example.com/login?nextUrl=/sources",
+				{
+					headers: { cookie },
+				},
+			),
 		);
 
 		expect(protectedResponse.status).toBe(200);
@@ -261,6 +271,7 @@ describe("dashboard auth gate", () => {
 			session: {
 				appName: "cybershield35",
 				user: {
+					avatarUrl: "https://example.com/admin.png",
 					displayName: "Admin Example",
 					email: "admin@example.com",
 					id: "user-1",
@@ -335,7 +346,8 @@ describe("dashboard auth gate", () => {
 				authDiagnostics: getTuturuuuAuthDiagnostics(),
 				configured: true,
 				error: "Authentication required",
-				loginHref: "https://tuturuuu.com/login?returnUrl=https%3A%2F%2Fcybershield.example.com%2Fverify-token",
+				loginHref:
+					"https://tuturuuu.com/login?returnUrl=https%3A%2F%2Fcybershield.example.com%2Fverify-token",
 			}),
 		);
 
@@ -422,22 +434,32 @@ describe("dashboard auth gate", () => {
 
 	test("account dropdown owns auth actions and theme controls", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
-		const pages = readFileSync("components/dashboard/dashboard-pages.tsx", "utf8");
-		const widgets = readFileSync("components/dashboard/page-widgets.tsx", "utf8");
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const widgets = readFileSync(
+			"components/dashboard/page-widgets.tsx",
+			"utf8",
+		);
 
 		expect(shell).toContain("function AccountMenu");
 		expect(shell).toContain("@tuturuuu/ui/dropdown-menu");
-		expect(shell).toContain("@tuturuuu/ui/custom/tuturuuu-logo");
+		expect(shell).toContain("@tuturuuu/ui/avatar");
 		expect(shell).toContain("DropdownMenuSub");
 		expect(shell).toContain("DropdownMenuRadioGroup");
-		expect(shell).toContain("TuturuuLogo");
+		expect(shell).toContain("AccountAvatar");
+		expect(shell).toContain("AvatarImage");
 		expect(shell).toContain("onLogout");
 		expect(shell).toContain("onSelectTheme");
 		expect(shell).toContain("themeLabel");
+		expect(shell).toContain("avatarUrl");
 		expect(shell).toContain("displayName");
 		expect(shell).toContain("email");
+		expect(shell).toContain("focus-visible:ring-0");
 		expect(shell).not.toContain("onRefreshAuth");
 		expect(shell).not.toContain("Làm mới phiên");
+		expect(shell).not.toContain("TuturuuLogo");
 		expect(shell).not.toContain("workspaceId");
 		expect(shell).not.toContain("Workspace đã liên kết");
 		expect(shell).not.toContain("ThemeToggleButton");
@@ -448,9 +470,14 @@ describe("dashboard auth gate", () => {
 
 	test("notification dropdown has no mock operational items", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
-		const pages = readFileSync("components/dashboard/dashboard-pages.tsx", "utf8");
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
 
-		expect(shell).toContain("const notifications: OperationalNotification[] = []");
+		expect(shell).toContain(
+			"const notifications: OperationalNotification[] = []",
+		);
 		expect(shell).not.toContain("Scan Facebook đang chạy");
 		expect(shell).not.toContain("Bản nháp cần duyệt");
 		expect(shell).not.toContain("Cảnh báo rủi ro cao");
@@ -459,26 +486,34 @@ describe("dashboard auth gate", () => {
 
 	test("verify-token callback page completes login without manual token entry", () => {
 		const page = readFileSync("app/verify-token/page.tsx", "utf8");
-		const client = readFileSync("components/auth/verify-token-client.tsx", "utf8");
+		const client = readFileSync(
+			"components/auth/verify-token-client.tsx",
+			"utf8",
+		);
 
 		expect(page).toContain("VerifyTokenClient");
 		expect(client).toContain('searchParams.get("token")');
 		expect(client).toContain('fetch("/api/auth/verify-app-token"');
 		expect(client).toContain("router.replace(nextPath)");
-		expect(client).toContain('href={retryHref}');
+		expect(client).toContain("href={retryHref}");
 		expect(client).not.toContain("<input");
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
 	});
 
 	test("verify-token callback does not return to the dashboard without a token", () => {
-		const client = readFileSync("components/auth/verify-token-client.tsx", "utf8");
+		const client = readFileSync(
+			"components/auth/verify-token-client.tsx",
+			"utf8",
+		);
 
-		expect(client).toContain('if (!token) {');
-		expect(client).toContain("setState(\"failed\")");
+		expect(client).toContain("if (!token) {");
+		expect(client).toContain('setState("failed")');
 		expect(client).toContain("Phiên đăng nhập Tuturuuu không hợp lệ");
 		expect(client).toContain("/login?nextUrl=");
-		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.replace(nextPath)");
+		expect(client).not.toContain(
+			"if (!token) {\n\t\t\t\trouter.replace(nextPath)",
+		);
 		expect(client).not.toContain("if (!token) {\n\t\t\t\trouter.refresh()");
 		expect(client).not.toContain('href="/"');
 	});

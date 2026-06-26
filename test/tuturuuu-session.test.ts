@@ -8,6 +8,7 @@ import {
 	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
+	sessionNeedsIdentityRefresh,
 	toSafeSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -21,12 +22,18 @@ function session(): TuturuuuAdminSession {
 		createdAt: "2026-06-13T00:00:00.000Z",
 		expiresAt: new Date(Date.now() + 60_000).toISOString(),
 		expiresIn: 60,
+		identityRefreshedAt: "2026-06-13T00:01:00.000Z",
 		refreshEarlySeconds: 10,
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "ttr_app_refresh_secret",
 		tokenType: "Bearer",
-		user: { displayName: "Admin Example", email: "admin@example.com", id: "user-1" },
+		user: {
+			avatarUrl: "https://example.com/admin.png",
+			displayName: "Admin Example",
+			email: "admin@example.com",
+			id: "user-1",
+		},
 		workspaceId: "workspace-1",
 	};
 }
@@ -53,6 +60,7 @@ describe("Tuturuuu encrypted admin session", () => {
 		const restored = await readAdminSession(request);
 		expect(restored?.accessToken).toBe("ttr_app_access_secret");
 		expect(restored?.refreshToken).toBe("ttr_app_refresh_secret");
+		expect(restored?.identityRefreshedAt).toBe(session().identityRefreshedAt);
 	});
 
 	test("safe session strips bearer and refresh tokens", () => {
@@ -60,8 +68,23 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(JSON.stringify(safe)).not.toContain("ttr_app_access_secret");
 		expect(JSON.stringify(safe)).not.toContain("ttr_app_refresh_secret");
 		expect(JSON.stringify(safe)).not.toContain("workspace-1");
+		expect(safe.user.avatarUrl).toBe("https://example.com/admin.png");
 		expect(safe.user.displayName).toBe("Admin Example");
 		expect(safe.user.email).toBe("admin@example.com");
+	});
+
+	test("old sessions with missing identity fields request one server-side refresh", () => {
+		const staleSession = session();
+		delete staleSession.identityRefreshedAt;
+		staleSession.user = {
+			email: "admin@example.com",
+			id: "user-1",
+		};
+
+		expect(sessionNeedsIdentityRefresh(staleSession)).toBe(true);
+
+		staleSession.identityRefreshedAt = "2026-06-13T00:00:00.000Z";
+		expect(sessionNeedsIdentityRefresh(staleSession)).toBe(false);
 	});
 
 	test("auth configuration requires Tuturuuu production credentials", () => {
@@ -142,28 +165,40 @@ describe("Tuturuuu encrypted admin session", () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
 
-		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(true);
-		expect(allowLocalAuthBypass(new Request("http://127.0.0.1:3000"))).toBe(true);
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
+			true,
+		);
+		expect(allowLocalAuthBypass(new Request("http://127.0.0.1:3000"))).toBe(
+			true,
+		);
 		expect(allowLocalAuthBypass(new Request("http://0.0.0.0:3000"))).toBe(true);
 		expect(allowLocalAuthBypass(new Request("http://[::1]:3000"))).toBe(true);
-		expect(allowLocalAuthBypass(new Request("http://app.example.com"))).toBe(false);
+		expect(allowLocalAuthBypass(new Request("http://app.example.com"))).toBe(
+			false,
+		);
 
 		process.env.NODE_ENV = "production";
-		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(false);
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
+			false,
+		);
 	});
 
 	test("local auth bypass is explicit", () => {
 		process.env.NODE_ENV = "development";
 		delete process.env.AUTH_LOCAL_BYPASS;
 
-		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(false);
+		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
+			false,
+		);
 	});
 
 	test("local auth bypass creates a local session only for dev localhost requests", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
 
-		const local = await requireAdminSession(new Request("http://localhost:3000"));
+		const local = await requireAdminSession(
+			new Request("http://localhost:3000"),
+		);
 		expect(local).toMatchObject({
 			kind: "live",
 			session: { user: { id: "local-dev" }, workspaceId: "local-dev" },
@@ -173,6 +208,9 @@ describe("Tuturuuu encrypted admin session", () => {
 		const production = await requireAdminSession(
 			new Request("http://localhost:3000"),
 		);
-		expect(production).toEqual({ error: "Authentication required", status: 401 });
+		expect(production).toEqual({
+			error: "Authentication required",
+			status: 401,
+		});
 	});
 });

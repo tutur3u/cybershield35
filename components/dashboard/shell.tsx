@@ -13,7 +13,7 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@tuturuuu/ui/dropdown-menu";
-import { TuturuuLogo } from "@tuturuuu/ui/custom/tuturuuu-logo";
+import { Avatar, AvatarFallback, AvatarImage } from "@tuturuuu/ui/avatar";
 import {
 	Bell,
 	Check,
@@ -26,14 +26,21 @@ import {
 	Palette,
 	ShieldCheck,
 	Sun,
-	UserCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
-import { navItems, quickLinks, topBarItems } from "@/components/dashboard/dashboard-data";
-import { themeLabel, type ResolvedTheme, type ThemePreference } from "@/components/dashboard/theme";
+import {
+	navItems,
+	quickLinks,
+	topBarItems,
+} from "@/components/dashboard/dashboard-data";
+import {
+	themeLabel,
+	type ResolvedTheme,
+	type ThemePreference,
+} from "@/components/dashboard/theme";
 import type { AuthViewState } from "@/components/dashboard/types";
 
 type OperationalNotification = {
@@ -46,6 +53,8 @@ type OperationalNotification = {
 };
 
 const notifications: OperationalNotification[] = [];
+const dropdownItemFocusClass =
+	"outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[highlighted]:outline-none data-[highlighted]:ring-0";
 
 export function Sidebar() {
 	const pathname = usePathname();
@@ -69,7 +78,9 @@ export function Sidebar() {
 				<nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-4">
 					{navItems.map((item) => {
 						const active =
-							item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+							item.href === "/"
+								? pathname === "/"
+								: pathname.startsWith(item.href);
 
 						return (
 							<Link
@@ -179,7 +190,13 @@ export function TopBar({
 								</p>
 							) : null}
 						</div>
-						<div className={notifications.length ? "max-h-[340px] overflow-y-auto p-2" : "h-2"}>
+						<div
+							className={
+								notifications.length
+									? "max-h-[340px] overflow-y-auto p-2"
+									: "h-2"
+							}
+						>
 							{notifications.map((notification) => (
 								<Link
 									key={notification.id}
@@ -214,9 +231,13 @@ export function TopBar({
 						<button
 							type="button"
 							aria-label="Mở tài khoản"
-							className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+							className="flex h-9 max-w-[240px] items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[var(--muted-strong)] outline-none ring-0 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
 						>
-							<UserCircle size={17} className="shrink-0" />
+							<AccountAvatar
+								avatarUrl={identity.avatarUrl}
+								name={identity.primary}
+								size="sm"
+							/>
 							<span className="hidden min-w-0 truncate text-[12px] font-bold sm:block">
 								{identity.primary}
 							</span>
@@ -263,9 +284,11 @@ function AccountMenu({
 			className="w-[min(340px,calc(100vw-2rem))] rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 text-[var(--foreground)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
 		>
 			<DropdownMenuLabel className="flex items-start gap-3 rounded-md px-3 py-3">
-				<span className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-white">
-					<TuturuuLogo width={22} height={22} alt="" aria-hidden="true" />
-				</span>
+				<AccountAvatar
+					avatarUrl={identity.avatarUrl}
+					name={identity.primary}
+					size="md"
+				/>
 				<span className="min-w-0">
 					<span className="block truncate text-[13px] font-bold text-[var(--foreground)]">
 						{identity.primary}
@@ -279,7 +302,9 @@ function AccountMenu({
 			</DropdownMenuLabel>
 			<DropdownMenuSeparator className="bg-[var(--border)]" />
 			<DropdownMenuSub>
-				<DropdownMenuSubTrigger className="mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] data-[state=open]:bg-[var(--surface-soft)] data-[state=open]:text-[var(--foreground)]">
+				<DropdownMenuSubTrigger
+					className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] data-[state=open]:bg-[var(--surface-soft)] data-[state=open]:text-[var(--foreground)] ${dropdownItemFocusClass}`}
+				>
 					<Palette size={15} />
 					<span>Giao diện</span>
 					<span className="ml-auto mr-2 text-[11px] font-semibold text-[var(--muted)]">
@@ -299,7 +324,7 @@ function AccountMenu({
 								<DropdownMenuRadioItem
 									key={option}
 									value={option}
-									className="rounded-md py-2 pr-2 pl-8 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)]"
+									className={`rounded-md py-2 pr-2 pl-8 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] ${dropdownItemFocusClass}`}
 								>
 									<Icon size={15} />
 									<span className="min-w-0 flex-1 truncate">
@@ -323,7 +348,7 @@ function AccountMenu({
 				onSelect={() => {
 					void onLogout().finally(onClose);
 				}}
-				className="mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--danger-strong)] focus:bg-[var(--danger-soft)] focus:text-[var(--danger-strong)]"
+				className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--danger-strong)] focus:bg-[var(--danger-soft)] focus:text-[var(--danger-strong)] ${dropdownItemFocusClass}`}
 			>
 				<LogOut size={15} />
 				Đăng xuất
@@ -332,20 +357,60 @@ function AccountMenu({
 	);
 }
 
+function AccountAvatar({
+	avatarUrl,
+	name,
+	size,
+}: {
+	avatarUrl: string | null;
+	name: string;
+	size: "md" | "sm";
+}) {
+	const sizeClass = size === "md" ? "size-9 text-[12px]" : "size-5 text-[10px]";
+
+	return (
+		<Avatar
+			className={`${sizeClass} border border-[var(--border)] bg-[var(--surface-soft)] text-[var(--foreground)]`}
+		>
+			{avatarUrl ? (
+				<AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+			) : null}
+			<AvatarFallback className="bg-[var(--success-soft)] text-[var(--brand)] text-[inherit] font-bold">
+				{getInitials(name)}
+			</AvatarFallback>
+		</Avatar>
+	);
+}
+
 const themeOptions: ThemePreference[] = ["system", "light", "dark"];
 
 function getSessionIdentity(auth: AuthViewState) {
+	const avatarUrl = cleanIdentityValue(auth.session?.user.avatarUrl);
 	const displayName = cleanIdentityValue(auth.session?.user.displayName);
 	const email = cleanIdentityValue(auth.session?.user.email);
 	const primary = displayName ?? email ?? "Tài khoản Tuturuuu";
-	const secondary = displayName && email && displayName !== email ? email : null;
+	const secondary =
+		displayName && email && displayName !== email ? email : null;
 
-	return { primary, secondary };
+	return { avatarUrl, primary, secondary };
 }
 
 function cleanIdentityValue(value: string | null | undefined) {
 	const cleaned = value?.trim();
 	return cleaned || null;
+}
+
+function getInitials(value: string) {
+	const parts = value
+		.split(/[\s@._-]+/u)
+		.map((part) => part.trim())
+		.filter(Boolean);
+	const initials = parts
+		.slice(0, 2)
+		.map((part) => part[0]?.toUpperCase())
+		.join("");
+
+	return initials || "TT";
 }
 
 function themeOptionIcon(option: ThemePreference) {
@@ -405,7 +470,10 @@ function BrowserClock() {
 	}).format(date);
 
 	return (
-		<span className="hidden whitespace-nowrap text-[var(--muted-strong)] sm:inline" suppressHydrationWarning>
+		<span
+			className="hidden whitespace-nowrap text-[var(--muted-strong)] sm:inline"
+			suppressHydrationWarning
+		>
 			{timeLabel}, {dateLabel}
 		</span>
 	);

@@ -3,6 +3,7 @@ import {
 	createSessionCookie,
 	refreshAdminSession,
 	readAdminSession,
+	sessionNeedsIdentityRefresh,
 	sessionNeedsRefresh,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -18,7 +19,9 @@ export type AdminAuthResult =
 			status: number;
 	  };
 
-export async function requireAdminSession(request: Request): Promise<AdminAuthResult> {
+export async function requireAdminSession(
+	request: Request,
+): Promise<AdminAuthResult> {
 	if (allowLocalAuthBypass(request)) {
 		return { kind: "live", session: localDevSession(), setCookie: null };
 	}
@@ -28,7 +31,7 @@ export async function requireAdminSession(request: Request): Promise<AdminAuthRe
 		return { error: "Authentication required", status: 401 };
 	}
 
-	if (sessionNeedsRefresh(session)) {
+	if (sessionNeedsRefresh(session) || sessionNeedsIdentityRefresh(session)) {
 		try {
 			session = await refreshAdminSession(session);
 			return {
@@ -57,7 +60,11 @@ function localDevSession(): TuturuuuAdminSession {
 		refreshExpiresIn: 3600,
 		refreshToken: "local-dev-bypass",
 		tokenType: "Bearer",
-		user: { displayName: "Local Admin", email: "local@localhost", id: "local-dev" },
+		user: {
+			displayName: "Local Admin",
+			email: "local@localhost",
+			id: "local-dev",
+		},
 		workspaceId: "local-dev",
 	};
 }
