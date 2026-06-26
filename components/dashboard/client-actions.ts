@@ -15,11 +15,17 @@ import { detectSource } from "@/lib/domain/source-detection";
 export async function refreshSession(
 	setAuth: (auth: AuthViewState) => void,
 	setNotice: (notice: string) => void,
+	loginHref?: string,
 ) {
 	const response = await fetch("/api/auth/session/refresh", { method: "POST" });
 	const payload = await response.json();
 	if (response.ok && payload.session) {
-		setAuth({ authenticated: true, configured: true, session: payload.session });
+		setAuth({
+			authenticated: true,
+			configured: true,
+			loginHref,
+			session: payload.session,
+		});
 		setNotice("Phiên Tuturuuu đã được làm mới.");
 		return;
 	}
@@ -27,6 +33,7 @@ export async function refreshSession(
 		authenticated: false,
 		configured: payload.configured,
 		error: payload.error ?? "Không thể làm mới phiên.",
+		loginHref,
 	});
 	setNotice(payload.error ?? "Không thể làm mới phiên Tuturuuu.");
 }
@@ -34,9 +41,10 @@ export async function refreshSession(
 export async function logout(
 	setAuth: (auth: AuthViewState) => void,
 	setNotice: (notice: string) => void,
+	loginHref?: string,
 ) {
 	await fetch("/api/auth/logout", { method: "POST" });
-	setAuth({ authenticated: false, configured: true });
+	setAuth({ authenticated: false, configured: true, loginHref });
 	setNotice("Đã đăng xuất khỏi phiên Tuturuuu.");
 }
 

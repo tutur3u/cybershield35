@@ -1,16 +1,28 @@
 "use client";
 
-import { Bell, CheckCircle2, CircleHelp, ExternalLink, ShieldCheck, X } from "lucide-react";
+import {
+	Bell,
+	Check,
+	CheckCircle2,
+	ChevronDown,
+	CircleHelp,
+	ExternalLink,
+	Laptop,
+	LogOut,
+	Moon,
+	RefreshCw,
+	ShieldCheck,
+	Sun,
+	UserCircle,
+	X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
 import { navItems, quickLinks, topBarItems } from "@/components/dashboard/dashboard-data";
-import {
-	ThemeToggleButton,
-	type ResolvedTheme,
-	type ThemePreference,
-} from "@/components/dashboard/theme";
+import { themeLabel, type ResolvedTheme, type ThemePreference } from "@/components/dashboard/theme";
+import type { AuthViewState } from "@/components/dashboard/types";
 
 export function Sidebar() {
 	const pathname = usePathname();
@@ -81,19 +93,27 @@ export function Sidebar() {
 }
 
 export function TopBar({
-	onCycleTheme,
+	auth,
+	onLogout,
+	onRefreshAuth,
+	onSelectTheme,
 	resolvedTheme,
 	themePreference,
 }: {
-	onCycleTheme: () => void;
+	auth: AuthViewState;
+	onLogout: () => Promise<void>;
+	onRefreshAuth: () => Promise<void>;
+	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
 }) {
+	const [accountOpen, setAccountOpen] = useState(false);
 	const [notificationsOpen, setNotificationsOpen] = useState(false);
 	const [readIds, setReadIds] = useState<string[]>([]);
 	const unreadCount = notifications.filter(
 		(notification) => !readIds.includes(notification.id),
 	).length;
+	const identity = auth.session?.user.email ?? auth.session?.user.id ?? "Tài khoản";
 
 	function markRead(id: string) {
 		setReadIds((current) => (current.includes(id) ? current : [...current, id]));
@@ -117,11 +137,6 @@ export function TopBar({
 			</div>
 			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
 				<BrowserClock />
-				<ThemeToggleButton
-					onCycle={onCycleTheme}
-					preference={themePreference}
-					resolvedTheme={resolvedTheme}
-				/>
 				<div className="relative">
 					<button
 						type="button"
@@ -211,9 +226,157 @@ export function TopBar({
 						</div>
 					) : null}
 				</div>
+				<div className="relative">
+					<button
+						type="button"
+						aria-expanded={accountOpen}
+						aria-haspopup="menu"
+						aria-label="Mở tài khoản"
+						onClick={() => setAccountOpen((open) => !open)}
+						className="flex h-9 max-w-[220px] items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+					>
+						<UserCircle size={17} className="shrink-0" />
+						<span className="hidden min-w-0 truncate text-[12px] font-bold sm:block">
+							{identity}
+						</span>
+						<ChevronDown
+							size={14}
+							className={`shrink-0 transition-transform ${accountOpen ? "rotate-180" : ""}`}
+						/>
+					</button>
+					{accountOpen ? (
+						<AccountMenu
+							auth={auth}
+							onClose={() => setAccountOpen(false)}
+							onLogout={onLogout}
+							onRefreshAuth={onRefreshAuth}
+							onSelectTheme={onSelectTheme}
+							resolvedTheme={resolvedTheme}
+							themePreference={themePreference}
+						/>
+					) : null}
+				</div>
 			</div>
 		</header>
 	);
+}
+
+function AccountMenu({
+	auth,
+	onClose,
+	onLogout,
+	onRefreshAuth,
+	onSelectTheme,
+	resolvedTheme,
+	themePreference,
+}: {
+	auth: AuthViewState;
+	onClose: () => void;
+	onLogout: () => Promise<void>;
+	onRefreshAuth: () => Promise<void>;
+	onSelectTheme: (preference: ThemePreference) => void;
+	resolvedTheme: ResolvedTheme;
+	themePreference: ThemePreference;
+}) {
+	const identity = auth.session?.user.email ?? auth.session?.user.id ?? "Chưa xác định";
+	const workspace = auth.session?.workspaceId ?? "Workspace đã liên kết";
+
+	return (
+		<div
+			role="menu"
+			className="absolute right-0 top-11 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[0_24px_70px_rgb(0_0_0/0.22)]"
+		>
+			<div className="flex items-start gap-3 border-b border-[var(--border)] px-4 py-3">
+				<span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
+					<ShieldCheck size={18} />
+				</span>
+				<div className="min-w-0">
+					<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
+						{identity}
+					</p>
+					<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
+						{workspace}
+					</p>
+				</div>
+			</div>
+			<div className="space-y-4 p-3">
+				<div>
+					<p className="px-1 text-[11px] font-bold uppercase text-[var(--muted)]">
+						Giao diện
+					</p>
+					<div className="mt-2 grid gap-1">
+						{themeOptions.map((option) => {
+							const Icon = themeOptionIcon(option);
+							const active = themePreference === option;
+
+							return (
+								<button
+									key={option}
+									type="button"
+									role="menuitemradio"
+									aria-checked={active}
+									onClick={() => onSelectTheme(option)}
+									className={`flex min-h-11 items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition ${
+										active
+											? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+											: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+									}`}
+								>
+									<span className="flex min-w-0 items-center gap-2">
+										<Icon size={15} className="shrink-0" />
+										<span className="min-w-0">
+											<span className="block truncate text-[12px] font-bold">
+												{themeLabel(option)}
+											</span>
+											{option === "system" ? (
+												<span className="block truncate text-[10px] font-semibold opacity-75">
+													Đang dùng {themeLabel(resolvedTheme)}
+												</span>
+											) : null}
+										</span>
+									</span>
+									{active ? <Check size={14} className="shrink-0" /> : null}
+								</button>
+							);
+						})}
+					</div>
+				</div>
+				<div className="grid gap-2 border-t border-[var(--border)] pt-3">
+					<button
+						type="button"
+						role="menuitem"
+						onClick={async () => {
+							await onRefreshAuth();
+							onClose();
+						}}
+						className="flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+					>
+						<RefreshCw size={15} />
+						Làm mới phiên
+					</button>
+					<button
+						type="button"
+						role="menuitem"
+						onClick={async () => {
+							await onLogout();
+							onClose();
+						}}
+						className="flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
+					>
+						<LogOut size={15} />
+						Đăng xuất
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+const themeOptions: ThemePreference[] = ["system", "light", "dark"];
+
+function themeOptionIcon(option: ThemePreference) {
+	if (option === "system") return Laptop;
+	return option === "dark" ? Moon : Sun;
 }
 
 const notifications = [

@@ -313,6 +313,22 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
+	test("account dropdown owns auth actions and theme controls", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const pages = readFileSync("components/dashboard/dashboard-pages.tsx", "utf8");
+		const widgets = readFileSync("components/dashboard/page-widgets.tsx", "utf8");
+
+		expect(shell).toContain("function AccountMenu");
+		expect(shell).toContain("onRefreshAuth");
+		expect(shell).toContain("onLogout");
+		expect(shell).toContain("onSelectTheme");
+		expect(shell).toContain("themeLabel");
+		expect(shell).not.toContain("ThemeToggleButton");
+		expect(pages).not.toContain("AuthSummary");
+		expect(widgets).not.toContain("AuthSummary");
+		expect(widgets).not.toContain("Tuturuuu server auth");
+	});
+
 	test("verify-token callback page completes login without manual token entry", () => {
 		const page = readFileSync("app/verify-token/page.tsx", "utf8");
 		const client = readFileSync("components/auth/verify-token-client.tsx", "utf8");
@@ -343,8 +359,12 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(source).toContain("if (!auth.authenticated)");
-		expect(source).toContain("<LockedDashboard error={auth.error} />");
+		expect(source).toContain(
+			"<LockedDashboard error={auth.error} loginHref={auth.loginHref} />",
+		);
 		expect(source).toContain("function LockedDashboard");
+		expect(source).toContain("href={loginHref}");
+		expect(source).not.toContain('href="/"');
 		expect(source).toContain("Đăng nhập để tiếp tục");
 	});
 });

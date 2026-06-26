@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
@@ -107,7 +106,7 @@ export function CyberShieldDashboard({
 	const [isChatting, setIsChatting] = useState(false);
 	const [providerAvailability, setProviderAvailability] =
 		useState<ProviderAvailabilityView | null>(null);
-	const { cyclePreference, preference, resolvedTheme } = useThemePreference();
+	const { preference, resolvedTheme, setPreference } = useThemePreference();
 	const activeScanId = scanId ?? selectedScanId;
 
 	const selectedScan = useMemo(
@@ -120,26 +119,36 @@ export function CyberShieldDashboard({
 
 	useEffect(() => {
 		let alive = true;
-		fetch("/api/admin/session", { cache: "no-store" })
+		const nextUrl = `${window.location.pathname}${window.location.search}`;
+		fetch(`/api/admin/session?nextUrl=${encodeURIComponent(nextUrl)}`, {
+			cache: "no-store",
+		})
 			.then(async (response) => {
 				const payload = await response.json();
 				if (!alive) return;
 				if (response.ok && payload.session) {
-					setAuth({ authenticated: true, configured: true, session: payload.session });
+					setAuth({
+						authenticated: true,
+						configured: true,
+						loginHref: payload.loginHref,
+						session: payload.session,
+					});
 					setNotice("Đã xác thực bằng Tuturuuu external app login.");
 				} else {
 					setAuth({
 						authenticated: false,
 						configured: payload.configured,
 						error: payload.error,
+						loginHref: payload.loginHref,
 					});
 				}
 			})
 			.catch(() =>
-				setAuth({
+				setAuth((current) => ({
 					authenticated: false,
 					error: "Không thể kiểm tra phiên Tuturuuu.",
-				}),
+					loginHref: current.loginHref,
+				})),
 			);
 
 		return () => {
@@ -217,7 +226,6 @@ export function CyberShieldDashboard({
 	}, [auth.authenticated, activeScanId]);
 
 	const pageProps: DashboardPageProps = {
-		auth,
 		scans,
 		selectedScan,
 		selectedScanId: activeScanId,
@@ -251,8 +259,6 @@ export function CyberShieldDashboard({
 				setSelectedScanId,
 				setNotice,
 			}).then(() => undefined),
-		onRefreshAuth: () => refreshSession(setAuth, setNotice),
-		onLogout: () => logout(setAuth, setNotice),
 		onReview: (status) =>
 			draft
 				? reviewDraft({ draft, status, setDraft, setNotice })
@@ -260,7 +266,7 @@ export function CyberShieldDashboard({
 	};
 
 	if (!auth.authenticated) {
-		return <LockedDashboard error={auth.error} />;
+		return <LockedDashboard error={auth.error} loginHref={auth.loginHref} />;
 	}
 
 	return (
@@ -269,7 +275,10 @@ export function CyberShieldDashboard({
 				<Sidebar />
 				<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
 					<TopBar
-						onCycleTheme={cyclePreference}
+						auth={auth}
+						onLogout={() => logout(setAuth, setNotice, auth.loginHref)}
+						onRefreshAuth={() => refreshSession(setAuth, setNotice, auth.loginHref)}
+						onSelectTheme={setPreference}
 						resolvedTheme={resolvedTheme}
 						themePreference={preference}
 					/>
@@ -363,7 +372,13 @@ export function CyberShieldDashboard({
 	);
 }
 
-function LockedDashboard({ error }: { error?: string }) {
+function LockedDashboard({
+	error,
+	loginHref,
+}: {
+	error?: string;
+	loginHref?: string;
+}) {
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
 			<div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
@@ -398,12 +413,22 @@ function LockedDashboard({ error }: { error?: string }) {
 						</div>
 					</div>
 
-					<Link
-						href="/"
-						className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)]"
-					>
-						Đăng nhập lại
-					</Link>
+					{loginHref ? (
+						<a
+							href={loginHref}
+							className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)]"
+						>
+							Đăng nhập lại
+						</a>
+					) : (
+						<button
+							type="button"
+							disabled
+							className="mt-6 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-md bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--muted)]"
+						>
+							Đăng nhập chưa khả dụng
+						</button>
+					)}
 				</section>
 			</div>
 		</main>
