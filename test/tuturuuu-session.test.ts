@@ -12,6 +12,7 @@ import {
 	toSafeSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
+import { buildTuturuuuScopeApprovalUrl } from "@/lib/auth/scope-approval";
 
 const originalEnv = { ...process.env };
 
@@ -104,6 +105,57 @@ describe("Tuturuuu encrypted admin session", () => {
 			"users:profile:read",
 			"users:profile:write",
 		]);
+	});
+
+	test("builds a Tuturuuu external-app scope approval URL without secrets", () => {
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "do-not-leak";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+
+		const href = buildTuturuuuScopeApprovalUrl({
+			appBaseUrl: "https://cybershield.example.com",
+			nextUrl: "/sources?tab=facebook",
+		});
+
+		expect(href).toBeTruthy();
+		const approvalUrl = new URL(href ?? "");
+		expect(approvalUrl.origin).toBe("https://tuturuuu.com");
+		expect(approvalUrl.pathname).toBe(
+			"/vi/internal/infrastructure/external-apps/approve",
+		);
+		expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
+		expect(approvalUrl.searchParams.getAll("scope")).toEqual([
+			"workspace:session",
+			"users:profile:read",
+			"users:profile:write",
+		]);
+
+		const returnUrl = new URL(approvalUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.origin).toBe("https://tuturuuu.com");
+		expect(returnUrl.pathname).toBe("/login");
+		const verifyUrl = new URL(returnUrl.searchParams.get("returnUrl") ?? "");
+		expect(verifyUrl.origin).toBe("https://cybershield.example.com");
+		expect(verifyUrl.pathname).toBe("/verify-token");
+		expect(verifyUrl.searchParams.get("nextUrl")).toBe("/sources?tab=facebook");
+		expect(href).not.toContain("do-not-leak");
+	});
+
+	test("allows operators to override the Tuturuuu approval page URL", () => {
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.TUTURUUU_EXTERNAL_APP_APPROVAL_URL =
+			"https://platform.example.com/en/internal/infrastructure/external-apps/approve";
+
+		const href = buildTuturuuuScopeApprovalUrl({
+			appBaseUrl: "https://cybershield.example.com",
+			nextUrl: "/",
+		});
+
+		const approvalUrl = new URL(href ?? "");
+		expect(approvalUrl.origin).toBe("https://platform.example.com");
+		expect(approvalUrl.pathname).toBe(
+			"/en/internal/infrastructure/external-apps/approve",
+		);
+		expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
 	});
 
 	test("auth configuration does not require a dedicated session secret", () => {

@@ -140,6 +140,7 @@ export function CyberShieldDashboard({
 						configured: payload.configured,
 						error: payload.error,
 						loginHref: payload.loginHref,
+						scopeApprovalHref: payload.scopeApprovalHref,
 					});
 				}
 			})
@@ -275,7 +276,13 @@ export function CyberShieldDashboard({
 	};
 
 	if (!auth.authenticated) {
-		return <LockedDashboard error={auth.error} loginHref={auth.loginHref} />;
+		return (
+			<LockedDashboard
+				error={auth.error}
+				loginHref={auth.loginHref}
+				scopeApprovalHref={auth.scopeApprovalHref}
+			/>
+		);
 	}
 
 	return (
@@ -380,12 +387,14 @@ export function CyberShieldDashboard({
 	);
 }
 
-function LockedDashboard({
+export function LockedDashboard({
 	error,
 	loginHref,
+	scopeApprovalHref,
 }: {
 	error?: string;
 	loginHref?: string;
+	scopeApprovalHref?: string;
 }) {
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
@@ -437,6 +446,14 @@ function LockedDashboard({
 							Đăng nhập chưa khả dụng
 						</button>
 					)}
+					{scopeApprovalHref ? (
+						<a
+							href={scopeApprovalHref}
+							className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+						>
+							Duyệt quyền trong Tuturuuu
+						</a>
+					) : null}
 				</section>
 			</div>
 		</main>

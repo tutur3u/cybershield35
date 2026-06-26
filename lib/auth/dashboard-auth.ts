@@ -12,6 +12,10 @@ import {
 	type TuturuuuAuthDiagnostics,
 	type SafeAdminSession,
 } from "@/lib/auth/tuturuuu-session";
+import {
+	buildTuturuuuScopeApprovalUrl,
+	isTuturuuuScopeNotAllowedError,
+} from "@/lib/auth/scope-approval";
 
 export type DashboardAuthResult =
 	| {
@@ -27,6 +31,7 @@ export type DashboardAuthResult =
 			loginHref?: string;
 			loginPath: string;
 			publicRoute?: false;
+			scopeApprovalHref?: string;
 			status: number;
 	  }
 	| {
@@ -67,6 +72,18 @@ export async function resolveDashboardAuthFromRequest(
 
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
+		const scopeApprovalHref =
+			authDiagnostics.configured &&
+			isTuturuuuScopeNotAllowedError({
+				error: auth.error,
+				status: auth.status,
+			})
+				? buildTuturuuuScopeApprovalUrl({
+						appBaseUrl: requestUrl.origin,
+						nextUrl: nextPath,
+					})
+				: undefined;
+
 		return {
 			authenticated: false,
 			authDiagnostics,
@@ -74,6 +91,7 @@ export async function resolveDashboardAuthFromRequest(
 			error: auth.error,
 			loginHref,
 			loginPath,
+			scopeApprovalHref,
 			status: auth.status,
 		};
 	}

@@ -6,7 +6,9 @@ import { NextRequest } from "next/server";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { POST as verifyAppToken } from "@/app/api/auth/verify-app-token/route";
 import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
+import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { resolveDashboardAuthFromRequest } from "@/lib/auth/dashboard-auth";
 import {
 	createSessionCookie,
@@ -157,6 +159,43 @@ describe("dashboard auth gate", () => {
 		});
 	});
 
+	test("verify-token route returns scope approval href for scope-denied exchanges", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{ error: "Requested scope is not allowed for this app" },
+					{ status: 403 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await verifyAppToken(
+				new Request("https://cybershield.example.com/api/auth/verify-app-token", {
+					body: JSON.stringify({ nextUrl: "/sources", token: "short" }),
+					headers: { "Content-Type": "application/json" },
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(403);
+			expect(body.error).toBe("Requested scope is not allowed for this app");
+			expect(body.scopeApprovalHref).toContain(
+				"/vi/internal/infrastructure/external-apps/approve",
+			);
+			expect(body.scopeApprovalHref).not.toContain("app-secret");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test("allows the login page to render before authentication", async () => {
 		process.env.NODE_ENV = "production";
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
@@ -282,6 +321,51 @@ describe("dashboard auth gate", () => {
 		expect(JSON.stringify(auth)).not.toContain("refresh-token");
 		expect(JSON.stringify(auth)).not.toContain("workspace-1");
 		expect(JSON.stringify(auth)).not.toContain("workspaceId");
+	});
+
+	test("returns a scope approval href for Tuturuuu scope-denied refreshes", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+		const staleSession = session();
+		staleSession.expiresAt = new Date(Date.now() - 60_000).toISOString();
+		const cookie = createSessionCookie(staleSession);
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{ error: "Requested scope is not allowed for this app" },
+					{ status: 403 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const auth = await resolveDashboardAuthFromRequest(
+				new Request("https://cybershield.example.com/sources?tab=facebook", {
+					headers: { cookie },
+				}),
+			);
+
+			if (auth.authenticated) throw new Error("Expected blocked request");
+			expect(auth.status).toBe(403);
+			expect(auth.error).toBe("Requested scope is not allowed for this app");
+			expect(auth.scopeApprovalHref).toBeTruthy();
+			const approvalUrl = new URL(auth.scopeApprovalHref ?? "");
+			expect(approvalUrl.pathname).toBe(
+				"/vi/internal/infrastructure/external-apps/approve",
+			);
+			expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
+			expect(approvalUrl.searchParams.getAll("scope")).toEqual([
+				"workspace:session",
+				"users:profile:read",
+				"users:profile:write",
+			]);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 
 	test("root layout redirects protected pages before rendering protected children", () => {
@@ -412,6 +496,31 @@ describe("dashboard auth gate", () => {
 		expect(markup).not.toContain("Đăng nhập bằng Tuturuuu");
 	});
 
+	test("locked dashboard renders Tuturuuu approval action only when provided", () => {
+		const withoutApproval = renderToStaticMarkup(
+			createElement(LockedDashboard, {
+				error: "Requested scope is not allowed for this app",
+				loginHref: "/login?nextUrl=%2Fsources",
+			}),
+		);
+		expect(withoutApproval).toContain("Đăng nhập lại");
+		expect(withoutApproval).not.toContain("Duyệt quyền trong Tuturuuu");
+
+		const withApproval = renderToStaticMarkup(
+			createElement(LockedDashboard, {
+				error: "Requested scope is not allowed for this app",
+				loginHref: "/login?nextUrl=%2Fsources",
+				scopeApprovalHref:
+					"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
+			}),
+		);
+		expect(withApproval).toContain("Đăng nhập lại");
+		expect(withApproval).toContain("Duyệt quyền trong Tuturuuu");
+		expect(withApproval).toContain(
+			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
+		);
+	});
+
 	test("dashboard UI does not expose a browser token paste flow", () => {
 		for (const file of [
 			"components/dashboard/cybershield-dashboard.tsx",
@@ -496,6 +605,8 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain('fetch("/api/auth/verify-app-token"');
 		expect(client).toContain("router.replace(nextPath)");
 		expect(client).toContain("href={retryHref}");
+		expect(client).toContain("scopeApprovalHref");
+		expect(client).toContain("Duyệt quyền trong Tuturuuu");
 		expect(client).not.toContain("<input");
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
@@ -525,10 +636,12 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(source).toContain("if (!auth.authenticated)");
+		expect(source).toContain("<LockedDashboard");
+		expect(source).toContain("scopeApprovalHref={auth.scopeApprovalHref}");
 		expect(source).toContain(
-			"<LockedDashboard error={auth.error} loginHref={auth.loginHref} />",
+			"Duyệt quyền trong Tuturuuu",
 		);
-		expect(source).toContain("function LockedDashboard");
+		expect(source).toContain("export function LockedDashboard");
 		expect(source).toContain("href={loginHref}");
 		expect(source).not.toContain('href="/"');
 		expect(source).toContain("Đăng nhập để tiếp tục");
