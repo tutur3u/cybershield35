@@ -1,7 +1,4 @@
 import {
-	LogOut,
-	RefreshCw,
-	ShieldCheck,
 	Sparkles,
 	type LucideIcon,
 } from "lucide-react";
@@ -11,7 +8,6 @@ import type { ReactNode } from "react";
 import { providerRows } from "@/components/dashboard/dashboard-data";
 import type {
 	AnalysisView,
-	AuthViewState,
 	DashboardScan,
 	DraftShape,
 	ProviderAvailabilityView,
@@ -79,59 +75,6 @@ export function MetricGrid({ scans }: { scans: DashboardScan[] }) {
 				</Panel>
 			))}
 		</div>
-	);
-}
-
-export function AuthSummary({
-	auth,
-	onLogout,
-	onRefreshAuth,
-}: {
-	auth: AuthViewState;
-	onLogout: () => Promise<void>;
-	onRefreshAuth: () => Promise<void>;
-}) {
-	const authenticated = Boolean(auth.session);
-
-	return (
-		<Panel>
-			<PanelHeader title="Tuturuuu server auth" />
-			<div className="space-y-4 p-4">
-				<div
-					className={`flex items-center gap-3 rounded-lg p-3 ${
-					authenticated
-						? "bg-[var(--success-soft)] text-[var(--success-strong)]"
-						: "bg-[var(--warning-soft)] text-[var(--warning-strong)]"
-					}`}
-				>
-					<ShieldCheck size={20} />
-					<div className="min-w-0">
-						<p className="truncate text-[13px] font-bold">
-							{authenticated
-								? (auth.session?.user.email ?? auth.session?.user.id)
-								: "Chưa có phiên riêng tư"}
-						</p>
-						<p className="mt-1 truncate text-[11px] opacity-80">
-							{authenticated
-								? `Workspace: ${auth.session?.workspaceId ?? "linked"}`
-								: "Kiểm tra cấu hình server-side và mở lại sau khi redeploy."}
-						</p>
-					</div>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					{authenticated ? (
-						<>
-							<SecondaryButton onClick={onRefreshAuth}>
-								<RefreshCw size={14} /> Refresh
-							</SecondaryButton>
-							<SecondaryButton onClick={onLogout}>
-								<LogOut size={14} /> Logout
-							</SecondaryButton>
-						</>
-					) : null}
-				</div>
-			</div>
-		</Panel>
 	);
 }
 

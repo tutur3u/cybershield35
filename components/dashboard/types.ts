@@ -43,6 +43,7 @@ export type AuthViewState = {
 	authenticated: boolean;
 	configured?: boolean;
 	error?: string;
+	loginHref?: string;
 	session?: AdminSessionView;
 };
 

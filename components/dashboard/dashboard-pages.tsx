@@ -32,7 +32,6 @@ import { SocialLogoGrid } from "@/components/dashboard/dialogs";
 import { reportSpecs } from "@/components/dashboard/dashboard-data";
 import {
 	AnalysisSummary,
-	AuthSummary,
 	DraftSnapshot,
 	MetricGrid,
 	PageHeader,
@@ -41,7 +40,6 @@ import {
 } from "@/components/dashboard/page-widgets";
 import type {
 	AnalysisView,
-	AuthViewState,
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
@@ -55,7 +53,6 @@ import type {
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
 
 export type DashboardPageProps = {
-	auth: AuthViewState;
 	scans: DashboardScan[];
 	selectedScan?: DashboardScan;
 	selectedScanId: string;
@@ -75,8 +72,6 @@ export type DashboardPageProps = {
 	onOpenChatComposer: (preset?: string) => void;
 	onPrepareReport: (report: ReportSpec) => void;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
-	onRefreshAuth: () => Promise<void>;
-	onLogout: () => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
 };
 
@@ -86,7 +81,7 @@ export function OverviewPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={ShieldCheck}
 				title="Tổng quan vận hành"
-				description="Trạng thái xác thực, hàng đợi và tín hiệu phân tích mới nhất."
+				description="Hàng đợi, tiến độ và tín hiệu phân tích mới nhất."
 				actions={
 					<>
 						<SecondaryButton onClick={props.onOpenScan}>
@@ -100,11 +95,6 @@ export function OverviewPage(props: DashboardPageProps) {
 			/>
 			<MetricGrid scans={props.scans} />
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-				<AuthSummary
-					auth={props.auth}
-					onRefreshAuth={props.onRefreshAuth}
-					onLogout={props.onLogout}
-				/>
 				<QueueCard
 					scans={props.scans}
 					selectedScanId={props.selectedScanId}
@@ -442,18 +432,9 @@ export function SettingsPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={ShieldCheck}
 				title="Cấu hình"
-				description="Trạng thái provider server-side và xác thực Tuturuuu."
+				description="Trạng thái provider server-side, LLM và cơ sở dữ liệu vận hành."
 			/>
-			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<ProviderStatus
-					availability={props.providerAvailability ?? undefined}
-				/>
-				<AuthSummary
-					auth={props.auth}
-					onRefreshAuth={props.onRefreshAuth}
-					onLogout={props.onLogout}
-				/>
-			</div>
+			<ProviderStatus availability={props.providerAvailability ?? undefined} />
 		</div>
 	);
 }

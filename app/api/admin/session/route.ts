@@ -1,4 +1,5 @@
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { buildTuturuuuCentralizedLoginUrl, sanitizeNextPath } from "@/lib/auth/login-link";
 import {
 	isTuturuuuAuthConfigured,
 	toSafeSession,
@@ -7,13 +8,16 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+	const configured = isTuturuuuAuthConfigured();
+	const loginHref = configured ? buildLoginHref(request) : undefined;
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
 		return Response.json(
 			{
 				authenticated: false,
-				configured: isTuturuuuAuthConfigured(),
+				configured,
 				error: auth.error,
+				loginHref,
 			},
 			{ status: auth.status, headers: { "Cache-Control": "no-store" } },
 		);
@@ -22,6 +26,7 @@ export async function GET(request: Request) {
 	return Response.json(
 		{
 			configured: true,
+			loginHref,
 			session: toSafeSession(auth.session),
 		},
 		{
@@ -31,4 +36,14 @@ export async function GET(request: Request) {
 			},
 		},
 	);
+}
+
+function buildLoginHref(request: Request) {
+	const requestUrl = new URL(request.url);
+	const nextUrl = sanitizeNextPath(requestUrl.searchParams.get("nextUrl"), requestUrl.origin);
+
+	return buildTuturuuuCentralizedLoginUrl({
+		appBaseUrl: requestUrl.origin,
+		nextUrl,
+	});
 }
