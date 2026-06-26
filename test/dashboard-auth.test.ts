@@ -641,7 +641,7 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("onPointerEnter");
 		expect(shell).toContain("onPointerLeave");
 		expect(shell).toContain('href="/"');
-		expect(shell).toContain("pathname === \"/\"");
+		expect(shell).not.toContain('active={pathname === "/"}');
 		expect(shell).toContain("collapsed ? \"hidden lg:hidden\" :");
 		expect(shell).not.toContain("transition-[max-width,opacity]");
 		expect(shell).not.toContain("bg-[linear-gradient");
