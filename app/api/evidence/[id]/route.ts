@@ -1,17 +1,22 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import {
-	deleteTrackedSource,
-	updateTrackedSource,
-} from "@/lib/workers/tracked-sources";
+import { deleteEvidence, updateEvidence } from "@/lib/workers/scans";
 
 export const runtime = "nodejs";
 
-const bodySchema = z
+const evidencePatchSchema = z
 	.object({
-		displayName: z.string().trim().min(1).max(200).optional(),
-		isActive: z.boolean().optional(),
+		author: z.string().trim().max(160).nullable().optional(),
+		quote: z.string().trim().min(1).max(4000).optional(),
+		riskLevel: z.enum(["low", "medium", "high"]).optional(),
+		sentiment: z.string().trim().min(1).max(80).optional(),
+		sourceLabel: z.string().trim().max(240).nullable().optional(),
+		sourceUrl: z
+			.preprocess((value) => (value === "" ? null : value), z.url().nullable())
+			.optional(),
+		stance: z.string().trim().min(1).max(80).optional(),
+		summary: z.string().trim().min(1).max(4000).optional(),
 	})
 	.strict()
 	.refine((value) => Object.keys(value).length > 0);
@@ -27,14 +32,14 @@ export async function PATCH(
 
 	try {
 		const { id } = await context.params;
-		const body = bodySchema.parse(await request.json());
-		const source = await updateTrackedSource(id, body);
-		if (!source) {
-			return Response.json({ error: "Tracked source not found" }, { status: 404 });
+		const body = evidencePatchSchema.parse(await request.json());
+		const evidence = await updateEvidence(id, body);
+		if (!evidence) {
+			return Response.json({ error: "Evidence not found" }, { status: 404 });
 		}
 
 		return Response.json(
-			{ trackedSource: source, mode: "live" },
+			{ evidence, mode: "live" },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {
@@ -47,7 +52,7 @@ export async function PATCH(
 				error:
 					error instanceof Error
 						? error.message
-						: "Failed to update tracked source",
+						: "Failed to update evidence",
 			},
 			{ status: 500, headers: authHeaders(auth) },
 		);
@@ -65,13 +70,13 @@ export async function DELETE(
 
 	try {
 		const { id } = await context.params;
-		const source = await deleteTrackedSource(id);
-		if (!source) {
-			return Response.json({ error: "Tracked source not found" }, { status: 404 });
+		const evidence = await deleteEvidence(id);
+		if (!evidence) {
+			return Response.json({ error: "Evidence not found" }, { status: 404 });
 		}
 
 		return Response.json(
-			{ deleted: true, mode: "live", trackedSourceId: id },
+			{ deleted: true, evidenceId: id, mode: "live" },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {
@@ -80,7 +85,7 @@ export async function DELETE(
 				error:
 					error instanceof Error
 						? error.message
-						: "Failed to delete tracked source",
+						: "Failed to delete evidence",
 			},
 			{ status: 500, headers: authHeaders(auth) },
 		);

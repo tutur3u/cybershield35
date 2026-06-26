@@ -154,7 +154,7 @@ export type TrackedSourceView = {
 	updatedAt?: string | Date;
 };
 
-export type ReportKind = "executive" | "evidence" | "operations";
+export type ReportKind = string;
 
 export type ReportSpec = {
 	kind: ReportKind;

@@ -1,9 +1,12 @@
+"use client";
+
 import {
 	AlertTriangle,
 	ArrowRight,
 	CheckCircle2,
 	Clock3,
 	Database,
+	Edit3,
 	ExternalLink,
 	FileBarChart,
 	FileText,
@@ -14,8 +17,10 @@ import {
 	ScrollText,
 	ShieldCheck,
 	Sparkles,
+	Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import {
 	AlertPanel,
@@ -29,7 +34,6 @@ import {
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/dialogs";
-import { reportSpecs } from "@/components/dashboard/dashboard-data";
 import {
 	AnalysisSummary,
 	DraftSnapshot,
@@ -38,7 +42,6 @@ import {
 	ProviderStatus,
 	QueueCard,
 } from "@/components/dashboard/page-widgets";
-import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import type {
 	AnalysisView,
 	AdminSessionView,
@@ -75,9 +78,27 @@ export type DashboardPageProps = {
 	onOpenDraft: () => void;
 	onOpenChatComposer: (preset?: string) => void;
 	onPrepareReport: (report: ReportSpec) => void;
+	onCreateReport: () => void;
+	onEditReport: (report: ReportSpec) => void;
+	onDeleteReport: (report: ReportSpec) => void;
+	onCreateEvidence: () => void;
+	onEditEvidence: (evidence: EvidenceView[number]) => void;
+	onDeleteEvidence: (evidence: EvidenceView[number]) => Promise<void>;
+	onEditScan: (scan: DashboardScan) => void;
+	onDeleteScan: (scan: DashboardScan) => Promise<void>;
+	onCreateTrackedSource: (input: {
+		displayName: string;
+		url: string;
+	}) => Promise<boolean>;
+	onUpdateTrackedSource: (
+		source: TrackedSourceView,
+		input: { displayName?: string; isActive?: boolean },
+	) => Promise<boolean>;
+	onDeleteTrackedSource: (source: TrackedSourceView) => Promise<boolean>;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
 	onProfileUpdated: (session: AdminSessionView) => void;
+	reports: ReportSpec[];
 };
 
 export function OverviewPage(props: DashboardPageProps) {
@@ -104,6 +125,8 @@ export function OverviewPage(props: DashboardPageProps) {
 					scans={props.scans}
 					selectedScanId={props.selectedScanId}
 					onSelectScan={props.onSelectScan}
+					onEditScan={props.onEditScan}
+					onDeleteScan={props.onDeleteScan}
 					limit={4}
 				/>
 				<AnalysisSummary analysis={props.analysis} />
@@ -134,7 +157,10 @@ export function SourcesPage(props: DashboardPageProps) {
 				<div className="space-y-5">
 					<TrackedSourcesPanel
 						isCreating={props.isCreating}
+						onCreateTrackedSource={props.onCreateTrackedSource}
+						onDeleteTrackedSource={props.onDeleteTrackedSource}
 						onScanTrackedSource={props.onScanTrackedSource}
+						onUpdateTrackedSource={props.onUpdateTrackedSource}
 						sources={props.trackedSources}
 					/>
 					<Panel>
@@ -150,6 +176,8 @@ export function SourcesPage(props: DashboardPageProps) {
 						scans={props.scans}
 						selectedScanId={props.selectedScanId}
 						onSelectScan={props.onSelectScan}
+						onEditScan={props.onEditScan}
+						onDeleteScan={props.onDeleteScan}
 					/>
 				</div>
 				<ProviderStatus
@@ -162,30 +190,102 @@ export function SourcesPage(props: DashboardPageProps) {
 
 function TrackedSourcesPanel({
 	isCreating,
+	onCreateTrackedSource,
+	onDeleteTrackedSource,
 	onScanTrackedSource,
+	onUpdateTrackedSource,
 	sources,
 }: {
 	isCreating: boolean;
+	onCreateTrackedSource: (input: {
+		displayName: string;
+		url: string;
+	}) => Promise<boolean>;
+	onDeleteTrackedSource: (source: TrackedSourceView) => Promise<boolean>;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
+	onUpdateTrackedSource: (
+		source: TrackedSourceView,
+		input: { displayName?: string; isActive?: boolean },
+	) => Promise<boolean>;
 	sources: TrackedSourceView[];
 }) {
+	const [displayName, setDisplayName] = useState("");
+	const [editingName, setEditingName] = useState("");
+	const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+	const [url, setUrl] = useState("");
+
+	async function createSource() {
+		if (!url.trim()) return;
+		const created = await onCreateTrackedSource({ displayName, url });
+		if (created) {
+			setDisplayName("");
+			setUrl("");
+		}
+	}
+
+	async function saveSourceName(source: TrackedSourceView) {
+		if (!editingName.trim()) return;
+		const saved = await onUpdateTrackedSource(source, {
+			displayName: editingName.trim(),
+		});
+		if (saved) {
+			setEditingSourceId(null);
+			setEditingName("");
+		}
+	}
+
 	return (
 		<Panel>
 			<PanelHeader
 				title="Nguồn theo dõi"
 				description="Các liên kết công khai được lưu để quét lại khi cần."
 			/>
+			<div className="grid gap-2 border-b border-[var(--border)] p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
+				<input
+					value={url}
+					onChange={(event) => setUrl(event.target.value)}
+					placeholder="https://facebook.com/page"
+					className="h-10 min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+				/>
+				<input
+					value={displayName}
+					onChange={(event) => setDisplayName(event.target.value)}
+					placeholder="Tên hiển thị"
+					className="h-10 min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+				/>
+				<SecondaryButton onClick={createSource}>
+					<Plus size={14} /> Thêm
+				</SecondaryButton>
+			</div>
 			<div className="divide-y divide-[var(--divider)]">
 				{sources.length ? (
 					sources.map((source) => (
 						<div
 							key={source.id}
-							className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_132px_112px] md:items-center"
+							className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_132px_220px] md:items-center"
 						>
 							<div className="min-w-0">
-								<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-									{source.displayName}
-								</p>
+								{editingSourceId === source.id ? (
+									<div className="flex gap-2">
+										<input
+											value={editingName}
+											onChange={(event) => setEditingName(event.target.value)}
+											className="h-9 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+										/>
+										<button
+											type="button"
+											onClick={() => void saveSourceName(source)}
+											className="grid size-9 shrink-0 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+											aria-label="Lưu nguồn"
+										>
+											<CheckCircle2 size={14} />
+										</button>
+									</div>
+								) : (
+									<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
+										{source.displayName}
+									</p>
+								)}
 								<a
 									href={source.normalizedUrl}
 									target="_blank"
@@ -204,14 +304,47 @@ function TrackedSourcesPanel({
 										: "Chưa quét"}
 								</p>
 							</div>
-							<button
-								type="button"
-								disabled={isCreating || !source.isActive}
-								onClick={() => onScanTrackedSource(source)}
-								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-							>
-								<Play size={14} /> Quét
-							</button>
+							<div className="flex flex-wrap justify-start gap-2 md:justify-end">
+								<button
+									type="button"
+									disabled={isCreating || !source.isActive}
+									onClick={() => onScanTrackedSource(source)}
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									<Play size={14} /> Quét
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										void onUpdateTrackedSource(source, {
+											isActive: !source.isActive,
+										})
+									}
+									className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+									aria-label={source.isActive ? "Tắt nguồn" : "Bật nguồn"}
+								>
+									<ShieldCheck size={14} />
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setEditingSourceId(source.id);
+										setEditingName(source.displayName);
+									}}
+									className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+									aria-label="Chỉnh nguồn"
+								>
+									<Edit3 size={14} />
+								</button>
+								<button
+									type="button"
+									onClick={() => void onDeleteTrackedSource(source)}
+									className="grid size-9 place-items-center rounded-md border border-[var(--danger-border)] text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
+									aria-label="Xóa nguồn"
+								>
+									<Trash2 size={14} />
+								</button>
+							</div>
 						</div>
 					))
 				) : (
@@ -323,8 +456,18 @@ export function EvidencePage(props: DashboardPageProps) {
 				icon={Database}
 				title="Kho bằng chứng"
 				description="Các trích dẫn đã chuẩn hóa dùng cho phân tích và phản hồi nội bộ."
+				actions={
+					<SecondaryButton onClick={props.onCreateEvidence}>
+						<Plus size={14} /> Thêm bằng chứng
+					</SecondaryButton>
+				}
 			/>
-			<EvidencePanel evidence={props.evidence} scanId={props.selectedScanId} />
+			<EvidencePanel
+				evidence={props.evidence}
+				scanId={props.selectedScanId}
+				onDeleteEvidence={props.onDeleteEvidence}
+				onEditEvidence={props.onEditEvidence}
+			/>
 		</div>
 	);
 }
@@ -352,9 +495,14 @@ export function ReportsPage(props: DashboardPageProps) {
 				icon={FileBarChart}
 				title="Báo cáo"
 				description="Các chế độ xuất báo cáo phục vụ trao đổi nội bộ và điều phối."
+				actions={
+					<SecondaryButton onClick={props.onCreateReport}>
+						<Plus size={14} /> Tạo preset
+					</SecondaryButton>
+				}
 			/>
 			<div className="grid items-stretch gap-4 md:grid-cols-3">
-				{reportSpecs.map((report) => (
+				{props.reports.map((report) => (
 					<Panel key={report.kind} className="h-full">
 						<div className="flex h-full flex-col p-4">
 							<FileText className="text-[var(--accent)]" size={22} />
@@ -372,10 +520,26 @@ export function ReportsPage(props: DashboardPageProps) {
 									</li>
 								))}
 							</ul>
-							<div className="mt-4">
+							<div className="mt-4 flex flex-wrap gap-2">
 								<SecondaryButton onClick={() => props.onPrepareReport(report)}>
 									<FileBarChart size={14} /> Chuẩn bị báo cáo
 								</SecondaryButton>
+								<button
+									type="button"
+									onClick={() => props.onEditReport(report)}
+									className="grid size-10 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+									aria-label="Chỉnh preset báo cáo"
+								>
+									<Edit3 size={14} />
+								</button>
+								<button
+									type="button"
+									onClick={() => props.onDeleteReport(report)}
+									className="grid size-10 place-items-center rounded-md border border-[var(--danger-border)] text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
+									aria-label="Xóa preset báo cáo"
+								>
+									<Trash2 size={14} />
+								</button>
 							</div>
 						</div>
 					</Panel>
@@ -438,10 +602,6 @@ export function SettingsPage(props: DashboardPageProps) {
 				icon={ShieldCheck}
 				title="Cấu hình"
 				description="Trạng thái provider server-side, LLM và cơ sở dữ liệu vận hành."
-			/>
-			<ProfileSettingsPanel
-				auth={props.auth}
-				onProfileUpdated={props.onProfileUpdated}
 			/>
 			<ProviderStatus availability={props.providerAvailability ?? undefined} />
 		</div>

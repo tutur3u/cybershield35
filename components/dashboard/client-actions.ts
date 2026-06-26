@@ -6,6 +6,8 @@ import type {
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
+	EvidenceView,
+	ScanDetail,
 	TrackedSourceView,
 } from "@/components/dashboard/types";
 import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
@@ -94,6 +96,289 @@ export async function scanTrackedSource(options: {
 		return false;
 	} finally {
 		options.setIsCreating(false);
+	}
+}
+
+export async function createTrackedSourceRecord(options: {
+	displayName: string;
+	setNotice: (notice: string) => void;
+	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
+	url: string;
+}) {
+	try {
+		const response = await fetch("/api/tracked-sources", {
+			body: JSON.stringify({
+				displayName: options.displayName.trim() || undefined,
+				url: options.url.trim(),
+			}),
+			headers: { "Content-Type": "application/json" },
+			method: "POST",
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể tạo nguồn theo dõi");
+		}
+
+		const trackedSource = payload.trackedSource as TrackedSourceView;
+		options.setTrackedSources((current) => [
+			trackedSource,
+			...current.filter((source) => source.id !== trackedSource.id),
+		]);
+		options.setNotice("Đã lưu nguồn theo dõi.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể tạo nguồn theo dõi",
+		);
+		return false;
+	}
+}
+
+export async function updateTrackedSourceRecord(options: {
+	displayName?: string;
+	isActive?: boolean;
+	setNotice: (notice: string) => void;
+	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
+	trackedSource: TrackedSourceView;
+}) {
+	try {
+		const response = await fetch(
+			`/api/tracked-sources/${options.trackedSource.id}`,
+			{
+				body: JSON.stringify({
+					displayName: options.displayName,
+					isActive: options.isActive,
+				}),
+				headers: { "Content-Type": "application/json" },
+				method: "PATCH",
+			},
+		);
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể cập nhật nguồn theo dõi");
+		}
+
+		const trackedSource = payload.trackedSource as TrackedSourceView;
+		options.setTrackedSources((current) =>
+			current.map((source) =>
+				source.id === trackedSource.id ? trackedSource : source,
+			),
+		);
+		options.setNotice("Đã cập nhật nguồn theo dõi.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error
+				? error.message
+				: "Không thể cập nhật nguồn theo dõi",
+		);
+		return false;
+	}
+}
+
+export async function deleteTrackedSourceRecord(options: {
+	setNotice: (notice: string) => void;
+	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
+	trackedSource: TrackedSourceView;
+}) {
+	try {
+		const response = await fetch(
+			`/api/tracked-sources/${options.trackedSource.id}`,
+			{ method: "DELETE" },
+		);
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể xóa nguồn theo dõi");
+		}
+
+		options.setTrackedSources((current) =>
+			current.filter((source) => source.id !== options.trackedSource.id),
+		);
+		options.setNotice("Đã xóa nguồn theo dõi.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể xóa nguồn theo dõi",
+		);
+		return false;
+	}
+}
+
+export async function updateScanRecord(options: {
+	scan: DashboardScan;
+	setNotice: (notice: string) => void;
+	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
+	status: DashboardScan["status"];
+	title: string;
+}) {
+	try {
+		const response = await fetch(`/api/scans/${options.scan.id}`, {
+			body: JSON.stringify({
+				status: options.status,
+				title: options.title.trim(),
+			}),
+			headers: { "Content-Type": "application/json" },
+			method: "PATCH",
+		});
+		const payload = await response.json();
+		if (!response.ok) throw new Error(payload.error ?? "Không thể cập nhật scan");
+
+		const scan = payload.scan as DashboardScan;
+		options.setScans((current) =>
+			current.map((item) => (item.id === scan.id ? scan : item)),
+		);
+		options.setNotice("Đã cập nhật scan.");
+		return true;
+	} catch (error) {
+		options.setNotice(error instanceof Error ? error.message : "Không thể cập nhật scan");
+		return false;
+	}
+}
+
+export async function deleteScanRecord(options: {
+	scan: DashboardScan;
+	selectedScanId: string;
+	setDetail: (detail: ScanDetail | null) => void;
+	setDraft: (draft: DraftShape | null) => void;
+	setNotice: (notice: string) => void;
+	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
+	setSelectedScanId: (id: string) => void;
+}) {
+	try {
+		const response = await fetch(`/api/scans/${options.scan.id}`, {
+			method: "DELETE",
+		});
+		const payload = await response.json();
+		if (!response.ok) throw new Error(payload.error ?? "Không thể xóa scan");
+
+		options.setScans((current) => {
+			const next = current.filter((scan) => scan.id !== options.scan.id);
+			if (options.selectedScanId === options.scan.id) {
+				options.setSelectedScanId(next[0]?.id ?? "");
+				options.setDetail(null);
+				options.setDraft(null);
+			}
+			return next;
+		});
+		options.setNotice("Đã xóa scan.");
+		return true;
+	} catch (error) {
+		options.setNotice(error instanceof Error ? error.message : "Không thể xóa scan");
+		return false;
+	}
+}
+
+export type EvidenceMutationValues = {
+	author: string;
+	quote: string;
+	riskLevel: "low" | "medium" | "high";
+	sourceLabel: string;
+	sourceUrl: string;
+	summary: string;
+};
+
+export async function createEvidenceRecord(options: {
+	scanId: string;
+	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
+	setNotice: (notice: string) => void;
+	values: EvidenceMutationValues;
+}) {
+	try {
+		const response = await fetch("/api/evidence", {
+			body: JSON.stringify(toEvidencePayload(options.values, options.scanId)),
+			headers: { "Content-Type": "application/json" },
+			method: "POST",
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể tạo bằng chứng");
+		}
+
+		const evidence = payload.evidence as EvidenceView[number];
+		options.setDetail((current) =>
+			current
+				? { ...current, evidence: [evidence, ...(current.evidence ?? [])] }
+				: current,
+		);
+		options.setNotice("Đã thêm bằng chứng.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể tạo bằng chứng",
+		);
+		return false;
+	}
+}
+
+export async function updateEvidenceRecord(options: {
+	evidence: EvidenceView[number];
+	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
+	setNotice: (notice: string) => void;
+	values: EvidenceMutationValues;
+}) {
+	try {
+		const response = await fetch(`/api/evidence/${options.evidence.id}`, {
+			body: JSON.stringify(toEvidencePayload(options.values)),
+			headers: { "Content-Type": "application/json" },
+			method: "PATCH",
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể cập nhật bằng chứng");
+		}
+
+		const evidence = payload.evidence as EvidenceView[number];
+		options.setDetail((current) =>
+			current
+				? {
+						...current,
+						evidence: (current.evidence ?? []).map((item) =>
+							item.id === evidence.id ? evidence : item,
+						),
+					}
+				: current,
+		);
+		options.setNotice("Đã cập nhật bằng chứng.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể cập nhật bằng chứng",
+		);
+		return false;
+	}
+}
+
+export async function deleteEvidenceRecord(options: {
+	evidence: EvidenceView[number];
+	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
+	setNotice: (notice: string) => void;
+}) {
+	try {
+		const response = await fetch(`/api/evidence/${options.evidence.id}`, {
+			method: "DELETE",
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể xóa bằng chứng");
+		}
+
+		options.setDetail((current) =>
+			current
+				? {
+						...current,
+						evidence: (current.evidence ?? []).filter(
+							(item) => item.id !== options.evidence.id,
+						),
+					}
+				: current,
+		);
+		options.setNotice("Đã xóa bằng chứng.");
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể xóa bằng chứng",
+		);
+		return false;
 	}
 }
 
@@ -284,6 +569,23 @@ function buildTrackedSourceScan(
 		progress: scan?.status === "completed" ? 100 : 0,
 		createdAt: new Date().toISOString(),
 	};
+}
+
+function toEvidencePayload(values: EvidenceMutationValues, scanId?: string) {
+	return {
+		author: nullWhenEmpty(values.author),
+		quote: values.quote.trim(),
+		riskLevel: values.riskLevel,
+		scanJobId: scanId,
+		sourceLabel: nullWhenEmpty(values.sourceLabel),
+		sourceUrl: nullWhenEmpty(values.sourceUrl),
+		summary: values.summary.trim(),
+	};
+}
+
+function nullWhenEmpty(value: string) {
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
 }
 
 function sourceTypeForPendingScan(options: {

@@ -44,6 +44,34 @@ export async function setTrackedSourceActive(id: string, isActive: boolean) {
 	return source ?? null;
 }
 
+export async function updateTrackedSource(
+	id: string,
+	input: { displayName?: string; isActive?: boolean },
+) {
+	const [source] = await adminDb
+		.update(trackedSources)
+		.set({
+			...(input.displayName !== undefined
+				? { displayName: input.displayName }
+				: {}),
+			...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+			updatedAt: new Date(),
+		})
+		.where(eq(trackedSources.id, id))
+		.returning();
+
+	return source ?? null;
+}
+
+export async function deleteTrackedSource(id: string) {
+	const [source] = await adminDb
+		.delete(trackedSources)
+		.where(eq(trackedSources.id, id))
+		.returning();
+
+	return source ?? null;
+}
+
 export async function scanTrackedSource(id: string) {
 	const [source] = await adminDb
 		.select()

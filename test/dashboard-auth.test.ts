@@ -577,6 +577,111 @@ describe("dashboard auth gate", () => {
 		expect(widgets).not.toContain("Tuturuuu server auth");
 	});
 
+	test("dashboard chrome removes legacy status copy and supports collapsing the sidebar", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const data = readFileSync(
+			"components/dashboard/dashboard-data.ts",
+			"utf8",
+		);
+
+		expect(shell).not.toContain("Admin Control");
+		expect(shell).not.toContain("topBarItems");
+		expect(data).not.toContain("Hệ thống hoạt động");
+		expect(dashboard).toContain("sidebarCollapsed");
+		expect(shell).toContain("PanelLeftClose");
+		expect(shell).toContain("PanelLeftOpen");
+		expect(shell).toContain("aria-label={collapsed ? \"Mở rộng sidebar\" : \"Thu gọn sidebar\"}");
+	});
+
+	test("Tuturuuu profile editing lives in the account menu dialog", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+
+		expect(shell).toContain("onOpenProfile");
+		expect(shell).toContain("Hồ sơ Tuturuuu");
+		expect(dashboard).toContain("profileDialogOpen");
+		expect(dashboard).toContain("ProfileSettingsPanel");
+		expect(dashboard).toContain("setProfileDialogOpen(true)");
+		expect(pages).not.toContain("ProfileSettingsPanel");
+	});
+
+	test("profile editor uploads avatar files through the Cybershield proxy instead of accepting media links", () => {
+		const panel = readFileSync(
+			"components/dashboard/profile-settings-panel.tsx",
+			"utf8",
+		);
+		const route = readFileSync(
+			"app/api/auth/profile/avatar/upload-url/route.ts",
+			"utf8",
+		);
+
+		expect(panel).toContain("uploadAvatarFile");
+		expect(panel).toContain('type="file"');
+		expect(panel).toContain("/api/auth/profile/avatar/upload-url");
+		expect(panel).toContain('accept="image/png,image/jpeg,image/gif,image/webp"');
+		expect(panel).not.toContain("Avatar URL");
+		expect(panel).not.toContain('type="url"');
+		expect(panel).not.toContain("https://example.com/avatar.png");
+		expect(route).toContain('buildTuturuuuApiUrl("users/me/avatar/upload-url")');
+		expect(route).toContain("Authorization: auth.authorization");
+		expect(route).not.toContain("CYBERSHIELD35_APP_SECRET");
+	});
+
+	test("dashboard exposes CRUD actions for scans, evidence, tracked sources, and report presets", () => {
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const actions = readFileSync(
+			"components/dashboard/client-actions.ts",
+			"utf8",
+		);
+		const scansRoute = readFileSync("app/api/scans/[id]/route.ts", "utf8");
+		const evidenceRoute = readFileSync("app/api/evidence/route.ts", "utf8");
+		const evidenceItemRoute = readFileSync(
+			"app/api/evidence/[id]/route.ts",
+			"utf8",
+		);
+
+		expect(actions).toContain("updateScanRecord");
+		expect(actions).toContain("deleteScanRecord");
+		expect(actions).toContain("createEvidenceRecord");
+		expect(actions).toContain("updateEvidenceRecord");
+		expect(actions).toContain("deleteEvidenceRecord");
+		expect(actions).toContain("createTrackedSourceRecord");
+		expect(actions).toContain("updateTrackedSourceRecord");
+		expect(actions).toContain("deleteTrackedSourceRecord");
+		expect(dashboard).toContain("customReports");
+		expect(dashboard).toContain("onCreateReport");
+		expect(dashboard).toContain("onUpdateReport");
+		expect(dashboard).toContain("onDeleteReport");
+		expect(pages).toContain("onEditScan");
+		expect(pages).toContain("onDeleteScan");
+		expect(pages).toContain("onCreateEvidence");
+		expect(pages).toContain("onEditEvidence");
+		expect(pages).toContain("onDeleteEvidence");
+		expect(scansRoute).toContain("export async function PATCH");
+		expect(scansRoute).toContain("export async function DELETE");
+		expect(evidenceRoute).toContain("export async function POST");
+		expect(evidenceItemRoute).toContain("export async function PATCH");
+		expect(evidenceItemRoute).toContain("export async function DELETE");
+	});
+
 	test("notification dropdown has no mock operational items", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const pages = readFileSync(
