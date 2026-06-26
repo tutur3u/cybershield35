@@ -33,6 +33,7 @@ export type AdminSessionView = {
 	expiresAt: string;
 	refreshExpiresAt: string;
 	user: {
+		avatarUrl: string | null;
 		displayName: string | null;
 		email: string | null;
 		id: string;

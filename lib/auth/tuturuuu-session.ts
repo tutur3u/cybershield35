@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import {
+	createCipheriv,
+	createDecipheriv,
+	createHash,
+	randomBytes,
+} from "node:crypto";
 
 import { z } from "zod";
 
@@ -17,6 +22,8 @@ const exchangeResponseSchema = z.object({
 	refreshToken: z.string().min(1),
 	tokenType: z.string().optional(),
 	user: z.object({
+		avatar_url: z.string().nullable().optional(),
+		avatarUrl: z.string().nullable().optional(),
 		display_name: z.string().nullable().optional(),
 		displayName: z.string().nullable().optional(),
 		email: z.string().nullable().optional(),
@@ -30,6 +37,7 @@ const exchangeResponseSchema = z.object({
 
 export type TuturuuuAdminSession = z.infer<typeof exchangeResponseSchema> & {
 	createdAt: string;
+	identityRefreshedAt?: string;
 };
 
 export type SafeAdminSession = {
@@ -38,13 +46,18 @@ export type SafeAdminSession = {
 	expiresAt: string;
 	refreshExpiresAt: string;
 	user: {
+		avatarUrl: string | null;
 		displayName: string | null;
 		email: string | null;
 		id: string;
 	};
 };
 
-export type EnvironmentDiagnosticStatus = "configured" | "invalid" | "missing" | "optional";
+export type EnvironmentDiagnosticStatus =
+	| "configured"
+	| "invalid"
+	| "missing"
+	| "optional";
 
 export type EnvironmentDiagnostic = {
 	message: string;
@@ -70,7 +83,10 @@ export function getTuturuuuAuthDiagnostics(): TuturuuuAuthDiagnostics {
 			"TUTURUUU_CYBERSHIELD35_WORKSPACE_ID",
 			"Workspace id for the linked CyberShield external app.",
 		),
-		diagnoseRequiredEnv("CYBERSHIELD35_APP_ID", "External app id from Tuturuuu."),
+		diagnoseRequiredEnv(
+			"CYBERSHIELD35_APP_ID",
+			"External app id from Tuturuuu.",
+		),
 		diagnoseRequiredEnv(
 			"CYBERSHIELD35_APP_SECRET",
 			"External app secret from Tuturuuu. Also encrypts sessions when CYBERSHIELD35_SESSION_SECRET is unset.",
@@ -149,7 +165,12 @@ export async function exchangeTuturuuuAppToken(input: {
 	}
 
 	const parsed = exchangeResponseSchema.parse(body);
-	return { ...parsed, createdAt: new Date().toISOString() } satisfies TuturuuuAdminSession;
+	const now = new Date().toISOString();
+	return {
+		...parsed,
+		createdAt: now,
+		identityRefreshedAt: now,
+	} satisfies TuturuuuAdminSession;
 }
 
 export function toSafeSession(session: TuturuuuAdminSession): SafeAdminSession {
@@ -159,6 +180,10 @@ export function toSafeSession(session: TuturuuuAdminSession): SafeAdminSession {
 		expiresAt: session.expiresAt,
 		refreshExpiresAt: session.refreshExpiresAt,
 		user: {
+			avatarUrl: firstCleanString(
+				session.user.avatarUrl,
+				session.user.avatar_url,
+			),
 			displayName: firstCleanString(
 				session.user.displayName,
 				session.user.display_name,
@@ -181,8 +206,19 @@ function firstCleanString(...values: Array<string | null | undefined>) {
 }
 
 export function sessionNeedsRefresh(session: TuturuuuAdminSession) {
-	const refreshEarlySeconds = session.refreshEarlySeconds ?? REFRESH_SKEW_SECONDS;
-	return Date.parse(session.expiresAt) <= Date.now() + refreshEarlySeconds * 1000;
+	const refreshEarlySeconds =
+		session.refreshEarlySeconds ?? REFRESH_SKEW_SECONDS;
+	return (
+		Date.parse(session.expiresAt) <= Date.now() + refreshEarlySeconds * 1000
+	);
+}
+
+export function sessionNeedsIdentityRefresh(session: TuturuuuAdminSession) {
+	if (session.identityRefreshedAt) return false;
+	if (!sessionCanRefresh(session)) return false;
+
+	const safeSession = toSafeSession(session);
+	return !safeSession.user.displayName || !safeSession.user.avatarUrl;
 }
 
 export function sessionCanRefresh(session: TuturuuuAdminSession) {
@@ -232,7 +268,7 @@ export async function getBearerForPlatformRequest(request: Request) {
 	if (!session) throw new AuthError("Authentication required", 401);
 
 	let setCookie: string | null = null;
-	if (sessionNeedsRefresh(session)) {
+	if (sessionNeedsRefresh(session) || sessionNeedsIdentityRefresh(session)) {
 		session = await refreshAdminSession(session);
 		setCookie = createSessionCookie(session);
 	}
@@ -272,7 +308,13 @@ function getAuthConfig() {
 	const appSecret = process.env.CYBERSHIELD35_APP_SECRET;
 
 	const diagnostics = getTuturuuuAuthDiagnostics();
-	if (!diagnostics.configured || !apiBaseUrl || !workspaceId || !appId || !appSecret) {
+	if (
+		!diagnostics.configured ||
+		!apiBaseUrl ||
+		!workspaceId ||
+		!appId ||
+		!appSecret
+	) {
 		throw new AuthError(formatAuthConfigError(diagnostics), 503);
 	}
 
@@ -283,7 +325,8 @@ function diagnoseApiBaseUrl(): EnvironmentDiagnostic {
 	const value = cleanEnv(process.env.TUTURUUU_API_BASE_URL);
 	if (!value) {
 		return {
-			message: "Set the Tuturuuu API base URL, for example https://tuturuuu.com/api/v1.",
+			message:
+				"Set the Tuturuuu API base URL, for example https://tuturuuu.com/api/v1.",
 			name: "TUTURUUU_API_BASE_URL",
 			required: true,
 			status: "missing",
@@ -294,7 +337,8 @@ function diagnoseApiBaseUrl(): EnvironmentDiagnostic {
 		const url = new URL(value);
 		if (url.pathname.replace(/\/+$/u, "") !== "/api/v1") {
 			return {
-				message: "Must end with /api/v1 so token exchange routes resolve correctly.",
+				message:
+					"Must end with /api/v1 so token exchange routes resolve correctly.",
 				name: "TUTURUUU_API_BASE_URL",
 				required: true,
 				status: "invalid",
@@ -317,7 +361,10 @@ function diagnoseApiBaseUrl(): EnvironmentDiagnostic {
 	};
 }
 
-function diagnoseRequiredEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
+function diagnoseRequiredEnv(
+	name: string,
+	configuredMessage: string,
+): EnvironmentDiagnostic {
 	if (!cleanEnv(process.env[name])) {
 		return {
 			message: "Missing. Set this server-side in Vercel and redeploy.",
@@ -335,7 +382,10 @@ function diagnoseRequiredEnv(name: string, configuredMessage: string): Environme
 	};
 }
 
-function diagnoseOptionalEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
+function diagnoseOptionalEnv(
+	name: string,
+	configuredMessage: string,
+): EnvironmentDiagnostic {
 	if (!cleanEnv(process.env[name])) {
 		return {
 			message: "Optional. Not set; the app will use CYBERSHIELD35_APP_SECRET.",
@@ -354,7 +404,9 @@ function diagnoseOptionalEnv(name: string, configuredMessage: string): Environme
 }
 
 function formatAuthConfigError(diagnostics: TuturuuuAuthDiagnostics) {
-	const failing = diagnostics.required.filter((item) => item.status !== "configured");
+	const failing = diagnostics.required.filter(
+		(item) => item.status !== "configured",
+	);
 	if (!failing.length) return "Tuturuuu external app auth is not configured";
 	return `Tuturuuu auth config issue: ${failing
 		.map((item) => `${item.name} is ${item.status}`)
@@ -384,7 +436,9 @@ function encryptSession(session: TuturuuuAdminSession) {
 		cipher.final(),
 	]);
 	const tag = cipher.getAuthTag();
-	return [iv, tag, encrypted].map((part) => part.toString("base64url")).join(".");
+	return [iv, tag, encrypted]
+		.map((part) => part.toString("base64url"))
+		.join(".");
 }
 
 function decryptSession(value: string): TuturuuuAdminSession | null {
@@ -403,7 +457,10 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 			decipher.final(),
 		]).toString("utf8");
 		return exchangeResponseSchema
-			.extend({ createdAt: z.string() })
+			.extend({
+				createdAt: z.string(),
+				identityRefreshedAt: z.string().optional(),
+			})
 			.parse(JSON.parse(decrypted));
 	} catch {
 		return null;
@@ -412,7 +469,8 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 
 function getSessionKey() {
 	const secret =
-		process.env.CYBERSHIELD35_SESSION_SECRET ?? process.env.CYBERSHIELD35_APP_SECRET;
+		process.env.CYBERSHIELD35_SESSION_SECRET ??
+		process.env.CYBERSHIELD35_APP_SECRET;
 	if (!secret?.trim()) {
 		throw new AuthError(
 			"CYBERSHIELD35_SESSION_SECRET or CYBERSHIELD35_APP_SECRET is required",
