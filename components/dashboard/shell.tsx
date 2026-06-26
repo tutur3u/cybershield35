@@ -89,7 +89,6 @@ export function Sidebar({
 					<BrandmarkLink
 						key={collapsed ? "brand-collapsed" : "brand-expanded"}
 						collapsed={collapsed}
-						active={pathname === "/"}
 					/>
 					<button
 						type="button"
@@ -176,10 +175,8 @@ export function Sidebar({
 }
 
 function BrandmarkLink({
-	active,
 	collapsed,
 }: {
-	active: boolean;
 	collapsed: boolean;
 }) {
 	const [compact, setCompact] = useState(false);
@@ -231,11 +228,7 @@ function BrandmarkLink({
 			onPointerLeave={scheduleBrandmarkCollapse}
 			className={`inline-flex h-10 min-w-0 items-center text-[18px] font-bold leading-[1.35] transition-colors duration-200 ${
 				collapsed ? "hidden lg:hidden" : "inline-flex"
-			} ${
-				active
-					? "text-[var(--brand)]"
-					: "text-[var(--foreground)] hover:text-[var(--brand)]"
-			}`}
+			} text-[var(--foreground)] hover:text-[var(--brand)] focus-visible:text-[var(--brand)]`}
 		>
 			<SlotText
 				aria-hidden="true"
