@@ -1,5 +1,11 @@
 import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requireAdminSession } from "@/lib/auth/require-admin";
+import { requestUrlFromHeaders } from "@/lib/auth/request-url";
+import {
+	buildLocalLoginPath,
+	isPublicAuthRoute,
+	nextPathFromRequestUrl,
+} from "@/lib/auth/routes";
 import {
 	getTuturuuuAuthDiagnostics,
 	toSafeSession,
@@ -19,6 +25,7 @@ export type DashboardAuthResult =
 			error: string;
 			authDiagnostics: TuturuuuAuthDiagnostics;
 			loginHref?: string;
+			loginPath: string;
 			publicRoute?: false;
 			status: number;
 	  }
@@ -27,6 +34,7 @@ export type DashboardAuthResult =
 			authDiagnostics: TuturuuuAuthDiagnostics;
 			configured: boolean;
 			loginHref?: string;
+			loginPath: string;
 			publicRoute: true;
 			status: 200;
 	  };
@@ -36,12 +44,14 @@ export async function resolveDashboardAuthFromRequest(
 ): Promise<DashboardAuthResult> {
 	const requestUrl = new URL(request.url);
 	const authDiagnostics = getTuturuuuAuthDiagnostics();
+	const nextPath = nextPathFromRequestUrl(requestUrl);
 	const loginHref = authDiagnostics.configured
 		? buildTuturuuuCentralizedLoginUrl({
 				appBaseUrl: requestUrl.origin,
-				nextUrl: `${requestUrl.pathname}${requestUrl.search}`,
+				nextUrl: nextPath,
 			})
 		: undefined;
+	const loginPath = buildLocalLoginPath(nextPath);
 
 	if (isPublicAuthRoute(requestUrl.pathname)) {
 		return {
@@ -49,6 +59,7 @@ export async function resolveDashboardAuthFromRequest(
 			authDiagnostics,
 			configured: authDiagnostics.configured,
 			loginHref,
+			loginPath,
 			publicRoute: true,
 			status: 200,
 		};
@@ -62,6 +73,7 @@ export async function resolveDashboardAuthFromRequest(
 			configured: authDiagnostics.configured,
 			error: auth.error,
 			loginHref,
+			loginPath,
 			status: auth.status,
 		};
 	}
@@ -70,10 +82,6 @@ export async function resolveDashboardAuthFromRequest(
 		authenticated: true,
 		session: toSafeSession(auth.session),
 	};
-}
-
-function isPublicAuthRoute(pathname: string) {
-	return pathname === "/verify-token";
 }
 
 export async function resolveDashboardAuthFromCurrentRequest() {
@@ -90,47 +98,4 @@ export async function resolveDashboardAuthFromCurrentRequest() {
 			headers: requestHeaders,
 		}),
 	);
-}
-
-function requestUrlFromHeaders(headers: Headers) {
-	const host =
-		firstForwardedValue(headers.get("x-forwarded-host")) ??
-		firstForwardedValue(headers.get("host")) ??
-		"localhost";
-	const protocol =
-		firstForwardedValue(headers.get("x-forwarded-proto")) ??
-		(isLoopbackHost(host) ? "http" : "https");
-	const pathname = safePathname(headers.get("x-cybershield-pathname"));
-	const search = safeSearch(headers.get("x-cybershield-search"));
-
-	return `${protocol}://${host}${pathname}${search}`;
-}
-
-function firstForwardedValue(value: string | null) {
-	return value
-		?.split(",")
-		.map((part) => part.trim())
-		.find(Boolean);
-}
-
-function isLoopbackHost(host: string) {
-	const hostname = host.startsWith("[")
-		? host.slice(1, host.indexOf("]"))
-		: (host.split(":")[0] ?? "");
-
-	return (
-		hostname === "localhost" ||
-		hostname === "127.0.0.1" ||
-		hostname === "0.0.0.0" ||
-		hostname === "::1"
-	);
-}
-
-function safePathname(value: string | null) {
-	return value?.startsWith("/") ? value : "/";
-}
-
-function safeSearch(value: string | null) {
-	if (!value) return "";
-	return value.startsWith("?") ? value : "";
 }
