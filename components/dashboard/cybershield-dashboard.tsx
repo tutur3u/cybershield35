@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
@@ -141,6 +142,17 @@ export function CyberShieldDashboard({
 				}),
 			);
 
+		return () => {
+			alive = false;
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!auth.authenticated) {
+			return;
+		}
+
+		let alive = true;
 		fetch("/api/scans", { cache: "no-store" })
 			.then((response) => response.json())
 			.then((payload: { scans?: DashboardScan[]; mode?: string }) => {
@@ -179,10 +191,10 @@ export function CyberShieldDashboard({
 		return () => {
 			alive = false;
 		};
-	}, [scanId]);
+	}, [auth.authenticated, scanId]);
 
 	useEffect(() => {
-		if (!activeScanId) {
+		if (!auth.authenticated || !activeScanId) {
 			return;
 		}
 
@@ -202,7 +214,7 @@ export function CyberShieldDashboard({
 		return () => {
 			alive = false;
 		};
-	}, [activeScanId]);
+	}, [auth.authenticated, activeScanId]);
 
 	const pageProps: DashboardPageProps = {
 		auth,
@@ -246,6 +258,10 @@ export function CyberShieldDashboard({
 				? reviewDraft({ draft, status, setDraft, setNotice })
 				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
 	};
+
+	if (!auth.authenticated) {
+		return <LockedDashboard error={auth.error} />;
+	}
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -343,6 +359,53 @@ export function CyberShieldDashboard({
 					})
 				}
 			/>
+		</main>
+	);
+}
+
+function LockedDashboard({ error }: { error?: string }) {
+	return (
+		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
+			<div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
+				<section className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-soft)]">
+					<div className="flex items-start gap-3">
+						<span className="grid size-12 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+								className="size-6"
+								fill="none"
+								stroke="currentColor"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth="2"
+							>
+								<path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z" />
+								<path d="m9 12 2 2 4-4" />
+							</svg>
+						</span>
+						<div className="min-w-0">
+							<p className="text-[13px] font-bold uppercase tracking-[0.04em] text-[var(--brand)]">
+								CyberShield 35
+							</p>
+							<h1 className="mt-1 text-[22px] font-bold leading-7 text-[var(--foreground)]">
+								Đăng nhập để tiếp tục
+							</h1>
+							<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
+								{error ??
+									"Phiên Tuturuuu không hợp lệ. Vui lòng đăng nhập lại để mở bảng điều khiển."}
+							</p>
+						</div>
+					</div>
+
+					<Link
+						href="/"
+						className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)]"
+					>
+						Đăng nhập lại
+					</Link>
+				</section>
+			</div>
 		</main>
 	);
 }
