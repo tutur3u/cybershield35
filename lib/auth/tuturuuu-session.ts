@@ -8,7 +8,11 @@ import {
 import { z } from "zod";
 
 const SESSION_COOKIE_NAME = "cybershield35_admin_session";
-const REQUESTED_SCOPES = ["workspace:session"] as const;
+const REQUESTED_SCOPES = [
+	"workspace:session",
+	"users:profile:read",
+	"users:profile:write",
+] as const;
 const REFRESH_SKEW_SECONDS = 90;
 
 const exchangeResponseSchema = z.object({
@@ -171,6 +175,12 @@ export async function exchangeTuturuuuAppToken(input: {
 		createdAt: now,
 		identityRefreshedAt: now,
 	} satisfies TuturuuuAdminSession;
+}
+
+export function buildTuturuuuApiUrl(path: string) {
+	const { apiBaseUrl } = getAuthConfig();
+	const base = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
+	return new URL(path.replace(/^\/+/u, ""), base).toString();
 }
 
 export function toSafeSession(session: TuturuuuAdminSession): SafeAdminSession {
