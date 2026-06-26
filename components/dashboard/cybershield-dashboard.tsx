@@ -25,6 +25,7 @@ import {
 	generateDraft,
 	logout,
 	reviewDraft,
+	runScanRecord,
 	sendChatMessage,
 	scanTrackedSource,
 	updateEvidenceRecord,
@@ -54,6 +55,7 @@ import {
 	SourcesPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
+import { ProviderStatus } from "@/components/dashboard/page-widgets";
 import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { useThemePreference } from "@/components/dashboard/theme";
@@ -133,6 +135,7 @@ export function CyberShieldDashboard({
 	const [isChatting, setIsChatting] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 	const [scanEditDialogOpen, setScanEditDialogOpen] = useState(false);
 	const [scanBeingEdited, setScanBeingEdited] = useState<DashboardScan | null>(
 		null,
@@ -345,6 +348,13 @@ export function CyberShieldDashboard({
 				setScans,
 				setSelectedScanId,
 			}).then(() => undefined),
+		onRunScan: (scan) =>
+			runScanRecord({
+				scan,
+				setDetail,
+				setNotice,
+				setScans,
+			}).then(() => undefined),
 		onCreateTrackedSource: (input) =>
 			createTrackedSourceRecord({
 				...input,
@@ -444,6 +454,7 @@ export function CyberShieldDashboard({
 						auth={auth}
 						onLogout={() => logout(setAuth, setNotice, auth.loginHref)}
 						onOpenProfile={() => setProfileDialogOpen(true)}
+						onOpenSettings={() => setSettingsDialogOpen(true)}
 						onSelectTheme={setPreference}
 						resolvedTheme={resolvedTheme}
 						themePreference={preference}
@@ -595,6 +606,15 @@ export function CyberShieldDashboard({
 					}}
 				/>
 			</Dialog>
+			<Dialog
+				open={settingsDialogOpen}
+				onClose={() => setSettingsDialogOpen(false)}
+				title="Cấu hình máy chủ"
+				description="Trạng thái provider server-side và khóa vận hành hiện có."
+				size="wide"
+			>
+				<ProviderStatus availability={providerAvailability ?? undefined} />
+			</Dialog>
 		</main>
 	);
 }
@@ -705,7 +725,7 @@ function renderPage(
 		case "reports":
 			return <ReportsPage {...props} />;
 		case "settings":
-			return <SettingsPage {...props} />;
+			return <SettingsPage />;
 		case "audit":
 			return <AuditPage {...props} />;
 		case "guide-process":

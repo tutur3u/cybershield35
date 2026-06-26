@@ -26,13 +26,13 @@ import {
 	Palette,
 	PanelLeftClose,
 	PanelLeftOpen,
-	ShieldCheck,
+	Settings,
 	Sun,
 	UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { navItems, quickLinks } from "@/components/dashboard/dashboard-data";
 import {
@@ -54,6 +54,8 @@ type OperationalNotification = {
 const notifications: OperationalNotification[] = [];
 const dropdownItemFocusClass =
 	"outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[highlighted]:outline-none data-[highlighted]:ring-0";
+const BRANDMARK_IDLE_COLLAPSE_MS = 3600;
+const BRANDMARK_RECOLLAPSE_DELAY_MS = 1100;
 
 export function Sidebar({
 	collapsed,
@@ -73,17 +75,14 @@ export function Sidebar({
 			<div className="flex min-h-[72px] flex-col lg:h-full">
 				<div
 					className={`flex h-16 items-center gap-3 border-b border-[var(--border)] px-4 ${
-						collapsed ? "lg:justify-center lg:px-3" : ""
+						collapsed ? "lg:justify-center lg:px-2" : ""
 					}`}
 				>
-					<div className="grid size-9 place-items-center rounded-md border border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--brand)]">
-						<ShieldCheck size={22} strokeWidth={2.4} />
-					</div>
-					<div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
-						<p className="truncate text-[18px] font-bold text-[var(--foreground)]">
-							CyberShield 35
-						</p>
-					</div>
+					<BrandmarkLink
+						key={collapsed ? "brand-collapsed" : "brand-expanded"}
+						collapsed={collapsed}
+						active={pathname === "/"}
+					/>
 					<button
 						type="button"
 						aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
@@ -154,10 +153,88 @@ export function Sidebar({
 	);
 }
 
+function BrandmarkLink({
+	active,
+	collapsed,
+}: {
+	active: boolean;
+	collapsed: boolean;
+}) {
+	const [compact, setCompact] = useState(false);
+	const idleTimerRef = useRef<number | null>(null);
+	const recollapseTimerRef = useRef<number | null>(null);
+	const hoveringRef = useRef(false);
+
+	useEffect(() => {
+		clearBrandmarkTimer(idleTimerRef);
+		clearBrandmarkTimer(recollapseTimerRef);
+
+		if (!collapsed) {
+			idleTimerRef.current = window.setTimeout(() => {
+				if (!hoveringRef.current) setCompact(true);
+			}, BRANDMARK_IDLE_COLLAPSE_MS);
+		}
+
+		return () => {
+			clearBrandmarkTimer(idleTimerRef);
+			clearBrandmarkTimer(recollapseTimerRef);
+		};
+	}, [collapsed]);
+
+	function expandBrandmark() {
+		hoveringRef.current = true;
+		clearBrandmarkTimer(idleTimerRef);
+		clearBrandmarkTimer(recollapseTimerRef);
+		setCompact(false);
+	}
+
+	function scheduleBrandmarkCollapse() {
+		hoveringRef.current = false;
+		clearBrandmarkTimer(recollapseTimerRef);
+		recollapseTimerRef.current = window.setTimeout(() => {
+			if (!hoveringRef.current) setCompact(true);
+		}, BRANDMARK_RECOLLAPSE_DELAY_MS);
+	}
+
+	return (
+		<Link
+			href="/"
+			aria-label="CyberShield35"
+			onFocus={expandBrandmark}
+			onBlur={scheduleBrandmarkCollapse}
+			onPointerEnter={expandBrandmark}
+			onPointerLeave={scheduleBrandmarkCollapse}
+			className={`group relative inline-flex h-10 w-[168px] min-w-0 items-center overflow-hidden rounded-md border px-3 text-[18px] font-bold transition-all duration-300 ${
+				collapsed ? "hidden lg:hidden" : "inline-flex"
+			} ${
+				active
+					? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--brand)] shadow-[0_0_18px_rgb(34_197_94/0.14)]"
+					: "border-transparent text-[var(--foreground)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
+			}`}
+		>
+			<span className="pointer-events-none absolute inset-y-1 left-1 w-7 -translate-x-10 rounded-full bg-[linear-gradient(90deg,transparent,rgb(34_197_94/0.42),transparent)] opacity-0 blur-[1px] transition-all duration-700 group-hover:translate-x-[150px] group-hover:opacity-100" />
+			<span
+				aria-hidden="true"
+				className="pointer-events-none absolute right-2 top-1/2 h-5 w-8 -translate-y-1/2 rounded-[3px] border border-[var(--success-border)] opacity-35 [background-image:linear-gradient(rgba(34,197,94,0.25)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.2)_1px,transparent_1px)] [background-size:6px_6px]"
+			/>
+			<span className="relative z-10 block truncate transition-transform duration-300">
+				{collapsed || compact ? "CS35" : "CyberShield35"}
+			</span>
+		</Link>
+	);
+}
+
+function clearBrandmarkTimer(timerRef: { current: number | null }) {
+	if (timerRef.current === null) return;
+	window.clearTimeout(timerRef.current);
+	timerRef.current = null;
+}
+
 export function TopBar({
 	auth,
 	onLogout,
 	onOpenProfile,
+	onOpenSettings,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -165,6 +242,7 @@ export function TopBar({
 	auth: AuthViewState;
 	onLogout: () => Promise<void>;
 	onOpenProfile: () => void;
+	onOpenSettings: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -206,40 +284,52 @@ export function TopBar({
 								</p>
 							) : null}
 						</div>
-						<div
-							className={
-								notifications.length
-									? "max-h-[340px] overflow-y-auto p-2"
-									: "h-2"
-							}
-						>
-							{notifications.map((notification) => (
-								<Link
-									key={notification.id}
-									href={notification.href}
-									className="flex gap-3 rounded-md p-3 transition hover:bg-[var(--surface-soft)]"
-								>
-									<span
-										className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-md ${notification.tone}`}
+						{notifications.length ? (
+							<div className="max-h-[340px] overflow-y-auto p-2">
+								{notifications.map((notification) => (
+									<Link
+										key={notification.id}
+										href={notification.href}
+										className="flex gap-3 rounded-md p-3 transition hover:bg-[var(--surface-soft)]"
 									>
-										<CheckCircle2 size={14} />
-									</span>
-									<span className="min-w-0">
-										<span className="flex items-center justify-between gap-3">
-											<span className="truncate text-[12px] font-bold text-[var(--foreground)]">
-												{notification.title}
+										<span
+											className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-md ${notification.tone}`}
+										>
+											<CheckCircle2 size={14} />
+										</span>
+										<span className="min-w-0">
+											<span className="flex items-center justify-between gap-3">
+												<span className="truncate text-[12px] font-bold text-[var(--foreground)]">
+													{notification.title}
+												</span>
+												<span className="shrink-0 text-[10px] font-semibold text-[var(--muted)]">
+													{notification.time}
+												</span>
 											</span>
-											<span className="shrink-0 text-[10px] font-semibold text-[var(--muted)]">
-												{notification.time}
+											<span className="mt-1 block text-[11px] leading-4 text-[var(--muted)]">
+												{notification.description}
 											</span>
 										</span>
-										<span className="mt-1 block text-[11px] leading-4 text-[var(--muted)]">
-											{notification.description}
-										</span>
+									</Link>
+								))}
+							</div>
+						) : (
+							<div className="p-4">
+								<div className="flex items-center gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+									<span className="grid size-8 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
+										<CheckCircle2 size={15} />
 									</span>
-								</Link>
-							))}
-						</div>
+									<div className="min-w-0">
+										<p className="text-[12px] font-bold text-[var(--foreground)]">
+											Không có thông báo mới
+										</p>
+										<p className="mt-0.5 text-[11px] leading-4 text-[var(--muted)]">
+											Các cảnh báo vận hành sẽ xuất hiện tại đây.
+										</p>
+									</div>
+								</div>
+							</div>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 				<DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
@@ -268,6 +358,7 @@ export function TopBar({
 						onClose={() => setAccountOpen(false)}
 						onLogout={onLogout}
 						onOpenProfile={onOpenProfile}
+						onOpenSettings={onOpenSettings}
 						onSelectTheme={onSelectTheme}
 						resolvedTheme={resolvedTheme}
 						themePreference={themePreference}
@@ -283,6 +374,7 @@ function AccountMenu({
 	onClose,
 	onLogout,
 	onOpenProfile,
+	onOpenSettings,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -291,6 +383,7 @@ function AccountMenu({
 	onClose: () => void;
 	onLogout: () => Promise<void>;
 	onOpenProfile: () => void;
+	onOpenSettings: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -329,6 +422,16 @@ function AccountMenu({
 			>
 				<UserRound size={15} />
 				Hồ sơ Tuturuuu
+			</DropdownMenuItem>
+			<DropdownMenuItem
+				onSelect={() => {
+					onOpenSettings();
+					onClose();
+				}}
+				className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] ${dropdownItemFocusClass}`}
+			>
+				<Settings size={15} />
+				Cấu hình máy chủ
 			</DropdownMenuItem>
 			<DropdownMenuSub>
 				<DropdownMenuSubTrigger

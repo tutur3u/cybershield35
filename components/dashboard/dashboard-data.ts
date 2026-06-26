@@ -10,7 +10,6 @@ import {
 	MessageCircle,
 	MessageSquareText,
 	Radar,
-	Settings,
 	type LucideIcon,
 } from "lucide-react";
 
@@ -31,7 +30,6 @@ export const navItems: NavItem[] = [
 	{ label: "Kho bằng chứng", href: "/evidence", icon: Database },
 	{ label: "Cảnh báo & Rủi ro", href: "/alerts", icon: AlertTriangle },
 	{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
-	{ label: "Cấu hình", href: "/settings", icon: Settings },
 	{ label: "Nhật ký hoạt động", href: "/audit", icon: History },
 ];
 

@@ -1,5 +1,6 @@
 import {
 	Edit3,
+	Play,
 	Sparkles,
 	Trash2,
 	type LucideIcon,
@@ -84,6 +85,7 @@ export function QueueCard({
 	limit,
 	onDeleteScan,
 	onEditScan,
+	onRunScan,
 	onSelectScan,
 	scans,
 	selectedScanId,
@@ -91,6 +93,7 @@ export function QueueCard({
 	limit?: number;
 	onDeleteScan?: (scan: DashboardScan) => Promise<void>;
 	onEditScan?: (scan: DashboardScan) => void;
+	onRunScan?: (scan: DashboardScan) => Promise<void>;
 	onSelectScan: (id: string) => void;
 	scans: DashboardScan[];
 	selectedScanId: string;
@@ -133,8 +136,20 @@ export function QueueCard({
 									<ProgressBar value={scan.progress} />
 								</div>
 							</div>
-							{onEditScan || onDeleteScan ? (
+							{onRunScan || onEditScan || onDeleteScan ? (
 								<div className="flex gap-2 sm:justify-end">
+									{onRunScan ? (
+										<button
+											type="button"
+											disabled={!canRunScan(scan)}
+											onClick={() => void onRunScan(scan)}
+											className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+											aria-label="Chạy scan ngay"
+											title="Chạy scan ngay"
+										>
+											<Play size={14} />
+										</button>
+									) : null}
 									{onEditScan ? (
 										<button
 											type="button"
@@ -282,6 +297,10 @@ export function DraftSnapshot({
 
 function countScans(scans: DashboardScan[], status: DashboardScan["status"]) {
 	return scans.filter((scan) => scan.status === status).length;
+}
+
+function canRunScan(scan: DashboardScan) {
+	return scan.status === "queued" || scan.status === "retrying";
 }
 
 function statColor(tone: string) {
