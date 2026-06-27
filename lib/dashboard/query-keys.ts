@@ -1,7 +1,7 @@
 import type { DashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 
-export const dashboardQueryStaleTimeMs = 15_000;
-export const workspaceMembersQueryStaleTimeMs = 30_000;
+export const dashboardQueryStaleTimeMs = 120_000;
+export const workspaceMembersQueryStaleTimeMs = 120_000;
 
 export type DashboardInitialQueryParams = DashboardSnapshotRequirements & {
 	scanId?: string | null;
