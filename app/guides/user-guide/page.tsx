@@ -1,5 +1,19 @@
-import { CyberShieldDashboard } from "@/components/dashboard/cybershield-dashboard";
+import { Suspense } from "react";
+
+import {
+	DashboardRoute,
+	DashboardRouteSkeleton,
+} from "@/components/dashboard/dashboard-route";
+
+export const unstable_instant = {
+	prefetch: "static",
+	unstable_disableValidation: true,
+};
 
 export default function UserGuidePage() {
-	return <CyberShieldDashboard page="guide-user" />;
+	return (
+		<Suspense fallback={<DashboardRouteSkeleton />}>
+			<DashboardRoute page="guide-user" />
+		</Suspense>
+	);
 }

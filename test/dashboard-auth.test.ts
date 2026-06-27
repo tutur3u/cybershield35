@@ -372,7 +372,7 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
-	test("root layout redirects protected pages before rendering protected children", () => {
+	test("root layout gates protected pages before rendering protected children", () => {
 		const source = readFileSync("app/layout.tsx", "utf8");
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
@@ -380,7 +380,9 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(source).toContain("resolveDashboardAuthFromCurrentRequest");
-		expect(source).toContain("redirect(auth.loginPath)");
+		expect(source).toContain("connection()");
+		expect(source).toContain("DashboardAppSkeleton");
+		expect(source).toContain("LockedDashboard");
 		expect(source).toContain("DashboardLayoutShell");
 		expect(source).toContain("<DashboardLayoutShell");
 		expect(source).toContain("auth.authenticated");

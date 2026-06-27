@@ -11,8 +11,6 @@ import {
 	isTuturuuuScopeNotAllowedError,
 } from "@/lib/auth/scope-approval";
 
-export const runtime = "nodejs";
-
 const bodySchema = z.object({
 	nextUrl: z.string().optional(),
 	token: z.string().min(1),

@@ -78,6 +78,14 @@ export type WorkspaceMembersResponse = {
 	members: WorkspaceMemberView[];
 };
 
+export type DashboardInitialData = {
+	detail: ScanDetail | null;
+	loadError?: string;
+	scans: DashboardScan[];
+	selectedScanId: string;
+	trackedSources: TrackedSourceView[];
+};
+
 export type DashboardScan = {
 	id: string;
 	status: ScanStatus;
@@ -97,7 +105,7 @@ export type ScanDetail = {
 		type?: string;
 		normalizedUrl?: string | null;
 		fileName?: string | null;
-		createdAt?: string;
+		createdAt?: string | Date;
 	};
 	analysis?: AnalysisView | AnalysisRow | null;
 	evidence?: Array<Partial<EvidenceItemRow> & { id: string }>;

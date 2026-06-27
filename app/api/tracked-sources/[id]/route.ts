@@ -6,8 +6,6 @@ import {
 	updateTrackedSource,
 } from "@/lib/workers/tracked-sources";
 
-export const runtime = "nodejs";
-
 const bodySchema = z
 	.object({
 		displayName: z.string().trim().min(1).max(200).optional(),

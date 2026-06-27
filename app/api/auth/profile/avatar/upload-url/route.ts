@@ -7,8 +7,6 @@ import {
 } from "@/lib/auth/tuturuuu-session";
 import { createAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 
-export const runtime = "nodejs";
-
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 const avatarUploadSchema = z
 	.object({

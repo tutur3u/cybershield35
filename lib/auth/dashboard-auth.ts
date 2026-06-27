@@ -1,6 +1,5 @@
 import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requireAdminSession } from "@/lib/auth/require-admin";
-import { requestUrlFromHeaders } from "@/lib/auth/request-url";
 import {
 	buildLocalLoginPath,
 	isPublicAuthRoute,
@@ -103,17 +102,6 @@ export async function resolveDashboardAuthFromRequest(
 }
 
 export async function resolveDashboardAuthFromCurrentRequest() {
-	const { headers } = await import("next/headers");
-	const headerStore = await headers();
-	const requestHeaders = new Headers();
-
-	for (const [key, value] of headerStore.entries()) {
-		requestHeaders.set(key, value);
-	}
-
-	return resolveDashboardAuthFromRequest(
-		new Request(requestUrlFromHeaders(requestHeaders), {
-			headers: requestHeaders,
-		}),
-	);
+	const { requestFromCurrentHeaders } = await import("@/lib/auth/current-request");
+	return resolveDashboardAuthFromRequest(await requestFromCurrentHeaders());
 }

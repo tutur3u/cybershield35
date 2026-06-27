@@ -4,8 +4,6 @@ import {
 	proxyWorkspaceMembersRequest,
 } from "@/lib/workspace-members/proxy";
 
-export const runtime = "nodejs";
-
 export async function POST(request: Request) {
 	const parsed = inviteWorkspaceMembersSchema.safeParse(await request.json());
 	if (!parsed.success) {

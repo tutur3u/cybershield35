@@ -4,8 +4,6 @@ import {
 	removeWorkspaceAccessSchema,
 } from "@/lib/workspace-members/proxy";
 
-export const runtime = "nodejs";
-
 export async function DELETE(request: Request) {
 	const parsed = removeWorkspaceAccessSchema.safeParse(await request.json());
 	if (!parsed.success) {

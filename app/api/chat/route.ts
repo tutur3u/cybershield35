@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { generateChatReply } from "@/lib/llm/generation";
 
-export const runtime = "nodejs";
-
 const chatBodySchema = z.object({
 	messages: z
 		.array(

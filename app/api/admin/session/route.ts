@@ -9,8 +9,6 @@ import {
 	isTuturuuuScopeNotAllowedError,
 } from "@/lib/auth/scope-approval";
 
-export const runtime = "nodejs";
-
 export async function GET(request: Request) {
 	const configured = isTuturuuuAuthConfigured();
 	const nextPath = getNextPath(request);

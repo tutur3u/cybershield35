@@ -19,16 +19,18 @@ import type {
 export function DashboardLayoutShell({
 	children,
 	initialAuth,
+	initialProviderAvailability = null,
 }: {
 	children: ReactNode;
 	initialAuth: AuthViewState;
+	initialProviderAvailability?: ProviderAvailabilityView | null;
 }) {
 	const [auth, setAuth] = useState<AuthViewState>(initialAuth);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 	const [providerAvailability, setProviderAvailability] =
-		useState<ProviderAvailabilityView | null>(null);
+		useState<ProviderAvailabilityView | null>(initialProviderAvailability);
 	const [, setNotice] = useState("");
 	const { preference, resolvedTheme, setPreference } = useThemePreference();
 

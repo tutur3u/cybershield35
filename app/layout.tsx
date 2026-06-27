@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
-import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import Script from "next/script";
+import { Suspense } from "react";
 
+import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
+import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
+import { getProviderAvailability } from "@/lib/providers";
 
 import "./globals.css";
 
@@ -44,17 +48,13 @@ export const metadata: Metadata = {
 	metadataBase: new URL("https://ai.daklak.gov.vn"),
 };
 
-export default async function RootLayout({
+export const unstable_instant = false;
+
+export default function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const auth = await resolveDashboardAuthFromCurrentRequest();
-
-	if (!auth.authenticated && !auth.publicRoute) {
-		redirect(auth.loginPath);
-	}
-
 	return (
 		<html
 			lang="vi"
@@ -62,19 +62,9 @@ export default async function RootLayout({
 			suppressHydrationWarning
 		>
 			<body>
-				{auth.authenticated ? (
-					<DashboardLayoutShell
-						initialAuth={{
-							authenticated: true,
-							configured: true,
-							session: auth.session,
-						}}
-					>
-						{children}
-					</DashboardLayoutShell>
-				) : (
-					children
-				)}
+				<Suspense fallback={<DashboardAppSkeleton />}>
+					<AuthenticatedApp>{children}</AuthenticatedApp>
+				</Suspense>
 				<Script
 					id="cybershield35-theme-boot"
 					strategy="beforeInteractive"
@@ -82,5 +72,35 @@ export default async function RootLayout({
 				/>
 			</body>
 		</html>
+	);
+}
+
+async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
+	await connection();
+	const auth = await resolveDashboardAuthFromCurrentRequest();
+
+	if (!auth.authenticated && !auth.publicRoute) {
+		return (
+			<LockedDashboard
+				error={auth.error}
+				loginHref={auth.loginHref}
+				scopeApprovalHref={auth.scopeApprovalHref}
+			/>
+		);
+	}
+
+	if (!auth.authenticated) return children;
+
+	return (
+		<DashboardLayoutShell
+			initialAuth={{
+				authenticated: true,
+				configured: true,
+				session: auth.session,
+			}}
+			initialProviderAvailability={getProviderAvailability()}
+		>
+			{children}
+		</DashboardLayoutShell>
 	);
 }

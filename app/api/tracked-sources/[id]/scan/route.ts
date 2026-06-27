@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { scanTrackedSource } from "@/lib/workers/tracked-sources";
 
-export const runtime = "nodejs";
-
 const bodySchema = z.object({}).strict();
 
 export async function POST(

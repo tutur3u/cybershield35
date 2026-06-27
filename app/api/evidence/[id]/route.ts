@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { deleteEvidence, updateEvidence } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 const evidencePatchSchema = z
 	.object({
 		author: z.string().trim().max(160).nullable().optional(),

@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { deleteScan, getScanDetail, updateScan } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 const patchSchema = z
 	.object({
 		status: z
