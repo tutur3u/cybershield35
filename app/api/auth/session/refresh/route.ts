@@ -6,8 +6,6 @@ import {
 	toSafeSession,
 } from "@/lib/auth/tuturuuu-session";
 
-export const runtime = "nodejs";
-
 export async function POST(request: Request) {
 	try {
 		const current = await readAdminSession(request);

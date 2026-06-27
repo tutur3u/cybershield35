@@ -5,6 +5,7 @@ import {
 	getBearerForPlatformRequest,
 	sanitizeAuthError,
 } from "@/lib/auth/tuturuuu-session";
+import type { WorkspaceMembersResponse } from "@/components/dashboard/types";
 
 const MAX_EMAILS = 50;
 
@@ -68,7 +69,27 @@ export async function proxyWorkspaceMembersRequest(
 	}
 }
 
-function buildWorkspaceMembersUrl(path: string) {
+export async function fetchWorkspaceMembersForRequest(request: Request) {
+	const auth = await getBearerForPlatformRequest(request);
+	const response = await fetch(buildWorkspaceMembersUrl(""), {
+		cache: "no-store",
+		headers: { Authorization: auth.authorization },
+		method: "GET",
+	});
+	const body = await response.json().catch(() => null);
+
+	if (!response.ok) {
+		const message =
+			body && typeof body === "object" && "error" in body
+				? String(body.error)
+				: "Workspace members unavailable";
+		throw new Error(message);
+	}
+
+	return body as WorkspaceMembersResponse;
+}
+
+export function buildWorkspaceMembersUrl(path: string) {
 	const workspaceId = process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim();
 	if (!workspaceId) {
 		throw new Error("Missing workspace configuration");

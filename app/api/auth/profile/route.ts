@@ -11,8 +11,6 @@ import {
 	type SafeAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 
-export const runtime = "nodejs";
-
 const MAX_DISPLAY_NAME_LENGTH = 100;
 
 const profilePatchSchema = z

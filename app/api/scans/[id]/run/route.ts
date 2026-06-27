@@ -1,8 +1,6 @@
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { getScanDetail, listScans, processScanJobNow } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 export async function POST(
 	request: Request,
 	context: { params: Promise<{ id: string }> },

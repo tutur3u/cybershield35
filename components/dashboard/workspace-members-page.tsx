@@ -42,12 +42,18 @@ const emptyPayload: WorkspaceMembersResponse = {
 	members: [],
 };
 
-export function WorkspaceMembersPage() {
-	const [data, setData] = useState<WorkspaceMembersResponse>(emptyPayload);
+export function WorkspaceMembersPage({
+	initialData,
+}: {
+	initialData?: WorkspaceMembersResponse;
+}) {
+	const [data, setData] = useState<WorkspaceMembersResponse>(
+		() => initialData ?? emptyPayload,
+	);
 	const [emails, setEmails] = useState("");
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(!initialData);
 	const [saving, setSaving] = useState(false);
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
@@ -64,8 +70,9 @@ export function WorkspaceMembersPage() {
 	);
 
 	useEffect(() => {
+		if (initialData) return;
 		void loadMembers();
-	}, []);
+	}, [initialData]);
 
 	async function loadMembers() {
 		setLoading(true);

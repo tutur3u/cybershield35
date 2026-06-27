@@ -52,6 +52,7 @@ import type {
 	ScanDetail,
 	TrackedSourceView,
 	TopicCluster,
+	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
 import { WorkspaceMembersPage } from "@/components/dashboard/workspace-members-page";
@@ -68,6 +69,7 @@ export type DashboardPageProps = {
 	chatMessages: ChatMessage[];
 	isChatting: boolean;
 	isCreating: boolean;
+	initialWorkspaceMembers?: WorkspaceMembersResponse;
 	trackedSources: TrackedSourceView[];
 	auth: AuthViewState;
 	onSelectScan: (id: string) => void;
@@ -182,8 +184,12 @@ export function SourcesPage(props: DashboardPageProps) {
 	);
 }
 
-export function MembersPage() {
-	return <WorkspaceMembersPage />;
+export function MembersPage({
+	initialData,
+}: {
+	initialData?: WorkspaceMembersResponse;
+}) {
+	return <WorkspaceMembersPage initialData={initialData} />;
 }
 
 function TrackedSourcesPanel({

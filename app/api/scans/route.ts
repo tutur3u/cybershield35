@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { createScan, listScans } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 const scanBodySchema = z.object({
 	input: z.string().min(1),
 	title: z.string().optional(),

@@ -26,6 +26,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+	cacheComponents: true,
+	experimental: {
+		instantNavigationDevToolsToggle: true,
+	},
 	transpilePackages: ["@tuturuuu/ui", "@tuturuuu/icons", "@tuturuuu/utils"],
 	async headers() {
 		return [

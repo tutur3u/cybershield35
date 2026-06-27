@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { reviewDraft } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 const bodySchema = z.object({
 	status: z.enum(["draft", "needs_review", "approved", "rejected"]),
 });

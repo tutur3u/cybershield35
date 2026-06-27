@@ -59,6 +59,7 @@ import type {
 	AnalysisView,
 	AuthViewState,
 	ChatMessage,
+	DashboardInitialData,
 	DashboardScan,
 	DashboardPage,
 	DraftShape,
@@ -67,12 +68,15 @@ import type {
 	ScanDetail,
 	TrackedSourceView,
 	TopicCluster,
+	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 
 export type CyberShieldDashboardProps = {
 	draftId?: string;
 	evidenceId?: string;
 	initialAuth?: AuthViewState;
+	initialData?: DashboardInitialData;
+	initialWorkspaceMembers?: WorkspaceMembersResponse;
 	page?: DashboardPage;
 	scanId?: string;
 };
@@ -81,6 +85,8 @@ export function CyberShieldDashboard({
 	draftId,
 	evidenceId,
 	initialAuth,
+	initialData,
+	initialWorkspaceMembers,
 	page = "overview",
 	scanId,
 }: CyberShieldDashboardProps) {
@@ -92,15 +98,25 @@ export function CyberShieldDashboard({
 	const [scanProviderOverride, setScanProviderOverride] =
 		useState<ScanProviderOverride>();
 	const [operatorNotes, setOperatorNotes] = useState("");
-	const [scans, setScans] = useState<DashboardScan[]>([]);
-	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>([]);
-	const [selectedScanId, setSelectedScanId] = useState(scanId ?? "");
-	const [detail, setDetail] = useState<ScanDetail | null>(null);
+	const [scans, setScans] = useState<DashboardScan[]>(
+		() => initialData?.scans ?? [],
+	);
+	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>(
+		() => initialData?.trackedSources ?? [],
+	);
+	const [selectedScanId, setSelectedScanId] = useState(
+		() => scanId ?? initialData?.selectedScanId ?? "",
+	);
+	const [detail, setDetail] = useState<ScanDetail | null>(
+		() => initialData?.detail ?? null,
+	);
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
-	const [, setNotice] = useState("");
+	const [, setNotice] = useState(initialData?.loadError ?? "");
 	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
-	const [draft, setDraft] = useState<DraftShape | null>(null);
+	const [draft, setDraft] = useState<DraftShape | null>(
+		() => (initialData?.detail?.drafts?.[0] as DraftShape | undefined) ?? null,
+	);
 	const [tone, setTone] = useState(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
 	);
@@ -150,6 +166,7 @@ export function CyberShieldDashboard({
 	);
 
 	useEffect(() => {
+		if (initialData) return;
 		if (!auth.authenticated) {
 			return;
 		}
@@ -185,9 +202,16 @@ export function CyberShieldDashboard({
 		return () => {
 			alive = false;
 		};
-	}, [auth.authenticated, scanId]);
+	}, [auth.authenticated, initialData, scanId]);
 
 	useEffect(() => {
+		if (
+			initialData?.detail &&
+			activeScanId === initialData.selectedScanId &&
+			detail === initialData.detail
+		) {
+			return;
+		}
 		if (!auth.authenticated || !activeScanId) {
 			return;
 		}
@@ -208,7 +232,7 @@ export function CyberShieldDashboard({
 		return () => {
 			alive = false;
 		};
-	}, [auth.authenticated, activeScanId]);
+	}, [auth.authenticated, activeScanId, detail, initialData]);
 
 	const pageProps: DashboardPageProps = {
 		scans,
@@ -223,6 +247,7 @@ export function CyberShieldDashboard({
 		isChatting,
 		isCreating,
 		trackedSources,
+		initialWorkspaceMembers,
 		auth,
 		onSelectScan: setSelectedScanId,
 		onOpenScan: () => setScanDialogOpen(true),
@@ -589,7 +614,7 @@ function renderPage(
 				/>
 			);
 		case "members":
-			return <MembersPage />;
+			return <MembersPage initialData={props.initialWorkspaceMembers} />;
 		case "scan-detail":
 			return <ScanDetailsPage {...props} scanId={routeIds.scanId} />;
 		case "evidence":

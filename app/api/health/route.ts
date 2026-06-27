@@ -3,8 +3,6 @@ import { cronHeartbeats } from "@/lib/db/schema";
 import { getProviderAvailability } from "@/lib/providers";
 import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
 
-export const runtime = "nodejs";
-
 export async function GET() {
 	const providers = getProviderAvailability();
 	let database: { ok: boolean; latencyMs?: number; error?: string };

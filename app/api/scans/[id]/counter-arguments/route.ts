@@ -3,8 +3,6 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
-export const runtime = "nodejs";
-
 const bodySchema = z.object({
 	tone: z.string().min(1).default("Điềm tĩnh, khách quan"),
 	audience: z.string().min(1).default("Công chúng chung"),

@@ -4,8 +4,6 @@ import {
 	updateDefaultAdminSchema,
 } from "@/lib/workspace-members/proxy";
 
-export const runtime = "nodejs";
-
 export async function PATCH(request: Request) {
 	const parsed = updateDefaultAdminSchema.safeParse(await request.json());
 	if (!parsed.success) {

@@ -4,8 +4,6 @@ import {
 	updateWorkspaceMemberRoleSchema,
 } from "@/lib/workspace-members/proxy";
 
-export const runtime = "nodejs";
-
 export async function PATCH(
 	request: Request,
 	{ params }: { params: Promise<{ userId: string }> },
