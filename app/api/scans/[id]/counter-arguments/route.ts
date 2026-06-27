@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 const bodySchema = z.object({
@@ -25,6 +26,7 @@ export async function POST(
 
 	try {
 		const draft = await generateDraftForScan(id, body);
+		revalidateDashboardScan(id);
 		return Response.json(
 			{ draft, mode: "live" },
 			{ status: 201, headers: authHeaders(auth) },

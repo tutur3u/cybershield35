@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { createScan, listScans } from "@/lib/workers/scans";
 
 const scanBodySchema = z.object({
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
 				mimeType: file.type || "application/octet-stream",
 				fileText,
 			});
+			revalidateDashboardScan(result.scanId);
 			return Response.json(result, {
 				status: 201,
 				headers: authHeaders(auth),
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
 
 		const body = scanBodySchema.parse(await request.json());
 		const result = await createScan(body);
+		revalidateDashboardScan(result.scanId);
 		return Response.json(result, { status: 201, headers: authHeaders(auth) });
 	} catch (error) {
 		if (error instanceof z.ZodError) {

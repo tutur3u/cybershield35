@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardTrackedSources } from "@/lib/dashboard/cache-invalidation";
 import {
 	deleteTrackedSource,
 	updateTrackedSource,
@@ -30,6 +31,7 @@ export async function PATCH(
 		if (!source) {
 			return Response.json({ error: "Tracked source not found" }, { status: 404 });
 		}
+		revalidateDashboardTrackedSources();
 
 		return Response.json(
 			{ trackedSource: source, mode: "live" },
@@ -67,6 +69,7 @@ export async function DELETE(
 		if (!source) {
 			return Response.json({ error: "Tracked source not found" }, { status: 404 });
 		}
+		revalidateDashboardTrackedSources();
 
 		return Response.json(
 			{ deleted: true, mode: "live", trackedSourceId: id },

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { createEvidence } from "@/lib/workers/scans";
 
 const evidenceBodySchema = z
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
 		if (!evidence) {
 			return Response.json({ error: "Scan not found" }, { status: 404 });
 		}
+		revalidateDashboardScan(evidence.scanJobId);
 
 		return Response.json(
 			{ evidence, mode: "live" },

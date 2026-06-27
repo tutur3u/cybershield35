@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { deleteEvidence, updateEvidence } from "@/lib/workers/scans";
 
 const evidencePatchSchema = z
@@ -35,6 +36,7 @@ export async function PATCH(
 		if (!evidence) {
 			return Response.json({ error: "Evidence not found" }, { status: 404 });
 		}
+		revalidateDashboardScan(evidence.scanJobId);
 
 		return Response.json(
 			{ evidence, mode: "live" },
@@ -72,6 +74,7 @@ export async function DELETE(
 		if (!evidence) {
 			return Response.json({ error: "Evidence not found" }, { status: 404 });
 		}
+		revalidateDashboardScan(evidence.scanJobId);
 
 		return Response.json(
 			{ deleted: true, evidenceId: id, mode: "live" },

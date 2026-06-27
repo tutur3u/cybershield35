@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardTrackedSources } from "@/lib/dashboard/cache-invalidation";
 import {
 	createTrackedSource,
 	listTrackedSources,
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
 	try {
 		const body = bodySchema.parse(await request.json());
 		const source = await createTrackedSource(body);
+		revalidateDashboardTrackedSources();
 		return Response.json(
 			{ trackedSource: source, mode: "live" },
 			{ status: 201, headers: authHeaders(auth) },
