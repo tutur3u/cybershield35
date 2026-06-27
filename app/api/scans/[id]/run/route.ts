@@ -1,4 +1,9 @@
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	revalidateDashboardScan,
+	revalidateDashboardTrackedSources,
+} from "@/lib/dashboard/cache-invalidation";
+import { toClientScanDetail } from "@/lib/dashboard/detail-projection";
 import { getScanDetail, listScans, processScanJobNow } from "@/lib/workers/scans";
 
 export async function POST(
@@ -16,12 +21,14 @@ export async function POST(
 		const result = await processScanJobNow(id);
 		const detail = await getScanDetail(id);
 		if (!detail) return Response.json({ error: "Scan not found" }, { status: 404 });
+		revalidateDashboardScan(id);
+		revalidateDashboardTrackedSources();
 
 		const scan = (await listScans()).find((item) => item.id === id) ?? null;
 		if (!result.processed) {
 			return Response.json(
 				{
-					detail,
+					detail: toClientScanDetail(detail),
 					error: "Scan is not ready to run manually",
 					mode: "live",
 					processed: false,
@@ -32,7 +39,13 @@ export async function POST(
 		}
 
 		return Response.json(
-			{ detail, mode: "live", processed: true, result, scan },
+			{
+				detail: toClientScanDetail(detail),
+				mode: "live",
+				processed: true,
+				result,
+				scan,
+			},
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {

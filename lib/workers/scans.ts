@@ -146,7 +146,21 @@ export async function listScans() {
 
 export async function getScanDetail(id: string) {
 	const rows = await adminDb
-		.select()
+		.select({
+			jobCompletedAt: scanJobs.completedAt,
+			jobCreatedAt: scanJobs.createdAt,
+			jobErrorMessage: scanJobs.errorMessage,
+			jobId: scanJobs.id,
+			jobProvider: scanJobs.provider,
+			jobStartedAt: scanJobs.startedAt,
+			jobStatus: scanJobs.status,
+			jobUpdatedAt: scanJobs.updatedAt,
+			sourceCreatedAt: sources.createdAt,
+			sourceFileName: sources.fileName,
+			sourceNormalizedUrl: sources.normalizedUrl,
+			sourceTitle: sources.title,
+			sourceType: sources.type,
+		})
 		.from(scanJobs)
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
 		.where(eq(scanJobs.id, id))
@@ -161,7 +175,23 @@ export async function getScanDetail(id: string) {
 		.where(eq(analyses.scanJobId, id))
 		.limit(1);
 	const evidence = await adminDb
-		.select()
+		.select({
+			author: evidenceItems.author,
+			createdAt: evidenceItems.createdAt,
+			engagement: evidenceItems.engagement,
+			id: evidenceItems.id,
+			provider: evidenceItems.provider,
+			publishedAt: evidenceItems.publishedAt,
+			quote: evidenceItems.quote,
+			riskLevel: evidenceItems.riskLevel,
+			scanJobId: evidenceItems.scanJobId,
+			sentiment: evidenceItems.sentiment,
+			sourceId: evidenceItems.sourceId,
+			sourceLabel: evidenceItems.sourceLabel,
+			sourceUrl: evidenceItems.sourceUrl,
+			stance: evidenceItems.stance,
+			summary: evidenceItems.summary,
+		})
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, id))
 		.orderBy(desc(evidenceItems.createdAt));
@@ -171,19 +201,45 @@ export async function getScanDetail(id: string) {
 		.where(eq(counterArgumentDrafts.scanJobId, id))
 		.orderBy(desc(counterArgumentDrafts.createdAt));
 	const runs = await adminDb
-		.select()
+		.select({
+			completedAt: providerRuns.completedAt,
+			errorMessage: providerRuns.errorMessage,
+			id: providerRuns.id,
+			provider: providerRuns.provider,
+			startedAt: providerRuns.startedAt,
+			status: providerRuns.status,
+		})
 		.from(providerRuns)
 		.where(eq(providerRuns.scanJobId, id))
 		.orderBy(desc(providerRuns.startedAt));
 	const audit = await adminDb
-		.select()
+		.select({
+			action: auditEvents.action,
+			createdAt: auditEvents.createdAt,
+			id: auditEvents.id,
+		})
 		.from(auditEvents)
 		.where(eq(auditEvents.entityId, id))
 		.orderBy(desc(auditEvents.createdAt));
 
 	return {
-		job: row.scan_jobs,
-		source: row.sources,
+		job: {
+			completedAt: row.jobCompletedAt,
+			createdAt: row.jobCreatedAt,
+			errorMessage: row.jobErrorMessage,
+			id: row.jobId,
+			provider: row.jobProvider,
+			startedAt: row.jobStartedAt,
+			status: row.jobStatus,
+			updatedAt: row.jobUpdatedAt,
+		},
+		source: {
+			createdAt: row.sourceCreatedAt,
+			fileName: row.sourceFileName,
+			normalizedUrl: row.sourceNormalizedUrl,
+			title: row.sourceTitle,
+			type: row.sourceType,
+		},
 		analysis,
 		evidence,
 		drafts,

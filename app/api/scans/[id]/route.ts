@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
+import { toClientScanDetail } from "@/lib/dashboard/detail-projection";
 import { deleteScan, getScanDetail, updateScan } from "@/lib/workers/scans";
 
 const patchSchema = z
@@ -27,7 +29,10 @@ export async function GET(
 	try {
 		const detail = await getScanDetail(id);
 		if (!detail) return Response.json({ error: "Scan not found" }, { status: 404 });
-		return Response.json({ detail, mode: "live" }, { headers: authHeaders(auth) });
+		return Response.json(
+			{ detail: toClientScanDetail(detail), mode: "live" },
+			{ headers: authHeaders(auth) },
+		);
 	} catch (error) {
 		return Response.json(
 			{
@@ -52,6 +57,7 @@ export async function PATCH(
 		const body = patchSchema.parse(await request.json());
 		const scan = await updateScan(id, body);
 		if (!scan) return Response.json({ error: "Scan not found" }, { status: 404 });
+		revalidateDashboardScan(id);
 
 		return Response.json(
 			{ mode: "live", scan },
@@ -86,6 +92,7 @@ export async function DELETE(
 		if (!deleted) {
 			return Response.json({ error: "Scan not found" }, { status: 404 });
 		}
+		revalidateDashboardScan(id);
 
 		return Response.json(
 			{ deleted: true, mode: "live" },

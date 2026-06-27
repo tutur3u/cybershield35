@@ -21,9 +21,14 @@ export async function DashboardRoute({
 	page = "overview",
 	scanId,
 }: DashboardRouteProps) {
+	const requirements = dashboardSnapshotRequirements(page);
 	const [initialData, initialWorkspaceMembers] = await Promise.all([
-		needsScanSnapshot(page)
-			? getDashboardInitialData(scanId)
+		requirements.includeScans
+			? getDashboardInitialData(
+					scanId,
+					requirements.includeDetail,
+					requirements.includeTrackedSources,
+				)
 			: Promise.resolve(emptyDashboardInitialData(scanId)),
 		page === "members"
 			? getWorkspaceMembersInitialData()
@@ -62,13 +67,27 @@ function emptyDashboardInitialData(scanId?: string): DashboardInitialData {
 	};
 }
 
-function needsScanSnapshot(page: DashboardPage) {
-	return ![
-		"chat",
-		"guide-policies",
-		"guide-process",
-		"guide-user",
-		"members",
-		"settings",
-	].includes(page);
+function dashboardSnapshotRequirements(page: DashboardPage) {
+	if (
+		[
+			"chat",
+			"guide-policies",
+			"guide-process",
+			"guide-user",
+			"members",
+			"settings",
+		].includes(page)
+	) {
+		return {
+			includeDetail: false,
+			includeScans: false,
+			includeTrackedSources: false,
+		};
+	}
+
+	return {
+		includeDetail: page !== "sources",
+		includeScans: true,
+		includeTrackedSources: page === "sources",
+	};
 }

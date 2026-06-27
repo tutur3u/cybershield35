@@ -154,6 +154,7 @@ export function CyberShieldDashboard({
 		() => scans.find((scan) => scan.id === activeScanId) ?? scans[0],
 		[activeScanId, scans],
 	);
+	const shouldLoadDetail = shouldLoadScanDetail(page);
 	const analysis = toAnalysisView(detail?.analysis);
 	const evidence = detail?.evidence ?? [];
 	const topics = analysis.topicClusters;
@@ -205,10 +206,12 @@ export function CyberShieldDashboard({
 	}, [auth.authenticated, initialData, scanId]);
 
 	useEffect(() => {
+		if (!shouldLoadDetail) {
+			return;
+		}
 		if (
 			initialData?.detail &&
-			activeScanId === initialData.selectedScanId &&
-			detail === initialData.detail
+			activeScanId === initialData.selectedScanId
 		) {
 			return;
 		}
@@ -232,7 +235,7 @@ export function CyberShieldDashboard({
 		return () => {
 			alive = false;
 		};
-	}, [auth.authenticated, activeScanId, detail, initialData]);
+	}, [auth.authenticated, activeScanId, initialData, shouldLoadDetail]);
 
 	const pageProps: DashboardPageProps = {
 		scans,
@@ -518,6 +521,18 @@ export function CyberShieldDashboard({
 			/>
 		</>
 	);
+}
+
+function shouldLoadScanDetail(page: DashboardPage) {
+	return ![
+		"chat",
+		"guide-policies",
+		"guide-process",
+		"guide-user",
+		"members",
+		"settings",
+		"sources",
+	].includes(page);
 }
 
 export function LockedDashboard({

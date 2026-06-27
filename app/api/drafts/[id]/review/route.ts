@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { reviewDraft } from "@/lib/workers/scans";
 
 const bodySchema = z.object({
@@ -22,6 +23,7 @@ export async function POST(
 	try {
 		const draft = await reviewDraft(id, status);
 		if (!draft) return Response.json({ error: "Draft not found" }, { status: 404 });
+		revalidateDashboardScan(draft.scanJobId);
 		return Response.json({ draft, mode: "live" }, { headers: authHeaders(auth) });
 	} catch (error) {
 		return Response.json(

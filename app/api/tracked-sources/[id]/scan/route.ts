@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	revalidateDashboardScan,
+	revalidateDashboardTrackedSources,
+} from "@/lib/dashboard/cache-invalidation";
 import { scanTrackedSource } from "@/lib/workers/tracked-sources";
 
 const bodySchema = z.object({}).strict();
@@ -29,6 +33,8 @@ export async function POST(
 		if (!result) {
 			return Response.json({ error: "Tracked source not found" }, { status: 404 });
 		}
+		revalidateDashboardTrackedSources();
+		revalidateDashboardScan(result.scan.scanId);
 
 		return Response.json(
 			{
