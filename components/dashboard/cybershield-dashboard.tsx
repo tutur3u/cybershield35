@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 
 import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
@@ -35,6 +36,7 @@ import {
 	reportSpecs,
 	type SourceTab,
 } from "@/components/dashboard/dashboard-data";
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import {
 	DraftDetailsPage,
 	EvidenceDetailsPage,
@@ -54,7 +56,6 @@ import {
 	SourcesPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
-import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import type {
 	AnalysisView,
 	AuthViewState,
@@ -70,6 +71,13 @@ import type {
 	TopicCluster,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
+import {
+	dashboardInitialDataQueryOptions,
+	scanDetailQueryOptions,
+} from "@/lib/dashboard/client-queries";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import { dashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
+import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 
 export type CyberShieldDashboardProps = {
 	draftId?: string;
@@ -91,6 +99,16 @@ export function CyberShieldDashboard({
 	scanId,
 }: CyberShieldDashboardProps) {
 	const layoutAuth = useDashboardAuthState();
+	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
+	const requirements = dashboardSnapshotRequirements(page);
+	const queryClient = useQueryClient();
+	const dashboardQuery = useQuery({
+		...dashboardInitialDataQueryOptions({ ...requirements, scanId }),
+		enabled: auth.authenticated && requirements.includeScans,
+		initialData:
+			initialData && requirements.includeScans ? initialData : undefined,
+	});
+	const hydratedInitialData = dashboardQuery.data ?? initialData;
 	const [inputMode, setInputMode] = useState<SourceTab>("url");
 	const [urlInput, setUrlInput] = useState("https://facebook.com/example/posts/1");
 	const [manualText, setManualText] = useState("");
@@ -99,23 +117,24 @@ export function CyberShieldDashboard({
 		useState<ScanProviderOverride>();
 	const [operatorNotes, setOperatorNotes] = useState("");
 	const [scans, setScans] = useState<DashboardScan[]>(
-		() => initialData?.scans ?? [],
+		() => hydratedInitialData?.scans ?? [],
 	);
 	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>(
-		() => initialData?.trackedSources ?? [],
+		() => hydratedInitialData?.trackedSources ?? [],
 	);
 	const [selectedScanId, setSelectedScanId] = useState(
-		() => scanId ?? initialData?.selectedScanId ?? "",
+		() => scanId ?? hydratedInitialData?.selectedScanId ?? "",
 	);
 	const [detail, setDetail] = useState<ScanDetail | null>(
-		() => initialData?.detail ?? null,
+		() => hydratedInitialData?.detail ?? null,
 	);
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
-	const [, setNotice] = useState(initialData?.loadError ?? "");
-	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
+	const [, setNotice] = useState(hydratedInitialData?.loadError ?? "");
 	const [draft, setDraft] = useState<DraftShape | null>(
-		() => (initialData?.detail?.drafts?.[0] as DraftShape | undefined) ?? null,
+		() =>
+			(hydratedInitialData?.detail?.drafts?.[0] as DraftShape | undefined) ??
+			null,
 	);
 	const [tone, setTone] = useState(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
@@ -149,14 +168,26 @@ export function CyberShieldDashboard({
 		EvidenceView[number] | null
 	>(null);
 	const activeScanId = scanId ?? selectedScanId;
+	const shouldLoadDetail = shouldLoadScanDetail(page);
+	const detailQuery = useQuery({
+		...scanDetailQueryOptions(activeScanId),
+		enabled: auth.authenticated && shouldLoadDetail && Boolean(activeScanId),
+		initialData:
+			hydratedInitialData?.detail &&
+			activeScanId === hydratedInitialData.selectedScanId
+				? hydratedInitialData.detail
+				: undefined,
+	});
 
 	const selectedScan = useMemo(
 		() => scans.find((scan) => scan.id === activeScanId) ?? scans[0],
 		[activeScanId, scans],
 	);
-	const shouldLoadDetail = shouldLoadScanDetail(page);
-	const analysis = toAnalysisView(detail?.analysis);
-	const evidence = detail?.evidence ?? [];
+	const activeDetail = detail ?? detailQuery.data ?? null;
+	const activeDraft =
+		draft ?? (activeDetail?.drafts?.[0] as DraftShape | undefined) ?? null;
+	const analysis = toAnalysisView(activeDetail?.analysis);
+	const evidence = activeDetail?.evidence ?? [];
 	const topics = analysis.topicClusters;
 	const reports = useMemo(
 		() => [
@@ -166,93 +197,53 @@ export function CyberShieldDashboard({
 		[customReports, hiddenReportKinds],
 	);
 
-	useEffect(() => {
-		if (initialData) return;
-		if (!auth.authenticated) {
-			return;
-		}
-
-		let alive = true;
-		fetch("/api/scans", { cache: "no-store" })
-			.then((response) => response.json())
-			.then((payload: { scans?: DashboardScan[]; mode?: string }) => {
-				if (!alive) return;
-				if (!payload.scans?.length) {
-					setScans([]);
-					setSelectedScanId(scanId ?? "");
-					setDetail(null);
-					setDraft(null);
-					return;
-				}
-				const firstScan = payload.scans[0];
-				if (!firstScan) return;
-				setScans(payload.scans);
-				if (!scanId) setSelectedScanId(firstScan.id);
-				setNotice("Đang đọc hàng đợi từ Postgres.");
-			})
-			.catch(() => setNotice("Không thể tải hàng đợi scan live."));
-
-		fetch("/api/tracked-sources", { cache: "no-store" })
-			.then((response) => response.json())
-			.then((payload: { trackedSources?: TrackedSourceView[] }) => {
-				if (!alive || !payload.trackedSources) return;
-				setTrackedSources(payload.trackedSources);
-			})
-			.catch(() => setTrackedSources([]));
-
-		return () => {
-			alive = false;
-		};
-	}, [auth.authenticated, initialData, scanId]);
-
-	useEffect(() => {
-		if (!shouldLoadDetail) {
-			return;
-		}
-		if (
-			initialData?.detail &&
-			activeScanId === initialData.selectedScanId
-		) {
-			return;
-		}
-		if (!auth.authenticated || !activeScanId) {
-			return;
-		}
-
-		let alive = true;
-		fetch(`/api/scans/${activeScanId}`, { cache: "no-store" })
-			.then((response) => response.json())
-			.then((payload: { detail?: ScanDetail }) => {
-				if (!alive) return;
-				setDetail(payload.detail ?? null);
-				setDraft((payload.detail?.drafts?.[0] as DraftShape | undefined) ?? null);
-			})
-			.catch(() => {
-				setDetail(null);
-				setDraft(null);
+	function invalidateDashboardQueries(scanIdToInvalidate = activeScanId) {
+		void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+		if (scanIdToInvalidate) {
+			void queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.scanDetail(scanIdToInvalidate),
 			});
+		}
+	}
 
-		return () => {
-			alive = false;
-		};
-	}, [auth.authenticated, activeScanId, initialData, shouldLoadDetail]);
+	if (!auth.authenticated) {
+		return (
+			<LockedDashboard
+				error={auth.error}
+				loginHref={auth.loginHref}
+				scopeApprovalHref={auth.scopeApprovalHref}
+			/>
+		);
+	}
+
+	if (
+		requirements.includeScans &&
+		dashboardQuery.isPending &&
+		!dashboardQuery.data
+	) {
+		return <DashboardPageSkeleton />;
+	}
 
 	const pageProps: DashboardPageProps = {
 		scans,
 		selectedScan,
 		selectedScanId: activeScanId,
-		detail,
+		detail: activeDetail,
 		analysis,
 		topics,
 		evidence,
-		draft,
+		draft: activeDraft,
 		chatMessages,
 		isChatting,
 		isCreating,
 		trackedSources,
 		initialWorkspaceMembers,
 		auth,
-		onSelectScan: setSelectedScanId,
+		onSelectScan: (id) => {
+			setSelectedScanId(id);
+			setDetail(null);
+			setDraft(null);
+		},
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
 		onOpenChatComposer: (preset) => {
@@ -297,7 +288,9 @@ export function CyberShieldDashboard({
 				evidence: item,
 				setDetail,
 				setNotice,
-			}).then(() => undefined),
+			}).then((success) => {
+				if (success) invalidateDashboardQueries(item.scanJobId ?? activeScanId);
+			}),
 		onEditScan: (scan) => {
 			setScanBeingEdited(scan);
 			setScanEditDialogOpen(true);
@@ -311,19 +304,26 @@ export function CyberShieldDashboard({
 				setNotice,
 				setScans,
 				setSelectedScanId,
-			}).then(() => undefined),
+			}).then((success) => {
+				if (success) invalidateDashboardQueries(scan.id);
+			}),
 		onRunScan: (scan) =>
 			runScanRecord({
 				scan,
 				setDetail,
 				setNotice,
 				setScans,
-			}).then(() => undefined),
+			}).then((success) => {
+				if (success) invalidateDashboardQueries(scan.id);
+			}),
 		onCreateTrackedSource: (input) =>
 			createTrackedSourceRecord({
 				...input,
 				setNotice,
 				setTrackedSources,
+			}).then((success) => {
+				if (success) invalidateDashboardQueries();
+				return success;
 			}),
 		onUpdateTrackedSource: (trackedSource, input) =>
 			updateTrackedSourceRecord({
@@ -331,12 +331,18 @@ export function CyberShieldDashboard({
 				setNotice,
 				setTrackedSources,
 				trackedSource,
+			}).then((success) => {
+				if (success) invalidateDashboardQueries();
+				return success;
 			}),
 		onDeleteTrackedSource: (trackedSource) =>
 			deleteTrackedSourceRecord({
 				setNotice,
 				setTrackedSources,
 				trackedSource,
+			}).then((success) => {
+				if (success) invalidateDashboardQueries();
+				return success;
 			}),
 		onScanTrackedSource: (trackedSource) =>
 			scanTrackedSource({
@@ -346,10 +352,16 @@ export function CyberShieldDashboard({
 				setScans,
 				setSelectedScanId,
 				setNotice,
-			}).then(() => undefined),
+			}).then((success) => {
+				if (success) invalidateDashboardQueries();
+			}),
 		onReview: (status) =>
-			draft
-				? reviewDraft({ draft, status, setDraft, setNotice })
+			activeDraft
+				? reviewDraft({ draft: activeDraft, status, setDraft, setNotice }).then(
+						(success) => {
+							if (success) invalidateDashboardQueries(activeDraft.scanJobId);
+						},
+					)
 				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
 		reports,
 	};
@@ -384,16 +396,6 @@ export function CyberShieldDashboard({
 		setNotice("Đã cập nhật preset báo cáo.");
 	};
 
-	if (!auth.authenticated) {
-		return (
-			<LockedDashboard
-				error={auth.error}
-				loginHref={auth.loginHref}
-				scopeApprovalHref={auth.scopeApprovalHref}
-			/>
-		);
-	}
-
 	return (
 		<>
 			{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
@@ -422,6 +424,9 @@ export function CyberShieldDashboard({
 						setScans,
 						setSelectedScanId,
 						setNotice,
+					}).then((success) => {
+						if (success) invalidateDashboardQueries();
+						return success;
 					})
 				}
 			/>
@@ -450,6 +455,9 @@ export function CyberShieldDashboard({
 						setIsDrafting,
 						setDraft,
 						setNotice,
+					}).then((success) => {
+						if (success) invalidateDashboardQueries(activeScanId);
+						return success;
 					})
 				}
 			/>
@@ -464,6 +472,9 @@ export function CyberShieldDashboard({
 						setScans,
 						status: values.status,
 						title: values.title,
+					}).then((success) => {
+						if (success) invalidateDashboardQueries(scan.id);
+						return success;
 					})
 				}
 			/>
@@ -479,12 +490,20 @@ export function CyberShieldDashboard({
 								setDetail,
 								setNotice,
 								values,
+							}).then((success) => {
+								if (success) {
+									invalidateDashboardQueries(item.scanJobId ?? activeScanId);
+								}
+								return success;
 							})
 						: createEvidenceRecord({
 								scanId: activeScanId,
 								setDetail,
 								setNotice,
 								values,
+							}).then((success) => {
+								if (success) invalidateDashboardQueries(activeScanId);
+								return success;
 							})
 				}
 			/>
@@ -501,7 +520,7 @@ export function CyberShieldDashboard({
 				selectedScan={selectedScan}
 				analysis={analysis}
 				evidence={evidence}
-				draft={draft}
+				draft={activeDraft}
 			/>
 			<ChatDialog
 				open={chatDialogOpen}
