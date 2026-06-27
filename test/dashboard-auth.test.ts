@@ -810,6 +810,7 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/workspace-members-page.tsx",
 			"utf8",
 		);
+		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
 		const appPage = readFileSync("app/members/page.tsx", "utf8");
 		const proxy = readFileSync("lib/workspace-members/proxy.ts", "utf8");
 
@@ -818,13 +819,35 @@ describe("dashboard auth gate", () => {
 		expect(types).toContain('| "members"');
 		expect(dashboard).toContain('case "members"');
 		expect(appPage).toContain('page="members"');
-		expect(page).toContain('fetch("/api/workspace/members"');
+		expect(page).toContain("workspaceMembersQueryOptions");
+		expect(queries).toContain('fetchJson("/api/workspace/members")');
 		expect(page).toContain("/api/workspace/members/invitations");
 		expect(page).toContain("/api/workspace/members/default-admin");
 		expect(page).toContain("confirmDefaultAdminDisable");
 		expect(proxy).toContain("getBearerForPlatformRequest");
 		expect(proxy).toContain("Authorization: auth.authorization");
 		expect(proxy).not.toContain("CYBERSHIELD35_APP_SECRET");
+	});
+
+	test("dashboard hydrates TanStack Query data from server routes", () => {
+		const layout = readFileSync("app/layout.tsx", "utf8");
+		const route = readFileSync("components/dashboard/dashboard-route.tsx", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const initialRoute = readFileSync(
+			"app/api/dashboard/initial/route.ts",
+			"utf8",
+		);
+
+		expect(layout).toContain("QueryProvider");
+		expect(route).toContain("HydrationBoundary");
+		expect(route).toContain("dehydrate(queryClient)");
+		expect(dashboard).toContain("useQuery");
+		expect(dashboard).toContain("invalidateQueries");
+		expect(initialRoute).toContain("getDashboardInitialData");
+		expect(initialRoute).toContain("requireAdminSession");
 	});
 
 	test("dashboard exposes manual scan run actions for when cron is unavailable", () => {

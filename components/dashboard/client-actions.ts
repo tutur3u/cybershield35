@@ -463,18 +463,31 @@ export async function reviewDraft(options: {
 	setDraft: (draft: DraftShape) => void;
 	setNotice: (notice: string) => void;
 }) {
-	const response = await fetch(`/api/drafts/${options.draft.id}/review`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ status: options.status }),
-	});
-	const payload = await response.json();
-	options.setDraft(payload.draft ?? { ...options.draft, status: options.status });
-	options.setNotice(
-		options.status === "approved"
-			? "Đã ghi nhận phê duyệt của người vận hành."
-			: "Đã cập nhật trạng thái duyệt.",
-	);
+	try {
+		const response = await fetch(`/api/drafts/${options.draft.id}/review`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ status: options.status }),
+		});
+		const payload = await response.json();
+		if (!response.ok) {
+			throw new Error(payload.error ?? "Không thể cập nhật trạng thái duyệt");
+		}
+		options.setDraft(payload.draft ?? { ...options.draft, status: options.status });
+		options.setNotice(
+			options.status === "approved"
+				? "Đã ghi nhận phê duyệt của người vận hành."
+				: "Đã cập nhật trạng thái duyệt.",
+		);
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error
+				? error.message
+				: "Không thể cập nhật trạng thái duyệt",
+		);
+		return false;
+	}
 }
 
 export async function sendChatMessage(options: {

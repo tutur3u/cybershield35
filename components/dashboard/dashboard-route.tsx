@@ -1,3 +1,8 @@
+import {
+	dehydrate,
+	HydrationBoundary,
+} from "@tanstack/react-query";
+
 import { CyberShieldDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import type {
@@ -5,7 +10,15 @@ import type {
 	DashboardPage,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
+import {
+	dashboardQueryKeys,
+	dashboardQueryStaleTimeMs,
+	workspaceMembersQueryStaleTimeMs,
+} from "@/lib/dashboard/query-keys";
+import { dashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 import { getDashboardInitialData } from "@/lib/dashboard/server-data";
+import { getQueryClient } from "@/lib/query-client";
+import { emptyWorkspaceMembers } from "@/lib/workspace-members/server-data";
 import { getWorkspaceMembersInitialData } from "@/lib/workspace-members/server-data";
 
 type DashboardRouteProps = {
@@ -22,35 +35,60 @@ export async function DashboardRoute({
 	scanId,
 }: DashboardRouteProps) {
 	const requirements = dashboardSnapshotRequirements(page);
+	const queryClient = getQueryClient();
 	const [initialData, initialWorkspaceMembers] = await Promise.all([
 		requirements.includeScans
-			? getDashboardInitialData(
-					scanId,
-					requirements.includeDetail,
-					requirements.includeTrackedSources,
-				)
+			? queryClient.fetchQuery({
+					queryFn: () =>
+						getDashboardInitialData(
+							scanId,
+							requirements.includeDetail,
+							requirements.includeTrackedSources,
+						),
+					queryKey: dashboardQueryKeys.initial({ ...requirements, scanId }),
+					staleTime: dashboardQueryStaleTimeMs,
+				})
 			: Promise.resolve(emptyDashboardInitialData(scanId)),
 		page === "members"
-			? getWorkspaceMembersInitialData()
+			? queryClient.fetchQuery({
+					queryFn: getWorkspaceMembersInitialData,
+					queryKey: dashboardQueryKeys.workspaceMembers(),
+					staleTime: workspaceMembersQueryStaleTimeMs,
+				})
 			: Promise.resolve<WorkspaceMembersResponse | undefined>(undefined),
 	]);
 
+	if (initialData.detail && initialData.selectedScanId) {
+		queryClient.setQueryData(
+			dashboardQueryKeys.scanDetail(initialData.selectedScanId),
+			initialData.detail,
+		);
+	}
+	if (page === "members" && !initialWorkspaceMembers) {
+		queryClient.setQueryData(
+			dashboardQueryKeys.workspaceMembers(),
+			emptyWorkspaceMembers,
+		);
+	}
+
 	return (
-		<CyberShieldDashboard
-			key={[
-				page,
-				scanId ?? "",
-				draftId ?? "",
-				evidenceId ?? "",
-				initialData.selectedScanId,
-			].join(":")}
-			draftId={draftId}
-			evidenceId={evidenceId}
-			initialData={initialData}
-			initialWorkspaceMembers={initialWorkspaceMembers}
-			page={page}
-			scanId={scanId}
-		/>
+		<HydrationBoundary state={dehydrate(queryClient)}>
+			<CyberShieldDashboard
+				key={[
+					page,
+					scanId ?? "",
+					draftId ?? "",
+					evidenceId ?? "",
+					initialData.selectedScanId,
+				].join(":")}
+				draftId={draftId}
+				evidenceId={evidenceId}
+				initialData={initialData}
+				initialWorkspaceMembers={initialWorkspaceMembers}
+				page={page}
+				scanId={scanId}
+			/>
+		</HydrationBoundary>
 	);
 }
 
@@ -64,30 +102,5 @@ function emptyDashboardInitialData(scanId?: string): DashboardInitialData {
 		scans: [],
 		selectedScanId: scanId ?? "",
 		trackedSources: [],
-	};
-}
-
-function dashboardSnapshotRequirements(page: DashboardPage) {
-	if (
-		[
-			"chat",
-			"guide-policies",
-			"guide-process",
-			"guide-user",
-			"members",
-			"settings",
-		].includes(page)
-	) {
-		return {
-			includeDetail: false,
-			includeScans: false,
-			includeTrackedSources: false,
-		};
-	}
-
-	return {
-		includeDetail: page !== "sources",
-		includeScans: true,
-		includeTrackedSources: page === "sources",
 	};
 }

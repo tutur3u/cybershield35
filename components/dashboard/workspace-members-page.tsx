@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Avatar,
 	AvatarFallback,
@@ -14,7 +15,7 @@ import {
 	UserPlus,
 	UsersRound,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import { PageHeader } from "@/components/dashboard/page-widgets";
@@ -25,6 +26,8 @@ import type {
 	WorkspaceMemberView,
 	WorkspaceMemberRole,
 } from "@/components/dashboard/types";
+import { workspaceMembersQueryOptions } from "@/lib/dashboard/client-queries";
+import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 
 type PendingAction =
 	| { invitation: WorkspaceInvitationView; type: "remove-invitation" }
@@ -47,15 +50,21 @@ export function WorkspaceMembersPage({
 }: {
 	initialData?: WorkspaceMembersResponse;
 }) {
-	const [data, setData] = useState<WorkspaceMembersResponse>(
-		() => initialData ?? emptyPayload,
-	);
+	const queryClient = useQueryClient();
+	const membersQuery = useQuery({
+		...workspaceMembersQueryOptions(),
+		initialData,
+	});
+	const data = membersQuery.data ?? emptyPayload;
 	const [emails, setEmails] = useState("");
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
-	const [loading, setLoading] = useState(!initialData);
 	const [saving, setSaving] = useState(false);
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+	const loading = membersQuery.isPending && !membersQuery.data;
+	const visibleError =
+		error ||
+		(membersQuery.error instanceof Error ? membersQuery.error.message : "");
 
 	const stats = useMemo(
 		() => [
@@ -69,39 +78,20 @@ export function WorkspaceMembersPage({
 		[data],
 	);
 
-	useEffect(() => {
-		if (initialData) return;
-		void loadMembers();
-	}, [initialData]);
-
 	async function loadMembers() {
-		setLoading(true);
 		setError("");
 		try {
-			const response = await fetch("/api/workspace/members", {
-				cache: "no-store",
+			await queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.workspaceMembers(),
 			});
-			const body = (await response.json().catch(() => null)) as
-				| WorkspaceMembersResponse
-				| { error?: string; message?: string }
-				| null;
-			if (!response.ok) {
-				throw new Error(
-					errorMessage(
-						body && "members" in body ? null : body,
-						"Không thể tải danh sách thành viên",
-					),
-				);
-			}
-			setData((body as WorkspaceMembersResponse) ?? emptyPayload);
+			const result = await membersQuery.refetch();
+			if (result.error) throw result.error;
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
 					? loadError.message
 					: "Không thể tải danh sách thành viên",
 			);
-		} finally {
-			setLoading(false);
 		}
 	}
 
@@ -200,7 +190,10 @@ export function WorkspaceMembersPage({
 				throw new Error(errorMessage(payload, "Không thể cập nhật thành viên"));
 			}
 			setNotice(success);
-			await loadMembers();
+			await queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.workspaceMembers(),
+			});
+			await membersQuery.refetch();
 		} catch (mutationError) {
 			setError(
 				mutationError instanceof Error
@@ -242,7 +235,7 @@ export function WorkspaceMembersPage({
 				))}
 			</div>
 
-			{error ? <AlertMessage tone="danger" message={error} /> : null}
+			{visibleError ? <AlertMessage tone="danger" message={visibleError} /> : null}
 			{notice ? <AlertMessage tone="success" message={notice} /> : null}
 
 			<Panel>
@@ -309,9 +302,7 @@ export function WorkspaceMembersPage({
 					description="Thành viên đang hoạt động và lời mời đang chờ."
 				/>
 				{loading ? (
-					<p className="px-4 py-8 text-center text-[12px] font-semibold text-[var(--muted)]">
-						Đang tải thành viên...
-					</p>
+					<MemberListSkeleton />
 				) : (
 					<MemberList
 						context={data.context}
@@ -330,6 +321,32 @@ export function WorkspaceMembersPage({
 				onConfirm={() => void confirmAction()}
 				saving={saving}
 			/>
+		</div>
+	);
+}
+
+function MemberListSkeleton() {
+	return (
+		<div className="animate-pulse divide-y divide-[var(--divider)]">
+			{Array.from({ length: 4 }, (_, index) => (
+				<div
+					key={index}
+					className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_140px_220px] lg:items-center"
+				>
+					<div className="flex min-w-0 items-center gap-3">
+						<div className="size-10 rounded-md bg-[var(--surface-soft)]" />
+						<div className="min-w-0 space-y-2">
+							<div className="h-4 w-44 rounded-md bg-[var(--surface-soft)]" />
+							<div className="h-3 w-32 rounded-md bg-[var(--surface-soft)]" />
+						</div>
+					</div>
+					<div className="h-7 w-20 rounded-md bg-[var(--surface-soft)]" />
+					<div className="flex gap-2 lg:justify-end">
+						<div className="h-9 w-20 rounded-md bg-[var(--surface-soft)]" />
+						<div className="h-9 w-24 rounded-md bg-[var(--surface-soft)]" />
+					</div>
+				</div>
+			))}
 		</div>
 	);
 }

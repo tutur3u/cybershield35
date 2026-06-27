@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
 import { getProviderAvailability } from "@/lib/providers";
 
@@ -62,9 +63,11 @@ export default function RootLayout({
 			suppressHydrationWarning
 		>
 			<body>
-				<Suspense fallback={<DashboardAppSkeleton />}>
-					<AuthenticatedApp>{children}</AuthenticatedApp>
-				</Suspense>
+				<QueryProvider>
+					<Suspense fallback={<DashboardAppSkeleton />}>
+						<AuthenticatedApp>{children}</AuthenticatedApp>
+					</Suspense>
+				</QueryProvider>
 				<Script
 					id="cybershield35-theme-boot"
 					strategy="beforeInteractive"
