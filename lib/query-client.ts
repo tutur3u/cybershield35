@@ -1,6 +1,6 @@
 import { isServer, QueryClient } from "@tanstack/react-query";
 
-const staleTime = 15_000;
+const staleTime = 120_000;
 const gcTime = 5 * 60_000;
 
 function makeQueryClient() {

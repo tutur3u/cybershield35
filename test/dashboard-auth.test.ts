@@ -830,22 +830,27 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("dashboard hydrates TanStack Query data from server routes", () => {
+		const config = readFileSync("next.config.ts", "utf8");
 		const layout = readFileSync("app/layout.tsx", "utf8");
 		const route = readFileSync("components/dashboard/dashboard-route.tsx", "utf8");
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
 			"utf8",
 		);
+		const queryKeys = readFileSync("lib/dashboard/query-keys.ts", "utf8");
 		const initialRoute = readFileSync(
 			"app/api/dashboard/initial/route.ts",
 			"utf8",
 		);
 
+		expect(config).toContain("staleTimes");
+		expect(config).toContain("dynamic: 120");
 		expect(layout).toContain("QueryProvider");
 		expect(route).toContain("HydrationBoundary");
 		expect(route).toContain("dehydrate(queryClient)");
 		expect(dashboard).toContain("useQuery");
 		expect(dashboard).toContain("invalidateQueries");
+		expect(queryKeys).toContain("120_000");
 		expect(initialRoute).toContain("getDashboardInitialData");
 		expect(initialRoute).toContain("requireAdminSession");
 	});

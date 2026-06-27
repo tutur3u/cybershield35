@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
 	cacheComponents: true,
 	experimental: {
 		instantNavigationDevToolsToggle: true,
+		staleTimes: {
+			dynamic: 120,
+			static: 300,
+		},
 	},
 	transpilePackages: ["@tuturuuu/ui", "@tuturuuu/icons", "@tuturuuu/utils"],
 	async headers() {
