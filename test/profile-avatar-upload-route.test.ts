@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { POST } from "@/app/api/auth/profile/avatar/upload-url/route";
 import {
 	createSessionCookie,
+	getRequestedScopes,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 
@@ -21,6 +22,7 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: null,

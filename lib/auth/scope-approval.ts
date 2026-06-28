@@ -56,6 +56,14 @@ export function buildTuturuuuScopeApprovalUrl({
 	return approvalUrl.toString();
 }
 
+export function buildTuturuuuScopeApprovalUrlForRequest(request: Request) {
+	const requestUrl = new URL(request.url);
+	return buildTuturuuuScopeApprovalUrl({
+		appBaseUrl: requestUrl.origin,
+		nextUrl: nextUrlFromApiRequest(request, requestUrl.origin),
+	});
+}
+
 export function buildManagedSchedulerApprovalUrl({
 	appBaseUrl,
 	origin,
@@ -112,6 +120,19 @@ function buildReturnUrlWithCronRetry({
 	const returnUrl = new URL(returnPath.replace(/^\/+/u, ""), base);
 	returnUrl.searchParams.set("cronSetup", "retry");
 	return returnUrl.toString();
+}
+
+function nextUrlFromApiRequest(request: Request, origin: string) {
+	const referer = request.headers.get("referer");
+	if (!referer) return "/";
+
+	try {
+		const refererUrl = new URL(referer);
+		if (refererUrl.origin !== origin) return "/";
+		return `${refererUrl.pathname}${refererUrl.search}`;
+	} catch {
+		return "/";
+	}
 }
 
 function cleanEnv(value: string | undefined) {

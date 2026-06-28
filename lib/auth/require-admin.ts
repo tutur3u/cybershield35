@@ -1,11 +1,13 @@
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
+	getRequestedScopes,
 	refreshAdminSession,
 	readAdminSession,
 	sanitizeAuthError,
 	sessionNeedsIdentityRefresh,
 	sessionNeedsRefresh,
+	sessionNeedsScopeRefresh,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 import { isTuturuuuScopeNotAllowedError } from "@/lib/auth/scope-approval";
@@ -33,7 +35,11 @@ export async function requireAdminSession(
 		return { error: "Authentication required", status: 401 };
 	}
 
-	if (sessionNeedsRefresh(session) || sessionNeedsIdentityRefresh(session)) {
+	if (
+		sessionNeedsRefresh(session) ||
+		sessionNeedsIdentityRefresh(session) ||
+		sessionNeedsScopeRefresh(session)
+	) {
 		try {
 			session = await refreshAdminSession(session);
 			return {
@@ -71,6 +77,7 @@ function localDevSession(): TuturuuuAdminSession {
 		refreshExpiresAt: expiresAt,
 		refreshExpiresIn: 3600,
 		refreshToken: "local-dev-bypass",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			displayName: "Local Admin",

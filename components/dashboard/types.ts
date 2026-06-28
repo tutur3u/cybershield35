@@ -91,9 +91,13 @@ export type ManagedSchedulerJobView = {
 
 export type ManagedSchedulerStatusView = {
 	approvalHref?: string;
+	code?: "LOCAL_SCHEDULER_STORAGE_NOT_READY";
 	configured: boolean;
 	enabled: boolean;
+	error?: string;
 	jobs: ManagedSchedulerJobView[];
+	localStorageReady?: boolean;
+	setupDisabled?: boolean;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 };

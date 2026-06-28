@@ -5,6 +5,10 @@ import {
 	getBearerForPlatformRequest,
 	sanitizeAuthError,
 } from "@/lib/auth/tuturuuu-session";
+import {
+	buildTuturuuuScopeApprovalUrlForRequest,
+	isTuturuuuScopeNotAllowedError,
+} from "@/lib/auth/scope-approval";
 import type { WorkspaceMembersResponse } from "@/components/dashboard/types";
 
 const MAX_EMAILS = 50;
@@ -65,7 +69,7 @@ export async function proxyWorkspaceMembersRequest(
 		});
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
-		return json({ error: safe.message }, { status: safe.status });
+		return json(scopeAwareErrorBody(safe, request), { status: safe.status });
 	}
 }
 
@@ -107,6 +111,21 @@ function fallbackBody(status: number) {
 	return status >= 400
 		? { error: "Workspace member request failed" }
 		: { ok: true };
+}
+
+function scopeAwareErrorBody(
+	safe: { message: string; status: number },
+	request: Request,
+) {
+	return {
+		error: safe.message,
+		scopeApprovalHref: isTuturuuuScopeNotAllowedError({
+			error: safe.message,
+			status: safe.status,
+		})
+			? buildTuturuuuScopeApprovalUrlForRequest(request)
+			: undefined,
+	};
 }
 
 export function json(
