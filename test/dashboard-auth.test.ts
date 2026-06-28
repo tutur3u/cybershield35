@@ -887,6 +887,21 @@ describe("dashboard auth gate", () => {
 		expect(dashboard).toContain("runScanRecord");
 	});
 
+	test("managed scheduler load failures disable setup and expose retry UI", () => {
+		const panel = readFileSync(
+			"components/dashboard/managed-scheduler-panel.tsx",
+			"utf8",
+		);
+		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
+
+		expect(queries).toContain("parseManagedSchedulerStatusResponse");
+		expect(queries).not.toContain('return fetchJson("/api/workspace/cron")');
+		expect(panel).toContain("queryUnavailable");
+		expect(panel).toContain("query.refetch()");
+		expect(panel).toContain("Không thể kiểm tra managed scheduler");
+		expect(panel).toContain("disabled={controlsDisabled}");
+	});
+
 	test("notification dropdown has no mock operational items", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const pages = readFileSync(

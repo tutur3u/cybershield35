@@ -49,7 +49,7 @@ type ManagedSchedulerJobStatus = {
 
 type ManagedSchedulerStatus = {
 	approvalHref?: string;
-	code?: typeof LOCAL_SCHEDULER_STORAGE_NOT_READY;
+	code?: string;
 	configured: boolean;
 	enabled: boolean;
 	error?: string;
@@ -85,16 +85,19 @@ export async function getManagedSchedulerStatus(request: Request) {
 		return json(
 			normalizeSchedulerStatus({
 				approvalHref,
+				blocked: !response.ok,
 				local: localState.row,
 				remote: body,
 			}),
 			{
 				setCookie: auth.setCookie,
-				status: response.ok || approvalHref ? 200 : response.status,
+				status: 200,
 			},
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
+		const schedulerBody = authSchedulerStatusBody(safe, request);
+		if (schedulerBody) return json(schedulerBody);
 		return json(authErrorBody(safe, request), { status: safe.status });
 	}
 }
@@ -131,6 +134,7 @@ export async function setupManagedScheduler(request: Request) {
 			return json(
 				normalizeSchedulerStatus({
 					approvalHref: approvalHrefForResponse({ body, request, response }),
+					blocked: true,
 					local: localState.row,
 					remote: body,
 				}),
@@ -157,6 +161,8 @@ export async function setupManagedScheduler(request: Request) {
 		}
 
 		const safe = sanitizeAuthError(error);
+		const schedulerBody = authSchedulerStatusBody(safe, request);
+		if (schedulerBody) return json(schedulerBody, { status: safe.status });
 		return json(authErrorBody(safe, request), { status: safe.status });
 	}
 }
@@ -237,26 +243,32 @@ function buildManagedSchedulerUrl(path: string) {
 
 function normalizeSchedulerStatus({
 	approvalHref,
+	blocked = false,
 	local,
 	remote,
 }: {
 	approvalHref?: string;
+	blocked?: boolean;
 	local: ManagedSchedulerIntegrationRow | null;
 	remote: unknown;
 }): ManagedSchedulerStatus {
 	const remoteRecord =
 		remote && typeof remote === "object" ? (remote as Record<string, unknown>) : {};
+	const code = cleanString(remoteRecord.code);
+	const error = cleanString(remoteRecord.error ?? remoteRecord.message);
 	const jobs = Array.isArray(remoteRecord.jobs)
 		? remoteRecord.jobs.map(normalizeJob).filter(isSchedulerJobStatus)
 		: [];
 
 	return {
 		...(approvalHref ? { approvalHref } : {}),
+		...(code ? { code } : {}),
+		...(error ? { error } : {}),
 		configured: Boolean(local) && remoteRecord.configured !== false,
 		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
 		jobs,
 		localStorageReady: true,
-		setupDisabled: false,
+		setupDisabled: blocked || Boolean(approvalHref) || Boolean(error),
 		tokenLastFour: local?.tokenLastFour ?? null,
 		updatedAt: local?.updatedAt?.toISOString() ?? null,
 	};
@@ -392,6 +404,26 @@ function authErrorBody(
 	return {
 		error: safe.message,
 		...(approvalHref ? { approvalHref } : {}),
+	};
+}
+
+function authSchedulerStatusBody(
+	safe: { message: string; status: number },
+	request: Request,
+): ManagedSchedulerStatus | null {
+	const body = authErrorBody(safe, request);
+	if (!("approvalHref" in body) || !body.approvalHref) return null;
+
+	return {
+		approvalHref: body.approvalHref,
+		configured: false,
+		enabled: false,
+		error: body.error,
+		jobs: [],
+		localStorageReady: true,
+		setupDisabled: true,
+		tokenLastFour: null,
+		updatedAt: null,
 	};
 }
 
