@@ -182,6 +182,81 @@ describe("managed scheduler proxy routes", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
+	test("returns sanitized scheduler state when the upstream status check fails", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "MANAGED_CRON_UNAVAILABLE",
+						message: "Managed scheduler provider is unavailable.",
+						secret: "raw-secret",
+					},
+					{ status: 503 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			request("/api/workspace/cron", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			code: "MANAGED_CRON_UNAVAILABLE",
+			configured: false,
+			enabled: false,
+			error: "Managed scheduler provider is unavailable.",
+			localStorageReady: true,
+			setupDisabled: true,
+		});
+		expect(JSON.stringify(body)).not.toContain("raw-secret");
+		expect(JSON.stringify(body)).not.toContain("Failed query");
+	});
+
+	test("returns scheduler approval state when scope refresh is denied", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/auth/app-token/exchange",
+			);
+			return Promise.resolve(
+				Response.json(
+					{ error: "Requested scope is not allowed for this app" },
+					{ status: 403 },
+				),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			request(
+				"/api/workspace/cron",
+				createSessionCookie(session({ scopes: ["workspace:session"] })),
+			),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			configured: false,
+			enabled: false,
+			error: "Requested scope is not allowed for this app",
+			setupDisabled: true,
+		});
+		const approvalUrl = new URL(String(body.approvalHref));
+		expect(approvalUrl.pathname).toContain(
+			"/internal/infrastructure/external-apps/approve",
+		);
+		expect(approvalUrl.searchParams.get("returnUrl")).toContain(
+			"cronSetup=retry",
+		);
+	});
+
 	test("refreshes stale scope sessions before scheduler setup", async () => {
 		dbMode.missingStorage = false;
 		const fetchMock = mock((url: string | URL, init?: RequestInit) => {

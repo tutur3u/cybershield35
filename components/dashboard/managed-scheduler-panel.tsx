@@ -14,11 +14,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
 	ManagedSchedulerJobView,
-	ManagedSchedulerStatusView,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import { managedSchedulerQueryOptions } from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import {
+	managedSchedulerErrorMessage,
+	parseManagedSchedulerStatusResponse,
+} from "@/lib/managed-scheduler/client";
 
 export function ManagedSchedulerPanel({
 	autoRetryToken,
@@ -62,13 +65,20 @@ export function ManagedSchedulerPanel({
 	const storageNotReady =
 		status?.code === "LOCAL_SCHEDULER_STORAGE_NOT_READY" ||
 		status?.localStorageReady === false;
+	const queryUnavailable = Boolean(query.error) && !status;
 	const controlsDisabled =
-		setupMutation.isPending || Boolean(status?.setupDisabled) || storageNotReady;
+		query.isLoading ||
+		queryUnavailable ||
+		setupMutation.isPending ||
+		Boolean(status?.setupDisabled) ||
+		storageNotReady;
 	const error =
 		setupMutation.error instanceof Error
 			? setupMutation.error.message
-			: query.error instanceof Error
+			: queryUnavailable && query.error instanceof Error
 				? query.error.message
+				: !storageNotReady && status?.error
+					? status.error
 				: "";
 
 	return (
@@ -96,7 +106,15 @@ export function ManagedSchedulerPanel({
 			/>
 			<div className="space-y-4 p-4">
 				{query.isLoading ? <SchedulerSkeleton /> : null}
-				{error ? <InlineError message={error} /> : null}
+				{queryUnavailable ? (
+					<SchedulerLoadError
+						message={error}
+						onRetry={() => void query.refetch()}
+						retrying={query.isFetching}
+					/>
+				) : error ? (
+					<InlineError message={error} />
+				) : null}
 				{storageNotReady ? (
 					<StorageNotReadyNotice
 						message={
@@ -289,6 +307,41 @@ function InlineError({ message }: { message: string }) {
 	);
 }
 
+function SchedulerLoadError({
+	message,
+	onRetry,
+	retrying,
+}: {
+	message: string;
+	onRetry: () => void;
+	retrying: boolean;
+}) {
+	return (
+		<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] p-3">
+			<p className="text-[13px] font-bold text-[var(--danger-strong)]">
+				Không thể kiểm tra managed scheduler
+			</p>
+			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
+				{message ||
+					"Không thể tải trạng thái lịch tự động. Thử lại sau khi kiểm tra quyền hoặc triển khai."}
+			</p>
+			<button
+				type="button"
+				onClick={onRetry}
+				disabled={retrying}
+				className="mt-3 inline-flex h-8 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--foreground)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
+			>
+				{retrying ? (
+					<Loader2 size={13} className="animate-spin" />
+				) : (
+					<RefreshCw size={13} />
+				)}
+				Thử lại
+			</button>
+		</div>
+	);
+}
+
 function labelForJob(job: ManagedSchedulerJobView) {
 	if (job.jobKey === "process-queue") return "Xử lý hàng đợi";
 	if (job.jobKey === "enqueue-tracked-sources") return "Tạo scan theo dõi";
@@ -314,7 +367,7 @@ async function setupManagedScheduler() {
 		headers: { Accept: "application/json" },
 		method: "POST",
 	});
-	return parseSchedulerResponse(response);
+	return parseManagedSchedulerStatusResponse(response);
 }
 
 async function runJobNow(jobKey: string) {
@@ -326,8 +379,9 @@ async function runJobNow(jobKey: string) {
 			method: "POST",
 		},
 	);
-	if (!response.ok) throw new Error(await errorMessage(response));
-	return response.json();
+	const payload = await response.json().catch(() => null);
+	if (!response.ok) throw new Error(managedSchedulerErrorMessage(payload));
+	return payload;
 }
 
 async function patchJob({
@@ -349,44 +403,7 @@ async function patchJob({
 			method: "PATCH",
 		},
 	);
-	if (!response.ok) throw new Error(await errorMessage(response));
-	return response.json();
-}
-
-async function parseSchedulerResponse(response: Response) {
-	const payload = (await response.json().catch(() => null)) as
-		| ManagedSchedulerStatusView
-		| null;
-	if (response.ok || payload?.approvalHref) {
-		return payload ?? emptySchedulerStatus();
-	}
-	if (payload?.code === "LOCAL_SCHEDULER_STORAGE_NOT_READY") {
-		return payload;
-	}
-
-	throw new Error(await errorMessage(response, payload));
-}
-
-async function errorMessage(response: Response, parsed?: unknown) {
-	const payload =
-		parsed ?? ((await response.json().catch(() => null)) as unknown);
-	if (payload && typeof payload === "object") {
-		const record = payload as Record<string, unknown>;
-		if (typeof record.error === "string") return record.error;
-		if (typeof record.message === "string") return record.message;
-	}
-
-	return "Không thể cập nhật managed scheduler.";
-}
-
-function emptySchedulerStatus(): ManagedSchedulerStatusView {
-	return {
-		configured: false,
-		enabled: false,
-		jobs: [],
-		localStorageReady: true,
-		setupDisabled: false,
-		tokenLastFour: null,
-		updatedAt: null,
-	};
+	const payload = await response.json().catch(() => null);
+	if (!response.ok) throw new Error(managedSchedulerErrorMessage(payload));
+	return payload;
 }

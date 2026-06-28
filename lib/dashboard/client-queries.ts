@@ -14,6 +14,7 @@ import {
 	type DashboardInitialQueryParams,
 	workspaceMembersQueryStaleTimeMs,
 } from "@/lib/dashboard/query-keys";
+import { parseManagedSchedulerStatusResponse } from "@/lib/managed-scheduler/client";
 
 export function dashboardInitialDataQueryOptions(
 	params: DashboardInitialQueryParams,
@@ -80,8 +81,16 @@ async function fetchWorkspaceMembers(): Promise<WorkspaceMembersResponse> {
 	return fetchJson("/api/workspace/members");
 }
 
-async function fetchManagedSchedulerStatus(): Promise<ManagedSchedulerStatusView> {
-	return fetchJson("/api/workspace/cron");
+export async function fetchManagedSchedulerStatus(): Promise<ManagedSchedulerStatusView> {
+	const response = await fetch("/api/workspace/cron", {
+		credentials: "same-origin",
+		headers: { Accept: "application/json" },
+	});
+
+	return parseManagedSchedulerStatusResponse(
+		response,
+		"Không thể kiểm tra managed scheduler.",
+	);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
