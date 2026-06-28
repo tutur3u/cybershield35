@@ -126,19 +126,28 @@ export function ManagedSchedulerPanel({
 				{status?.approvalHref ? (
 					<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
 						<p className="text-[13px] font-bold text-[var(--warning-strong)]">
-							Cần duyệt quyền managed scheduler
+							Cần duyệt thiết lập managed scheduler
 						</p>
 						<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
-							Thiết lập sẽ tự thử lại khi bạn quay về màn hình này.
+							{approvalCopy(status.missingApprovalItems)}
 						</p>
 						<a
 							href={status.approvalHref}
 							className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--foreground)] transition hover:bg-[var(--surface-soft)]"
 						>
 							<ExternalLink size={14} />
-							Duyệt thiết lập
+							Duyệt thiết lập trên Tuturuuu
 						</a>
 					</div>
+				) : null}
+				{status?.setupDisabledReason &&
+				!status.approvalHref &&
+				!storageNotReady ? (
+					<SetupBlockedNotice
+						message={status.setupDisabledReason}
+						missingApprovalItems={status.missingApprovalItems}
+						setupOrigin={status.setupOrigin}
+					/>
 				) : null}
 				{status && !query.isLoading ? (
 					<>
@@ -283,6 +292,37 @@ function StorageNotReadyNotice({ message }: { message: string }) {
 	);
 }
 
+function SetupBlockedNotice({
+	message,
+	missingApprovalItems,
+	setupOrigin,
+}: {
+	message: string;
+	missingApprovalItems?: string[];
+	setupOrigin?: string;
+}) {
+	return (
+		<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
+			<p className="text-[13px] font-bold text-[var(--warning-strong)]">
+				Cần cấu hình URL public
+			</p>
+			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
+				{message}
+			</p>
+			{missingApprovalItems?.length ? (
+				<p className="mt-2 text-[12px] leading-5 text-[var(--muted-strong)]">
+					Đang thiếu: {formatApprovalItems(missingApprovalItems)}.
+				</p>
+			) : null}
+			{setupOrigin ? (
+				<code className="mt-3 inline-flex max-w-full overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
+					<span className="truncate">{setupOrigin}</span>
+				</code>
+			) : null}
+		</div>
+	);
+}
+
 function SchedulerSkeleton() {
 	return (
 		<div className="space-y-3">
@@ -305,6 +345,29 @@ function InlineError({ message }: { message: string }) {
 			{message}
 		</div>
 	);
+}
+
+function approvalCopy(missingApprovalItems?: string[]) {
+	if (!missingApprovalItems?.length) {
+		return "Thiết lập sẽ tự thử lại khi bạn quay về màn hình này.";
+	}
+
+	return `Cần duyệt ${formatApprovalItems(
+		missingApprovalItems,
+	)} trước khi thiết lập. Thiết lập sẽ tự thử lại khi bạn quay về màn hình này.`;
+}
+
+function formatApprovalItems(items: string[]) {
+	const labels = items.map((item) => {
+		if (item === "domain") return "domain whitelist";
+		if (item === "origin") return "origin ứng dụng";
+		if (item === "workspace") return "workspace binding";
+		if (item === "scopes") return "scope truy cập";
+		return item;
+	});
+
+	if (labels.length <= 1) return labels[0] ?? "";
+	return `${labels.slice(0, -1).join(", ")} và ${labels.at(-1)}`;
 }
 
 function SchedulerLoadError({

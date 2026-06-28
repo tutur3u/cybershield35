@@ -42,6 +42,42 @@ describe("managed scheduler client queries", () => {
 		expect(status.error).toContain("bun db:migrate");
 	});
 
+	test("returns upstream approval bodies as scheduler state", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						approvalHref:
+							"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?feature=managed-cron",
+						code: "CRON_APPROVAL_REQUIRED",
+						configured: false,
+						enabled: false,
+						error: "Managed scheduler approval required",
+						jobs: [],
+						localStorageReady: true,
+						missingApprovalItems: ["domain"],
+						setupDisabled: true,
+						setupOrigin: "https://cybershield.example.com",
+						tokenLastFour: null,
+						updatedAt: null,
+					},
+					{ status: 403 },
+				),
+			),
+		) as unknown as typeof fetch;
+
+		const status = await fetchManagedSchedulerStatus();
+
+		expect(status).toMatchObject({
+			approvalHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?feature=managed-cron",
+			code: "CRON_APPROVAL_REQUIRED",
+			missingApprovalItems: ["domain"],
+			setupDisabled: true,
+			setupOrigin: "https://cybershield.example.com",
+		});
+	});
+
 	test("uses sanitized upstream messages instead of the generic load error", async () => {
 		globalThis.fetch = mock(() =>
 			Promise.resolve(
