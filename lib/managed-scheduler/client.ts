@@ -14,6 +14,7 @@ export async function parseManagedSchedulerStatusResponse(
 			response.ok ||
 			payload.approvalHref ||
 			payload.setupDisabled ||
+			payload.setupDisabledReason ||
 			payload.error ||
 			payload.code === LOCAL_SCHEDULER_STORAGE_NOT_READY
 		) {
@@ -78,6 +79,7 @@ function normalizeManagedSchedulerStatus(
 		setupDisabled:
 			Boolean(payload.setupDisabled) ||
 			Boolean(payload.approvalHref) ||
+			Boolean(payload.setupDisabledReason) ||
 			payload.code === LOCAL_SCHEDULER_STORAGE_NOT_READY,
 		tokenLastFour: payload.tokenLastFour ?? null,
 		updatedAt: payload.updatedAt ?? null,

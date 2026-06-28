@@ -49,13 +49,17 @@ type ManagedSchedulerJobStatus = {
 
 type ManagedSchedulerStatus = {
 	approvalHref?: string;
+	approvalReason?: string;
 	code?: string;
 	configured: boolean;
 	enabled: boolean;
 	error?: string;
 	jobs: ManagedSchedulerJobStatus[];
 	localStorageReady: boolean;
+	missingApprovalItems?: string[];
 	setupDisabled: boolean;
+	setupDisabledReason?: string;
+	setupOrigin?: string;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 };
@@ -81,6 +85,7 @@ export async function getManagedSchedulerStatus(request: Request) {
 		});
 		const body = await response.json().catch(() => null);
 		const approvalHref = approvalHrefForResponse({ body, request, response });
+		const setupOrigin = setupOriginForResponse({ body, request });
 
 		return json(
 			normalizeSchedulerStatus({
@@ -88,6 +93,7 @@ export async function getManagedSchedulerStatus(request: Request) {
 				blocked: !response.ok,
 				local: localState.row,
 				remote: body,
+				setupOrigin,
 			}),
 			{
 				setCookie: auth.setCookie,
@@ -137,6 +143,7 @@ export async function setupManagedScheduler(request: Request) {
 					blocked: true,
 					local: localState.row,
 					remote: body,
+					setupOrigin: setupOriginForResponse({ body, request }),
 				}),
 				{ setCookie: auth.setCookie, status: response.status },
 			);
@@ -246,29 +253,47 @@ function normalizeSchedulerStatus({
 	blocked = false,
 	local,
 	remote,
+	setupOrigin,
 }: {
 	approvalHref?: string;
 	blocked?: boolean;
 	local: ManagedSchedulerIntegrationRow | null;
 	remote: unknown;
+	setupOrigin?: string;
 }): ManagedSchedulerStatus {
 	const remoteRecord =
 		remote && typeof remote === "object" ? (remote as Record<string, unknown>) : {};
 	const code = cleanString(remoteRecord.code);
 	const error = cleanString(remoteRecord.error ?? remoteRecord.message);
+	const missingApprovalItems = normalizeMissingApprovalItems(remoteRecord.missing);
+	const approvalReason = approvalReasonFromRemote(remoteRecord, error ?? undefined);
+	const setupDisabledReason = setupDisabledReasonForApproval({
+		approvalHref,
+		blocked,
+		missingApprovalItems,
+		setupOrigin,
+	});
 	const jobs = Array.isArray(remoteRecord.jobs)
 		? remoteRecord.jobs.map(normalizeJob).filter(isSchedulerJobStatus)
 		: [];
 
 	return {
 		...(approvalHref ? { approvalHref } : {}),
+		...(approvalReason ? { approvalReason } : {}),
 		...(code ? { code } : {}),
 		...(error ? { error } : {}),
+		...(missingApprovalItems.length > 0 ? { missingApprovalItems } : {}),
+		...(setupDisabledReason ? { setupDisabledReason } : {}),
+		...(setupOrigin ? { setupOrigin } : {}),
 		configured: Boolean(local) && remoteRecord.configured !== false,
 		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
 		jobs,
 		localStorageReady: true,
-		setupDisabled: blocked || Boolean(approvalHref) || Boolean(error),
+		setupDisabled:
+			blocked ||
+			Boolean(approvalHref) ||
+			Boolean(error) ||
+			Boolean(setupDisabledReason),
 		tokenLastFour: local?.tokenLastFour ?? null,
 		updatedAt: local?.updatedAt?.toISOString() ?? null,
 	};
@@ -416,12 +441,15 @@ function authSchedulerStatusBody(
 
 	return {
 		approvalHref: body.approvalHref,
+		approvalReason: body.error,
 		configured: false,
 		enabled: false,
 		error: body.error,
 		jobs: [],
 		localStorageReady: true,
+		missingApprovalItems: ["scopes"],
 		setupDisabled: true,
+		setupOrigin: getPublicAppOrigin(request),
 		tokenLastFour: null,
 		updatedAt: null,
 	};
@@ -439,10 +467,30 @@ function approvalHrefForResponse({
 	if (!needsApproval(response.status, body)) return undefined;
 
 	const appBaseUrl = getPublicAppOrigin(request);
+	const setupOrigin = setupOriginFromBody(body) ?? appBaseUrl;
+	if (!isPublicHttpsOrigin(setupOrigin)) return undefined;
+	const returnBaseUrl = isPublicHttpsOrigin(appBaseUrl) ? appBaseUrl : setupOrigin;
+
 	return buildManagedSchedulerApprovalUrl({
-		appBaseUrl,
-		origin: appBaseUrl,
+		appBaseUrl: returnBaseUrl,
+		origin: setupOrigin,
 	});
+}
+
+function setupOriginForResponse({
+	body,
+	request,
+}: {
+	body: unknown;
+	request: Request;
+}) {
+	return setupOriginFromBody(body) ?? getPublicAppOrigin(request);
+}
+
+function setupOriginFromBody(body: unknown) {
+	if (!body || typeof body !== "object") return null;
+	const record = body as Record<string, unknown>;
+	return cleanString(record.origin ?? record.setupOrigin);
 }
 
 function needsApproval(status: number, body: unknown) {
@@ -469,6 +517,90 @@ function getPublicAppOrigin(request: Request) {
 	}
 
 	return new URL(request.url).origin;
+}
+
+function normalizeMissingApprovalItems(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+
+	const items = new Set<string>();
+	for (const item of value) {
+		const normalized = cleanString(item)?.toLowerCase();
+		if (!normalized) continue;
+		if (["domain", "origin", "scopes", "scope", "workspace"].includes(normalized)) {
+			items.add(normalized === "scope" ? "scopes" : normalized);
+		}
+	}
+
+	return [...items].sort();
+}
+
+function approvalReasonFromRemote(
+	remoteRecord: Record<string, unknown>,
+	error?: string,
+) {
+	const code = cleanString(remoteRecord.code);
+	if (code && APPROVAL_REQUIRED_CODES.has(code)) return error ?? code;
+	if (error === SCOPE_NOT_ALLOWED_ERROR) return error;
+	return undefined;
+}
+
+function setupDisabledReasonForApproval({
+	approvalHref,
+	blocked,
+	missingApprovalItems,
+	setupOrigin,
+}: {
+	approvalHref?: string;
+	blocked: boolean;
+	missingApprovalItems: string[];
+	setupOrigin?: string;
+}) {
+	if (approvalHref || !blocked || missingApprovalItems.length === 0) {
+		return undefined;
+	}
+	if (!setupOrigin || !isPublicHttpsOrigin(setupOrigin)) {
+		return "Cấu hình CYBERSHIELD35_PUBLIC_APP_URL bằng URL HTTPS public rồi thử lại để tạo liên kết duyệt managed scheduler.";
+	}
+	return undefined;
+}
+
+function isPublicHttpsOrigin(value: string) {
+	try {
+		const url = new URL(value);
+		if (url.protocol !== "https:") return false;
+		const hostname = url.hostname.toLowerCase();
+		if (
+			hostname === "localhost" ||
+			hostname === "0.0.0.0" ||
+			hostname === "::1" ||
+			hostname.endsWith(".localhost") ||
+			hostname.endsWith(".local")
+		) {
+			return false;
+		}
+		if (isPrivateIpv4(hostname)) return false;
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function isPrivateIpv4(hostname: string) {
+	const parts = hostname.split(".");
+	if (parts.length !== 4) return false;
+	const octets = parts.map((part) => Number(part));
+	if (octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+		return false;
+	}
+
+	const first = octets[0] ?? -1;
+	const second = octets[1] ?? -1;
+	return (
+		first === 10 ||
+		first === 127 ||
+		(first === 172 && second >= 16 && second <= 31) ||
+		(first === 192 && second === 168)
+	);
 }
 
 function generateSchedulerToken() {

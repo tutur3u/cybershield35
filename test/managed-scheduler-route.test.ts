@@ -217,6 +217,152 @@ describe("managed scheduler proxy routes", () => {
 		expect(JSON.stringify(body)).not.toContain("Failed query");
 	});
 
+	test("returns scheduler approval state when upstream setup needs domain approval", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/setup",
+			);
+			expect(JSON.parse(String(init?.body))).toMatchObject({
+				origin: "https://cybershield.example.com",
+			});
+			return Promise.resolve(
+				Response.json(
+					{
+						code: "CRON_APPROVAL_REQUIRED",
+						error: "Managed scheduler approval required",
+						missing: ["domain"],
+						origin: "https://cybershield.example.com",
+						workspaceId: "workspace-1",
+					},
+					{ status: 403 },
+				),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			request("/api/workspace/cron/setup", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(403);
+		expect(body).toMatchObject({
+			approvalReason: "Managed scheduler approval required",
+			code: "CRON_APPROVAL_REQUIRED",
+			error: "Managed scheduler approval required",
+			missingApprovalItems: ["domain"],
+			setupDisabled: true,
+			setupOrigin: "https://cybershield.example.com",
+		});
+		const approvalUrl = new URL(String(body.approvalHref));
+		expect(approvalUrl.searchParams.get("feature")).toBe("managed-cron");
+		expect(approvalUrl.searchParams.get("workspaceId")).toBe("workspace-1");
+		expect(approvalUrl.searchParams.get("origin")).toBe(
+			"https://cybershield.example.com",
+		);
+		expect(approvalUrl.searchParams.getAll("scope")).toEqual(
+			getRequestedScopes(),
+		);
+		const returnUrl = new URL(approvalUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.origin).toBe("https://cybershield.example.com");
+		expect(returnUrl.pathname).toBe("/settings");
+		expect(returnUrl.searchParams.get("cronSetup")).toBe("retry");
+		expect(approvalUrl.toString()).not.toContain("app-secret");
+		expect(approvalUrl.toString()).not.toContain("access-token");
+		expect(approvalUrl.toString()).not.toContain("refresh-token");
+		expect(approvalUrl.toString()).not.toContain("token=");
+	});
+
+	test("preserves missing origin and workspace approval items in approval URLs", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "CRON_APPROVAL_REQUIRED",
+						message: "Managed scheduler approval required",
+						missing: ["origin", "workspace"],
+						origin: "https://public-cs35.example.com",
+						workspaceId: "workspace-1",
+					},
+					{ status: 403 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			new Request("http://localhost:3000/api/workspace/cron", {
+				headers: { cookie: createSessionCookie(session()) },
+			}),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			approvalReason: "Managed scheduler approval required",
+			missingApprovalItems: ["origin", "workspace"],
+			setupDisabled: true,
+			setupOrigin: "https://public-cs35.example.com",
+		});
+		const approvalUrl = new URL(String(body.approvalHref));
+		expect(approvalUrl.searchParams.get("origin")).toBe(
+			"https://public-cs35.example.com",
+		);
+		expect(approvalUrl.searchParams.get("workspaceId")).toBe("workspace-1");
+		const returnUrl = new URL(approvalUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.origin).toBe("https://public-cs35.example.com");
+		expect(returnUrl.searchParams.get("cronSetup")).toBe("retry");
+	});
+
+	test("does not build approval links for local setup origins", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/setup",
+			);
+			expect(JSON.parse(String(init?.body))).toMatchObject({
+				origin: "http://localhost:3000",
+			});
+			return Promise.resolve(
+				Response.json(
+					{
+						code: "CRON_APPROVAL_REQUIRED",
+						error: "Managed scheduler approval required",
+						missing: ["domain", "origin"],
+						origin: "http://localhost:3000",
+						workspaceId: "workspace-1",
+					},
+					{ status: 403 },
+				),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			new Request("http://localhost:3000/api/workspace/cron/setup", {
+				headers: { cookie: createSessionCookie(session()) },
+				method: "POST",
+			}),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(403);
+		expect(body.approvalHref).toBeUndefined();
+		expect(body).toMatchObject({
+			missingApprovalItems: ["domain", "origin"],
+			setupDisabled: true,
+			setupOrigin: "http://localhost:3000",
+		});
+		expect(String(body.setupDisabledReason)).toContain(
+			"CYBERSHIELD35_PUBLIC_APP_URL",
+		);
+	});
+
 	test("returns scheduler approval state when scope refresh is denied", async () => {
 		dbMode.missingStorage = false;
 		const fetchMock = mock((url: string | URL) => {

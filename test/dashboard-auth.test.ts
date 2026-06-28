@@ -893,6 +893,7 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
+		const server = readFileSync("lib/managed-scheduler/server.ts", "utf8");
 
 		expect(queries).toContain("parseManagedSchedulerStatusResponse");
 		expect(queries).not.toContain('return fetchJson("/api/workspace/cron")');
@@ -900,6 +901,10 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("query.refetch()");
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
 		expect(panel).toContain("disabled={controlsDisabled}");
+		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
+		expect(panel).toContain("missingApprovalItems");
+		expect(panel).toContain("setupDisabledReason");
+		expect(server).toContain("CYBERSHIELD35_PUBLIC_APP_URL");
 	});
 
 	test("notification dropdown has no mock operational items", () => {

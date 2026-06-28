@@ -91,13 +91,17 @@ export type ManagedSchedulerJobView = {
 
 export type ManagedSchedulerStatusView = {
 	approvalHref?: string;
+	approvalReason?: string;
 	code?: string;
 	configured: boolean;
 	enabled: boolean;
 	error?: string;
 	jobs: ManagedSchedulerJobView[];
 	localStorageReady?: boolean;
+	missingApprovalItems?: string[];
 	setupDisabled?: boolean;
+	setupDisabledReason?: string;
+	setupOrigin?: string;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 };
