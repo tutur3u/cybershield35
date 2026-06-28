@@ -264,7 +264,10 @@ function normalizeSchedulerStatus({
 	const remoteRecord =
 		remote && typeof remote === "object" ? (remote as Record<string, unknown>) : {};
 	const code = cleanString(remoteRecord.code);
-	const error = cleanString(remoteRecord.error ?? remoteRecord.message);
+	const remoteError = cleanString(remoteRecord.error ?? remoteRecord.message);
+	const error =
+		remoteError ??
+		(blocked && !approvalHref ? "Managed scheduler request failed" : undefined);
 	const missingApprovalItems = normalizeMissingApprovalItems(remoteRecord.missing);
 	const approvalReason = approvalReasonFromRemote(remoteRecord, error ?? undefined);
 	const setupDisabledReason = setupDisabledReasonForApproval({
@@ -290,10 +293,8 @@ function normalizeSchedulerStatus({
 		jobs,
 		localStorageReady: true,
 		setupDisabled:
-			blocked ||
-			Boolean(approvalHref) ||
-			Boolean(error) ||
-			Boolean(setupDisabledReason),
+			!approvalHref &&
+			(blocked || Boolean(error) || Boolean(setupDisabledReason)),
 		tokenLastFour: local?.tokenLastFour ?? null,
 		updatedAt: local?.updatedAt?.toISOString() ?? null,
 	};
@@ -448,7 +449,7 @@ function authSchedulerStatusBody(
 		jobs: [],
 		localStorageReady: true,
 		missingApprovalItems: ["scopes"],
-		setupDisabled: true,
+		setupDisabled: false,
 		setupOrigin: getPublicAppOrigin(request),
 		tokenLastFour: null,
 		updatedAt: null,

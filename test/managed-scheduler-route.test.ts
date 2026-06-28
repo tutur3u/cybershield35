@@ -253,7 +253,7 @@ describe("managed scheduler proxy routes", () => {
 			code: "CRON_APPROVAL_REQUIRED",
 			error: "Managed scheduler approval required",
 			missingApprovalItems: ["domain"],
-			setupDisabled: true,
+			setupDisabled: false,
 			setupOrigin: "https://cybershield.example.com",
 		});
 		const approvalUrl = new URL(String(body.approvalHref));
@@ -305,7 +305,7 @@ describe("managed scheduler proxy routes", () => {
 		expect(body).toMatchObject({
 			approvalReason: "Managed scheduler approval required",
 			missingApprovalItems: ["origin", "workspace"],
-			setupDisabled: true,
+			setupDisabled: false,
 			setupOrigin: "https://public-cs35.example.com",
 		});
 		const approvalUrl = new URL(String(body.approvalHref));
@@ -392,7 +392,7 @@ describe("managed scheduler proxy routes", () => {
 			configured: false,
 			enabled: false,
 			error: "Requested scope is not allowed for this app",
-			setupDisabled: true,
+			setupDisabled: false,
 		});
 		const approvalUrl = new URL(String(body.approvalHref));
 		expect(approvalUrl.pathname).toContain(
@@ -401,6 +401,50 @@ describe("managed scheduler proxy routes", () => {
 		expect(approvalUrl.searchParams.get("returnUrl")).toContain(
 			"cronSetup=retry",
 		);
+	});
+
+	test("returns actionable setup approval state when scheduler setup requires review", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/setup",
+			);
+			expect(init?.method).toBe("POST");
+			return Promise.resolve(
+				Response.json(
+					{
+						code: "MANAGED_CRON_DOMAIN_NOT_APPROVED",
+						message: "Managed scheduler domain requires review.",
+						secret: "raw-secret",
+					},
+					{ status: 403 },
+				),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			request("/api/workspace/cron/setup", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(403);
+		expect(body).toMatchObject({
+			code: "MANAGED_CRON_DOMAIN_NOT_APPROVED",
+			configured: false,
+			enabled: false,
+			error: "Managed scheduler domain requires review.",
+			setupDisabled: false,
+		});
+		const approvalUrl = new URL(String(body.approvalHref));
+		expect(approvalUrl.pathname).toContain(
+			"/internal/infrastructure/external-apps/approve",
+		);
+		expect(approvalUrl.searchParams.get("returnUrl")).toContain(
+			"cronSetup=retry",
+		);
+		expect(JSON.stringify(body)).not.toContain("raw-secret");
 	});
 
 	test("refreshes stale scope sessions before scheduler setup", async () => {

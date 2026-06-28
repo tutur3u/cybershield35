@@ -77,9 +77,9 @@ function normalizeManagedSchedulerStatus(
 		jobs: Array.isArray(payload.jobs) ? payload.jobs : [],
 		localStorageReady: payload.localStorageReady !== false,
 		setupDisabled:
-			Boolean(payload.setupDisabled) ||
-			Boolean(payload.approvalHref) ||
+			(Boolean(payload.setupDisabled) && !payload.approvalHref) ||
 			Boolean(payload.setupDisabledReason) ||
+			payload.localStorageReady === false ||
 			payload.code === LOCAL_SCHEDULER_STORAGE_NOT_READY,
 		tokenLastFour: payload.tokenLastFour ?? null,
 		updatedAt: payload.updatedAt ?? null,

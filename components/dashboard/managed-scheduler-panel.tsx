@@ -77,9 +77,9 @@ export function ManagedSchedulerPanel({
 			? setupMutation.error.message
 			: queryUnavailable && query.error instanceof Error
 				? query.error.message
-				: !storageNotReady && status?.error
+				: !status?.approvalHref && !storageNotReady && status?.error
 					? status.error
-				: "";
+					: "";
 
 	return (
 		<Panel>
@@ -87,21 +87,31 @@ export function ManagedSchedulerPanel({
 				title="Managed scheduler"
 				description="Tự động tạo lịch quét định kỳ và xử lý hàng đợi khi worker riêng chưa chạy."
 				action={
-					<button
-						type="button"
-						onClick={() => setupMutation.mutate()}
-						disabled={controlsDisabled}
-						className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
-					>
-						{setupMutation.isPending ? (
-							<Loader2 size={14} className="animate-spin" />
-						) : status?.configured ? (
-							<RotateCw size={14} />
-						) : (
-							<Clock3 size={14} />
-						)}
-						{status?.configured ? "Xoay token" : "Thiết lập"}
-					</button>
+					status?.approvalHref && !controlsDisabled ? (
+						<a
+							href={status.approvalHref}
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+						>
+							<ExternalLink size={14} />
+							Duyệt thiết lập
+						</a>
+					) : (
+						<button
+							type="button"
+							onClick={() => setupMutation.mutate()}
+							disabled={controlsDisabled}
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+						>
+							{setupMutation.isPending ? (
+								<Loader2 size={14} className="animate-spin" />
+							) : status?.configured ? (
+								<RotateCw size={14} />
+							) : (
+								<Clock3 size={14} />
+							)}
+							{status?.configured ? "Xoay token" : "Thiết lập"}
+						</button>
+					)
 				}
 			/>
 			<div className="space-y-4 p-4">
