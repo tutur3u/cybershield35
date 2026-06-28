@@ -30,6 +30,7 @@ const exchangeResponseSchema = z.object({
 	refreshExpiresAt: z.string().min(1),
 	refreshExpiresIn: z.number().optional(),
 	refreshToken: z.string().min(1),
+	scopes: z.array(z.string().min(1)).optional(),
 	tokenType: z.string().optional(),
 	user: z.object({
 		avatar_url: z.string().nullable().optional(),
@@ -176,10 +177,14 @@ export async function exchangeTuturuuuAppToken(input: {
 
 	const parsed = exchangeResponseSchema.parse(body);
 	const now = new Date().toISOString();
+	const scopes = normalizeScopes(
+		parsed.scopes ?? decodeAccessTokenScopes(parsed.accessToken),
+	);
 	return {
 		...parsed,
 		createdAt: now,
 		identityRefreshedAt: now,
+		scopes,
 	} satisfies TuturuuuAdminSession;
 }
 
@@ -237,6 +242,19 @@ export function sessionNeedsIdentityRefresh(session: TuturuuuAdminSession) {
 	return !safeSession.user.displayName || !safeSession.user.avatarUrl;
 }
 
+export function sessionNeedsScopeRefresh(session: TuturuuuAdminSession) {
+	if (!sessionCanRefresh(session)) return false;
+
+	const grantedScopes = new Set(getSessionGrantedScopes(session));
+	return getRequestedScopes().some((scope) => !grantedScopes.has(scope));
+}
+
+export function getSessionGrantedScopes(session: TuturuuuAdminSession) {
+	const storedScopes = normalizeScopes(session.scopes);
+	if (storedScopes.length > 0) return storedScopes;
+	return normalizeScopes(decodeAccessTokenScopes(session.accessToken));
+}
+
 export function sessionCanRefresh(session: TuturuuuAdminSession) {
 	return Date.parse(session.refreshExpiresAt) > Date.now();
 }
@@ -284,7 +302,11 @@ export async function getBearerForPlatformRequest(request: Request) {
 	if (!session) throw new AuthError("Authentication required", 401);
 
 	let setCookie: string | null = null;
-	if (sessionNeedsRefresh(session) || sessionNeedsIdentityRefresh(session)) {
+	if (
+		sessionNeedsRefresh(session) ||
+		sessionNeedsIdentityRefresh(session) ||
+		sessionNeedsScopeRefresh(session)
+	) {
 		session = await refreshAdminSession(session);
 		setCookie = createSessionCookie(session);
 	}
@@ -476,6 +498,7 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 			.extend({
 				createdAt: z.string(),
 				identityRefreshedAt: z.string().optional(),
+				scopes: z.array(z.string().min(1)).optional(),
 			})
 			.parse(JSON.parse(decrypted));
 	} catch {
@@ -499,6 +522,31 @@ function getSessionKey() {
 function buildExchangeUrl(apiBaseUrl: string) {
 	const base = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
 	return new URL("auth/app-token/exchange", base).toString();
+}
+
+function normalizeScopes(scopes: unknown) {
+	if (!Array.isArray(scopes)) return [];
+	return [
+		...new Set(
+			scopes
+				.map((scope) => (typeof scope === "string" ? scope.trim() : ""))
+				.filter(Boolean),
+		),
+	];
+}
+
+function decodeAccessTokenScopes(accessToken: string) {
+	const [, payload] = accessToken.split(".");
+	if (!payload) return [];
+
+	try {
+		const parsed = JSON.parse(
+			Buffer.from(payload, "base64url").toString("utf8"),
+		) as { scopes?: unknown };
+		return normalizeScopes(parsed.scopes);
+	} catch {
+		return [];
+	}
 }
 
 function serializeCookie(

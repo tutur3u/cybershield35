@@ -4,6 +4,7 @@ import { PATCH } from "@/app/api/auth/profile/route";
 import { createAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 import {
 	createSessionCookie,
+	getRequestedScopes,
 	readAdminSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -23,6 +24,7 @@ function session(overrides: Partial<TuturuuuAdminSession> = {}): TuturuuuAdminSe
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/admin.png",
@@ -45,6 +47,7 @@ function exchangeBody(updatedUser = {}) {
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "new-refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/new.png",

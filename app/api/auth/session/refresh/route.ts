@@ -5,6 +5,10 @@ import {
 	sanitizeAuthError,
 	toSafeSession,
 } from "@/lib/auth/tuturuuu-session";
+import {
+	buildTuturuuuScopeApprovalUrlForRequest,
+	isTuturuuuScopeNotAllowedError,
+} from "@/lib/auth/scope-approval";
 
 export async function POST(request: Request) {
 	try {
@@ -23,6 +27,17 @@ export async function POST(request: Request) {
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
-		return Response.json({ error: safe.message }, { status: safe.status });
+		return Response.json(
+			{
+				error: safe.message,
+				scopeApprovalHref: isTuturuuuScopeNotAllowedError({
+					error: safe.message,
+					status: safe.status,
+				})
+					? buildTuturuuuScopeApprovalUrlForRequest(request)
+					: undefined,
+			},
+			{ status: safe.status },
+		);
 	}
 }

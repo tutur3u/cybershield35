@@ -12,6 +12,7 @@ import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { resolveDashboardAuthFromRequest } from "@/lib/auth/dashboard-auth";
 import {
 	createSessionCookie,
+	getRequestedScopes,
 	getTuturuuuAuthDiagnostics,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -30,6 +31,7 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/admin.png",

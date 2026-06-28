@@ -5,6 +5,10 @@ import {
 	getBearerForPlatformRequest,
 	sanitizeAuthError,
 } from "@/lib/auth/tuturuuu-session";
+import {
+	buildTuturuuuScopeApprovalUrlForRequest,
+	isTuturuuuScopeNotAllowedError,
+} from "@/lib/auth/scope-approval";
 import { createAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
 		}
 
 		const safe = sanitizeAuthError(error);
-		return json({ error: safe.message }, { status: safe.status });
+		return json(scopeAwareErrorBody(safe, request), { status: safe.status });
 	}
 }
 
@@ -97,4 +101,19 @@ function json(
 	const headers = new Headers({ "Cache-Control": "no-store" });
 	if (options.setCookie) headers.set("Set-Cookie", options.setCookie);
 	return Response.json(body, { headers, status: options.status });
+}
+
+function scopeAwareErrorBody(
+	safe: { message: string; status: number },
+	request: Request,
+) {
+	return {
+		error: safe.message,
+		scopeApprovalHref: isTuturuuuScopeNotAllowedError({
+			error: safe.message,
+			status: safe.status,
+		})
+			? buildTuturuuuScopeApprovalUrlForRequest(request)
+			: undefined,
+	};
 }

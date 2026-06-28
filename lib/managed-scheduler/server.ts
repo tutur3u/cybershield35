@@ -18,6 +18,10 @@ import {
 } from "@/lib/db/schema";
 
 const PROVIDER = "managed-scheduler";
+const LOCAL_SCHEDULER_STORAGE_NOT_READY =
+	"LOCAL_SCHEDULER_STORAGE_NOT_READY";
+const LOCAL_SCHEDULER_STORAGE_MESSAGE =
+	"Managed scheduler storage is not ready. Run bun db:migrate, then restart the app.";
 const APPROVAL_REQUIRED_CODES = new Set([
 	"CRON_APPROVAL_REQUIRED",
 	"MANAGED_CRON_APPROVAL_REQUIRED",
@@ -45,29 +49,43 @@ type ManagedSchedulerJobStatus = {
 
 type ManagedSchedulerStatus = {
 	approvalHref?: string;
+	code?: typeof LOCAL_SCHEDULER_STORAGE_NOT_READY;
 	configured: boolean;
 	enabled: boolean;
+	error?: string;
 	jobs: ManagedSchedulerJobStatus[];
+	localStorageReady: boolean;
+	setupDisabled: boolean;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 };
 
+type LocalIntegrationState =
+	| { kind: "ready"; row: ManagedSchedulerIntegrationRow | null }
+	| { kind: "not_ready" };
+
 export async function getManagedSchedulerStatus(request: Request) {
 	try {
 		const auth = await getBearerForPlatformRequest(request);
+		const localState = await getLocalIntegrationState();
+		if (localState.kind === "not_ready") {
+			return json(localSchedulerStorageNotReadyStatus(), {
+				setCookie: auth.setCookie,
+			});
+		}
+
 		const response = await fetch(buildManagedSchedulerUrl(""), {
 			cache: "no-store",
 			headers: { Authorization: auth.authorization },
 			method: "GET",
 		});
 		const body = await response.json().catch(() => null);
-		const local = await getLocalIntegration();
 		const approvalHref = approvalHrefForResponse({ body, request, response });
 
 		return json(
 			normalizeSchedulerStatus({
 				approvalHref,
-				local,
+				local: localState.row,
 				remote: body,
 			}),
 			{
@@ -77,13 +95,21 @@ export async function getManagedSchedulerStatus(request: Request) {
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
-		return json({ error: safe.message }, { status: safe.status });
+		return json(authErrorBody(safe, request), { status: safe.status });
 	}
 }
 
 export async function setupManagedScheduler(request: Request) {
 	try {
 		const auth = await getBearerForPlatformRequest(request);
+		const localState = await getLocalIntegrationState();
+		if (localState.kind === "not_ready") {
+			return json(localSchedulerStorageNotReadyStatus(), {
+				setCookie: auth.setCookie,
+				status: 503,
+			});
+		}
+
 		const appOrigin = getPublicAppOrigin(request);
 		const token = generateSchedulerToken();
 		const response = await fetch(buildManagedSchedulerUrl("setup"), {
@@ -102,11 +128,10 @@ export async function setupManagedScheduler(request: Request) {
 		const body = await response.json().catch(() => null);
 
 		if (!response.ok) {
-			const local = await getLocalIntegration();
 			return json(
 				normalizeSchedulerStatus({
 					approvalHref: approvalHrefForResponse({ body, request, response }),
-					local,
+					local: localState.row,
 					remote: body,
 				}),
 				{ setCookie: auth.setCookie, status: response.status },
@@ -127,8 +152,12 @@ export async function setupManagedScheduler(request: Request) {
 			{ setCookie: auth.setCookie },
 		);
 	} catch (error) {
+		if (isMissingManagedSchedulerStorageError(error)) {
+			return json(localSchedulerStorageNotReadyStatus(), { status: 503 });
+		}
+
 		const safe = sanitizeAuthError(error);
-		return json({ error: safe.message }, { status: safe.status });
+		return json(authErrorBody(safe, request), { status: safe.status });
 	}
 }
 
@@ -142,6 +171,14 @@ export async function proxyManagedSchedulerRequest(
 ) {
 	try {
 		const auth = await getBearerForPlatformRequest(request);
+		const localState = await getLocalIntegrationState();
+		if (localState.kind === "not_ready") {
+			return json(localSchedulerStorageNotReadyStatus(), {
+				setCookie: auth.setCookie,
+				status: 503,
+			});
+		}
+
 		const response = await fetch(buildManagedSchedulerUrl(input.path), {
 			body: input.body === undefined ? undefined : JSON.stringify(input.body),
 			cache: "no-store",
@@ -161,7 +198,7 @@ export async function proxyManagedSchedulerRequest(
 		});
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
-		return json({ error: safe.message }, { status: safe.status });
+		return json(authErrorBody(safe, request), { status: safe.status });
 	}
 }
 
@@ -169,10 +206,10 @@ export async function verifyManagedSchedulerRequest(request: Request) {
 	const token = bearerToken(request);
 	if (!token) return false;
 
-	const local = await getLocalIntegration();
-	if (!local?.enabled) return false;
+	const localState = await getLocalIntegrationState();
+	if (localState.kind === "not_ready" || !localState.row?.enabled) return false;
 
-	return safeEqual(hashSchedulerToken(token), local.tokenHash);
+	return safeEqual(hashSchedulerToken(token), localState.row.tokenHash);
 }
 
 export function json(
@@ -218,6 +255,8 @@ function normalizeSchedulerStatus({
 		configured: Boolean(local) && remoteRecord.configured !== false,
 		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
 		jobs,
+		localStorageReady: true,
+		setupDisabled: false,
 		tokenLastFour: local?.tokenLastFour ?? null,
 		updatedAt: local?.updatedAt?.toISOString() ?? null,
 	};
@@ -257,6 +296,17 @@ async function getLocalIntegration() {
 	return row ?? null;
 }
 
+async function getLocalIntegrationState(): Promise<LocalIntegrationState> {
+	try {
+		return { kind: "ready", row: await getLocalIntegration() };
+	} catch (error) {
+		if (isMissingManagedSchedulerStorageError(error)) {
+			return { kind: "not_ready" };
+		}
+		throw error;
+	}
+}
+
 async function saveLocalIntegration({
 	enabled,
 	metadata,
@@ -290,6 +340,59 @@ async function saveLocalIntegration({
 
 	if (!row) throw new Error("Failed to save managed scheduler setup");
 	return row;
+}
+
+function localSchedulerStorageNotReadyStatus(): ManagedSchedulerStatus {
+	return {
+		code: LOCAL_SCHEDULER_STORAGE_NOT_READY,
+		configured: false,
+		enabled: false,
+		error: LOCAL_SCHEDULER_STORAGE_MESSAGE,
+		jobs: [],
+		localStorageReady: false,
+		setupDisabled: true,
+		tokenLastFour: null,
+		updatedAt: null,
+	};
+}
+
+function isMissingManagedSchedulerStorageError(error: unknown): boolean {
+	if (!error || typeof error !== "object") return false;
+	const record = error as Record<string, unknown>;
+	const code = cleanString(record.code);
+	const message =
+		error instanceof Error ? error.message : cleanString(record.message) ?? "";
+
+	if (code === "42P01" && /managed_scheduler_integrations/u.test(message)) {
+		return true;
+	}
+	if (
+		/managed_scheduler_integrations/u.test(message) &&
+		/(does not exist|relation|Failed query)/iu.test(message)
+	) {
+		return true;
+	}
+
+	return isMissingManagedSchedulerStorageError(record.cause);
+}
+
+function authErrorBody(
+	safe: { message: string; status: number },
+	request: Request,
+) {
+	const approvalHref =
+		needsApproval(safe.status, { error: safe.message }) ?
+			approvalHrefForResponse({
+				body: { error: safe.message },
+				request,
+				response: new Response(null, { status: safe.status }),
+			})
+		: undefined;
+
+	return {
+		error: safe.message,
+		...(approvalHref ? { approvalHref } : {}),
+	};
 }
 
 function approvalHrefForResponse({

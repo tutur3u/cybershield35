@@ -9,6 +9,7 @@ import {
 	isTuturuuuAuthConfigured,
 	readAdminSession,
 	sessionNeedsIdentityRefresh,
+	sessionNeedsScopeRefresh,
 	toSafeSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -31,6 +32,7 @@ function session(): TuturuuuAdminSession {
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "ttr_app_refresh_secret",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/admin.png",
@@ -89,6 +91,16 @@ describe("Tuturuuu encrypted admin session", () => {
 
 		staleSession.identityRefreshedAt = "2026-06-13T00:00:00.000Z";
 		expect(sessionNeedsIdentityRefresh(staleSession)).toBe(false);
+	});
+
+	test("sessions missing code-owned scopes request a server-side refresh", () => {
+		const staleSession = session();
+		staleSession.scopes = ["workspace:session"];
+
+		expect(sessionNeedsScopeRefresh(staleSession)).toBe(true);
+
+		staleSession.scopes = getRequestedScopes();
+		expect(sessionNeedsScopeRefresh(staleSession)).toBe(false);
 	});
 
 	test("auth configuration requires Tuturuuu production credentials", () => {

@@ -7,6 +7,7 @@ import { POST } from "@/app/api/workspace/members/invitations/route";
 import { PATCH as PATCH_ROLE } from "@/app/api/workspace/members/[userId]/role/route";
 import {
 	createSessionCookie,
+	getRequestedScopes,
 	readAdminSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -28,6 +29,7 @@ function session(
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/admin.png",
@@ -50,6 +52,7 @@ function exchangeBody() {
 		refreshExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
 		refreshExpiresIn: 3600,
 		refreshToken: "new-refresh-token",
+		scopes: getRequestedScopes(),
 		tokenType: "Bearer",
 		user: {
 			avatarUrl: "https://example.com/admin.png",

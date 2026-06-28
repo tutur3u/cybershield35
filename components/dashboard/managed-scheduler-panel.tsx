@@ -59,6 +59,11 @@ export function ManagedSchedulerPanel({
 	}, [autoRetryToken, setupMutation]);
 
 	const status = setupMutation.data ?? query.data;
+	const storageNotReady =
+		status?.code === "LOCAL_SCHEDULER_STORAGE_NOT_READY" ||
+		status?.localStorageReady === false;
+	const controlsDisabled =
+		setupMutation.isPending || Boolean(status?.setupDisabled) || storageNotReady;
 	const error =
 		setupMutation.error instanceof Error
 			? setupMutation.error.message
@@ -75,7 +80,7 @@ export function ManagedSchedulerPanel({
 					<button
 						type="button"
 						onClick={() => setupMutation.mutate()}
-						disabled={setupMutation.isPending}
+						disabled={controlsDisabled}
 						className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
 					>
 						{setupMutation.isPending ? (
@@ -92,6 +97,14 @@ export function ManagedSchedulerPanel({
 			<div className="space-y-4 p-4">
 				{query.isLoading ? <SchedulerSkeleton /> : null}
 				{error ? <InlineError message={error} /> : null}
+				{storageNotReady ? (
+					<StorageNotReadyNotice
+						message={
+							status?.error ??
+							"Managed scheduler storage is not ready. Run bun db:migrate, then restart the app."
+						}
+					/>
+				) : null}
 				{status?.approvalHref ? (
 					<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
 						<p className="text-[13px] font-bold text-[var(--warning-strong)]">
@@ -130,7 +143,9 @@ export function ManagedSchedulerPanel({
 										}
 										onRun={() => runMutation.mutate(job.jobKey)}
 										pending={
-											runMutation.isPending || patchMutation.isPending
+											runMutation.isPending ||
+											patchMutation.isPending ||
+											Boolean(status.setupDisabled)
 										}
 									/>
 								))}
@@ -234,6 +249,22 @@ function EmptyState({ configured }: { configured: boolean }) {
 	);
 }
 
+function StorageNotReadyNotice({ message }: { message: string }) {
+	return (
+		<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
+			<p className="text-[13px] font-bold text-[var(--warning-strong)]">
+				Cần cập nhật cơ sở dữ liệu
+			</p>
+			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
+				{message}
+			</p>
+			<code className="mt-3 inline-flex rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
+				bun db:migrate
+			</code>
+		</div>
+	);
+}
+
 function SchedulerSkeleton() {
 	return (
 		<div className="space-y-3">
@@ -329,6 +360,9 @@ async function parseSchedulerResponse(response: Response) {
 	if (response.ok || payload?.approvalHref) {
 		return payload ?? emptySchedulerStatus();
 	}
+	if (payload?.code === "LOCAL_SCHEDULER_STORAGE_NOT_READY") {
+		return payload;
+	}
 
 	throw new Error(await errorMessage(response, payload));
 }
@@ -350,6 +384,8 @@ function emptySchedulerStatus(): ManagedSchedulerStatusView {
 		configured: false,
 		enabled: false,
 		jobs: [],
+		localStorageReady: true,
+		setupDisabled: false,
 		tokenLastFour: null,
 		updatedAt: null,
 	};
