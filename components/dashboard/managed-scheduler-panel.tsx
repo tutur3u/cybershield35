@@ -77,7 +77,10 @@ export function ManagedSchedulerPanel({
 			? setupMutation.error.message
 			: queryUnavailable && query.error instanceof Error
 				? query.error.message
-				: !status?.approvalHref && !storageNotReady && status?.error
+				: !status?.approvalHref &&
+					  !status?.setupDisabledReason &&
+					  !storageNotReady &&
+					  status?.error
 					? status.error
 					: "";
 

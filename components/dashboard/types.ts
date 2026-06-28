@@ -104,6 +104,7 @@ export type ManagedSchedulerStatusView = {
 	setupOrigin?: string;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
+	upstreamStatus?: number;
 };
 
 export type DashboardInitialData = {

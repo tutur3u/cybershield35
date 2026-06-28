@@ -907,6 +907,7 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
 		expect(panel).toContain("missingApprovalItems");
 		expect(panel).toContain("setupDisabledReason");
+		expect(panel).toContain("!status?.setupDisabledReason");
 		expect(server).toContain("CYBERSHIELD35_PUBLIC_APP_URL");
 	});
 

@@ -447,6 +447,112 @@ describe("managed scheduler proxy routes", () => {
 		expect(JSON.stringify(body)).not.toContain("raw-secret");
 	});
 
+	test("turns opaque upstream setup 403 responses into managed-cron approval links", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/setup",
+			);
+			expect(init?.method).toBe("POST");
+			return Promise.resolve(
+				new Response("<html>Forbidden raw upstream body</html>", {
+					headers: { "Content-Type": "text/html" },
+					status: 403,
+				}),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			request("/api/workspace/cron/setup", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(403);
+		expect(body).toMatchObject({
+			approvalReason: "Managed scheduler approval required",
+			code: "CRON_APPROVAL_REQUIRED",
+			error: "Managed scheduler approval required",
+			missingApprovalItems: ["domain"],
+			setupDisabled: false,
+			setupOrigin: "https://cybershield.example.com",
+			upstreamStatus: 403,
+		});
+		const approvalUrl = new URL(String(body.approvalHref));
+		expect(approvalUrl.searchParams.get("feature")).toBe("managed-cron");
+		expect(approvalUrl.searchParams.get("origin")).toBe(
+			"https://cybershield.example.com",
+		);
+		expect(JSON.stringify(body)).not.toContain("Forbidden raw upstream body");
+		expect(JSON.stringify(body)).not.toContain("<html>");
+	});
+
+	test("keeps opaque upstream setup 404 responses blocked with a visible reason", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response("<html>Missing route raw upstream body</html>", {
+					headers: { "Content-Type": "text/html" },
+					status: 404,
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			request("/api/workspace/cron/setup", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(404);
+		expect(body.approvalHref).toBeUndefined();
+		expect(body).toMatchObject({
+			configured: false,
+			enabled: false,
+			localStorageReady: true,
+			setupDisabled: true,
+			upstreamStatus: 404,
+		});
+		expect(String(body.error)).toContain("HTTP 404");
+		expect(String(body.setupDisabledReason)).toContain("HTTP 404");
+		expect(JSON.stringify(body)).not.toContain("Missing route raw upstream body");
+		expect(JSON.stringify(body)).not.toContain("<html>");
+	});
+
+	test("keeps opaque upstream setup 500 responses blocked with a visible reason", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response("upstream stack trace raw body", {
+					headers: { "Content-Type": "text/plain" },
+					status: 500,
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { POST } = await import("@/app/api/workspace/cron/setup/route");
+		const response = await POST(
+			request("/api/workspace/cron/setup", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(500);
+		expect(body.approvalHref).toBeUndefined();
+		expect(body).toMatchObject({
+			configured: false,
+			enabled: false,
+			localStorageReady: true,
+			setupDisabled: true,
+			upstreamStatus: 500,
+		});
+		expect(String(body.error)).toContain("HTTP 500");
+		expect(String(body.setupDisabledReason)).toContain("HTTP 500");
+		expect(JSON.stringify(body)).not.toContain("stack trace raw body");
+	});
+
 	test("refreshes stale scope sessions before scheduler setup", async () => {
 		dbMode.missingStorage = false;
 		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
