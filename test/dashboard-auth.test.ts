@@ -364,6 +364,8 @@ describe("dashboard auth gate", () => {
 				"workspace:members:write",
 				"workspace:roles:read",
 				"workspace:roles:write",
+				"workspace:cron:read",
+				"workspace:cron:write",
 				"users:profile:read",
 				"users:profile:write",
 			]);

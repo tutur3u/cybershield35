@@ -9,6 +9,9 @@ import {
 } from "@/lib/domain/tracked-sources";
 import { createScan } from "@/lib/workers/scans";
 
+const ACTIVE_SCAN_STATUSES = new Set(["queued", "running", "retrying"]);
+const DEFAULT_TRACKED_SOURCE_SCAN_WINDOW_MS = 60 * 60 * 1000;
+
 export async function ensureDefaultTrackedSources() {
 	for (const seed of defaultTrackedSourceSeeds) {
 		await insertDefaultTrackedSource(seed);
@@ -99,6 +102,69 @@ export async function scanTrackedSource(id: string) {
 		.returning();
 
 	return { source: updated ?? source, scan };
+}
+
+export async function enqueueDueTrackedSources({
+	windowMs = DEFAULT_TRACKED_SOURCE_SCAN_WINDOW_MS,
+}: {
+	windowMs?: number;
+} = {}) {
+	await ensureDefaultTrackedSources();
+
+	const sources = await adminDb
+		.select()
+		.from(trackedSources)
+		.orderBy(desc(trackedSources.updatedAt));
+	const now = Date.now();
+	const scans: Array<{ scanId: string; sourceId: string }> = [];
+	const skipped: Array<{ reason: string; sourceId: string }> = [];
+
+	for (const source of sources) {
+		if (!source.isActive) {
+			skipped.push({ reason: "inactive", sourceId: source.id });
+			continue;
+		}
+
+		if (
+			source.lastScanStatus &&
+			ACTIVE_SCAN_STATUSES.has(source.lastScanStatus)
+		) {
+			skipped.push({ reason: "scan_in_progress", sourceId: source.id });
+			continue;
+		}
+
+		if (
+			source.lastScannedAt &&
+			now - source.lastScannedAt.getTime() < windowMs
+		) {
+			skipped.push({ reason: "recently_scanned", sourceId: source.id });
+			continue;
+		}
+
+		const scan = await createScan({
+			input: source.normalizedUrl,
+			title: source.displayName,
+		});
+
+		await adminDb
+			.update(trackedSources)
+			.set({
+				lastScanJobId: scan.scanId,
+				lastScanStatus: scan.status,
+				lastScannedAt: new Date(),
+				updatedAt: new Date(),
+			})
+			.where(eq(trackedSources.id, source.id));
+
+		scans.push({ scanId: scan.scanId, sourceId: source.id });
+	}
+
+	return {
+		enqueued: scans.length,
+		scans,
+		skipped: skipped.length,
+		skippedSources: skipped,
+	};
 }
 
 async function upsertTrackedSource(seed: TrackedSourceSeed) {

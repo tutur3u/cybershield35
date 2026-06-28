@@ -12,6 +12,7 @@ const appTables = [
 	"counter_argument_drafts",
 	"audit_events",
 	"cron_heartbeats",
+	"managed_scheduler_integrations",
 ] as const;
 
 describe("RLS migration", () => {

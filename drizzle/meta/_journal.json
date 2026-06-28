@@ -29,6 +29,13 @@
       "when": 1782402000000,
       "tag": "0003_remove_demo_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782633600000,
+      "tag": "0004_managed_scheduler_integration",
+      "breakpoints": true
     }
   ]
 }

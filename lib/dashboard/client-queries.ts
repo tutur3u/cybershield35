@@ -2,12 +2,14 @@ import { queryOptions } from "@tanstack/react-query";
 
 import type {
 	DashboardInitialData,
+	ManagedSchedulerStatusView,
 	ScanDetail,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
 	dashboardQueryKeys,
 	dashboardQueryStaleTimeMs,
+	managedSchedulerQueryStaleTimeMs,
 	normalizeDashboardInitialQueryParams,
 	type DashboardInitialQueryParams,
 	workspaceMembersQueryStaleTimeMs,
@@ -44,6 +46,15 @@ export function workspaceMembersQueryOptions() {
 	});
 }
 
+export function managedSchedulerQueryOptions() {
+	return queryOptions({
+		gcTime: 5 * 60_000,
+		queryFn: fetchManagedSchedulerStatus,
+		queryKey: dashboardQueryKeys.managedScheduler(),
+		staleTime: managedSchedulerQueryStaleTimeMs,
+	});
+}
+
 async function fetchDashboardInitialData(
 	params: ReturnType<typeof normalizeDashboardInitialQueryParams>,
 ): Promise<DashboardInitialData> {
@@ -67,6 +78,10 @@ async function fetchScanDetail(scanId: string): Promise<ScanDetail | null> {
 
 async function fetchWorkspaceMembers(): Promise<WorkspaceMembersResponse> {
 	return fetchJson("/api/workspace/members");
+}
+
+async function fetchManagedSchedulerStatus(): Promise<ManagedSchedulerStatusView> {
+	return fetchJson("/api/workspace/cron");
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

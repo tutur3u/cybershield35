@@ -12,7 +12,10 @@ import {
 	toSafeSession,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
-import { buildTuturuuuScopeApprovalUrl } from "@/lib/auth/scope-approval";
+import {
+	buildManagedSchedulerApprovalUrl,
+	buildTuturuuuScopeApprovalUrl,
+} from "@/lib/auth/scope-approval";
 
 const originalEnv = { ...process.env };
 
@@ -106,6 +109,8 @@ describe("Tuturuuu encrypted admin session", () => {
 			"workspace:members:write",
 			"workspace:roles:read",
 			"workspace:roles:write",
+			"workspace:cron:read",
+			"workspace:cron:write",
 			"users:profile:read",
 			"users:profile:write",
 		]);
@@ -134,6 +139,8 @@ describe("Tuturuuu encrypted admin session", () => {
 			"workspace:members:write",
 			"workspace:roles:read",
 			"workspace:roles:write",
+			"workspace:cron:read",
+			"workspace:cron:write",
 			"users:profile:read",
 			"users:profile:write",
 		]);
@@ -146,6 +153,39 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(verifyUrl.pathname).toBe("/verify-token");
 		expect(verifyUrl.searchParams.get("nextUrl")).toBe("/sources?tab=facebook");
 		expect(href).not.toContain("do-not-leak");
+	});
+
+	test("builds a managed scheduler approval URL without generated tokens", () => {
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "do-not-leak";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+
+		const href = buildManagedSchedulerApprovalUrl({
+			appBaseUrl: "https://cybershield.example.com",
+			origin: "https://cybershield.example.com",
+		});
+
+		expect(href).toBeTruthy();
+		const approvalUrl = new URL(href ?? "");
+		expect(approvalUrl.searchParams.get("feature")).toBe("managed-cron");
+		expect(approvalUrl.searchParams.get("workspaceId")).toBe("workspace-1");
+		expect(approvalUrl.searchParams.get("origin")).toBe(
+			"https://cybershield.example.com",
+		);
+		expect(approvalUrl.searchParams.getAll("scope")).toContain(
+			"workspace:cron:read",
+		);
+		expect(approvalUrl.searchParams.getAll("scope")).toContain(
+			"workspace:cron:write",
+		);
+		expect(approvalUrl.toString()).not.toContain("do-not-leak");
+		expect(approvalUrl.toString()).not.toContain("token=");
+
+		const returnUrl = new URL(approvalUrl.searchParams.get("returnUrl") ?? "");
+		expect(returnUrl.origin).toBe("https://cybershield.example.com");
+		expect(returnUrl.pathname).toBe("/settings");
+		expect(returnUrl.searchParams.get("cronSetup")).toBe("retry");
 	});
 
 	test("allows operators to override the Tuturuuu approval page URL", () => {
