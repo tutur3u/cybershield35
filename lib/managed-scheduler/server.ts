@@ -62,6 +62,7 @@ type ManagedSchedulerStatus = {
 	setupOrigin?: string;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
+	upstreamStatus?: number;
 };
 
 type LocalIntegrationState =
@@ -83,7 +84,13 @@ export async function getManagedSchedulerStatus(request: Request) {
 			headers: { Authorization: auth.authorization },
 			method: "GET",
 		});
-		const body = await response.json().catch(() => null);
+		const upstream = await readUpstreamSchedulerResponse(response);
+		const body = normalizeUpstreamSchedulerBody({
+			body: upstream.body,
+			operation: "status",
+			request,
+			response,
+		});
 		const approvalHref = approvalHrefForResponse({ body, request, response });
 		const setupOrigin = setupOriginForResponse({ body, request });
 
@@ -94,6 +101,7 @@ export async function getManagedSchedulerStatus(request: Request) {
 				local: localState.row,
 				remote: body,
 				setupOrigin,
+				upstreamStatus: upstream.status,
 			}),
 			{
 				setCookie: auth.setCookie,
@@ -134,7 +142,13 @@ export async function setupManagedScheduler(request: Request) {
 			},
 			method: "POST",
 		});
-		const body = await response.json().catch(() => null);
+		const upstream = await readUpstreamSchedulerResponse(response);
+		const body = normalizeUpstreamSchedulerBody({
+			body: upstream.body,
+			operation: "setup",
+			request,
+			response,
+		});
 
 		if (!response.ok) {
 			return json(
@@ -144,6 +158,7 @@ export async function setupManagedScheduler(request: Request) {
 					local: localState.row,
 					remote: body,
 					setupOrigin: setupOriginForResponse({ body, request }),
+					upstreamStatus: upstream.status,
 				}),
 				{ setCookie: auth.setCookie, status: response.status },
 			);
@@ -203,9 +218,9 @@ export async function proxyManagedSchedulerRequest(
 			},
 			method: input.method,
 		});
-		const body = await response.json().catch(() => null);
+		const upstream = await readUpstreamSchedulerResponse(response);
 
-		return json(body ?? fallbackBody(response.status), {
+		return json(upstream.body ?? fallbackBody(response.status), {
 			setCookie: auth.setCookie,
 			status: response.status,
 		});
@@ -254,12 +269,14 @@ function normalizeSchedulerStatus({
 	local,
 	remote,
 	setupOrigin,
+	upstreamStatus,
 }: {
 	approvalHref?: string;
 	blocked?: boolean;
 	local: ManagedSchedulerIntegrationRow | null;
 	remote: unknown;
 	setupOrigin?: string;
+	upstreamStatus?: number;
 }): ManagedSchedulerStatus {
 	const remoteRecord =
 		remote && typeof remote === "object" ? (remote as Record<string, unknown>) : {};
@@ -268,14 +285,20 @@ function normalizeSchedulerStatus({
 	const error =
 		remoteError ??
 		(blocked && !approvalHref ? "Managed scheduler request failed" : undefined);
-	const missingApprovalItems = normalizeMissingApprovalItems(remoteRecord.missing);
+	const missingApprovalItems = normalizeMissingApprovalItems(
+		remoteRecord.missing ?? remoteRecord.missingApprovalItems,
+	);
 	const approvalReason = approvalReasonFromRemote(remoteRecord, error ?? undefined);
-	const setupDisabledReason = setupDisabledReasonForApproval({
-		approvalHref,
-		blocked,
-		missingApprovalItems,
-		setupOrigin,
-	});
+	const setupDisabledReason =
+		cleanString(remoteRecord.setupDisabledReason) ??
+		setupDisabledReasonForApproval({
+			approvalHref,
+			blocked,
+			missingApprovalItems,
+			setupOrigin,
+		});
+	const normalizedUpstreamStatus =
+		normalizeUpstreamStatus(remoteRecord.upstreamStatus) ?? upstreamStatus;
 	const jobs = Array.isArray(remoteRecord.jobs)
 		? remoteRecord.jobs.map(normalizeJob).filter(isSchedulerJobStatus)
 		: [];
@@ -288,6 +311,7 @@ function normalizeSchedulerStatus({
 		...(missingApprovalItems.length > 0 ? { missingApprovalItems } : {}),
 		...(setupDisabledReason ? { setupDisabledReason } : {}),
 		...(setupOrigin ? { setupOrigin } : {}),
+		...(normalizedUpstreamStatus ? { upstreamStatus: normalizedUpstreamStatus } : {}),
 		configured: Boolean(local) && remoteRecord.configured !== false,
 		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
 		jobs,
@@ -456,6 +480,94 @@ function authSchedulerStatusBody(
 	};
 }
 
+async function readUpstreamSchedulerResponse(response: Response) {
+	const text = await response.text().catch(() => "");
+	return {
+		body: parseJsonBody(text),
+		status: response.status,
+	};
+}
+
+function parseJsonBody(text: string) {
+	if (!text.trim()) return null;
+	try {
+		return JSON.parse(text) as unknown;
+	} catch {
+		return null;
+	}
+}
+
+function normalizeUpstreamSchedulerBody({
+	body,
+	operation,
+	request,
+	response,
+}: {
+	body: unknown;
+	operation: "setup" | "status";
+	request: Request;
+	response: Response;
+}) {
+	if (response.ok) return body;
+	if (needsApproval(response.status, body)) {
+		return withUpstreamStatus(body, response.status);
+	}
+	if (
+		operation === "setup" &&
+		response.status === 403 &&
+		!hasExplicitNonApprovalFailure(body)
+	) {
+		return {
+			code: "CRON_APPROVAL_REQUIRED",
+			error: "Managed scheduler approval required",
+			missing: ["domain"],
+			origin: setupOriginForResponse({ body, request }),
+			upstreamStatus: response.status,
+		};
+	}
+
+	const setupDisabledReason = upstreamFailureReason(operation, response.status);
+	if (body && typeof body === "object") {
+		const record = body as Record<string, unknown>;
+		return {
+			...record,
+			setupDisabledReason:
+				cleanString(record.setupDisabledReason) ?? setupDisabledReason,
+			upstreamStatus: response.status,
+		};
+	}
+
+	return {
+		error: setupDisabledReason,
+		setupDisabledReason,
+		upstreamStatus: response.status,
+	};
+}
+
+function withUpstreamStatus(body: unknown, status: number) {
+	if (!body || typeof body !== "object") return body;
+	return { ...(body as Record<string, unknown>), upstreamStatus: status };
+}
+
+function hasExplicitNonApprovalFailure(body: unknown) {
+	if (!body || typeof body !== "object") return false;
+	const record = body as Record<string, unknown>;
+	const code = cleanString(record.code);
+	return Boolean(
+		cleanString(record.setupDisabledReason) ||
+			(code && !APPROVAL_REQUIRED_CODES.has(code)),
+	);
+}
+
+function upstreamFailureReason(
+	operation: "setup" | "status",
+	status: number,
+) {
+	const label =
+		operation === "setup" ? "setup" : "status check";
+	return `Tuturuuu managed scheduler ${label} returned HTTP ${status}. Check the Tuturuuu managed-cron API deployment, then retry.`;
+}
+
 function approvalHrefForResponse({
 	body,
 	request,
@@ -563,6 +675,13 @@ function setupDisabledReasonForApproval({
 		return "Cấu hình CYBERSHIELD35_PUBLIC_APP_URL bằng URL HTTPS public rồi thử lại để tạo liên kết duyệt managed scheduler.";
 	}
 	return undefined;
+}
+
+function normalizeUpstreamStatus(value: unknown) {
+	const status = Number(value);
+	return Number.isInteger(status) && status >= 100 && status <= 599
+		? status
+		: undefined;
 }
 
 function isPublicHttpsOrigin(value: string) {

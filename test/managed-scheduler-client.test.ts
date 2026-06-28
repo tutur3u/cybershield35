@@ -78,6 +78,41 @@ describe("managed scheduler client queries", () => {
 		});
 	});
 
+	test("returns blocked upstream scheduler states with sanitized diagnostics", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "MANAGED_CRON_UNAVAILABLE",
+						configured: false,
+						enabled: false,
+						error: "Managed scheduler provider is unavailable.",
+						jobs: [],
+						localStorageReady: true,
+						setupDisabled: true,
+						setupDisabledReason:
+							"Tuturuuu managed scheduler status check returned HTTP 503.",
+						tokenLastFour: null,
+						updatedAt: null,
+						upstreamStatus: 503,
+					},
+					{ status: 503 },
+				),
+			),
+		) as unknown as typeof fetch;
+
+		const status = await fetchManagedSchedulerStatus();
+
+		expect(status).toMatchObject({
+			code: "MANAGED_CRON_UNAVAILABLE",
+			error: "Managed scheduler provider is unavailable.",
+			setupDisabled: true,
+			setupDisabledReason:
+				"Tuturuuu managed scheduler status check returned HTTP 503.",
+			upstreamStatus: 503,
+		});
+	});
+
 	test("uses sanitized upstream messages instead of the generic load error", async () => {
 		globalThis.fetch = mock(() =>
 			Promise.resolve(
