@@ -900,6 +900,9 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("queryUnavailable");
 		expect(panel).toContain("query.refetch()");
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
+		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
+		expect(panel).toContain("href={status.approvalHref}");
+		expect(panel).toContain("Duyệt thiết lập");
 		expect(panel).toContain("disabled={controlsDisabled}");
 		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
 		expect(panel).toContain("missingApprovalItems");

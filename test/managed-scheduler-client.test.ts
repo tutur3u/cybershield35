@@ -73,7 +73,7 @@ describe("managed scheduler client queries", () => {
 				"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?feature=managed-cron",
 			code: "CRON_APPROVAL_REQUIRED",
 			missingApprovalItems: ["domain"],
-			setupDisabled: true,
+			setupDisabled: false,
 			setupOrigin: "https://cybershield.example.com",
 		});
 	});
