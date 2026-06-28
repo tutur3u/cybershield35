@@ -2,6 +2,7 @@ import type { DashboardSnapshotRequirements } from "@/lib/dashboard/route-requir
 
 export const dashboardQueryStaleTimeMs = 120_000;
 export const workspaceMembersQueryStaleTimeMs = 120_000;
+export const managedSchedulerQueryStaleTimeMs = 120_000;
 
 export type DashboardInitialQueryParams = DashboardSnapshotRequirements & {
 	scanId?: string | null;
@@ -27,5 +28,6 @@ export const dashboardQueryKeys = {
 			normalizeDashboardInitialQueryParams(params),
 		] as const,
 	scanDetail: (scanId: string) => ["dashboard", "scan-detail", scanId] as const,
+	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
 	workspaceMembers: () => ["workspace", "members"] as const,
 };

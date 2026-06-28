@@ -7,6 +7,7 @@ import { logout } from "@/components/dashboard/client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
 import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { Dialog } from "@/components/dashboard/dialog-frame";
+import { ManagedSchedulerPanel } from "@/components/dashboard/managed-scheduler-panel";
 import { ProviderStatus } from "@/components/dashboard/page-widgets";
 import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
@@ -28,7 +29,10 @@ export function DashboardLayoutShell({
 	const [auth, setAuth] = useState<AuthViewState>(initialAuth);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+	const [schedulerAutoRetryToken] = useState(readSchedulerAutoRetryToken);
+	const [settingsDialogOpen, setSettingsDialogOpen] = useState(() =>
+		Boolean(schedulerAutoRetryToken)
+	);
 	const [providerAvailability, setProviderAvailability] =
 		useState<ProviderAvailabilityView | null>(initialProviderAvailability);
 	const [, setNotice] = useState("");
@@ -50,6 +54,20 @@ export function DashboardLayoutShell({
 			alive = false;
 		};
 	}, [auth.authenticated]);
+
+	useEffect(() => {
+		if (!schedulerAutoRetryToken || typeof window === "undefined") return;
+
+		const url = new URL(window.location.href);
+		if (url.searchParams.get("cronSetup") !== "retry") return;
+
+		url.searchParams.delete("cronSetup");
+		window.history.replaceState(
+			null,
+			"",
+			`${url.pathname}${url.search}${url.hash}`
+		);
+	}, [schedulerAutoRetryToken]);
 
 	return (
 		<DashboardAuthProvider initialAuth={auth}>
@@ -104,11 +122,16 @@ export function DashboardLayoutShell({
 					<Dialog
 						open={settingsDialogOpen}
 						onClose={() => setSettingsDialogOpen(false)}
-						title="Cấu hình máy chủ"
-						description="Trạng thái provider server-side và khóa vận hành hiện có."
+						title="Cài đặt vận hành"
+						description="Trạng thái provider và tự động hóa lịch quét."
 						size="wide"
 					>
-						<ProviderStatus availability={providerAvailability ?? undefined} />
+						<div className="space-y-4">
+							<ManagedSchedulerPanel
+								autoRetryToken={schedulerAutoRetryToken}
+							/>
+							<ProviderStatus availability={providerAvailability ?? undefined} />
+						</div>
 					</Dialog>
 				</main>
 			) : (
@@ -127,4 +150,11 @@ function currentLoginHref() {
 
 	const nextUrl = `${window.location.pathname}${window.location.search}`;
 	return `/login?nextUrl=${encodeURIComponent(nextUrl)}`;
+}
+
+function readSchedulerAutoRetryToken() {
+	if (typeof window === "undefined") return undefined;
+
+	const url = new URL(window.location.href);
+	return url.searchParams.get("cronSetup") === "retry" ? Date.now() : undefined;
 }

@@ -225,6 +225,28 @@ export const cronHeartbeats = pgTable("cron_heartbeats", {
 	metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
 });
 
+export const managedSchedulerIntegrations = pgTable(
+	"managed_scheduler_integrations",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		provider: text("provider").default("managed-scheduler").notNull(),
+		tokenHash: text("token_hash").notNull(),
+		tokenLastFour: text("token_last_four").notNull(),
+		enabled: boolean("enabled").default(true).notNull(),
+		setupMetadata: jsonb("setup_metadata")
+			.$type<Record<string, unknown>>()
+			.default({})
+			.notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("managed_scheduler_integrations_provider_unique").on(
+			table.provider,
+		),
+	],
+);
+
 export type SourceType = (typeof sourceTypeEnum.enumValues)[number];
 export type ProviderName = (typeof providerNameEnum.enumValues)[number];
 export type ScanStatus = (typeof scanStatusEnum.enumValues)[number];
@@ -238,3 +260,5 @@ export type TrackedSourceRow = typeof trackedSources.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;
 export type CounterArgumentDraftRow = typeof counterArgumentDrafts.$inferSelect;
+export type ManagedSchedulerIntegrationRow =
+	typeof managedSchedulerIntegrations.$inferSelect;

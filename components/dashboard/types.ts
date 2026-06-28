@@ -78,6 +78,26 @@ export type WorkspaceMembersResponse = {
 	members: WorkspaceMemberView[];
 };
 
+export type ManagedSchedulerJobView = {
+	active: boolean;
+	failureCount: number;
+	jobKey: string;
+	lastRunAt: string | null;
+	lastStatus: string | null;
+	name: string;
+	nextRunAt: string | null;
+	schedule: string;
+};
+
+export type ManagedSchedulerStatusView = {
+	approvalHref?: string;
+	configured: boolean;
+	enabled: boolean;
+	jobs: ManagedSchedulerJobView[];
+	tokenLastFour: string | null;
+	updatedAt: string | null;
+};
+
 export type DashboardInitialData = {
 	detail: ScanDetail | null;
 	loadError?: string;
