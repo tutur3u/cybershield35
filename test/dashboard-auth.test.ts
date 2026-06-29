@@ -903,8 +903,12 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
 		expect(panel).toContain("href={status.approvalHref}");
 		expect(panel).toContain("Duyệt thiết lập");
+		expect(panel).toContain("canOpenRecovery");
+		expect(panel).toContain("href={status?.adminRecoveryHref}");
+		expect(panel).toContain("Khôi phục cron");
 		expect(panel).toContain("disabled={controlsDisabled}");
 		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
+		expect(panel).toContain("Mở trang vận hành Tuturuuu");
 		expect(panel).toContain("missingApprovalItems");
 		expect(panel).toContain("setupDisabledReason");
 		expect(panel).toContain("!status?.setupDisabledReason");

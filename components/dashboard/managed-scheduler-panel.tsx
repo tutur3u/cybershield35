@@ -72,6 +72,11 @@ export function ManagedSchedulerPanel({
 		setupMutation.isPending ||
 		Boolean(status?.setupDisabled) ||
 		storageNotReady;
+	const canOpenRecovery =
+		Boolean(status?.adminRecoveryHref) &&
+		!status?.approvalHref &&
+		!query.isLoading &&
+		!queryUnavailable;
 	const error =
 		setupMutation.error instanceof Error
 			? setupMutation.error.message
@@ -97,6 +102,14 @@ export function ManagedSchedulerPanel({
 						>
 							<ExternalLink size={14} />
 							Duyệt thiết lập
+						</a>
+					) : canOpenRecovery ? (
+						<a
+							href={status?.adminRecoveryHref}
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+						>
+							<ExternalLink size={14} />
+							Khôi phục cron
 						</a>
 					) : (
 						<button
@@ -157,6 +170,7 @@ export function ManagedSchedulerPanel({
 				!status.approvalHref &&
 				!storageNotReady ? (
 					<SetupBlockedNotice
+						adminRecoveryHref={status.adminRecoveryHref}
 						message={status.setupDisabledReason}
 						missingApprovalItems={status.missingApprovalItems}
 						setupOrigin={status.setupOrigin}
@@ -306,10 +320,12 @@ function StorageNotReadyNotice({ message }: { message: string }) {
 }
 
 function SetupBlockedNotice({
+	adminRecoveryHref,
 	message,
 	missingApprovalItems,
 	setupOrigin,
 }: {
+	adminRecoveryHref?: string;
 	message: string;
 	missingApprovalItems?: string[];
 	setupOrigin?: string;
@@ -331,6 +347,15 @@ function SetupBlockedNotice({
 				<code className="mt-3 inline-flex max-w-full overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
 					<span className="truncate">{setupOrigin}</span>
 				</code>
+			) : null}
+			{adminRecoveryHref ? (
+				<a
+					href={adminRecoveryHref}
+					className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--foreground)] transition hover:bg-[var(--surface-soft)]"
+				>
+					<ExternalLink size={14} />
+					Mở trang vận hành Tuturuuu
+				</a>
 			) : null}
 		</div>
 	);
