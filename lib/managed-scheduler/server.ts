@@ -294,7 +294,7 @@ function normalizeSchedulerStatus({
 }): ManagedSchedulerStatus {
 	const remoteRecord =
 		remote && typeof remote === "object" ? (remote as Record<string, unknown>) : {};
-	const code = cleanString(remoteRecord.code);
+	const code = cleanString(remoteRecord.code) ?? undefined;
 	const remoteError = cleanString(remoteRecord.error ?? remoteRecord.message);
 	const error =
 		remoteError ??
