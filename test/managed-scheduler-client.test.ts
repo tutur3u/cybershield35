@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { fetchManagedSchedulerStatus } from "@/lib/dashboard/client-queries";
+import {
+	fetchManagedSchedulerExecutions,
+	fetchManagedSchedulerStatus,
+} from "@/lib/dashboard/client-queries";
 
 const originalFetch = globalThis.fetch;
 
@@ -146,5 +149,91 @@ describe("managed scheduler client queries", () => {
 			"Managed scheduler provider is unavailable.",
 		);
 		expect((error as Error).message).not.toBe("Không thể tải dữ liệu.");
+	});
+
+	test("preserves schedule timezone, history summary, and overdue fields", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				Response.json({
+					configured: true,
+					enabled: true,
+					generatedAt: "2026-06-29T11:41:00.000Z",
+					jobs: [
+						{
+							active: true,
+							failureCount: 0,
+							isOverdue: true,
+							jobKey: "process-queue",
+							lastExecution: {
+								id: "execution-1",
+								jobKey: "process-queue",
+								source: "manual",
+								status: "success",
+							},
+							lastRunAt: null,
+							lastStatus: null,
+							name: "Managed scheduler process queue",
+							nextRunAt: "2026-06-29T11:30:00.000Z",
+							overdueReason:
+								"No execution recorded after scheduled time.",
+							overdueSince: "2026-06-29T11:30:00.000Z",
+							schedule: "*/5 * * * *",
+							scheduleDescription: "Every 5 minutes (Asia/Ho_Chi_Minh)",
+							scheduleTimezone: "Asia/Ho_Chi_Minh",
+						},
+					],
+					serverNow: "2026-06-29T11:41:00.000Z",
+					tokenLastFour: "nxHA",
+					updatedAt: "2026-06-29T11:28:00.000Z",
+				}),
+			),
+		) as unknown as typeof fetch;
+
+		const status = await fetchManagedSchedulerStatus();
+
+		expect(status.generatedAt).toBe("2026-06-29T11:41:00.000Z");
+		expect(status.serverNow).toBe("2026-06-29T11:41:00.000Z");
+		expect(status.jobs[0]).toMatchObject({
+			isOverdue: true,
+			overdueReason: "No execution recorded after scheduled time.",
+			scheduleTimezone: "Asia/Ho_Chi_Minh",
+		});
+		expect(status.jobs[0]?.lastExecution).toMatchObject({
+			id: "execution-1",
+			source: "manual",
+		});
+	});
+
+	test("loads managed scheduler execution history", async () => {
+		globalThis.fetch = mock((url: string | URL) => {
+			expect(String(url)).toContain("/api/workspace/cron/jobs/process-queue/executions");
+			return Promise.resolve(
+				Response.json({
+					items: [
+						{
+							durationMs: 100,
+							id: "execution-1",
+							jobKey: "process-queue",
+							jobName: "Managed scheduler process queue",
+							source: "manual",
+							startedAt: "2026-06-29T11:40:00.000Z",
+							status: "success",
+						},
+					],
+					total: 1,
+				}),
+			);
+		}) as unknown as typeof fetch;
+
+		const history = await fetchManagedSchedulerExecutions("process-queue");
+
+		expect(history.total).toBe(1);
+		expect(history.items).toEqual([
+			expect.objectContaining({
+				id: "execution-1",
+				source: "manual",
+				status: "success",
+			}),
+		]);
 	});
 });

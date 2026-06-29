@@ -44,19 +44,56 @@ const SCOPE_NOT_ALLOWED_ERROR = "Requested scope is not allowed for this app";
 
 export const managedSchedulerJobPatchSchema = z
 	.object({
-		enabled: z.boolean(),
+		enabled: z.boolean().optional(),
+		schedule: z.string().trim().min(1).max(120).optional(),
+		scheduleTimezone: z.string().trim().min(1).max(128).optional(),
 	})
+	.refine(
+		(value) =>
+			value.enabled !== undefined ||
+			value.schedule !== undefined ||
+			value.scheduleTimezone !== undefined,
+		{ message: "Provide a managed scheduler job update" },
+	)
 	.strict();
+
+export const managedSchedulerExecutionsQuerySchema = z.object({
+	jobKey: z.string().trim().min(1).max(128).optional(),
+	page: z.coerce.number().int().min(1).default(1),
+	pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+type ManagedSchedulerExecutionStatus = {
+	durationMs: number | null;
+	endedAt: string | null;
+	error: string | null;
+	httpStatus: number | null;
+	id: string;
+	jobId: string | null;
+	jobKey: string;
+	jobName: string;
+	response: string | null;
+	source: "manual" | "scheduled";
+	startedAt: string | null;
+	status: string;
+};
 
 type ManagedSchedulerJobStatus = {
 	active: boolean;
 	failureCount: number;
+	isOverdue?: boolean;
+	jobId: string | null;
 	jobKey: string;
+	lastExecution: ManagedSchedulerExecutionStatus | null;
 	lastRunAt: string | null;
 	lastStatus: string | null;
 	name: string;
 	nextRunAt: string | null;
+	overdueReason: string | null;
+	overdueSince: string | null;
 	schedule: string;
+	scheduleDescription: string;
+	scheduleTimezone: string;
 };
 
 type ManagedSchedulerStatus = {
@@ -68,12 +105,14 @@ type ManagedSchedulerStatus = {
 	configured: boolean;
 	enabled: boolean;
 	error?: string;
+	generatedAt?: string | null;
 	jobs: ManagedSchedulerJobStatus[];
 	localStorageReady: boolean;
 	missingApprovalItems?: string[];
 	setupDisabled: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
+	serverNow?: string | null;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 	upstreamStatus?: number;
@@ -244,6 +283,42 @@ export async function proxyManagedSchedulerRequest(
 	}
 }
 
+export async function proxyManagedSchedulerRead(
+	request: Request,
+	input: {
+		path: string;
+	},
+) {
+	try {
+		const auth = await getBearerForPlatformRequest(request);
+		const localState = await getLocalIntegrationState();
+		if (localState.kind === "not_ready") {
+			return json(localSchedulerStorageNotReadyStatus(), {
+				setCookie: auth.setCookie,
+				status: 503,
+			});
+		}
+
+		const response = await fetch(buildManagedSchedulerUrl(input.path), {
+			cache: "no-store",
+			headers: {
+				Accept: "application/json",
+				Authorization: auth.authorization,
+			},
+			method: "GET",
+		});
+		const upstream = await readUpstreamSchedulerResponse(response);
+
+		return json(upstream.body ?? fallbackBody(response.status), {
+			setCookie: auth.setCookie,
+			status: response.status,
+		});
+	} catch (error) {
+		const safe = sanitizeAuthError(error);
+		return json(authErrorBody(safe, request), { status: safe.status });
+	}
+}
+
 export async function verifyManagedSchedulerRequest(request: Request) {
 	const token = bearerToken(request);
 	if (!token) return false;
@@ -329,6 +404,8 @@ function normalizeSchedulerStatus({
 	const jobs = Array.isArray(remoteRecord.jobs)
 		? remoteRecord.jobs.map(normalizeJob).filter(isSchedulerJobStatus)
 		: [];
+	const generatedAt = cleanString(remoteRecord.generatedAt);
+	const serverNow = cleanString(remoteRecord.serverNow);
 
 	return {
 		...(adminRecoveryHref ? { adminRecoveryHref } : {}),
@@ -337,9 +414,11 @@ function normalizeSchedulerStatus({
 		...(approvalReason ? { approvalReason } : {}),
 		...(code ? { code } : {}),
 		...(error ? { error } : {}),
+		...(generatedAt ? { generatedAt } : {}),
 		...(missingApprovalItems.length > 0 ? { missingApprovalItems } : {}),
 		...(setupDisabledReason ? { setupDisabledReason } : {}),
 		...(setupOrigin ? { setupOrigin } : {}),
+		...(serverNow ? { serverNow } : {}),
 		...(normalizedUpstreamStatus ? { upstreamStatus: normalizedUpstreamStatus } : {}),
 		configured: Boolean(local) && remoteRecord.configured !== false,
 		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
@@ -432,12 +511,42 @@ function normalizeJob(value: unknown): ManagedSchedulerJobStatus | null {
 	return {
 		active: row.active !== false,
 		failureCount: Number(row.failureCount ?? row.failure_count ?? 0),
+		isOverdue: row.isOverdue === true || row.is_overdue === true,
+		jobId: cleanString(row.jobId ?? row.job_id),
 		jobKey,
+		lastExecution: normalizeExecution(row.lastExecution ?? row.last_execution),
 		lastRunAt: cleanString(row.lastRunAt ?? row.last_run_at),
 		lastStatus: cleanString(row.lastStatus ?? row.last_status),
 		name: cleanString(row.name) ?? jobKey,
 		nextRunAt: cleanString(row.nextRunAt ?? row.next_run_at),
+		overdueReason: cleanString(row.overdueReason ?? row.overdue_reason),
+		overdueSince: cleanString(row.overdueSince ?? row.overdue_since),
 		schedule: cleanString(row.schedule) ?? "",
+		scheduleDescription: cleanString(row.scheduleDescription) ?? "",
+		scheduleTimezone: cleanString(row.scheduleTimezone) ?? "UTC",
+	};
+}
+
+function normalizeExecution(value: unknown): ManagedSchedulerExecutionStatus | null {
+	if (!value || typeof value !== "object") return null;
+	const row = value as Record<string, unknown>;
+	const id = cleanString(row.id);
+	const jobKey = cleanString(row.jobKey ?? row.job_key);
+	if (!id && !jobKey) return null;
+
+	return {
+		durationMs: normalizeNullableNumber(row.durationMs ?? row.duration_ms),
+		endedAt: cleanString(row.endedAt ?? row.endTime ?? row.end_time),
+		error: cleanString(row.error),
+		httpStatus: normalizeNullableNumber(row.httpStatus ?? row.http_status),
+		id: id ?? "",
+		jobId: cleanString(row.jobId ?? row.job_id),
+		jobKey: jobKey ?? "",
+		jobName: cleanString(row.jobName ?? row.name) ?? jobKey ?? "",
+		response: cleanString(row.response),
+		source: row.source === "manual" ? "manual" : "scheduled",
+		startedAt: cleanString(row.startedAt ?? row.startTime ?? row.start_time),
+		status: cleanString(row.status) ?? "unknown",
 	};
 }
 
@@ -872,4 +981,8 @@ function firstForwarded(value: string | null) {
 
 function cleanString(value: unknown) {
 	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeNullableNumber(value: unknown) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

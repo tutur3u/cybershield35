@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import type {
 	DashboardInitialData,
+	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	ScanDetail,
 	WorkspaceMembersResponse,
@@ -52,7 +53,17 @@ export function managedSchedulerQueryOptions() {
 		gcTime: 5 * 60_000,
 		queryFn: fetchManagedSchedulerStatus,
 		queryKey: dashboardQueryKeys.managedScheduler(),
+		refetchInterval: 30_000,
 		staleTime: managedSchedulerQueryStaleTimeMs,
+	});
+}
+
+export function managedSchedulerExecutionsQueryOptions(jobKey?: string) {
+	return queryOptions({
+		gcTime: 5 * 60_000,
+		queryFn: () => fetchManagedSchedulerExecutions(jobKey),
+		queryKey: dashboardQueryKeys.managedSchedulerExecutions(jobKey ?? "all"),
+		staleTime: 30_000,
 	});
 }
 
@@ -91,6 +102,24 @@ export async function fetchManagedSchedulerStatus(): Promise<ManagedSchedulerSta
 		response,
 		"Không thể kiểm tra managed scheduler.",
 	);
+}
+
+export async function fetchManagedSchedulerExecutions(
+	jobKey?: string,
+): Promise<ManagedSchedulerExecutionsView> {
+	const searchParams = new URLSearchParams({
+		page: "1",
+		pageSize: "25",
+	});
+	const url = jobKey
+		? `/api/workspace/cron/jobs/${encodeURIComponent(jobKey)}/executions?${searchParams.toString()}`
+		: `/api/workspace/cron/executions?${searchParams.toString()}`;
+	const payload = await fetchJson<ManagedSchedulerExecutionsView>(url);
+
+	return {
+		...payload,
+		items: Array.isArray(payload.items) ? payload.items : [],
+	};
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

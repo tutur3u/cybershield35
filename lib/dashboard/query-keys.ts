@@ -29,5 +29,7 @@ export const dashboardQueryKeys = {
 		] as const,
 	scanDetail: (scanId: string) => ["dashboard", "scan-detail", scanId] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
+	managedSchedulerExecutions: (jobKey = "all") =>
+		["workspace", "managed-scheduler", "executions", jobKey] as const,
 	workspaceMembers: () => ["workspace", "members"] as const,
 };
