@@ -206,6 +206,8 @@ describe("managed scheduler proxy routes", () => {
 
 		expect(response.status).toBe(200);
 		expect(body).toMatchObject({
+			adminRecoveryHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
 			code: "MANAGED_CRON_UNAVAILABLE",
 			configured: false,
 			enabled: false,
@@ -215,6 +217,47 @@ describe("managed scheduler proxy routes", () => {
 		});
 		expect(JSON.stringify(body)).not.toContain("raw-secret");
 		expect(JSON.stringify(body)).not.toContain("Failed query");
+	});
+
+	test("preserves Tuturuuu admin recovery links for blocked scheduler status checks", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						adminRecoveryHref:
+							"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+						adminRecoveryReason:
+							"Managed cron database is unavailable. Set a private platform database URL for Tuturuuu, then retry.",
+						code: "MANAGED_CRON_DATABASE_UNAVAILABLE",
+						configured: false,
+						enabled: false,
+						error: "Managed cron database is unavailable. Set a private platform database URL for Tuturuuu, then retry.",
+						jobs: [],
+						setupDisabledReason:
+							"Managed cron database is unavailable. Set a private platform database URL for Tuturuuu, then retry.",
+					},
+					{ status: 503 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			request("/api/workspace/cron", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			adminRecoveryHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+			adminRecoveryReason:
+				"Managed cron database is unavailable. Set a private platform database URL for Tuturuuu, then retry.",
+			code: "MANAGED_CRON_DATABASE_UNAVAILABLE",
+			setupDisabled: true,
+		});
 	});
 
 	test("returns scheduler approval state when upstream setup needs domain approval", async () => {
@@ -509,6 +552,8 @@ describe("managed scheduler proxy routes", () => {
 		expect(response.status).toBe(404);
 		expect(body.approvalHref).toBeUndefined();
 		expect(body).toMatchObject({
+			adminRecoveryHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
 			configured: false,
 			enabled: false,
 			localStorageReady: true,

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { buildManagedSchedulerApprovalUrl } from "@/lib/auth/scope-approval";
+import { getTuturuuuWebAppUrl } from "@/lib/auth/login-link";
 import {
 	buildTuturuuuApiUrl,
 	getBearerForPlatformRequest,
@@ -22,11 +23,22 @@ const LOCAL_SCHEDULER_STORAGE_NOT_READY =
 	"LOCAL_SCHEDULER_STORAGE_NOT_READY";
 const LOCAL_SCHEDULER_STORAGE_MESSAGE =
 	"Managed scheduler storage is not ready. Run bun db:migrate, then restart the app.";
+const TUTURUUU_CRON_RUNNER_RECOVERY_PATH =
+	"/vi/internal/infrastructure/monitoring/cron?focus=cron-runner";
 const APPROVAL_REQUIRED_CODES = new Set([
 	"CRON_APPROVAL_REQUIRED",
 	"MANAGED_CRON_APPROVAL_REQUIRED",
 	"MANAGED_CRON_DOMAIN_NOT_APPROVED",
 	"SCOPE_APPROVAL_REQUIRED",
+]);
+const MANAGED_CRON_INFRA_BLOCKED_CODES = new Set([
+	"MANAGED_CRON_DATABASE_UNAVAILABLE",
+	"MANAGED_CRON_JOB_UPDATE_FAILED",
+	"MANAGED_CRON_RUN_NOW_FAILED",
+	"MANAGED_CRON_SCHEMA_NOT_READY",
+	"MANAGED_CRON_SETUP_FAILED",
+	"MANAGED_CRON_STATUS_CHECK_FAILED",
+	"MANAGED_CRON_UNAVAILABLE",
 ]);
 const SCOPE_NOT_ALLOWED_ERROR = "Requested scope is not allowed for this app";
 
@@ -48,6 +60,8 @@ type ManagedSchedulerJobStatus = {
 };
 
 type ManagedSchedulerStatus = {
+	adminRecoveryHref?: string;
+	adminRecoveryReason?: string;
 	approvalHref?: string;
 	approvalReason?: string;
 	code?: string;
@@ -299,11 +313,26 @@ function normalizeSchedulerStatus({
 		});
 	const normalizedUpstreamStatus =
 		normalizeUpstreamStatus(remoteRecord.upstreamStatus) ?? upstreamStatus;
+	const adminRecoveryHref = adminRecoveryHrefForRemote({
+		approvalHref,
+		code,
+		remoteRecord,
+		setupDisabledReason,
+		upstreamStatus: normalizedUpstreamStatus,
+	});
+	const adminRecoveryReason =
+		adminRecoveryHref ?
+			cleanString(remoteRecord.adminRecoveryReason) ??
+			setupDisabledReason ??
+			error
+		: undefined;
 	const jobs = Array.isArray(remoteRecord.jobs)
 		? remoteRecord.jobs.map(normalizeJob).filter(isSchedulerJobStatus)
 		: [];
 
 	return {
+		...(adminRecoveryHref ? { adminRecoveryHref } : {}),
+		...(adminRecoveryReason ? { adminRecoveryReason } : {}),
 		...(approvalHref ? { approvalHref } : {}),
 		...(approvalReason ? { approvalReason } : {}),
 		...(code ? { code } : {}),
@@ -322,6 +351,76 @@ function normalizeSchedulerStatus({
 		tokenLastFour: local?.tokenLastFour ?? null,
 		updatedAt: local?.updatedAt?.toISOString() ?? null,
 	};
+}
+
+function adminRecoveryHrefForRemote({
+	approvalHref,
+	code,
+	remoteRecord,
+	setupDisabledReason,
+	upstreamStatus,
+}: {
+	approvalHref?: string;
+	code?: string;
+	remoteRecord: Record<string, unknown>;
+	setupDisabledReason?: string;
+	upstreamStatus?: number;
+}) {
+	if (approvalHref) return undefined;
+
+	const remoteHref = safeTuturuuuCronRecoveryHref(remoteRecord.adminRecoveryHref);
+	if (remoteHref) return remoteHref;
+
+	if (
+		!isInfraBlockedManagedCronState({
+			code,
+			setupDisabledReason,
+			upstreamStatus,
+		})
+	) {
+		return undefined;
+	}
+
+	return buildFallbackTuturuuuCronRecoveryHref();
+}
+
+function isInfraBlockedManagedCronState({
+	code,
+	setupDisabledReason,
+	upstreamStatus,
+}: {
+	code?: string;
+	setupDisabledReason?: string;
+	upstreamStatus?: number;
+}) {
+	if (code && MANAGED_CRON_INFRA_BLOCKED_CODES.has(code)) return true;
+	if (typeof upstreamStatus === "number" && upstreamStatus >= 500) return true;
+	return Boolean(
+		setupDisabledReason && /managed cron|managed scheduler/iu.test(setupDisabledReason),
+	);
+}
+
+function safeTuturuuuCronRecoveryHref(value: unknown) {
+	const href = cleanString(value);
+	if (!href) return undefined;
+
+	try {
+		const webAppUrl = getTuturuuuWebAppUrl();
+		const parsed = new URL(href, webAppUrl);
+		const allowedOrigin = new URL(webAppUrl).origin;
+		if (parsed.origin !== allowedOrigin) return undefined;
+		if (!parsed.pathname.endsWith("/internal/infrastructure/monitoring/cron")) {
+			return undefined;
+		}
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
+function buildFallbackTuturuuuCronRecoveryHref() {
+	const url = new URL(TUTURUUU_CRON_RUNNER_RECOVERY_PATH, getTuturuuuWebAppUrl());
+	return url.toString();
 }
 
 function normalizeJob(value: unknown): ManagedSchedulerJobStatus | null {

@@ -90,6 +90,8 @@ export type ManagedSchedulerJobView = {
 };
 
 export type ManagedSchedulerStatusView = {
+	adminRecoveryHref?: string;
+	adminRecoveryReason?: string;
 	approvalHref?: string;
 	approvalReason?: string;
 	code?: string;

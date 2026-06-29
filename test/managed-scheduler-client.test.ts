@@ -83,6 +83,10 @@ describe("managed scheduler client queries", () => {
 			Promise.resolve(
 				Response.json(
 					{
+						adminRecoveryHref:
+							"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+						adminRecoveryReason:
+							"Tuturuuu managed scheduler status check returned HTTP 503.",
 						code: "MANAGED_CRON_UNAVAILABLE",
 						configured: false,
 						enabled: false,
@@ -104,6 +108,10 @@ describe("managed scheduler client queries", () => {
 		const status = await fetchManagedSchedulerStatus();
 
 		expect(status).toMatchObject({
+			adminRecoveryHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+			adminRecoveryReason:
+				"Tuturuuu managed scheduler status check returned HTTP 503.",
 			code: "MANAGED_CRON_UNAVAILABLE",
 			error: "Managed scheduler provider is unavailable.",
 			setupDisabled: true,

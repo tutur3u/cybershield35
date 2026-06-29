@@ -12,6 +12,7 @@ export async function parseManagedSchedulerStatusResponse(
 	if (isManagedSchedulerStatusPayload(payload)) {
 		if (
 			response.ok ||
+			payload.adminRecoveryHref ||
 			payload.approvalHref ||
 			payload.setupDisabled ||
 			payload.setupDisabledReason ||
