@@ -645,4 +645,154 @@ describe("managed scheduler proxy routes", () => {
 		expect(refreshed?.accessToken).toBe("new-access-token");
 		expect(refreshed?.scopes).toEqual(getRequestedScopes());
 	});
+
+	test("preserves schedule timezone and overdue diagnostics from scheduler status", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json({
+					configured: true,
+					enabled: true,
+					generatedAt: "2026-06-29T11:41:00.000Z",
+					jobs: [
+						{
+							active: true,
+							failureCount: 0,
+							isOverdue: true,
+							jobId: "job-1",
+							jobKey: "process-queue",
+							lastExecution: {
+								durationMs: 123,
+								id: "execution-1",
+								jobKey: "process-queue",
+								source: "scheduled",
+								startedAt: "2026-06-29T11:25:00.000Z",
+								status: "success",
+							},
+							lastRunAt: "2026-06-29T11:25:00.000Z",
+							lastStatus: "success",
+							name: "Managed scheduler process queue",
+							nextRunAt: "2026-06-29T11:30:00.000Z",
+							overdueReason:
+								"No execution recorded after scheduled time.",
+							overdueSince: "2026-06-29T11:30:00.000Z",
+							schedule: "*/5 * * * *",
+							scheduleDescription: "Every 5 minutes (Asia/Ho_Chi_Minh)",
+							scheduleTimezone: "Asia/Ho_Chi_Minh",
+						},
+					],
+					serverNow: "2026-06-29T11:41:00.000Z",
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			request("/api/workspace/cron", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+		const [job] = body.jobs as Array<Record<string, unknown>>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			generatedAt: "2026-06-29T11:41:00.000Z",
+			serverNow: "2026-06-29T11:41:00.000Z",
+		});
+		expect(job).toMatchObject({
+			isOverdue: true,
+			overdueReason: "No execution recorded after scheduled time.",
+			scheduleTimezone: "Asia/Ho_Chi_Minh",
+		});
+		expect(job.lastExecution).toMatchObject({
+			id: "execution-1",
+			source: "scheduled",
+			status: "success",
+		});
+	});
+
+	test("proxies managed scheduler schedule edits", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			expect(new URL(String(url)).pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/jobs/process-queue",
+			);
+			expect(init?.method).toBe("PATCH");
+			expect(JSON.parse(String(init?.body))).toEqual({
+				schedule: "0 9 * * *",
+				scheduleTimezone: "Asia/Ho_Chi_Minh",
+			});
+			return Promise.resolve(Response.json({ ok: true }));
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { PATCH } = await import(
+			"@/app/api/workspace/cron/jobs/[jobKey]/route"
+		);
+		const response = await PATCH(
+			new Request("https://cybershield.example.com/api/workspace/cron/jobs/process-queue", {
+				body: JSON.stringify({
+					schedule: "0 9 * * *",
+					scheduleTimezone: "Asia/Ho_Chi_Minh",
+				}),
+				headers: { cookie: createSessionCookie(session()) },
+				method: "PATCH",
+			}),
+			{ params: Promise.resolve({ jobKey: "process-queue" }) },
+		);
+
+		expect(response.status).toBe(200);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("proxies managed scheduler execution history", async () => {
+		dbMode.missingStorage = false;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			const parsed = new URL(String(url));
+			expect(parsed.pathname).toBe(
+				"/api/v1/workspaces/workspace-1/external-apps/cron/jobs/process-queue/executions",
+			);
+			expect(parsed.searchParams.get("pageSize")).toBe("25");
+			expect(init?.method).toBe("GET");
+			return Promise.resolve(
+				Response.json({
+					items: [
+						{
+							durationMs: 321,
+							id: "execution-1",
+							jobKey: "process-queue",
+							jobName: "Managed scheduler process queue",
+							source: "manual",
+							startedAt: "2026-06-29T11:40:00.000Z",
+							status: "success",
+						},
+					],
+					total: 1,
+				}),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import(
+			"@/app/api/workspace/cron/jobs/[jobKey]/executions/route"
+		);
+		const response = await GET(
+			new Request(
+				"https://cybershield.example.com/api/workspace/cron/jobs/process-queue/executions?page=1&pageSize=25",
+				{ headers: { cookie: createSessionCookie(session()) } },
+			),
+			{ params: Promise.resolve({ jobKey: "process-queue" }) },
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({ total: 1 });
+		expect(body.items).toEqual([
+			expect.objectContaining({
+				id: "execution-1",
+				source: "manual",
+				status: "success",
+			}),
+		]);
+	});
 });

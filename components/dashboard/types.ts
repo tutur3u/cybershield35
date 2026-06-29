@@ -81,12 +81,45 @@ export type WorkspaceMembersResponse = {
 export type ManagedSchedulerJobView = {
 	active: boolean;
 	failureCount: number;
+	isOverdue?: boolean;
+	jobId?: string | null;
 	jobKey: string;
+	lastExecution?: ManagedSchedulerExecutionView | null;
 	lastRunAt: string | null;
 	lastStatus: string | null;
 	name: string;
 	nextRunAt: string | null;
+	overdueReason?: string | null;
+	overdueSince?: string | null;
 	schedule: string;
+	scheduleDescription?: string;
+	scheduleTimezone?: string;
+};
+
+export type ManagedSchedulerExecutionView = {
+	durationMs: number | null;
+	endedAt: string | null;
+	error: string | null;
+	httpStatus: number | null;
+	id: string;
+	jobId: string | null;
+	jobKey: string;
+	jobName: string;
+	response: string | null;
+	source: "manual" | "scheduled";
+	startedAt: string | null;
+	status: string;
+};
+
+export type ManagedSchedulerExecutionsView = {
+	hasNextPage?: boolean;
+	hasPreviousPage?: boolean;
+	items: ManagedSchedulerExecutionView[];
+	limit?: number;
+	offset?: number;
+	page?: number;
+	pageCount?: number;
+	total?: number;
 };
 
 export type ManagedSchedulerStatusView = {
@@ -98,12 +131,14 @@ export type ManagedSchedulerStatusView = {
 	configured: boolean;
 	enabled: boolean;
 	error?: string;
+	generatedAt?: string | null;
 	jobs: ManagedSchedulerJobView[];
 	localStorageReady?: boolean;
 	missingApprovalItems?: string[];
 	setupDisabled?: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
+	serverNow?: string | null;
 	tokenLastFour: string | null;
 	updatedAt: string | null;
 	upstreamStatus?: number;

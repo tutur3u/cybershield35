@@ -75,7 +75,17 @@ function normalizeManagedSchedulerStatus(
 ): ManagedSchedulerStatusView {
 	return {
 		...payload,
-		jobs: Array.isArray(payload.jobs) ? payload.jobs : [],
+		jobs: Array.isArray(payload.jobs)
+			? payload.jobs.map((job) => ({
+					...job,
+					isOverdue: job.isOverdue === true,
+					lastExecution: job.lastExecution ?? null,
+					overdueReason: job.overdueReason ?? null,
+					overdueSince: job.overdueSince ?? null,
+					scheduleDescription: job.scheduleDescription ?? "",
+					scheduleTimezone: job.scheduleTimezone ?? "UTC",
+				}))
+			: [],
 		localStorageReady: payload.localStorageReady !== false,
 		setupDisabled:
 			(Boolean(payload.setupDisabled) && !payload.approvalHref) ||

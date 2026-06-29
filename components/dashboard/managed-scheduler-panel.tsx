@@ -1,22 +1,31 @@
 "use client";
 
 import {
+	AlertTriangle,
 	Clock3,
+	Edit3,
 	ExternalLink,
+	History,
 	Loader2,
 	Pause,
 	Play,
 	RefreshCw,
 	RotateCw,
+	Save,
+	X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+	ManagedSchedulerExecutionView,
 	ManagedSchedulerJobView,
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
-import { managedSchedulerQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	managedSchedulerExecutionsQueryOptions,
+	managedSchedulerQueryOptions,
+} from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import {
 	managedSchedulerErrorMessage,
@@ -30,6 +39,11 @@ export function ManagedSchedulerPanel({
 }) {
 	const queryClient = useQueryClient();
 	const handledAutoRetry = useRef<number | undefined>(undefined);
+	const [editingJob, setEditingJob] =
+		useState<ManagedSchedulerJobView | null>(null);
+	const [historyJobKey, setHistoryJobKey] = useState<string>("all");
+	const [selectedExecution, setSelectedExecution] =
+		useState<ManagedSchedulerExecutionView | null>(null);
 	const query = useQuery(managedSchedulerQueryOptions());
 	const setupMutation = useMutation({
 		mutationFn: setupManagedScheduler,
@@ -42,17 +56,39 @@ export function ManagedSchedulerPanel({
 	});
 	const runMutation = useMutation({
 		mutationFn: runJobNow,
-		onSuccess: () =>
-			queryClient.invalidateQueries({
+		onSuccess: () => {
+			void queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.managedSchedulerExecutions(
+					historyJobKey === "all" ? "all" : historyJobKey,
+				),
+			});
+			void queryClient.invalidateQueries({
 				queryKey: dashboardQueryKeys.managedScheduler(),
-			}),
+			});
+		},
 	});
 	const patchMutation = useMutation({
 		mutationFn: patchJob,
-		onSuccess: () =>
+		onSuccess: () => {
+			setEditingJob(null);
+			void queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.managedSchedulerExecutions(),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.managedSchedulerExecutions(historyJobKey),
+			});
 			queryClient.invalidateQueries({
 				queryKey: dashboardQueryKeys.managedScheduler(),
-			}),
+			});
+		},
+	});
+	const status = setupMutation.data ?? query.data;
+	const executionsQuery = useQuery({
+		...managedSchedulerExecutionsQueryOptions(
+			historyJobKey === "all" ? undefined : historyJobKey,
+		),
+		enabled: Boolean(status?.configured),
+		refetchInterval: 30_000,
 	});
 
 	useEffect(() => {
@@ -61,7 +97,6 @@ export function ManagedSchedulerPanel({
 		setupMutation.mutate();
 	}, [autoRetryToken, setupMutation]);
 
-	const status = setupMutation.data ?? query.data;
 	const storageNotReady =
 		status?.code === "LOCAL_SCHEDULER_STORAGE_NOT_READY" ||
 		status?.localStorageReady === false;
@@ -88,6 +123,13 @@ export function ManagedSchedulerPanel({
 					  status?.error
 					? status.error
 					: "";
+	const statusFreshness = useMemo(
+		() => schedulerFreshness(status?.generatedAt ?? status?.serverNow ?? null),
+		[status?.generatedAt, status?.serverNow],
+	);
+	const overdueJobs = status?.jobs.filter((job) => job.isOverdue) ?? [];
+	const nextJob = useMemo(() => nearestNextJob(status?.jobs ?? []), [status?.jobs]);
+	const executionItems = executionsQuery.data?.items ?? [];
 
 	return (
 		<Panel>
@@ -186,12 +228,22 @@ export function ManagedSchedulerPanel({
 							/>
 							<Metric label="Cập nhật" value={formatDate(status.updatedAt)} />
 						</div>
+						<SchedulerSummary
+							freshness={statusFreshness}
+							nextJob={nextJob}
+							overdueJobs={overdueJobs}
+						/>
 						{status.jobs.length > 0 ? (
 							<div className="space-y-2">
 								{status.jobs.map((job) => (
 									<SchedulerJobRow
 										key={job.jobKey}
 										job={job}
+										onEdit={() => setEditingJob(job)}
+										onHistory={() => {
+											setHistoryJobKey(job.jobKey);
+											setSelectedExecution(null);
+										}}
 										onPatch={(enabled) =>
 											patchMutation.mutate({ enabled, jobKey: job.jobKey })
 										}
@@ -207,6 +259,31 @@ export function ManagedSchedulerPanel({
 						) : (
 							<EmptyState configured={status.configured} />
 						)}
+						<SchedulerHistory
+							executions={executionItems}
+							filterJobKey={historyJobKey}
+							jobs={status.jobs}
+							loading={executionsQuery.isFetching}
+							onFilterChange={(jobKey) => {
+								setHistoryJobKey(jobKey);
+								setSelectedExecution(null);
+							}}
+							onSelect={setSelectedExecution}
+							selectedExecution={selectedExecution}
+						/>
+						{editingJob ? (
+							<ScheduleEditor
+								job={editingJob}
+								onCancel={() => setEditingJob(null)}
+								onSave={(payload) =>
+									patchMutation.mutate({
+										...payload,
+										jobKey: editingJob.jobKey,
+									})
+								}
+								pending={patchMutation.isPending}
+							/>
+						) : null}
 					</>
 				) : null}
 			</div>
@@ -216,15 +293,22 @@ export function ManagedSchedulerPanel({
 
 function SchedulerJobRow({
 	job,
+	onEdit,
+	onHistory,
 	onPatch,
 	onRun,
 	pending,
 }: {
 	job: ManagedSchedulerJobView;
+	onEdit: () => void;
+	onHistory: () => void;
 	onPatch: (enabled: boolean) => void;
 	onRun: () => void;
 	pending: boolean;
 }) {
+	const overdue = job.isOverdue;
+	const scheduleText = job.scheduleDescription || describeSchedule(job);
+
 	return (
 		<div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
 			<div className="min-w-0">
@@ -241,11 +325,27 @@ function SchedulerJobRow({
 					>
 						{job.active ? "Bật" : "Tắt"}
 					</span>
+					{overdue ? (
+						<span className="inline-flex items-center gap-1 rounded-md bg-[var(--warning-soft)] px-2 py-1 text-[10px] font-bold text-[var(--warning-strong)]">
+							<AlertTriangle size={12} />
+							Quá hạn
+						</span>
+					) : null}
 				</div>
 				<p className="mt-1 text-[11px] text-[var(--muted)]">
-					{job.schedule} · chạy gần nhất {formatDate(job.lastRunAt)} · lần tới{" "}
-					{formatDate(job.nextRunAt)}
+					{scheduleText}
 				</p>
+				<p className="mt-1 text-[11px] text-[var(--muted)]">
+					Chạy gần nhất {formatDate(job.lastRunAt)} ·{" "}
+					{overdue ? "quá hạn từ" : "lần tới"}{" "}
+					{formatDate(job.overdueSince ?? job.nextRunAt)}
+				</p>
+				{overdue ? (
+					<p className="mt-1 text-[11px] font-semibold text-[var(--warning-strong)]">
+						{job.overdueReason ??
+							"Không có lần chạy nào được ghi nhận sau lịch dự kiến."}
+					</p>
+				) : null}
 				{job.lastStatus ? (
 					<p className="mt-1 text-[11px] text-[var(--muted)]">
 						Kết quả gần nhất: {job.lastStatus}
@@ -254,6 +354,24 @@ function SchedulerJobRow({
 				) : null}
 			</div>
 			<div className="flex gap-2 sm:justify-end">
+				<button
+					type="button"
+					disabled={pending}
+					onClick={onEdit}
+					title="Sửa lịch"
+					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
+				>
+					<Edit3 size={14} />
+				</button>
+				<button
+					type="button"
+					disabled={pending}
+					onClick={onHistory}
+					title="Xem lịch sử"
+					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
+				>
+					<History size={14} />
+				</button>
 				<button
 					type="button"
 					disabled={pending}
@@ -286,6 +404,322 @@ function Metric({ label, value }: { label: string; value: string }) {
 			<p className="mt-1 truncate text-[13px] font-bold text-[var(--foreground)]">
 				{value}
 			</p>
+		</div>
+	);
+}
+
+function SchedulerSummary({
+	freshness,
+	nextJob,
+	overdueJobs,
+}: {
+	freshness: { ageMs: number | null; stale: boolean };
+	nextJob: ManagedSchedulerJobView | null;
+	overdueJobs: ManagedSchedulerJobView[];
+}) {
+	return (
+		<div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 sm:grid-cols-3">
+			<div>
+				<p className="text-[11px] font-bold uppercase text-[var(--muted)]">
+					Dữ liệu trạng thái
+				</p>
+				<p
+					className={`mt-1 text-[13px] font-bold ${
+						freshness.stale
+							? "text-[var(--warning-strong)]"
+							: "text-[var(--foreground)]"
+					}`}
+				>
+					{freshness.stale
+						? "Có thể đã cũ"
+						: freshness.ageMs == null
+							? "Chưa rõ"
+							: "Đang mới"}
+				</p>
+			</div>
+			<div>
+				<p className="text-[11px] font-bold uppercase text-[var(--muted)]">
+					Job kế tiếp
+				</p>
+				<p className="mt-1 truncate text-[13px] font-bold text-[var(--foreground)]">
+					{nextJob
+						? `${labelForJob(nextJob)} · ${formatDate(nextJob.nextRunAt)}`
+						: "Chưa có"}
+				</p>
+			</div>
+			<div>
+				<p className="text-[11px] font-bold uppercase text-[var(--muted)]">
+					Quá hạn
+				</p>
+				<p
+					className={`mt-1 text-[13px] font-bold ${
+						overdueJobs.length
+							? "text-[var(--warning-strong)]"
+							: "text-[var(--foreground)]"
+					}`}
+				>
+					{overdueJobs.length
+						? `${overdueJobs.length} job cần kiểm tra`
+						: "Không có"}
+				</p>
+			</div>
+		</div>
+	);
+}
+
+function ScheduleEditor({
+	job,
+	onCancel,
+	onSave,
+	pending,
+}: {
+	job: ManagedSchedulerJobView;
+	onCancel: () => void;
+	onSave: (payload: { schedule: string; scheduleTimezone: string }) => void;
+	pending: boolean;
+}) {
+	const initial = scheduleFormFromCron(job);
+	const [kind, setKind] = useState(initial.kind);
+	const [minutes, setMinutes] = useState(initial.minutes);
+	const [hourInterval, setHourInterval] = useState(initial.hourInterval);
+	const [time, setTime] = useState(initial.time);
+	const [weekdays, setWeekdays] = useState<number[]>(initial.weekdays);
+	const [timezone, setTimezone] = useState(
+		job.scheduleTimezone ||
+			Intl.DateTimeFormat().resolvedOptions().timeZone ||
+			"UTC",
+	);
+	const schedule = buildSchedule({ hourInterval, kind, minutes, time, weekdays });
+	const canSave = Boolean(schedule && timezone.trim());
+
+	return (
+		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+			<div className="flex items-start justify-between gap-3">
+				<div>
+					<p className="text-[13px] font-bold text-[var(--foreground)]">
+						Sửa lịch: {labelForJob(job)}
+					</p>
+					<p className="mt-1 text-[12px] text-[var(--muted)]">
+						Chọn cách diễn đạt lịch chạy, hệ thống sẽ lưu cron tương ứng.
+					</p>
+				</div>
+				<button
+					type="button"
+					onClick={onCancel}
+					className="grid size-8 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)]"
+				>
+					<X size={14} />
+				</button>
+			</div>
+			<div className="mt-4 grid gap-3 sm:grid-cols-2">
+				<label className="grid gap-1 text-[12px] font-bold text-[var(--foreground)]">
+					Kiểu lịch
+					<select
+						value={kind}
+						onChange={(event) => setKind(event.target.value as ScheduleKind)}
+						className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+					>
+						<option value="minutes">Mỗi vài phút</option>
+						<option value="hourly">Mỗi giờ</option>
+						<option value="hours">Mỗi vài giờ</option>
+						<option value="daily">Hằng ngày</option>
+						<option value="weekly">Hằng tuần</option>
+					</select>
+				</label>
+				<label className="grid gap-1 text-[12px] font-bold text-[var(--foreground)]">
+					Múi giờ
+					<input
+						value={timezone}
+						onChange={(event) => setTimezone(event.target.value)}
+						className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+					/>
+				</label>
+				{kind === "minutes" ? (
+					<label className="grid gap-1 text-[12px] font-bold text-[var(--foreground)]">
+						Chạy mỗi
+						<select
+							value={minutes}
+							onChange={(event) => setMinutes(Number(event.target.value))}
+							className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+						>
+							{[5, 10, 15, 30].map((value) => (
+								<option key={value} value={value}>
+									{value} phút
+								</option>
+							))}
+						</select>
+					</label>
+				) : null}
+				{kind === "hours" ? (
+					<label className="grid gap-1 text-[12px] font-bold text-[var(--foreground)]">
+						Chạy mỗi
+						<select
+							value={hourInterval}
+							onChange={(event) => setHourInterval(Number(event.target.value))}
+							className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+						>
+							{[2, 4, 6, 12].map((value) => (
+								<option key={value} value={value}>
+									{value} giờ
+								</option>
+							))}
+						</select>
+					</label>
+				) : null}
+				{kind === "daily" || kind === "weekly" ? (
+					<label className="grid gap-1 text-[12px] font-bold text-[var(--foreground)]">
+						Giờ chạy
+						<input
+							type="time"
+							value={time}
+							onChange={(event) => setTime(event.target.value)}
+							className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+						/>
+					</label>
+				) : null}
+			</div>
+			{kind === "weekly" ? (
+				<div className="mt-3 flex flex-wrap gap-2">
+					{WEEKDAY_OPTIONS.map((day) => (
+						<button
+							key={day.value}
+							type="button"
+							onClick={() => setWeekdays(toggleWeekday(weekdays, day.value))}
+							className={`h-8 rounded-md border px-2 text-[12px] font-bold ${
+								weekdays.includes(day.value)
+									? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+									: "border-[var(--border)] text-[var(--muted-strong)]"
+							}`}
+						>
+							{day.label}
+						</button>
+					))}
+				</div>
+			) : null}
+			<div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+				<p className="text-[12px] font-bold text-[var(--foreground)]">
+					{describeScheduleFromForm({ hourInterval, kind, minutes, time, weekdays })}
+				</p>
+				<p className="mt-1 font-mono text-[11px] text-[var(--muted)]">
+					{schedule || "Chọn ít nhất một ngày chạy"} · {timezone || "UTC"}
+				</p>
+			</div>
+			<div className="mt-4 flex justify-end gap-2">
+				<button
+					type="button"
+					onClick={onCancel}
+					className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--foreground)]"
+				>
+					Hủy
+				</button>
+				<button
+					type="button"
+					disabled={!canSave || pending}
+					onClick={() => schedule && onSave({ schedule, scheduleTimezone: timezone })}
+					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white disabled:opacity-60"
+				>
+					{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+					Lưu lịch
+				</button>
+			</div>
+		</div>
+	);
+}
+
+function SchedulerHistory({
+	executions,
+	filterJobKey,
+	jobs,
+	loading,
+	onFilterChange,
+	onSelect,
+	selectedExecution,
+}: {
+	executions: ManagedSchedulerExecutionView[];
+	filterJobKey: string;
+	jobs: ManagedSchedulerJobView[];
+	loading: boolean;
+	onFilterChange: (jobKey: string) => void;
+	onSelect: (execution: ManagedSchedulerExecutionView) => void;
+	selectedExecution: ManagedSchedulerExecutionView | null;
+}) {
+	return (
+		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
+			<div className="flex flex-col gap-3 border-[var(--border)] border-b p-3 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p className="text-[13px] font-bold text-[var(--foreground)]">
+						Lịch sử chạy
+					</p>
+					<p className="mt-1 text-[12px] text-[var(--muted)]">
+						Xem job đã chạy thủ công hay theo lịch và kết quả gần đây.
+					</p>
+				</div>
+				<select
+					value={filterJobKey}
+					onChange={(event) => onFilterChange(event.target.value)}
+					className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[12px]"
+				>
+					<option value="all">Tất cả job</option>
+					{jobs.map((job) => (
+						<option key={job.jobKey} value={job.jobKey}>
+							{labelForJob(job)}
+						</option>
+					))}
+				</select>
+			</div>
+			<div className="divide-y divide-[var(--border)]">
+				{loading ? (
+					<div className="p-4 text-[12px] text-[var(--muted)]">
+						Đang tải lịch sử...
+					</div>
+				) : executions.length > 0 ? (
+					executions.map((execution) => (
+						<button
+							type="button"
+							key={execution.id}
+							onClick={() => onSelect(execution)}
+							className="grid w-full gap-2 p-3 text-left transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_120px_90px_80px]"
+						>
+							<div className="min-w-0">
+								<p className="truncate text-[12px] font-bold text-[var(--foreground)]">
+									{labelForExecution(execution, jobs)}
+								</p>
+								<p className="mt-1 text-[11px] text-[var(--muted)]">
+									{execution.source === "manual" ? "Chạy thủ công" : "Theo lịch"}
+								</p>
+							</div>
+							<p className="text-[11px] text-[var(--muted)]">
+								{formatDate(execution.startedAt)}
+							</p>
+							<p className="text-[11px] font-bold text-[var(--foreground)]">
+								{execution.status}
+							</p>
+							<p className="text-[11px] text-[var(--muted)]">
+								{formatDuration(execution.durationMs)}
+							</p>
+						</button>
+					))
+				) : (
+					<div className="p-4 text-[12px] text-[var(--muted)]">
+						Chưa ghi nhận lần chạy nào.
+					</div>
+				)}
+			</div>
+			{selectedExecution ? (
+				<div className="border-[var(--border)] border-t p-3">
+					<div className="grid gap-3 sm:grid-cols-4">
+						<Metric label="Kết quả" value={selectedExecution.status} />
+						<Metric label="Nguồn" value={selectedExecution.source === "manual" ? "Thủ công" : "Theo lịch"} />
+						<Metric label="HTTP" value={selectedExecution.httpStatus?.toString() ?? "Chưa có"} />
+						<Metric label="Thời lượng" value={formatDuration(selectedExecution.durationMs)} />
+					</div>
+					{selectedExecution.error || selectedExecution.response ? (
+						<pre className="mt-3 max-h-40 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-[11px] text-[var(--foreground)]">
+							{selectedExecution.error ?? selectedExecution.response}
+						</pre>
+					) : null}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -408,6 +842,166 @@ function formatApprovalItems(items: string[]) {
 	return `${labels.slice(0, -1).join(", ")} và ${labels.at(-1)}`;
 }
 
+type ScheduleKind = "daily" | "hourly" | "hours" | "minutes" | "weekly";
+
+const WEEKDAY_OPTIONS = [
+	{ label: "CN", value: 0 },
+	{ label: "T2", value: 1 },
+	{ label: "T3", value: 2 },
+	{ label: "T4", value: 3 },
+	{ label: "T5", value: 4 },
+	{ label: "T6", value: 5 },
+	{ label: "T7", value: 6 },
+] as const;
+
+function schedulerFreshness(value: string | null) {
+	if (!value) return { ageMs: null, stale: false };
+	const timestamp = Date.parse(value);
+	if (!Number.isFinite(timestamp)) return { ageMs: null, stale: false };
+	const ageMs = Math.max(0, Date.now() - timestamp);
+	return { ageMs, stale: ageMs > 2 * 60_000 };
+}
+
+function nearestNextJob(jobs: ManagedSchedulerJobView[]) {
+	return jobs
+		.filter((job) => job.active && job.nextRunAt)
+		.sort(
+			(left, right) =>
+				Date.parse(left.nextRunAt ?? "") - Date.parse(right.nextRunAt ?? ""),
+		)[0] ?? null;
+}
+
+function scheduleFormFromCron(job: ManagedSchedulerJobView) {
+	const parts = job.schedule.trim().split(/\s+/u);
+	const [minute = "0", hour = "*", , , weekday = "*"] = parts;
+	if (/^\*\/(5|10|15|30)$/u.test(minute) && hour === "*") {
+		return {
+			hourInterval: 2,
+			kind: "minutes" as ScheduleKind,
+			minutes: Number(minute.slice(2)),
+			time: "09:00",
+			weekdays: [1],
+		};
+	}
+	if (minute === "0" && hour === "*") {
+		return {
+			hourInterval: 2,
+			kind: "hourly" as ScheduleKind,
+			minutes: 5,
+			time: "09:00",
+			weekdays: [1],
+		};
+	}
+	if (/^\*\/(2|4|6|12)$/u.test(hour)) {
+		return {
+			hourInterval: Number(hour.slice(2)),
+			kind: "hours" as ScheduleKind,
+			minutes: 5,
+			time: "09:00",
+			weekdays: [1],
+		};
+	}
+	if (weekday !== "*") {
+		return {
+			hourInterval: 2,
+			kind: "weekly" as ScheduleKind,
+			minutes: 5,
+			time: cronTime(minute, hour),
+			weekdays: weekday
+				.split(",")
+				.map((value) => Number(value))
+				.filter((value) => Number.isInteger(value) && value >= 0 && value <= 6),
+		};
+	}
+	if (minute !== "*" && hour !== "*") {
+		return {
+			hourInterval: 2,
+			kind: "daily" as ScheduleKind,
+			minutes: 5,
+			time: cronTime(minute, hour),
+			weekdays: [1],
+		};
+	}
+	return {
+		hourInterval: 2,
+		kind: "minutes" as ScheduleKind,
+		minutes: 5,
+		time: "09:00",
+		weekdays: [1],
+	};
+}
+
+function cronTime(minute: string, hour: string) {
+	return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function buildSchedule({
+	hourInterval,
+	kind,
+	minutes,
+	time,
+	weekdays,
+}: {
+	hourInterval: number;
+	kind: ScheduleKind;
+	minutes: number;
+	time: string;
+	weekdays: number[];
+}) {
+	const [hour = "9", minute = "0"] = time.split(":");
+	if (kind === "minutes") return `*/${minutes} * * * *`;
+	if (kind === "hourly") return "0 * * * *";
+	if (kind === "hours") return `0 */${hourInterval} * * *`;
+	if (kind === "daily") return `${Number(minute)} ${Number(hour)} * * *`;
+	if (kind === "weekly") {
+		const days = [...new Set(weekdays)].sort((a, b) => a - b).join(",");
+		return days ? `${Number(minute)} ${Number(hour)} * * ${days}` : "";
+	}
+	return "";
+}
+
+function describeSchedule(job: ManagedSchedulerJobView) {
+	return `${job.schedule} · ${job.scheduleTimezone ?? "UTC"}`;
+}
+
+function describeScheduleFromForm({
+	hourInterval,
+	kind,
+	minutes,
+	time,
+	weekdays,
+}: {
+	hourInterval: number;
+	kind: ScheduleKind;
+	minutes: number;
+	time: string;
+	weekdays: number[];
+}) {
+	if (kind === "minutes") return `Chạy mỗi ${minutes} phút.`;
+	if (kind === "hourly") return "Chạy vào đầu mỗi giờ.";
+	if (kind === "hours") return `Chạy mỗi ${hourInterval} giờ.`;
+	if (kind === "daily") return `Chạy hằng ngày lúc ${time}.`;
+	const labels = WEEKDAY_OPTIONS.filter((day) =>
+		weekdays.includes(day.value),
+	).map((day) => day.label);
+	return labels.length
+		? `Chạy lúc ${time} vào ${labels.join(", ")}.`
+		: "Chọn ít nhất một ngày trong tuần.";
+}
+
+function toggleWeekday(days: number[], value: number) {
+	if (days.includes(value)) return days.filter((day) => day !== value);
+	return [...days, value].sort((left, right) => left - right);
+}
+
+function labelForExecution(
+	execution: ManagedSchedulerExecutionView,
+	jobs: ManagedSchedulerJobView[],
+) {
+	const job = jobs.find((candidate) => candidate.jobKey === execution.jobKey);
+	return job ? labelForJob(job) : execution.jobName || execution.jobKey;
+}
+
 function SchedulerLoadError({
 	message,
 	onRetry,
@@ -462,6 +1056,12 @@ function formatDate(value: string | null) {
 	}
 }
 
+function formatDuration(value: number | null) {
+	if (value == null) return "Chưa có";
+	if (value < 1000) return `${value}ms`;
+	return `${(value / 1000).toFixed(1)}s`;
+}
+
 async function setupManagedScheduler() {
 	const response = await fetch("/api/workspace/cron/setup", {
 		credentials: "same-origin",
@@ -488,14 +1088,18 @@ async function runJobNow(jobKey: string) {
 async function patchJob({
 	enabled,
 	jobKey,
+	schedule,
+	scheduleTimezone,
 }: {
-	enabled: boolean;
+	enabled?: boolean;
 	jobKey: string;
+	schedule?: string;
+	scheduleTimezone?: string;
 }) {
 	const response = await fetch(
 		`/api/workspace/cron/jobs/${encodeURIComponent(jobKey)}`,
 		{
-			body: JSON.stringify({ enabled }),
+			body: JSON.stringify({ enabled, schedule, scheduleTimezone }),
 			credentials: "same-origin",
 			headers: {
 				Accept: "application/json",
