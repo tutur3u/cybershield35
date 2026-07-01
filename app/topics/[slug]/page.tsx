@@ -9,6 +9,11 @@ export const metadata = {
 	title: "Chi tiết chủ đề",
 };
 
+export const unstable_instant = {
+	prefetch: "static",
+	unstable_disableValidation: true,
+};
+
 export default async function TopicDetailRoute({
 	params,
 }: {

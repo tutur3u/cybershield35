@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
+import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import {
 	analyses,
 	auditEvents,
@@ -125,6 +126,7 @@ export async function createScan(input: CreateScanInput) {
 		runtimeMode: runtimeMode(),
 		clientKeys: runtimeKeySummary(),
 	});
+	await refreshIntelligenceRollupsBestEffort(`scan-created:${job.id}`);
 
 	return { scanId: job.id, status: job.status };
 }
@@ -349,6 +351,7 @@ export async function updateScan(id: string, input: UpdateScanInput) {
 		status: input.status,
 		title: input.title,
 	});
+	await refreshIntelligenceRollupsBestEffort(`scan-updated:${id}`);
 
 	return getScanSummary(id);
 }
@@ -364,6 +367,7 @@ export async function deleteScan(id: string) {
 
 	await writeAudit("scan_job", id, "deleted", {});
 	await adminDb.delete(sources).where(eq(sources.id, job.sourceId));
+	await refreshIntelligenceRollupsBestEffort(`scan-deleted:${id}`);
 	return true;
 }
 
@@ -401,6 +405,7 @@ export async function createEvidence(input: CreateEvidenceInput) {
 		scanJobId: input.scanJobId,
 	});
 	await syncExistingAnalysisTopicsForScan(input.scanJobId);
+	await refreshIntelligenceRollupsBestEffort(`evidence-created:${item.id}`);
 	return item;
 }
 
@@ -425,6 +430,7 @@ export async function updateEvidence(id: string, input: UpdateEvidenceInput) {
 	if (!item) return null;
 	await writeAudit("evidence_item", id, "updated", {});
 	await syncExistingAnalysisTopicsForScan(item.scanJobId);
+	await refreshIntelligenceRollupsBestEffort(`evidence-updated:${id}`);
 	return item;
 }
 
@@ -438,6 +444,8 @@ export async function deleteEvidence(id: string) {
 	await writeAudit("evidence_item", id, "deleted", {
 		scanJobId: item.scanJobId,
 	});
+	await syncExistingAnalysisTopicsForScan(item.scanJobId);
+	await refreshIntelligenceRollupsBestEffort(`evidence-deleted:${id}`);
 	return item;
 }
 
@@ -570,6 +578,7 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			credentialSource: result.credentialSource,
 			evidenceCount: insertedEvidence.length,
 		});
+		await refreshIntelligenceRollupsBestEffort(`scan-processed:${claimed.id}`);
 
 		return { processed: true, scanId: claimed.id };
 	} catch (error) {
@@ -592,6 +601,7 @@ async function processClaimedJob(claimed: ClaimedJob) {
 		await updateTrackedSourceLastScan(claimed.id, nextStatus);
 
 		await writeAudit("scan_job", claimed.id, "failed", { message, nextStatus });
+		await refreshIntelligenceRollupsBestEffort(`scan-failed:${claimed.id}`);
 		return { processed: true, scanId: claimed.id, error: message };
 	}
 }
@@ -659,6 +669,7 @@ export async function generateDraftForScan(
 		runtimeMode: runtimeMode(),
 		clientKeys: runtimeKeySummary(),
 	});
+	await refreshIntelligenceRollupsBestEffort(`draft-created:${draft.id}`);
 
 	return draft;
 }
@@ -674,6 +685,7 @@ export async function reviewDraft(id: string, status: DraftStatus) {
 	await writeAudit("counter_argument_draft", id, "review_status_updated", {
 		status,
 	});
+	await refreshIntelligenceRollupsBestEffort(`draft-reviewed:${id}`);
 	return draft;
 }
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
-import { ChatDialog } from "@/components/dashboard/chat-dialog";
 import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
 import {
@@ -14,7 +14,6 @@ import {
 	ScanEditDialog,
 	type EvidenceFormValues,
 } from "@/components/dashboard/dialogs";
-import { ReportDialog } from "@/components/dashboard/report-dialog";
 import {
 	createEvidenceRecord,
 	createScan,
@@ -81,6 +80,18 @@ import {
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { dashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
+
+const ChatDialog = dynamic(
+	() => import("@/components/dashboard/chat-dialog").then((mod) => mod.ChatDialog),
+	{ ssr: false },
+);
+const ReportDialog = dynamic(
+	() =>
+		import("@/components/dashboard/report-dialog").then(
+			(mod) => mod.ReportDialog,
+		),
+	{ ssr: false },
+);
 
 export type CyberShieldDashboardProps = {
 	draftId?: string;
@@ -553,7 +564,11 @@ function shouldLoadScanDetail(page: DashboardPage) {
 		"guide-policies",
 		"guide-process",
 		"guide-user",
+		"alerts",
+		"audit",
+		"evidence",
 		"members",
+		"overview",
 		"settings",
 		"sources",
 		"topics",
@@ -668,13 +683,13 @@ function renderPage(
 		case "scan-detail":
 			return <ScanDetailsPage {...props} scanId={routeIds.scanId} />;
 		case "evidence":
-			return <EvidencePage {...props} />;
+			return <EvidencePage onCreateEvidence={props.onCreateEvidence} />;
 		case "evidence-detail":
 			return <EvidenceDetailsPage {...props} evidenceId={routeIds.evidenceId} />;
 		case "draft-detail":
 			return <DraftDetailsPage {...props} draftId={routeIds.draftId} />;
 		case "alerts":
-			return <AlertsPage {...props} />;
+			return <AlertsPage />;
 		case "reports":
 			return <ReportsPage {...props} />;
 		case "settings":

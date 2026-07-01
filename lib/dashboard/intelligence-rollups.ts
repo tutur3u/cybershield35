@@ -1,0 +1,497 @@
+import "server-only";
+
+import { createHash } from "node:crypto";
+
+import { desc } from "drizzle-orm";
+
+import { adminDb, adminSqlClient } from "@/lib/db/client";
+import {
+	analyses,
+	intelligenceClaimIndex,
+	type AnalysisRow,
+} from "@/lib/db/schema";
+
+type ClaimCandidate = {
+	claim?: unknown;
+	confidence?: unknown;
+	evidenceIds?: unknown;
+	stance?: unknown;
+};
+
+type ScanContextRow = {
+	evidence_ids: string[] | null;
+	scan_job_id: string;
+	source_labels: string[] | null;
+	topic_slugs: string[] | null;
+};
+
+export async function backfillIntelligenceRollups() {
+	await refreshIntelligenceRollups("manual-backfill");
+}
+
+export async function refreshIntelligenceForScan(scanId: string) {
+	await refreshIntelligenceRollups(`scan:${scanId}`);
+}
+
+export async function refreshIntelligenceRollups(reason = "refresh") {
+	await clearRollups();
+	await refreshDailyRollups();
+	await refreshTopicRollups();
+	await refreshSourceRollups();
+	await refreshProviderRollups();
+	await refreshClaimIndex();
+	await refreshActivityRollups(reason);
+}
+
+export async function refreshIntelligenceRollupsBestEffort(
+	reason = "best-effort",
+) {
+	try {
+		await refreshIntelligenceRollups(reason);
+	} catch {
+		// Rollups are a read-optimization layer. Mutations should not fail just
+		// because a projection refresh is temporarily unavailable during deploys.
+	}
+}
+
+async function clearRollups() {
+	await adminSqlClient`delete from intelligence_activity_rollups`;
+	await adminSqlClient`delete from intelligence_claim_index`;
+	await adminSqlClient`delete from intelligence_provider_rollups`;
+	await adminSqlClient`delete from intelligence_source_rollups`;
+	await adminSqlClient`delete from intelligence_topic_rollups`;
+	await adminSqlClient`delete from intelligence_daily_rollups`;
+}
+
+async function refreshDailyRollups() {
+	await adminSqlClient`
+		with days as (
+			select created_at::date as day from scan_jobs
+			union
+			select created_at::date as day from evidence_items
+			union
+			select created_at::date as day from counter_argument_drafts
+		),
+		scan_counts as (
+			select
+				created_at::date as day,
+				count(*)::int as scan_count,
+				count(*) filter (where status = 'queued')::int as queued_scan_count,
+				count(*) filter (where status = 'running')::int as running_scan_count,
+				count(*) filter (where status = 'completed')::int as completed_scan_count,
+				count(*) filter (where status = 'failed')::int as failed_scan_count,
+				count(*) filter (where status = 'retrying')::int as retrying_scan_count
+			from scan_jobs
+			group by created_at::date
+		),
+		evidence_counts as (
+			select
+				e.created_at::date as day,
+				count(*)::int as evidence_count,
+				count(*) filter (where e.risk_level = 'high')::int as high_risk_evidence_count,
+				count(*) filter (where e.risk_level = 'medium')::int as medium_risk_evidence_count,
+				count(*) filter (where e.risk_level = 'low')::int as low_risk_evidence_count
+			from evidence_items e
+			group by e.created_at::date
+		),
+		analysis_counts as (
+			select
+				sj.created_at::date as day,
+				coalesce(sum(jsonb_array_length(a.claims)), 0)::int as claim_count,
+				coalesce(sum(jsonb_array_length(a.risk_flags)), 0)::int as risk_flag_count
+			from analyses a
+			join scan_jobs sj on sj.id = a.scan_job_id
+			group by sj.created_at::date
+		),
+		draft_counts as (
+			select
+				created_at::date as day,
+				count(*)::int as draft_count,
+				count(*) filter (where status = 'approved')::int as approved_draft_count
+			from counter_argument_drafts
+			group by created_at::date
+		)
+		insert into intelligence_daily_rollups (
+			day,
+			scan_count,
+			queued_scan_count,
+			running_scan_count,
+			completed_scan_count,
+			failed_scan_count,
+			retrying_scan_count,
+			evidence_count,
+			high_risk_evidence_count,
+			medium_risk_evidence_count,
+			low_risk_evidence_count,
+			claim_count,
+			risk_flag_count,
+			draft_count,
+			approved_draft_count,
+			report_ready_count,
+			updated_at
+		)
+		select
+			days.day,
+			coalesce(sc.scan_count, 0),
+			coalesce(sc.queued_scan_count, 0),
+			coalesce(sc.running_scan_count, 0),
+			coalesce(sc.completed_scan_count, 0),
+			coalesce(sc.failed_scan_count, 0),
+			coalesce(sc.retrying_scan_count, 0),
+			coalesce(ec.evidence_count, 0),
+			coalesce(ec.high_risk_evidence_count, 0),
+			coalesce(ec.medium_risk_evidence_count, 0),
+			coalesce(ec.low_risk_evidence_count, 0),
+			coalesce(ac.claim_count, 0),
+			coalesce(ac.risk_flag_count, 0),
+			coalesce(dc.draft_count, 0),
+			coalesce(dc.approved_draft_count, 0),
+			least(coalesce(sc.completed_scan_count, 0), coalesce(dc.approved_draft_count, 0))::int,
+			now()
+		from days
+		left join scan_counts sc on sc.day = days.day
+		left join evidence_counts ec on ec.day = days.day
+		left join analysis_counts ac on ac.day = days.day
+		left join draft_counts dc on dc.day = days.day
+		order by days.day;
+	`;
+}
+
+async function refreshTopicRollups() {
+	await adminSqlClient`
+		with topic_analysis as (
+			select
+				et.topic_id,
+				a.id as analysis_id,
+				jsonb_array_length(a.claims)::int as claim_count
+			from evidence_topics et
+			join analyses a on a.scan_job_id = et.scan_job_id
+			group by et.topic_id, a.id, a.claims
+		),
+		topic_claims as (
+			select topic_id, coalesce(sum(claim_count), 0)::int as claim_count
+			from topic_analysis
+			group by topic_id
+		)
+		insert into intelligence_topic_rollups (
+			topic_id,
+			slug,
+			name,
+			risk_level,
+			trend,
+			momentum_score,
+			evidence_count,
+			high_risk_evidence_count,
+			claim_count,
+			scan_count,
+			source_count,
+			first_seen_at,
+			last_seen_at,
+			updated_at
+		)
+		select
+			t.id,
+			t.slug,
+			t.name,
+			t.risk_level,
+			t.trend,
+			least(
+				100,
+				(count(distinct et.evidence_item_id) * 6)
+					+ (count(distinct et.scan_job_id) * 8)
+					+ (count(distinct et.evidence_item_id) filter (where ei.risk_level = 'high') * 12)
+			)::int as momentum_score,
+			count(distinct et.evidence_item_id)::int,
+			count(distinct et.evidence_item_id) filter (where ei.risk_level = 'high')::int,
+			coalesce(max(tc.claim_count), 0)::int,
+			count(distinct et.scan_job_id)::int,
+			count(distinct ei.source_id)::int,
+			coalesce(min(et.created_at), t.first_seen_at),
+			coalesce(max(et.created_at), t.last_seen_at),
+			now()
+		from topics t
+		left join evidence_topics et on et.topic_id = t.id
+		left join evidence_items ei on ei.id = et.evidence_item_id
+		left join topic_claims tc on tc.topic_id = t.id
+		group by t.id, t.slug, t.name, t.risk_level, t.trend, t.first_seen_at, t.last_seen_at
+		order by momentum_score desc, evidence_count desc;
+	`;
+}
+
+async function refreshSourceRollups() {
+	await adminSqlClient`
+		with source_scan_counts as (
+			select
+				s.source_id,
+				count(*)::int as scan_count,
+				count(*) filter (where s.status = 'completed')::int as completed_scan_count,
+				count(*) filter (where s.status = 'failed')::int as failed_scan_count
+			from scan_jobs s
+			group by s.source_id
+		),
+		source_evidence_counts as (
+			select
+				source_id,
+				count(*)::int as evidence_count,
+				count(*) filter (where risk_level = 'high')::int as high_risk_evidence_count
+			from evidence_items
+			group by source_id
+		),
+		last_scans as (
+			select distinct on (source_id)
+				source_id,
+				id as scan_job_id,
+				provider,
+				status,
+				coalesce(completed_at, started_at, updated_at, created_at) as last_scanned_at
+			from scan_jobs
+			order by source_id, coalesce(completed_at, started_at, updated_at, created_at) desc
+		)
+		insert into intelligence_source_rollups (
+			source_id,
+			source_label,
+			source_type,
+			provider,
+			health,
+			scan_count,
+			completed_scan_count,
+			failed_scan_count,
+			evidence_count,
+			high_risk_evidence_count,
+			last_scan_job_id,
+			last_scanned_at,
+			updated_at
+		)
+		select
+			src.id,
+			coalesce(src.title, src.file_name, src.normalized_url, src.original_input, 'Nguồn chưa đặt tên'),
+			src.type,
+			ls.provider,
+			case
+				when ls.status = 'failed' then 'blocked'
+				when ls.last_scanned_at is null then 'unseen'
+				when ls.last_scanned_at < now() - interval '7 days' then 'stale'
+				when ls.status in ('queued', 'retrying', 'running') then 'attention'
+				else 'healthy'
+			end,
+			coalesce(ssc.scan_count, 0),
+			coalesce(ssc.completed_scan_count, 0),
+			coalesce(ssc.failed_scan_count, 0),
+			coalesce(sec.evidence_count, 0),
+			coalesce(sec.high_risk_evidence_count, 0),
+			ls.scan_job_id,
+			ls.last_scanned_at,
+			now()
+		from sources src
+		left join source_scan_counts ssc on ssc.source_id = src.id
+		left join source_evidence_counts sec on sec.source_id = src.id
+		left join last_scans ls on ls.source_id = src.id;
+	`;
+}
+
+async function refreshProviderRollups() {
+	await adminSqlClient`
+		with last_runs as (
+			select distinct on (provider)
+				provider,
+				status,
+				coalesce(completed_at, started_at) as last_run_at
+			from provider_runs
+			order by provider, coalesce(completed_at, started_at) desc
+		),
+		run_counts as (
+			select
+				provider,
+				count(*)::int as scan_count,
+				count(*) filter (where status = 'completed')::int as completed_run_count,
+				count(*) filter (where status = 'failed')::int as failed_run_count,
+				coalesce(avg(extract(epoch from (completed_at - started_at)) * 1000) filter (where completed_at is not null), 0)::int as avg_duration_ms
+			from provider_runs
+			group by provider
+		)
+		insert into intelligence_provider_rollups (
+			provider,
+			health,
+			scan_count,
+			completed_run_count,
+			failed_run_count,
+			avg_duration_ms,
+			last_status,
+			last_run_at,
+			updated_at
+		)
+		select
+			rc.provider,
+			case
+				when lr.status = 'failed' then 'blocked'
+				when lr.last_run_at is null then 'unseen'
+				when lr.last_run_at < now() - interval '7 days' then 'stale'
+				else 'healthy'
+			end,
+			rc.scan_count,
+			rc.completed_run_count,
+			rc.failed_run_count,
+			rc.avg_duration_ms,
+			lr.status,
+			lr.last_run_at,
+			now()
+		from run_counts rc
+		left join last_runs lr on lr.provider = rc.provider;
+	`;
+}
+
+async function refreshClaimIndex() {
+	const analysesRows = await adminDb
+		.select()
+		.from(analyses)
+		.orderBy(desc(analyses.createdAt));
+	const contextRows = await adminSqlClient<ScanContextRow[]>`
+		select
+			sj.id as scan_job_id,
+			coalesce(array_agg(distinct ei.id::text) filter (where ei.id is not null), '{}') as evidence_ids,
+			coalesce(array_agg(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '{}') as source_labels,
+			coalesce(array_agg(distinct t.slug) filter (where t.slug is not null), '{}') as topic_slugs
+		from scan_jobs sj
+		left join evidence_items ei on ei.scan_job_id = sj.id
+		left join evidence_topics et on et.evidence_item_id = ei.id
+		left join topics t on t.id = et.topic_id
+		group by sj.id;
+	`;
+	const contextByScan = new Map(
+		contextRows.map((row) => [
+			row.scan_job_id,
+			{
+				evidenceIds: normalizeStringArray(row.evidence_ids),
+				sourceLabels: normalizeStringArray(row.source_labels),
+				topicSlugs: normalizeStringArray(row.topic_slugs),
+			},
+		]),
+	);
+	const values = analysesRows.flatMap((analysis) =>
+		normalizeClaimsForAnalysis(analysis, contextByScan.get(analysis.scanJobId)),
+	);
+
+	if (!values.length) return;
+	await adminDb.insert(intelligenceClaimIndex).values(values);
+}
+
+async function refreshActivityRollups(reason: string) {
+	await adminSqlClient`
+		insert into intelligence_activity_rollups (
+			entity_type,
+			entity_id,
+			action,
+			severity,
+			title,
+			description,
+			href,
+			occurred_at,
+			metadata
+		)
+		select
+			a.entity_type,
+			a.entity_id,
+			a.action,
+			case
+				when a.action ilike '%failed%' or a.action ilike '%deleted%' then 'high'::risk_level
+				when a.action ilike '%updated%' or a.action ilike '%review%' then 'medium'::risk_level
+				else 'low'::risk_level
+			end,
+			initcap(replace(a.action, '_', ' ')),
+			'Hoạt động vận hành đã được ghi lại để truy vết dashboard.',
+			case
+				when a.entity_type = 'scan_job' then '/scans/' || a.entity_id::text
+				when a.entity_type = 'evidence_item' then '/evidence/' || a.entity_id::text
+				when a.entity_type = 'counter_argument_draft' then '/drafts/' || a.entity_id::text
+				else '/audit'
+			end,
+			a.created_at,
+			jsonb_build_object('projectionReason', ${reason})
+		from audit_events a
+		order by a.created_at desc
+		limit 250;
+	`;
+}
+
+function normalizeClaimsForAnalysis(
+	analysis: AnalysisRow,
+	context:
+		| {
+				evidenceIds: string[];
+				sourceLabels: string[];
+				topicSlugs: string[];
+		  }
+		| undefined,
+) {
+	if (!Array.isArray(analysis.claims)) return [];
+	const evidenceIdsForScan = context?.evidenceIds ?? [];
+	const sourceLabels = context?.sourceLabels ?? [];
+	const topicSlugs = context?.topicSlugs ?? [];
+
+	return analysis.claims
+		.map((candidate, index) => {
+			const claim = normalizeClaim(candidate);
+			if (!claim.claim) return null;
+			const evidenceIds = claim.evidenceIds.length
+				? claim.evidenceIds
+				: evidenceIdsForScan;
+			const claimKey = stableClaimKey(analysis.id, claim.claim, index);
+
+			return {
+				analysisId: analysis.id,
+				claim: claim.claim,
+				claimKey,
+				confidence: claim.confidence,
+				createdAt: analysis.createdAt,
+				deepLink: `/alerts?claim=${encodeURIComponent(claimKey)}`,
+				evidenceCount: evidenceIds.length,
+				evidenceIds,
+				riskLevel: analysis.riskLevel,
+				scanJobId: analysis.scanJobId,
+				sourceLabels,
+				stance: claim.stance,
+				topicSlugs,
+				updatedAt: new Date(),
+			};
+		})
+		.filter((value): value is NonNullable<typeof value> => Boolean(value));
+}
+
+function normalizeClaim(candidate: unknown) {
+	if (!candidate || typeof candidate !== "object") {
+		return {
+			claim: typeof candidate === "string" ? candidate : "",
+			confidence: 0,
+			evidenceIds: [],
+			stance: "neutral",
+		};
+	}
+	const record = candidate as ClaimCandidate;
+	const claim = typeof record.claim === "string" ? record.claim.trim() : "";
+	const confidence = normalizeConfidence(record.confidence);
+	const evidenceIds = normalizeStringArray(record.evidenceIds);
+	const stance = typeof record.stance === "string" ? record.stance : "neutral";
+
+	return { claim, confidence, evidenceIds, stance };
+}
+
+function normalizeConfidence(value: unknown) {
+	const parsed = Number(value ?? 0);
+	if (!Number.isFinite(parsed)) return 0;
+	return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function normalizeStringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter(Boolean);
+}
+
+function stableClaimKey(analysisId: string, claim: string, index: number) {
+	const digest = createHash("sha256")
+		.update(`${analysisId}:${index}:${claim}`)
+		.digest("hex")
+		.slice(0, 16);
+	return `claim_${digest}`;
+}

@@ -285,6 +285,174 @@ export type EvidenceItemsPage = {
 	scanId: string;
 };
 
+export type IntelligenceTimeRange = "7d" | "30d" | "90d" | "all";
+
+export type IntelligenceHealthState =
+	| "healthy"
+	| "attention"
+	| "blocked"
+	| "stale"
+	| "unseen"
+	| "unknown";
+
+export type IntelligenceFilters = {
+	provider?: string;
+	query?: string;
+	risk?: RiskLevel | "all";
+	source?: string;
+	status?: string;
+	timeRange?: IntelligenceTimeRange;
+	topic?: string;
+};
+
+export type IntelligenceKpi = {
+	description: string;
+	help: string;
+	href: string;
+	id: string;
+	label: string;
+	tone: "accent" | "danger" | "neutral" | "success" | "warning";
+	trendLabel: string;
+	value: string;
+};
+
+export type IntelligenceTrendPoint = {
+	day: string;
+	evidence: number;
+	highRisk: number;
+	scans: number;
+};
+
+export type IntelligenceTopicRow = {
+	claimCount: number;
+	evidenceCount: number;
+	firstSeenAt: string | null;
+	highRiskEvidenceCount: number;
+	href: string;
+	id: string;
+	lastSeenAt: string | null;
+	momentumScore: number;
+	name: string;
+	riskLevel: RiskLevel;
+	scanCount: number;
+	sourceCount: number;
+	slug: string;
+	trend: string;
+};
+
+export type IntelligenceEvidenceRow = {
+	author: string | null;
+	createdAt: string;
+	href: string;
+	id: string;
+	provider: ProviderName;
+	publishedAt: string | null;
+	quote: string;
+	riskLevel: RiskLevel;
+	scanHref: string;
+	scanId: string;
+	sentiment: string;
+	sourceLabel: string | null;
+	sourceUrl: string | null;
+	stance: string;
+	summary: string;
+	topicSlugs: string[];
+};
+
+export type IntelligenceClaimRow = {
+	claim: string;
+	claimKey: string;
+	confidence: number;
+	deepLink: string;
+	evidenceCount: number;
+	evidenceHrefs: string[];
+	id: string;
+	riskLevel: RiskLevel;
+	scanHref: string | null;
+	sourceLabels: string[];
+	stance: string;
+	topicSlugs: string[];
+	updatedAt: string;
+};
+
+export type IntelligenceSourceRow = {
+	completedScanCount: number;
+	evidenceCount: number;
+	failedScanCount: number;
+	health: IntelligenceHealthState;
+	highRiskEvidenceCount: number;
+	href: string;
+	lastScanHref: string | null;
+	lastScannedAt: string | null;
+	provider: ProviderName | null;
+	scanCount: number;
+	sourceId: string;
+	sourceLabel: string;
+	sourceType: SourceType;
+};
+
+export type IntelligenceProviderRow = {
+	avgDurationMs: number;
+	completedRunCount: number;
+	failedRunCount: number;
+	health: IntelligenceHealthState;
+	lastRunAt: string | null;
+	lastStatus: ScanStatus | null;
+	provider: ProviderName;
+	scanCount: number;
+};
+
+export type IntelligenceActivityRow = {
+	action: string;
+	description: string;
+	entityId: string;
+	entityType: string;
+	href: string;
+	id: string;
+	occurredAt: string;
+	severity: RiskLevel;
+	title: string;
+};
+
+export type IntelligenceReadiness = {
+	approvedDrafts: number;
+	citationCoverage: number;
+	draftCount: number;
+	label: string;
+	readyReports: number;
+};
+
+export type IntelligenceActionItem = {
+	body: string;
+	help: string;
+	href: string;
+	id: string;
+	label: string;
+	severity: RiskLevel;
+};
+
+export type IntelligenceOverviewView = {
+	actions: IntelligenceActionItem[];
+	filters: Required<Pick<IntelligenceFilters, "timeRange">> &
+		Omit<IntelligenceFilters, "timeRange">;
+	generatedAt: string;
+	kpis: IntelligenceKpi[];
+	providerHealth: IntelligenceProviderRow[];
+	readiness: IntelligenceReadiness;
+	sourceHealth: IntelligenceSourceRow[];
+	topClaims: IntelligenceClaimRow[];
+	topEvidence: IntelligenceEvidenceRow[];
+	topTopics: IntelligenceTopicRow[];
+	trends: IntelligenceTrendPoint[];
+};
+
+export type IntelligencePage<T> = {
+	hasNextPage: boolean;
+	items: T[];
+	limit: number;
+	nextCursor: string | null;
+};
+
 export type TopicDetailView = TopicView & {
 	evidence: EvidenceView;
 	hasNextPage?: boolean;

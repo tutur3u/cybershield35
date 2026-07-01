@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 
 import {
+	DASHBOARD_INTELLIGENCE_TAG,
 	DASHBOARD_SCANS_TAG,
 	DASHBOARD_TRACKED_SOURCES_TAG,
 	dashboardScanDetailTag,
@@ -10,13 +11,20 @@ const immediateExpire = { expire: 0 } as const;
 
 export function revalidateDashboardScans() {
 	revalidateTag(DASHBOARD_SCANS_TAG, immediateExpire);
+	revalidateDashboardIntelligence();
 }
 
 export function revalidateDashboardScan(scanId: string) {
 	revalidateTag(DASHBOARD_SCANS_TAG, immediateExpire);
 	revalidateTag(dashboardScanDetailTag(scanId), immediateExpire);
+	revalidateDashboardIntelligence();
 }
 
 export function revalidateDashboardTrackedSources() {
 	revalidateTag(DASHBOARD_TRACKED_SOURCES_TAG, immediateExpire);
+	revalidateDashboardIntelligence();
+}
+
+export function revalidateDashboardIntelligence() {
+	revalidateTag(DASHBOARD_INTELLIGENCE_TAG, immediateExpire);
 }

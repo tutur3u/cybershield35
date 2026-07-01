@@ -5,6 +5,14 @@ import type {
 	DashboardScansPage,
 	EvidenceItemsPage,
 	EvidenceView,
+	IntelligenceActivityRow,
+	IntelligenceClaimRow,
+	IntelligenceEvidenceRow,
+	IntelligenceFilters,
+	IntelligenceOverviewView,
+	IntelligencePage,
+	IntelligenceSourceRow,
+	IntelligenceTopicRow,
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	ScanDetail,
@@ -15,6 +23,7 @@ import type {
 import {
 	dashboardQueryKeys,
 	dashboardQueryStaleTimeMs,
+	intelligenceQueryStaleTimeMs,
 	managedSchedulerQueryStaleTimeMs,
 	normalizeDashboardInitialQueryParams,
 	type DashboardInitialQueryParams,
@@ -95,6 +104,123 @@ export function topicDetailInfiniteQueryOptions(slug: string, limit = 12) {
 			fetchTopicDetailPage({ cursor: pageParam, limit, slug }),
 		queryKey: dashboardQueryKeys.topicDetailInfinite(slug, limit),
 		staleTime: dashboardQueryStaleTimeMs,
+	};
+}
+
+export function intelligenceOverviewQueryOptions(
+	filters: IntelligenceFilters = {},
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return queryOptions({
+		gcTime: 5 * 60_000,
+		queryFn: () => fetchIntelligenceOverview(params),
+		queryKey: dashboardQueryKeys.intelligenceOverview(params),
+		staleTime: intelligenceQueryStaleTimeMs,
+	});
+}
+
+export function intelligenceEvidenceInfiniteQueryOptions(
+	filters: IntelligenceFilters = {},
+	limit = 30,
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: IntelligencePage<IntelligenceEvidenceRow>) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchIntelligencePage<IntelligenceEvidenceRow>("evidence", {
+				cursor: pageParam,
+				limit,
+				params,
+			}),
+		queryKey: dashboardQueryKeys.intelligenceEvidenceInfinite(params, limit),
+		staleTime: intelligenceQueryStaleTimeMs,
+	};
+}
+
+export function intelligenceTopicsInfiniteQueryOptions(
+	filters: IntelligenceFilters = {},
+	limit = 24,
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: IntelligencePage<IntelligenceTopicRow>) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchIntelligencePage<IntelligenceTopicRow>("topics", {
+				cursor: pageParam,
+				limit,
+				params,
+			}),
+		queryKey: dashboardQueryKeys.intelligenceTopicsInfinite(params, limit),
+		staleTime: intelligenceQueryStaleTimeMs,
+	};
+}
+
+export function intelligenceClaimsInfiniteQueryOptions(
+	filters: IntelligenceFilters = {},
+	limit = 24,
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: IntelligencePage<IntelligenceClaimRow>) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchIntelligencePage<IntelligenceClaimRow>("claims", {
+				cursor: pageParam,
+				limit,
+				params,
+			}),
+		queryKey: dashboardQueryKeys.intelligenceClaimsInfinite(params, limit),
+		staleTime: intelligenceQueryStaleTimeMs,
+	};
+}
+
+export function intelligenceSourcesInfiniteQueryOptions(
+	filters: IntelligenceFilters = {},
+	limit = 24,
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: IntelligencePage<IntelligenceSourceRow>) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchIntelligencePage<IntelligenceSourceRow>("sources", {
+				cursor: pageParam,
+				limit,
+				params,
+			}),
+		queryKey: dashboardQueryKeys.intelligenceSourcesInfinite(params, limit),
+		staleTime: intelligenceQueryStaleTimeMs,
+	};
+}
+
+export function intelligenceActivityInfiniteQueryOptions(
+	filters: IntelligenceFilters = {},
+	limit = 30,
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: IntelligencePage<IntelligenceActivityRow>) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchIntelligencePage<IntelligenceActivityRow>("activity", {
+				cursor: pageParam,
+				limit,
+				params,
+			}),
+		queryKey: dashboardQueryKeys.intelligenceActivityInfinite(params, limit),
+		staleTime: intelligenceQueryStaleTimeMs,
 	};
 }
 
@@ -260,6 +386,46 @@ async function fetchWorkspaceMembers(): Promise<WorkspaceMembersResponse> {
 	return fetchJson("/api/workspace/members");
 }
 
+async function fetchIntelligenceOverview(
+	params: Record<string, string>,
+): Promise<IntelligenceOverviewView> {
+	const searchParams = new URLSearchParams(params);
+	const payload = await fetchJson<{ overview?: IntelligenceOverviewView }>(
+		`/api/intelligence/overview?${searchParams.toString()}`,
+	);
+	if (!payload.overview) throw new Error("Không thể tải tổng quan intelligence.");
+	return payload.overview;
+}
+
+async function fetchIntelligencePage<T>(
+	kind: "activity" | "claims" | "evidence" | "sources" | "topics",
+	{
+		cursor,
+		limit,
+		params,
+	}: {
+		cursor?: string | null;
+		limit: number;
+		params: Record<string, string>;
+	},
+): Promise<IntelligencePage<T>> {
+	const searchParams = new URLSearchParams({
+		...params,
+		limit: String(limit),
+	});
+	if (cursor) searchParams.set("cursor", cursor);
+	const payload = await fetchJson<Partial<IntelligencePage<T>>>(
+		`/api/intelligence/${kind}?${searchParams.toString()}`,
+	);
+
+	return {
+		hasNextPage: Boolean(payload.hasNextPage),
+		items: Array.isArray(payload.items) ? payload.items : [],
+		limit: payload.limit ?? limit,
+		nextCursor: payload.nextCursor ?? null,
+	};
+}
+
 export async function fetchManagedSchedulerStatus(): Promise<ManagedSchedulerStatusView> {
 	const response = await fetch("/api/workspace/cron", {
 		credentials: "same-origin",
@@ -306,4 +472,18 @@ async function fetchJson<T>(url: string): Promise<T> {
 	}
 
 	return payload as T;
+}
+
+function serializeIntelligenceFilters(
+	filters: IntelligenceFilters = {},
+): Record<string, string> {
+	const params: Record<string, string> = {};
+	if (filters.provider) params.provider = filters.provider;
+	if (filters.query) params.q = filters.query;
+	if (filters.risk && filters.risk !== "all") params.risk = filters.risk;
+	if (filters.source) params.source = filters.source;
+	if (filters.status) params.status = filters.status;
+	if (filters.timeRange) params.timeRange = filters.timeRange;
+	if (filters.topic) params.topic = filters.topic;
+	return params;
 }

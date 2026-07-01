@@ -1,4 +1,5 @@
 export const DASHBOARD_SCANS_TAG = "dashboard:scans";
+export const DASHBOARD_INTELLIGENCE_TAG = "dashboard:intelligence";
 export const DASHBOARD_TRACKED_SOURCES_TAG = "dashboard:tracked-sources";
 
 export function dashboardScanDetailTag(scanId: string) {
