@@ -28,6 +28,10 @@ export const dashboardQueryKeys = {
 			normalizeDashboardInitialQueryParams(params),
 		] as const,
 	scanDetail: (scanId: string) => ["dashboard", "scan-detail", scanId] as const,
+	scansInfinite: (limit: number) =>
+		["dashboard", "scans", "infinite", limit] as const,
+	scanEvidenceInfinite: (scanId: string, limit: number) =>
+		["dashboard", "scan-evidence", "infinite", scanId, limit] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,

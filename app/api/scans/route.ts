@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
-import { createScan, listScans } from "@/lib/workers/scans";
+import { createScan, listScansPage } from "@/lib/workers/scans";
 
 const scanBodySchema = z.object({
 	input: z.string().min(1),
@@ -17,8 +17,19 @@ export async function GET(request: Request) {
 	}
 
 	try {
+		const searchParams = new URL(request.url).searchParams;
+		const cursor = searchParams.get("cursor");
+		const limit = Number(searchParams.get("limit") ?? "25");
+		const page = await listScansPage({ cursor, limit });
 		return Response.json(
-			{ scans: await listScans(), mode: "live" },
+			{
+				hasNextPage: page.hasNextPage,
+				items: page.items,
+				limit: page.limit,
+				mode: "live",
+				nextCursor: page.nextCursor,
+				scans: page.items,
+			},
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {

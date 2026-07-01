@@ -54,6 +54,7 @@ import {
 	ReportsPage,
 	SettingsPage,
 	SourcesPage,
+	TopicsPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
 import type {
@@ -637,6 +638,8 @@ function renderPage(
 			return <SourcesPage {...props} />;
 		case "analysis":
 			return <AnalysisPage {...props} />;
+		case "topics":
+			return <TopicsPage {...props} />;
 		case "counter-arguments":
 			return <CounterArgumentsPage {...props} />;
 		case "chat":

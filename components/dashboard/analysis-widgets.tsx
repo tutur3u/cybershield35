@@ -1,7 +1,10 @@
-import { Edit3, Trash2 } from "lucide-react";
+import { ArrowRight, Edit3, Layers3, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 import type { AnalysisView, EvidenceView, RiskFlagView, TopicCluster } from "./types";
+import { scanEvidenceInfiniteQueryOptions } from "@/lib/dashboard/client-queries";
+import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
 import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
 
 export function SentimentAndStance({
@@ -45,35 +48,57 @@ export function SentimentAndStance({
 
 export function TopicPanel({
 	className = "",
+	evidence = [],
 	topics,
 }: {
 	className?: string;
+	evidence?: EvidenceView;
 	topics: TopicCluster[];
 }) {
+	const topicInsights = buildTopicInsights({ evidence, topics }).slice(0, 7);
+
 	return (
 		<Panel className={`flex flex-col ${className}`}>
-			<PanelHeader title="Cụm chủ đề nổi bật" />
+			<PanelHeader
+				title="Cụm chủ đề nổi bật"
+				action={
+					<Link
+						href="/topics"
+						className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+					>
+						Mở chủ đề <ArrowRight size={14} />
+					</Link>
+				}
+			/>
 			<div
 				className="grid flex-1 divide-y divide-[var(--divider)] p-4"
 				style={{
-					gridTemplateRows: topics.length
-						? `repeat(${topics.length}, minmax(58px, 1fr))`
+					gridTemplateRows: topicInsights.length
+						? `repeat(${topicInsights.length}, minmax(58px, 1fr))`
 						: undefined,
 				}}
 			>
-				{topics.length ? (
-					topics.map((topic) => (
+				{topicInsights.length ? (
+					topicInsights.map((topic) => (
 						<div
-							key={topic.name}
-							className="grid min-h-14 gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_96px_84px_auto] sm:items-center"
+							key={topic.key}
+							className="grid min-h-14 gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(82px,auto)_minmax(74px,auto)_auto] sm:items-center"
 						>
-							<span className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
-								{topic.name}
-							</span>
-							<span className="text-[12px] text-[var(--muted)]">
+							<Link
+								href={topic.href}
+								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+							>
+								<span className="block truncate text-[13px] font-bold text-[var(--foreground)]">
+									{topic.name}
+								</span>
+								<span className="mt-0.5 block truncate text-[11px] font-semibold text-[var(--muted)]">
+									{topic.recommendation}
+								</span>
+							</Link>
+							<span className="text-[12px] text-[var(--muted)] sm:text-right">
 								{topic.count.toLocaleString("vi-VN")} mẫu
 							</span>
-							<span className="text-[12px] font-semibold text-[var(--muted-strong)]">
+							<span className="text-[12px] font-semibold text-[var(--muted-strong)] sm:text-right">
 								{topic.trend}
 							</span>
 							<RiskPill risk={topic.riskLevel} />
@@ -84,6 +109,79 @@ export function TopicPanel({
 				)}
 			</div>
 		</Panel>
+	);
+}
+
+export function TopicExplorer({
+	evidence,
+	topics,
+}: {
+	evidence: EvidenceView;
+	topics: TopicCluster[];
+}) {
+	const topicInsights = buildTopicInsights({ evidence, topics });
+	const leadTopic = topicInsights[0];
+
+	return (
+		<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+			<Panel>
+				<PanelHeader
+					title="Danh mục chủ đề"
+					description="Mỗi chủ đề là một nhóm nội dung cần theo dõi, đọc mẫu và quyết định bước tiếp theo."
+				/>
+				<div className="divide-y divide-[var(--divider)] p-4">
+					{topicInsights.length ? (
+						topicInsights.map((topic) => (
+							<TopicInsightRow key={topic.key} topic={topic} />
+						))
+					) : (
+						<EmptyPanelText>Chưa có chủ đề. Chạy hoặc chọn một scan đã phân tích.</EmptyPanelText>
+					)}
+				</div>
+			</Panel>
+			<Panel>
+				<PanelHeader
+					title="Cách đọc nhanh"
+					description="Dành cho người vận hành không cần hiểu cron, provider hay thuật ngữ kỹ thuật."
+				/>
+				<div className="space-y-4 p-4">
+					{leadTopic ? (
+						<>
+							<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+								<div className="flex min-w-0 flex-wrap items-center gap-2">
+									<Layers3 size={17} className="text-[var(--accent)]" />
+									<h2 className="min-w-0 break-words text-[16px] font-bold text-[var(--foreground)]">
+										{leadTopic.name}
+									</h2>
+									<RiskPill risk={leadTopic.riskLevel} />
+								</div>
+								<p className="mt-3 text-[13px] leading-6 text-[var(--muted-strong)]">
+									{leadTopic.recommendation}
+								</p>
+							</div>
+							<div className="space-y-3">
+								{leadTopic.evidence.slice(0, 3).map((item) => (
+									<Link
+										key={item.id}
+										href={`/evidence/${item.id}${item.scanJobId ? `?scanId=${item.scanJobId}` : ""}`}
+										className="block rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+									>
+										<p className="overflow-hidden text-[13px] leading-5 break-words text-[var(--foreground)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+											"{item.quote}"
+										</p>
+										<p className="mt-2 truncate text-[11px] font-semibold text-[var(--muted)]">
+											{item.sourceLabel ?? "Nguồn công khai"}
+										</p>
+									</Link>
+								))}
+							</div>
+						</>
+					) : (
+						<EmptyPanelText>Chọn scan đã hoàn tất để xem cách đọc chủ đề.</EmptyPanelText>
+					)}
+				</div>
+			</Panel>
+		</div>
 	);
 }
 
@@ -159,6 +257,7 @@ export function RiskFlagPanel({ analysis }: { analysis: AnalysisView }) {
 
 export function EvidencePanel({
 	className = "",
+	enableInfinite = false,
 	evidence,
 	limit,
 	onDeleteEvidence,
@@ -166,17 +265,34 @@ export function EvidencePanel({
 	scanId,
 }: {
 	className?: string;
+	enableInfinite?: boolean;
 	evidence: EvidenceView;
 	limit?: number;
 	onDeleteEvidence?: (evidence: EvidenceView[number]) => Promise<void>;
 	onEditEvidence?: (evidence: EvidenceView[number]) => void;
 	scanId?: string;
 }) {
-	const visible = limit ? evidence.slice(0, limit) : evidence;
+	const pageSize = limit ?? 10;
+	const evidenceQuery = useInfiniteQuery({
+		...scanEvidenceInfiniteQueryOptions(scanId ?? "", pageSize),
+		enabled: enableInfinite && Boolean(scanId),
+		initialData:
+			enableInfinite && scanId && evidence.length
+				? initialEvidencePage(evidence, pageSize, scanId)
+				: undefined,
+	});
+	const loadedEvidence = enableInfinite
+		? (evidenceQuery.data?.pages.flatMap((page) => page.items) ?? evidence)
+		: evidence;
+	const visible = enableInfinite
+		? loadedEvidence
+		: limit
+			? evidence.slice(0, limit)
+			: evidence;
 
 	return (
 		<Panel className={className}>
-			<PanelHeader title={`Bằng chứng (${evidence.length})`} />
+			<PanelHeader title={`Bằng chứng (${loadedEvidence.length})`} />
 			<div className="divide-y divide-[var(--divider)] p-4">
 				{visible.length ? (
 					visible.map((item, index) => (
@@ -229,8 +345,74 @@ export function EvidencePanel({
 					<EmptyPanelText>Chưa có bằng chứng. Tạo hoặc xử lý một scan live.</EmptyPanelText>
 				)}
 			</div>
+			{enableInfinite && scanId ? (
+				<div className="border-t border-[var(--border)] p-3">
+					<button
+						type="button"
+						disabled={!evidenceQuery.hasNextPage || evidenceQuery.isFetchingNextPage}
+						onClick={() => void evidenceQuery.fetchNextPage()}
+						className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{evidenceQuery.isFetchingNextPage
+							? "Đang tải thêm..."
+							: evidenceQuery.hasNextPage
+								? "Tải thêm bằng chứng"
+								: "Đã tải hết bằng chứng"}
+					</button>
+				</div>
+			) : null}
 		</Panel>
 	);
+}
+
+function TopicInsightRow({ topic }: { topic: TopicInsight }) {
+	return (
+		<Link
+			href={topic.href}
+			className="grid min-w-0 gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_120px_84px] sm:items-center"
+		>
+			<div className="min-w-0">
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<h2 className="min-w-0 break-words text-[14px] font-bold text-[var(--foreground)]">
+						{topic.name}
+					</h2>
+					<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--accent-strong)]">
+						{topic.attentionLabel}
+					</span>
+				</div>
+				<p className="mt-1 break-words text-[12px] leading-5 text-[var(--muted)]">
+					{topic.recommendation}
+				</p>
+			</div>
+			<div className="text-[12px] font-semibold text-[var(--muted)] sm:text-right">
+				{topic.count.toLocaleString("vi-VN")} mẫu
+				<p className="mt-1 text-[11px] text-[var(--muted-strong)]">
+					{topic.trend}
+				</p>
+			</div>
+			<RiskPill risk={topic.riskLevel} />
+		</Link>
+	);
+}
+
+function initialEvidencePage(
+	evidence: EvidenceView,
+	limit: number,
+	scanId: string,
+) {
+	const hasNextPage = evidence.length > limit;
+	return {
+		pageParams: [null as string | null],
+		pages: [
+			{
+				hasNextPage,
+				items: evidence.slice(0, limit),
+				limit,
+				nextCursor: hasNextPage ? String(limit) : null,
+				scanId,
+			},
+		],
+	};
 }
 
 function EmptyPanelText({ children }: { children: string }) {

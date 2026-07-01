@@ -62,7 +62,7 @@ export function ScanDetailsPage(
 				</div>
 				<div className="space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
-					<TopicPanel topics={props.topics} />
+					<TopicPanel evidence={props.evidence} topics={props.topics} />
 					<DraftReview
 						draft={props.draft}
 						onReview={props.onReview}
@@ -70,7 +70,12 @@ export function ScanDetailsPage(
 					/>
 				</div>
 			</div>
-			<EvidencePanel evidence={props.evidence} limit={8} scanId={props.selectedScanId} />
+			<EvidencePanel
+				enableInfinite
+				evidence={props.evidence}
+				limit={8}
+				scanId={props.selectedScanId}
+			/>
 		</div>
 	);
 }

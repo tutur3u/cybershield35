@@ -10,6 +10,7 @@ import {
 	ExternalLink,
 	FileBarChart,
 	FileText,
+	Layers3,
 	MessageSquareText,
 	Play,
 	Plus,
@@ -28,6 +29,7 @@ import {
 	RiskFlagPanel,
 	SentimentAndStance,
 	TopicPanel,
+	TopicExplorer,
 } from "@/components/dashboard/analysis-widgets";
 import {
 	DraftReview,
@@ -37,6 +39,7 @@ import { SocialLogoGrid } from "@/components/dashboard/dialogs";
 import {
 	AnalysisSummary,
 	DraftSnapshot,
+	InsightGrid,
 	MetricGrid,
 	PageHeader,
 	QueueCard,
@@ -56,6 +59,7 @@ import type {
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
 import { WorkspaceMembersPage } from "@/components/dashboard/workspace-members-page";
+import { buildDashboardInsights } from "@/lib/dashboard/insights";
 
 export type DashboardPageProps = {
 	scans: DashboardScan[];
@@ -101,6 +105,14 @@ export type DashboardPageProps = {
 };
 
 export function OverviewPage(props: DashboardPageProps) {
+	const insights = buildDashboardInsights({
+		analysis: props.analysis,
+		draft: props.draft,
+		evidence: props.evidence,
+		scans: props.scans,
+		topics: props.topics,
+	});
+
 	return (
 		<div className="space-y-5">
 			<PageHeader
@@ -119,8 +131,10 @@ export function OverviewPage(props: DashboardPageProps) {
 				}
 			/>
 			<MetricGrid scans={props.scans} />
+			<InsightGrid insights={insights} />
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
 				<QueueCard
+					enableInfinite
 					scans={props.scans}
 					selectedScanId={props.selectedScanId}
 					onSelectScan={props.onSelectScan}
@@ -172,6 +186,7 @@ export function SourcesPage(props: DashboardPageProps) {
 					</div>
 				</Panel>
 				<QueueCard
+					enableInfinite
 					scans={props.scans}
 					selectedScanId={props.selectedScanId}
 					onSelectScan={props.onSelectScan}
@@ -406,7 +421,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
 				<div className="space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
-					<TopicPanel topics={props.topics} />
+					<TopicPanel evidence={props.evidence} topics={props.topics} />
 					<RiskFlagPanel analysis={props.analysis} />
 				</div>
 				<div className="grid gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
@@ -414,9 +429,46 @@ export function AnalysisPage(props: DashboardPageProps) {
 					<AlertPanel flags={props.analysis.riskFlags} className="h-full" />
 				</div>
 				<div className="xl:col-span-2">
-					<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
+					<EvidencePanel
+						enableInfinite
+						evidence={props.evidence}
+						limit={5}
+						scanId={props.selectedScanId}
+					/>
 				</div>
 			</div>
+		</div>
+	);
+}
+
+export function TopicsPage(props: DashboardPageProps) {
+	return (
+		<div className="space-y-5">
+			<PageHeader
+				icon={Layers3}
+				title="Chủ đề"
+				description="Xem các cụm nội dung như mục công việc: mức chú ý, xu hướng, bằng chứng mẫu và bước tiếp theo."
+				actions={
+					<>
+						<Link
+							href="/analysis"
+							className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+						>
+							Mở phân tích <ArrowRight size={14} />
+						</Link>
+						<SecondaryButton onClick={props.onOpenDraft}>
+							<Sparkles size={14} /> Tạo phản hồi
+						</SecondaryButton>
+					</>
+				}
+			/>
+			<TopicExplorer evidence={props.evidence} topics={props.topics} />
+			<EvidencePanel
+				enableInfinite
+				evidence={props.evidence}
+				limit={6}
+				scanId={props.selectedScanId}
+			/>
 		</div>
 	);
 }
@@ -446,7 +498,12 @@ export function CounterArgumentsPage(props: DashboardPageProps) {
 					scanId={props.selectedScanId}
 				/>
 				<div className="xl:col-span-2">
-					<EvidencePanel evidence={props.evidence} limit={8} scanId={props.selectedScanId} />
+					<EvidencePanel
+						enableInfinite
+						evidence={props.evidence}
+						limit={8}
+						scanId={props.selectedScanId}
+					/>
 				</div>
 			</div>
 		</div>
@@ -467,6 +524,7 @@ export function EvidencePage(props: DashboardPageProps) {
 				}
 			/>
 			<EvidencePanel
+				enableInfinite
 				evidence={props.evidence}
 				scanId={props.selectedScanId}
 				onDeleteEvidence={props.onDeleteEvidence}
