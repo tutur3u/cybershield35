@@ -9,6 +9,11 @@ export const metadata = {
 	title: "Chủ đề",
 };
 
+export const unstable_instant = {
+	prefetch: "static",
+	unstable_disableValidation: true,
+};
+
 export default function TopicsRoute() {
 	return (
 		<Suspense fallback={<DashboardRouteSkeleton />}>

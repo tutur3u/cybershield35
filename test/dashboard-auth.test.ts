@@ -956,9 +956,12 @@ describe("dashboard auth gate", () => {
 
 	test("dashboard adds operator analytics and overflow-safe prose", () => {
 		const layout = readFileSync("app/layout.tsx", "utf8");
-		const insights = readFileSync("lib/dashboard/insights.ts", "utf8");
 		const pages = readFileSync(
 			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const intelligenceWidgets = readFileSync(
+			"components/dashboard/intelligence-widgets.tsx",
 			"utf8",
 		);
 		const widgets = readFileSync(
@@ -972,10 +975,11 @@ describe("dashboard auth gate", () => {
 
 		expect(layout).toContain("@vercel/analytics/next");
 		expect(layout).toContain("<Analytics />");
-		expect(insights).toContain("buildDashboardInsights");
-		expect(insights).toContain("Sức mạnh bằng chứng");
-		expect(insights).toContain("Áp lực chủ đề");
-		expect(pages).toContain("<InsightGrid");
+		expect(pages).toContain("<ExecutiveIntelligenceDashboard");
+		expect(intelligenceWidgets).toContain("Risk and evidence trend");
+		expect(intelligenceWidgets).toContain("Topic momentum");
+		expect(intelligenceWidgets).toContain("Report readiness");
+		expect(intelligenceWidgets).toContain("line-clamp-2");
 		expect(widgets).toContain("break-words");
 		expect(widgets).toContain("[-webkit-line-clamp:6]");
 		expect(analysisWidgets).toContain("[-webkit-line-clamp:3]");
@@ -1066,6 +1070,10 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/ui-primitives.tsx",
 			"utf8",
 		);
+		const intelligenceWidgets = readFileSync(
+			"components/dashboard/intelligence-widgets.tsx",
+			"utf8",
+		);
 		const types = readFileSync("components/dashboard/types.ts", "utf8");
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
@@ -1083,8 +1091,10 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("export function ClaimEvidencePanel");
 		expect(widgets).toContain("claim.evidenceIds");
 		expect(widgets).toContain("stanceTooltip");
-		expect(pages).toContain("<ClaimEvidencePanel");
-		expect(pages).toContain("evidence={props.evidence}");
+		expect(pages).toContain("<IntelligenceClaimsWorkspace");
+		expect(intelligenceWidgets).toContain("evidenceHrefs");
+		expect(intelligenceWidgets).toContain("Claim graph");
+		expect(intelligenceWidgets).toContain("href={claim.deepLink}");
 		expect(primitives).toContain("export function DashboardTooltip");
 		expect(primitives).toContain("@tuturuuu/ui/tooltip");
 		expect(primitives).toContain("Rủi ro cao");

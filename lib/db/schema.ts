@@ -1,5 +1,6 @@
 import {
 	boolean,
+	date,
 	index,
 	integer,
 	jsonb,
@@ -298,6 +299,173 @@ export const managedSchedulerIntegrations = pgTable(
 	],
 );
 
+export const intelligenceDailyRollups = pgTable(
+	"intelligence_daily_rollups",
+	{
+		day: date("day").primaryKey(),
+		scanCount: integer("scan_count").default(0).notNull(),
+		queuedScanCount: integer("queued_scan_count").default(0).notNull(),
+		runningScanCount: integer("running_scan_count").default(0).notNull(),
+		completedScanCount: integer("completed_scan_count").default(0).notNull(),
+		failedScanCount: integer("failed_scan_count").default(0).notNull(),
+		retryingScanCount: integer("retrying_scan_count").default(0).notNull(),
+		evidenceCount: integer("evidence_count").default(0).notNull(),
+		highRiskEvidenceCount: integer("high_risk_evidence_count").default(0).notNull(),
+		mediumRiskEvidenceCount: integer("medium_risk_evidence_count")
+			.default(0)
+			.notNull(),
+		lowRiskEvidenceCount: integer("low_risk_evidence_count").default(0).notNull(),
+		claimCount: integer("claim_count").default(0).notNull(),
+		riskFlagCount: integer("risk_flag_count").default(0).notNull(),
+		draftCount: integer("draft_count").default(0).notNull(),
+		approvedDraftCount: integer("approved_draft_count").default(0).notNull(),
+		reportReadyCount: integer("report_ready_count").default(0).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("intelligence_daily_rollups_updated_idx").on(table.updatedAt)],
+);
+
+export const intelligenceTopicRollups = pgTable(
+	"intelligence_topic_rollups",
+	{
+		topicId: uuid("topic_id")
+			.primaryKey()
+			.references(() => topics.id, { onDelete: "cascade" }),
+		slug: text("slug").notNull(),
+		name: text("name").notNull(),
+		riskLevel: riskLevelEnum("risk_level").default("medium").notNull(),
+		trend: text("trend").default("stable").notNull(),
+		momentumScore: integer("momentum_score").default(0).notNull(),
+		evidenceCount: integer("evidence_count").default(0).notNull(),
+		highRiskEvidenceCount: integer("high_risk_evidence_count").default(0).notNull(),
+		claimCount: integer("claim_count").default(0).notNull(),
+		scanCount: integer("scan_count").default(0).notNull(),
+		sourceCount: integer("source_count").default(0).notNull(),
+		firstSeenAt: timestamp("first_seen_at", { withTimezone: true }),
+		lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("intelligence_topic_rollups_slug_unique").on(table.slug),
+		index("intelligence_topic_rollups_priority_idx").on(
+			table.riskLevel,
+			table.momentumScore,
+			table.evidenceCount,
+		),
+		index("intelligence_topic_rollups_last_seen_idx").on(table.lastSeenAt),
+	],
+);
+
+export const intelligenceSourceRollups = pgTable(
+	"intelligence_source_rollups",
+	{
+		sourceId: uuid("source_id")
+			.primaryKey()
+			.references(() => sources.id, { onDelete: "cascade" }),
+		sourceLabel: text("source_label").notNull(),
+		sourceType: sourceTypeEnum("source_type").notNull(),
+		provider: providerNameEnum("provider"),
+		health: text("health").default("unknown").notNull(),
+		scanCount: integer("scan_count").default(0).notNull(),
+		completedScanCount: integer("completed_scan_count").default(0).notNull(),
+		failedScanCount: integer("failed_scan_count").default(0).notNull(),
+		evidenceCount: integer("evidence_count").default(0).notNull(),
+		highRiskEvidenceCount: integer("high_risk_evidence_count").default(0).notNull(),
+		lastScanJobId: uuid("last_scan_job_id").references(() => scanJobs.id, {
+			onDelete: "set null",
+		}),
+		lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("intelligence_source_rollups_health_idx").on(
+			table.health,
+			table.lastScannedAt,
+		),
+		index("intelligence_source_rollups_provider_idx").on(table.provider),
+	],
+);
+
+export const intelligenceProviderRollups = pgTable(
+	"intelligence_provider_rollups",
+	{
+		provider: providerNameEnum("provider").primaryKey(),
+		health: text("health").default("unknown").notNull(),
+		scanCount: integer("scan_count").default(0).notNull(),
+		completedRunCount: integer("completed_run_count").default(0).notNull(),
+		failedRunCount: integer("failed_run_count").default(0).notNull(),
+		avgDurationMs: integer("avg_duration_ms").default(0).notNull(),
+		lastStatus: scanStatusEnum("last_status"),
+		lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("intelligence_provider_rollups_health_idx").on(
+			table.health,
+			table.lastRunAt,
+		),
+	],
+);
+
+export const intelligenceClaimIndex = pgTable(
+	"intelligence_claim_index",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		claimKey: text("claim_key").notNull(),
+		claim: text("claim").notNull(),
+		stance: text("stance").default("neutral").notNull(),
+		confidence: integer("confidence").default(0).notNull(),
+		riskLevel: riskLevelEnum("risk_level").default("medium").notNull(),
+		scanJobId: uuid("scan_job_id").references(() => scanJobs.id, {
+			onDelete: "cascade",
+		}),
+		analysisId: uuid("analysis_id").references(() => analyses.id, {
+			onDelete: "cascade",
+		}),
+		evidenceIds: jsonb("evidence_ids").$type<string[]>().default([]).notNull(),
+		evidenceCount: integer("evidence_count").default(0).notNull(),
+		topicSlugs: jsonb("topic_slugs").$type<string[]>().default([]).notNull(),
+		sourceLabels: jsonb("source_labels").$type<string[]>().default([]).notNull(),
+		deepLink: text("deep_link").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("intelligence_claim_index_key_unique").on(table.claimKey),
+		index("intelligence_claim_index_risk_idx").on(
+			table.riskLevel,
+			table.confidence,
+		),
+		index("intelligence_claim_index_scan_idx").on(table.scanJobId),
+	],
+);
+
+export const intelligenceActivityRollups = pgTable(
+	"intelligence_activity_rollups",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		entityType: text("entity_type").notNull(),
+		entityId: uuid("entity_id").notNull(),
+		action: text("action").notNull(),
+		severity: riskLevelEnum("severity").default("medium").notNull(),
+		title: text("title").notNull(),
+		description: text("description").notNull(),
+		href: text("href").notNull(),
+		occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("intelligence_activity_rollups_time_idx").on(table.occurredAt),
+		index("intelligence_activity_rollups_entity_idx").on(
+			table.entityType,
+			table.entityId,
+		),
+		index("intelligence_activity_rollups_severity_idx").on(table.severity),
+	],
+);
+
 export type SourceType = (typeof sourceTypeEnum.enumValues)[number];
 export type ProviderName = (typeof providerNameEnum.enumValues)[number];
 export type ScanStatus = (typeof scanStatusEnum.enumValues)[number];
@@ -315,3 +483,15 @@ export type EvidenceTopicRow = typeof evidenceTopics.$inferSelect;
 export type CounterArgumentDraftRow = typeof counterArgumentDrafts.$inferSelect;
 export type ManagedSchedulerIntegrationRow =
 	typeof managedSchedulerIntegrations.$inferSelect;
+export type IntelligenceDailyRollupRow =
+	typeof intelligenceDailyRollups.$inferSelect;
+export type IntelligenceTopicRollupRow =
+	typeof intelligenceTopicRollups.$inferSelect;
+export type IntelligenceSourceRollupRow =
+	typeof intelligenceSourceRollups.$inferSelect;
+export type IntelligenceProviderRollupRow =
+	typeof intelligenceProviderRollups.$inferSelect;
+export type IntelligenceClaimIndexRow =
+	typeof intelligenceClaimIndex.$inferSelect;
+export type IntelligenceActivityRollupRow =
+	typeof intelligenceActivityRollups.$inferSelect;

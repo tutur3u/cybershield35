@@ -25,13 +25,11 @@ import { useState } from "react";
 
 import {
 	AlertPanel,
-	ClaimEvidencePanel,
 	EvidencePanel,
 	RiskFlagPanel,
 	SentimentAndStance,
 	TopicDetailPanel,
 	TopicPanel,
-	TopicExplorer,
 } from "@/components/dashboard/analysis-widgets";
 import {
 	DraftReview,
@@ -39,10 +37,16 @@ import {
 } from "@/components/dashboard/counter-argument-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/dialogs";
 import {
+	ExecutiveIntelligenceDashboard,
+	IntelligenceActivityStream,
+	IntelligenceClaimsWorkspace,
+	IntelligenceEvidenceVault,
+	IntelligenceReportsWorkbench,
+	IntelligenceSourcesWorkspace,
+	IntelligenceTopicsWorkspace,
+} from "@/components/dashboard/intelligence-widgets";
+import {
 	AnalysisSummary,
-	DraftSnapshot,
-	InsightGrid,
-	MetricGrid,
 	PageHeader,
 	QueueCard,
 } from "@/components/dashboard/page-widgets";
@@ -61,7 +65,6 @@ import type {
 } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
 import { WorkspaceMembersPage } from "@/components/dashboard/workspace-members-page";
-import { buildDashboardInsights } from "@/lib/dashboard/insights";
 
 export type DashboardPageProps = {
 	scans: DashboardScan[];
@@ -107,20 +110,12 @@ export type DashboardPageProps = {
 };
 
 export function OverviewPage(props: DashboardPageProps) {
-	const insights = buildDashboardInsights({
-		analysis: props.analysis,
-		draft: props.draft,
-		evidence: props.evidence,
-		scans: props.scans,
-		topics: props.topics,
-	});
-
 	return (
 		<div className="space-y-5">
 			<PageHeader
 				icon={ShieldCheck}
-				title="Tổng quan vận hành"
-				description="Hàng đợi, tiến độ và tín hiệu phân tích mới nhất."
+				title="Executive intelligence"
+				description="Risk posture, topic momentum, evidence strength, source health and report readiness."
 				actions={
 					<>
 						<SecondaryButton onClick={props.onOpenScan}>
@@ -132,9 +127,11 @@ export function OverviewPage(props: DashboardPageProps) {
 					</>
 				}
 			/>
-			<MetricGrid scans={props.scans} />
-			<InsightGrid insights={insights} />
-			<div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+			<ExecutiveIntelligenceDashboard
+				onCreateReport={props.onCreateReport}
+				onOpenScan={props.onOpenScan}
+			/>
+			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)]">
 				<QueueCard
 					enableInfinite
 					scans={props.scans}
@@ -144,12 +141,6 @@ export function OverviewPage(props: DashboardPageProps) {
 					onDeleteScan={props.onDeleteScan}
 					onRunScan={props.onRunScan}
 					limit={4}
-				/>
-				<AnalysisSummary analysis={props.analysis} />
-				<DraftSnapshot
-					draft={props.draft}
-					onOpenDraft={props.onOpenDraft}
-					scanId={props.selectedScanId}
 				/>
 			</div>
 		</div>
@@ -170,6 +161,7 @@ export function SourcesPage(props: DashboardPageProps) {
 				}
 			/>
 			<div className="space-y-5">
+				<IntelligenceSourcesWorkspace onOpenScan={props.onOpenScan} />
 				<TrackedSourcesPanel
 					isCreating={props.isCreating}
 					onCreateTrackedSource={props.onCreateTrackedSource}
@@ -473,13 +465,7 @@ export function TopicsPage(props: DashboardPageProps) {
 					</>
 				}
 			/>
-			<TopicExplorer evidence={props.evidence} topics={props.topics} />
-			<EvidencePanel
-				enableInfinite
-				evidence={props.evidence}
-				limit={6}
-				scanId={props.selectedScanId}
-			/>
+			<IntelligenceTopicsWorkspace />
 		</div>
 	);
 }
@@ -544,7 +530,9 @@ export function CounterArgumentsPage(props: DashboardPageProps) {
 	);
 }
 
-export function EvidencePage(props: DashboardPageProps) {
+export function EvidencePage({
+	onCreateEvidence,
+}: Pick<DashboardPageProps, "onCreateEvidence">) {
 	return (
 		<div className="space-y-5">
 			<PageHeader
@@ -552,48 +540,25 @@ export function EvidencePage(props: DashboardPageProps) {
 				title="Kho bằng chứng"
 				description="Các trích dẫn đã chuẩn hóa dùng cho phân tích và phản hồi nội bộ."
 				actions={
-					<SecondaryButton onClick={props.onCreateEvidence}>
+					<SecondaryButton onClick={onCreateEvidence}>
 						<Plus size={14} /> Thêm bằng chứng
 					</SecondaryButton>
 				}
 			/>
-			<EvidencePanel
-				enableInfinite
-				evidence={props.evidence}
-				scanId={props.selectedScanId}
-				onDeleteEvidence={props.onDeleteEvidence}
-				onEditEvidence={props.onEditEvidence}
-			/>
+			<IntelligenceEvidenceVault />
 		</div>
 	);
 }
 
-export function AlertsPage(props: DashboardPageProps) {
+export function AlertsPage() {
 	return (
 		<div className="space-y-5">
 			<PageHeader
 				icon={AlertTriangle}
 				title="Cảnh báo & Rủi ro"
-				description="Tổng hợp cờ rủi ro, claim và bằng chứng cần ưu tiên xử lý."
+				description="Claim graph, supporting evidence and action routing for risks."
 			/>
-			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<AlertPanel
-					flags={props.analysis.riskFlags}
-					evidence={props.evidence}
-					scanId={props.selectedScanId}
-				/>
-				<RiskFlagPanel
-					analysis={props.analysis}
-					evidence={props.evidence}
-					scanId={props.selectedScanId}
-				/>
-				<ClaimEvidencePanel
-					claims={props.analysis.claims}
-					evidence={props.evidence}
-					scanId={props.selectedScanId}
-					className="xl:col-span-2"
-				/>
-			</div>
+			<IntelligenceClaimsWorkspace />
 		</div>
 	);
 }
@@ -611,6 +576,7 @@ export function ReportsPage(props: DashboardPageProps) {
 					</SecondaryButton>
 				}
 			/>
+			<IntelligenceReportsWorkbench onCreateReport={props.onCreateReport} />
 			<div className="grid items-stretch gap-4 md:grid-cols-3">
 				{props.reports.map((report) => (
 					<Panel key={report.kind} className="h-full">
@@ -718,8 +684,6 @@ export function SettingsPage() {
 }
 
 export function AuditPage(props: DashboardPageProps) {
-	const events = props.detail?.audit ?? [];
-
 	return (
 		<div className="space-y-5">
 			<PageHeader
@@ -727,6 +691,7 @@ export function AuditPage(props: DashboardPageProps) {
 				title="Nhật ký hoạt động"
 				description="Theo dõi thao tác scan, provider, phân tích và trạng thái duyệt."
 			/>
+			<IntelligenceActivityStream />
 			<Panel>
 				<div className="border-b border-[var(--border)] px-4 py-3">
 					<h2 className="text-[15px] font-bold text-[var(--foreground)]">
@@ -734,8 +699,8 @@ export function AuditPage(props: DashboardPageProps) {
 					</h2>
 				</div>
 				<div className="divide-y divide-[var(--divider)] p-4">
-					{events.length ? (
-						events.map((event) => (
+					{(props.detail?.audit ?? []).length ? (
+						(props.detail?.audit ?? []).map((event) => (
 							<div
 								key={event.id ?? `${event.action}-${event.createdAt}`}
 								className="grid gap-2 py-3 sm:grid-cols-[180px_minmax(0,1fr)]"

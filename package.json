@@ -20,6 +20,7 @@
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:backfill-intelligence": "bun --conditions react-server scripts/backfill-intelligence.ts",
     "db:backfill-topics": "bun --conditions react-server scripts/backfill-topics.ts",
     "worker": "bun --conditions react-server scripts/worker.ts"
   },
@@ -27,6 +28,7 @@
     "@ai-sdk/google": "^3.0.82",
     "@ai-sdk/openai": "^3.0.71",
     "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-virtual": "^3.14.5",
     "@tuturuuu/ui": "0.7.0",
     "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.204",
