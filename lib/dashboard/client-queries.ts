@@ -2,6 +2,9 @@ import { queryOptions } from "@tanstack/react-query";
 
 import type {
 	DashboardInitialData,
+	DashboardScansPage,
+	EvidenceItemsPage,
+	EvidenceView,
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	ScanDetail,
@@ -37,6 +40,33 @@ export function scanDetailQueryOptions(scanId: string) {
 		queryKey: dashboardQueryKeys.scanDetail(scanId),
 		staleTime: dashboardQueryStaleTimeMs,
 	});
+}
+
+export function dashboardScansInfiniteQueryOptions(limit = 8) {
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: DashboardScansPage) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchDashboardScansPage({ cursor: pageParam, limit }),
+		queryKey: dashboardQueryKeys.scansInfinite(limit),
+		staleTime: dashboardQueryStaleTimeMs,
+	};
+}
+
+export function scanEvidenceInfiniteQueryOptions(scanId: string, limit = 8) {
+	return {
+		enabled: Boolean(scanId),
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: EvidenceItemsPage) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchScanEvidencePage({ cursor: pageParam, limit, scanId }),
+		queryKey: dashboardQueryKeys.scanEvidenceInfinite(scanId, limit),
+		staleTime: dashboardQueryStaleTimeMs,
+	};
 }
 
 export function workspaceMembersQueryOptions() {
@@ -86,6 +116,62 @@ async function fetchScanDetail(scanId: string): Promise<ScanDetail | null> {
 		`/api/scans/${encodeURIComponent(scanId)}`,
 	);
 	return payload.detail ?? null;
+}
+
+export async function fetchDashboardScansPage({
+	cursor,
+	limit = 8,
+}: {
+	cursor?: string | null;
+	limit?: number;
+} = {}): Promise<DashboardScansPage> {
+	const searchParams = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (cursor) searchParams.set("cursor", cursor);
+	const payload = await fetchJson<Partial<DashboardScansPage> & { scans?: unknown }>(
+		`/api/scans?${searchParams.toString()}`,
+	);
+	const fallbackItems = Array.isArray(payload.scans)
+		? (payload.scans as DashboardScansPage["items"])
+		: [];
+
+	return {
+		hasNextPage: Boolean(payload.hasNextPage),
+		items: Array.isArray(payload.items) ? payload.items : fallbackItems,
+		limit: payload.limit ?? limit,
+		nextCursor: payload.nextCursor ?? null,
+	};
+}
+
+export async function fetchScanEvidencePage({
+	cursor,
+	limit = 8,
+	scanId,
+}: {
+	cursor?: string | null;
+	limit?: number;
+	scanId: string;
+}): Promise<EvidenceItemsPage> {
+	if (!scanId) {
+		return { hasNextPage: false, items: [], limit, nextCursor: null, scanId };
+	}
+	const searchParams = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (cursor) searchParams.set("cursor", cursor);
+
+	const payload = await fetchJson<Partial<EvidenceItemsPage>>(
+		`/api/scans/${encodeURIComponent(scanId)}/evidence?${searchParams.toString()}`,
+	);
+
+	return {
+		hasNextPage: Boolean(payload.hasNextPage),
+		items: Array.isArray(payload.items) ? (payload.items as EvidenceView) : [],
+		limit: payload.limit ?? limit,
+		nextCursor: payload.nextCursor ?? null,
+		scanId: payload.scanId ?? scanId,
+	};
 }
 
 async function fetchWorkspaceMembers(): Promise<WorkspaceMembersResponse> {

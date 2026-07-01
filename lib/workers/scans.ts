@@ -74,6 +74,9 @@ export type UpdateEvidenceInput = {
 	summary?: string;
 };
 
+const DEFAULT_PAGE_LIMIT = 25;
+const MAX_PAGE_LIMIT = 50;
+
 export async function createScan(input: CreateScanInput) {
 	const detection = detectSource(input.input, {
 		fileName: input.fileName,
@@ -123,6 +126,16 @@ export async function createScan(input: CreateScanInput) {
 }
 
 export async function listScans() {
+	const page = await listScansPage();
+	return page.items;
+}
+
+export async function listScansPage(input?: {
+	cursor?: string | null;
+	limit?: number;
+}) {
+	const limit = normalizePageLimit(input?.limit);
+	const offset = normalizeOffsetCursor(input?.cursor);
 	const rows = await adminDb
 		.select({
 			id: scanJobs.id,
@@ -139,9 +152,17 @@ export async function listScans() {
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
 		.leftJoin(analyses, eq(analyses.scanJobId, scanJobs.id))
 		.orderBy(desc(scanJobs.createdAt))
-		.limit(25);
+		.limit(limit + 1)
+		.offset(offset);
 
-	return rows.map(toDashboardScan);
+	const hasNextPage = rows.length > limit;
+	const items = rows.slice(0, limit).map(toDashboardScan);
+	return {
+		hasNextPage,
+		items,
+		limit,
+		nextCursor: hasNextPage ? String(offset + limit) : null,
+	};
 }
 
 export async function getScanDetail(id: string) {
@@ -245,6 +266,47 @@ export async function getScanDetail(id: string) {
 		drafts,
 		providerRuns: runs,
 		audit,
+	};
+}
+
+export async function listEvidenceForScanPage(input: {
+	cursor?: string | null;
+	limit?: number;
+	scanId: string;
+}) {
+	const limit = normalizePageLimit(input.limit);
+	const offset = normalizeOffsetCursor(input.cursor);
+	const rows = await adminDb
+		.select({
+			author: evidenceItems.author,
+			createdAt: evidenceItems.createdAt,
+			engagement: evidenceItems.engagement,
+			id: evidenceItems.id,
+			provider: evidenceItems.provider,
+			publishedAt: evidenceItems.publishedAt,
+			quote: evidenceItems.quote,
+			riskLevel: evidenceItems.riskLevel,
+			scanJobId: evidenceItems.scanJobId,
+			sentiment: evidenceItems.sentiment,
+			sourceId: evidenceItems.sourceId,
+			sourceLabel: evidenceItems.sourceLabel,
+			sourceUrl: evidenceItems.sourceUrl,
+			stance: evidenceItems.stance,
+			summary: evidenceItems.summary,
+		})
+		.from(evidenceItems)
+		.where(eq(evidenceItems.scanJobId, input.scanId))
+		.orderBy(desc(evidenceItems.createdAt))
+		.limit(limit + 1)
+		.offset(offset);
+
+	const hasNextPage = rows.length > limit;
+	return {
+		hasNextPage,
+		items: rows.slice(0, limit),
+		limit,
+		nextCursor: hasNextPage ? String(offset + limit) : null,
+		scanId: input.scanId,
 	};
 }
 
@@ -700,6 +762,19 @@ async function writeAudit(
 		action,
 		payload,
 	});
+}
+
+function normalizePageLimit(value?: number) {
+	const parsed = Math.floor(Number(value ?? DEFAULT_PAGE_LIMIT));
+	if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_PAGE_LIMIT;
+	return Math.min(parsed, MAX_PAGE_LIMIT);
+}
+
+function normalizeOffsetCursor(value?: string | null) {
+	if (!value) return 0;
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed < 0) return 0;
+	return Math.floor(parsed);
 }
 
 function toDashboardScan(row: {

@@ -859,6 +859,93 @@ describe("dashboard auth gate", () => {
 		expect(initialRoute).toContain("requireAdminSession");
 	});
 
+	test("dashboard makes topics a first-class operational page", () => {
+		const data = readFileSync("components/dashboard/dashboard-data.ts", "utf8");
+		const types = readFileSync("components/dashboard/types.ts", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const appPage = readFileSync("app/topics/page.tsx", "utf8");
+		const widgets = readFileSync(
+			"components/dashboard/analysis-widgets.tsx",
+			"utf8",
+		);
+
+		expect(data).toContain('href: "/topics"');
+		expect(data).toContain("Chủ đề");
+		expect(types).toContain('| "topics"');
+		expect(dashboard).toContain('case "topics"');
+		expect(appPage).toContain('page="topics"');
+		expect(pages).toContain("export function TopicsPage");
+		expect(widgets).toContain("TopicExplorer");
+		expect(widgets).toContain("buildTopicInsights");
+	});
+
+	test("dashboard uses client-side infinite loading for heavy lists", () => {
+		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
+		const queryKeys = readFileSync("lib/dashboard/query-keys.ts", "utf8");
+		const scansRoute = readFileSync("app/api/scans/route.ts", "utf8");
+		const evidenceRoute = readFileSync(
+			"app/api/scans/[id]/evidence/route.ts",
+			"utf8",
+		);
+		const widgets = readFileSync(
+			"components/dashboard/page-widgets.tsx",
+			"utf8",
+		);
+		const analysisWidgets = readFileSync(
+			"components/dashboard/analysis-widgets.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+
+		expect(queryKeys).toContain("scansInfinite");
+		expect(queryKeys).toContain("scanEvidenceInfinite");
+		expect(queries).toContain("dashboardScansInfiniteQueryOptions");
+		expect(queries).toContain("scanEvidenceInfiniteQueryOptions");
+		expect(scansRoute).toContain("nextCursor");
+		expect(scansRoute).toContain("listScansPage");
+		expect(evidenceRoute).toContain("listEvidenceForScanPage");
+		expect(widgets).toContain("useInfiniteQuery");
+		expect(analysisWidgets).toContain("useInfiniteQuery");
+		expect(pages).toContain("enableInfinite");
+	});
+
+	test("dashboard adds operator analytics and overflow-safe prose", () => {
+		const layout = readFileSync("app/layout.tsx", "utf8");
+		const insights = readFileSync("lib/dashboard/insights.ts", "utf8");
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const widgets = readFileSync(
+			"components/dashboard/page-widgets.tsx",
+			"utf8",
+		);
+		const analysisWidgets = readFileSync(
+			"components/dashboard/analysis-widgets.tsx",
+			"utf8",
+		);
+
+		expect(layout).toContain("@vercel/analytics/next");
+		expect(layout).toContain("<Analytics />");
+		expect(insights).toContain("buildDashboardInsights");
+		expect(insights).toContain("Sức mạnh bằng chứng");
+		expect(insights).toContain("Áp lực chủ đề");
+		expect(pages).toContain("<InsightGrid");
+		expect(widgets).toContain("break-words");
+		expect(widgets).toContain("[-webkit-line-clamp:6]");
+		expect(analysisWidgets).toContain("[-webkit-line-clamp:3]");
+	});
+
 	test("dashboard exposes manual scan run actions for when cron is unavailable", () => {
 		const runRoute = readFileSync("app/api/scans/[id]/run/route.ts", "utf8");
 		const actions = readFileSync(

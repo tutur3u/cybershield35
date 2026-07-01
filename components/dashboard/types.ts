@@ -13,6 +13,7 @@ export type DashboardPage =
 	| "overview"
 	| "sources"
 	| "analysis"
+	| "topics"
 	| "counter-arguments"
 	| "chat"
 	| "members"
@@ -164,6 +165,13 @@ export type DashboardScan = {
 	createdAt: string;
 };
 
+export type DashboardScansPage = {
+	hasNextPage?: boolean;
+	items: DashboardScan[];
+	limit?: number;
+	nextCursor?: string | null;
+};
+
 export type ScanDetail = {
 	job?: Record<string, unknown>;
 	source?: {
@@ -186,6 +194,7 @@ export type ScanDetail = {
 };
 
 export type TopicCluster = {
+	id?: string;
 	name: string;
 	count: number;
 	trend: string;
@@ -232,6 +241,14 @@ export type DraftShape = {
 };
 
 export type EvidenceView = Array<Partial<EvidenceItemRow> & { id: string }>;
+
+export type EvidenceItemsPage = {
+	hasNextPage?: boolean;
+	items: EvidenceView;
+	limit?: number;
+	nextCursor?: string | null;
+	scanId: string;
+};
 
 export type ProviderAvailabilityView = {
 	apify?: boolean;
