@@ -50,6 +50,13 @@
       "when": 1782893792656,
       "tag": "0006_famous_iceman",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782895606035,
+      "tag": "0007_many_nightshade",
+      "breakpoints": true
     }
   ]
 }

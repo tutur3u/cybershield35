@@ -1,4 +1,11 @@
-import { backfillIntelligenceRollups } from "@/lib/dashboard/intelligence-rollups";
+import { loadLocalEnvFile } from "@/lib/env/load-local-env";
+
+loadLocalEnvFile();
+
+const { adminSqlClient } = await import("@/lib/db/client");
+const { backfillIntelligenceRollups } = await import(
+	"@/lib/dashboard/intelligence-rollups"
+);
 
 try {
 	await backfillIntelligenceRollups();
@@ -9,7 +16,6 @@ try {
 			updatedAt: new Date().toISOString(),
 		}),
 	);
-	process.exit(0);
 } catch (error) {
 	console.error(
 		JSON.stringify({
@@ -21,5 +27,7 @@ try {
 			task: "db:backfill-intelligence",
 		}),
 	);
-	process.exit(1);
+	process.exitCode = 1;
+} finally {
+	await adminSqlClient.end({ timeout: 5 });
 }

@@ -406,7 +406,7 @@ async function refreshActivityRollups(reason: string) {
 				else '/audit'
 			end,
 			a.created_at,
-			jsonb_build_object('projectionReason', ${reason})
+			jsonb_build_object('projectionReason', ${reason}::text)
 		from audit_events a
 		order by a.created_at desc
 		limit 250;
@@ -478,7 +478,8 @@ function normalizeClaim(candidate: unknown) {
 function normalizeConfidence(value: unknown) {
 	const parsed = Number(value ?? 0);
 	if (!Number.isFinite(parsed)) return 0;
-	return Math.max(0, Math.min(100, Math.round(parsed)));
+	const scaled = parsed <= 1 ? parsed * 100 : parsed;
+	return Math.max(0, Math.min(100, Math.round(scaled)));
 }
 
 function normalizeStringArray(value: unknown): string[] {

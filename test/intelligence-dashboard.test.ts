@@ -33,6 +33,9 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(pkg.scripts["db:backfill-intelligence"]).toContain(
 			"scripts/backfill-intelligence.ts",
 		);
+		expect(pkg.scripts["db:analyze-intelligence"]).toContain(
+			"scripts/analyze-intelligence-db.ts",
+		);
 	});
 
 	test("adds authenticated intelligence endpoints for overview and drilldowns", () => {
@@ -79,11 +82,15 @@ describe("executive intelligence dashboard architecture", () => {
 		const scans = read("lib/workers/scans.ts");
 		const cache = read("lib/dashboard/cache-invalidation.ts");
 		const rollups = read("lib/dashboard/intelligence-rollups.ts");
+		const backfillScript = read("scripts/backfill-intelligence.ts");
 
 		expect(scans).toContain("refreshIntelligenceRollupsBestEffort");
 		expect(cache).toContain("DASHBOARD_INTELLIGENCE_TAG");
 		expect(rollups).toContain("refreshDailyRollups");
 		expect(rollups).toContain("refreshTopicRollups");
 		expect(rollups).toContain("refreshClaimIndex");
+		expect(rollups).toContain("parsed <= 1 ? parsed * 100 : parsed");
+		expect(backfillScript).toContain("loadLocalEnvFile");
+		expect(backfillScript).toContain("adminSqlClient.end");
 	});
 });

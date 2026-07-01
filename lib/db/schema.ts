@@ -87,6 +87,7 @@ export const scanJobs = pgTable(
 	(table) => [
 		index("scan_jobs_queue_idx").on(table.status, table.scheduledAt, table.priority),
 		index("scan_jobs_source_idx").on(table.sourceId),
+		index("scan_jobs_status_created_idx").on(table.status, table.createdAt),
 	],
 );
 
@@ -163,6 +164,14 @@ export const evidenceItems = pgTable(
 	(table) => [
 		index("evidence_items_job_idx").on(table.scanJobId),
 		index("evidence_items_source_idx").on(table.sourceId),
+		index("evidence_items_risk_created_idx").on(
+			table.riskLevel,
+			table.createdAt,
+		),
+		index("evidence_items_provider_created_idx").on(
+			table.provider,
+			table.createdAt,
+		),
 	],
 );
 
@@ -233,6 +242,11 @@ export const evidenceTopics = pgTable(
 		index("evidence_topics_topic_idx").on(table.topicId, table.createdAt),
 		index("evidence_topics_evidence_idx").on(table.evidenceItemId),
 		index("evidence_topics_scan_idx").on(table.scanJobId),
+		index("evidence_topics_topic_confidence_idx").on(
+			table.topicId,
+			table.confidence,
+			table.createdAt,
+		),
 	],
 );
 

@@ -20,6 +20,7 @@
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:analyze-intelligence": "bun --conditions react-server scripts/analyze-intelligence-db.ts",
     "db:backfill-intelligence": "bun --conditions react-server scripts/backfill-intelligence.ts",
     "db:backfill-topics": "bun --conditions react-server scripts/backfill-topics.ts",
     "worker": "bun --conditions react-server scripts/worker.ts"
