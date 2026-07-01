@@ -1,15 +1,27 @@
-import { ArrowRight, Edit3, Layers3, Trash2 } from "lucide-react";
+import { ArrowRight, Edit3, Layers3, Link2, Quote, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-import type { AnalysisView, EvidenceView, RiskFlagView, TopicCluster } from "./types";
+import type {
+	AnalysisView,
+	ClaimView,
+	EvidenceView,
+	RiskFlagView,
+	TopicCluster,
+} from "./types";
 import {
 	scanEvidenceInfiniteQueryOptions,
 	topicDetailInfiniteQueryOptions,
 	topicsInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
 import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
-import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
+import {
+	DashboardTooltip,
+	Panel,
+	PanelHeader,
+	ProgressBar,
+	RiskPill,
+} from "./ui-primitives";
 
 export function SentimentAndStance({
 	analysis,
@@ -299,36 +311,58 @@ export function TopicDetailPanel({ slug }: { slug?: string }) {
 
 export function AlertPanel({
 	className = "",
+	evidence = [],
 	flags,
+	scanId,
 }: {
 	className?: string;
+	evidence?: EvidenceView;
 	flags: RiskFlagView[];
+	scanId?: string;
 }) {
 	return (
 		<Panel className={`flex flex-col ${className}`}>
-			<PanelHeader title="Cảnh báo ưu tiên" />
+			<PanelHeader
+				title="Cảnh báo ưu tiên"
+				description="Mỗi cảnh báo mở tới bằng chứng đang chống lưng cho nhận định."
+			/>
 			<div
 				className="grid flex-1 gap-3 p-4"
 				style={{
 					gridTemplateRows: flags.length
-						? `repeat(${flags.length}, minmax(48px, 1fr))`
+						? `repeat(${flags.length}, minmax(84px, auto))`
 						: undefined,
 				}}
 			>
 				{flags.length ? (
-					flags.map((row) => (
-						<div
-							key={row.label}
-							className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
-						>
-							<span className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
-								{row.label}
-							</span>
-							<span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--danger-soft)] text-[11px] font-bold text-[var(--danger-strong)]">
-								{row.count}
-							</span>
-						</div>
-					))
+					flags.map((row) => {
+						const relatedEvidence = relatedEvidenceForFlag(row, evidence);
+						return (
+							<div
+								key={row.label}
+								className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
+							>
+								<div className="flex min-w-0 items-start justify-between gap-3">
+									<div className="min-w-0">
+										<p className="break-words text-[13px] font-bold leading-5 text-[var(--foreground)]">
+											{row.label}
+										</p>
+										<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
+											{relatedEvidence.length
+												? `${relatedEvidence.length} bằng chứng đã liên kết`
+												: "Chưa tìm thấy bằng chứng khớp trong dữ liệu đã tải"}
+										</p>
+									</div>
+									<DashboardTooltip content="Số tín hiệu hoặc mẫu bằng chứng được LLM gắn với cảnh báo này.">
+										<span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--danger-soft)] text-[11px] font-bold text-[var(--danger-strong)]">
+											{row.count}
+										</span>
+									</DashboardTooltip>
+								</div>
+								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
+							</div>
+						);
+					})
 				) : (
 					<EmptyPanelText>Chưa có cảnh báo ưu tiên.</EmptyPanelText>
 				)}
@@ -337,30 +371,106 @@ export function AlertPanel({
 	);
 }
 
-export function RiskFlagPanel({ analysis }: { analysis: AnalysisView }) {
+export function RiskFlagPanel({
+	analysis,
+	evidence = [],
+	scanId,
+}: {
+	analysis: AnalysisView;
+	evidence?: EvidenceView;
+	scanId?: string;
+}) {
 	return (
 		<Panel>
-			<PanelHeader title="Cờ rủi ro từ LLM" />
+			<PanelHeader
+				title="Cờ rủi ro từ LLM"
+				description="Đọc từng cờ cùng bằng chứng liên quan trước khi ưu tiên xử lý."
+			/>
 			<div className="space-y-3 p-4">
 				{analysis.riskFlags.length ? (
-					analysis.riskFlags.map((flag) => (
-						<div
-							key={flag.label}
-							className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
-						>
-							<div className="flex items-center justify-between gap-3">
-								<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
-									{flag.label}
-								</p>
-								<RiskPill risk={flag.severity} />
+					analysis.riskFlags.map((flag) => {
+						const relatedEvidence = relatedEvidenceForFlag(flag, evidence);
+						return (
+							<div
+								key={flag.label}
+								className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
+							>
+								<div className="flex min-w-0 items-start justify-between gap-3">
+									<div className="min-w-0">
+										<p className="break-words text-[13px] font-bold leading-5 text-[var(--foreground)]">
+											{flag.label}
+										</p>
+										<p className="mt-1 text-[11px] text-[var(--muted)]">
+											{flag.count} bằng chứng liên quan theo phân tích
+										</p>
+									</div>
+									<RiskPill risk={flag.severity} />
+								</div>
+								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
 							</div>
-							<p className="mt-1 text-[11px] text-[var(--muted)]">
-								{flag.count} bằng chứng liên quan
-							</p>
-						</div>
-					))
+						);
+					})
 				) : (
 					<EmptyPanelText>Chưa có cờ rủi ro từ phân tích live.</EmptyPanelText>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
+export function ClaimEvidencePanel({
+	claims,
+	className = "",
+	evidence,
+	scanId,
+}: {
+	claims: ClaimView[];
+	className?: string;
+	evidence: EvidenceView;
+	scanId?: string;
+}) {
+	const evidenceById = new Map(evidence.map((item) => [item.id, item]));
+
+	return (
+		<Panel className={className}>
+			<PanelHeader
+				title="Nhận định có bằng chứng"
+				description="Các claim của LLM chỉ đáng tin khi mở được bằng chứng đã trích dẫn."
+			/>
+			<div className="divide-y divide-[var(--divider)] p-4">
+				{claims.length ? (
+					claims.map((claim) => {
+						const citedEvidence = claim.evidenceIds
+							.map((id) => evidenceById.get(id))
+							.filter((item): item is EvidenceView[number] => Boolean(item));
+						return (
+							<div key={`${claim.claim}-${claim.stance}`} className="min-w-0 py-4">
+								<div className="flex min-w-0 flex-wrap items-center gap-2">
+									<Quote size={15} className="shrink-0 text-[var(--accent)]" />
+									<DashboardTooltip content={stanceTooltip(claim.stance)}>
+										<span className="rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-bold uppercase leading-none text-[var(--muted-strong)]">
+											{claim.stance}
+										</span>
+									</DashboardTooltip>
+									<DashboardTooltip content="Độ tin cậy của claim theo LLM, dựa trên bằng chứng đã trích dẫn.">
+										<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--accent-strong)]">
+											{Math.round(claim.confidence * 100)}%
+										</span>
+									</DashboardTooltip>
+								</div>
+								<p className="mt-2 break-words text-[13px] leading-6 text-[var(--foreground)]">
+									{claim.claim}
+								</p>
+								<EvidenceDeepLinks
+									evidence={citedEvidence}
+									emptyLabel="Bằng chứng trích dẫn chưa có trong dữ liệu đã tải."
+									scanId={scanId}
+								/>
+							</div>
+						);
+					})
+				) : (
+					<EmptyPanelText>Chưa có claim có cấu trúc từ phân tích live.</EmptyPanelText>
 				)}
 			</div>
 		</Panel>
@@ -549,6 +659,127 @@ function initialEvidencePage(
 			},
 		],
 	};
+}
+
+function EvidenceDeepLinks({
+	emptyLabel = "Chưa có bằng chứng liên quan trong dữ liệu đã tải.",
+	evidence,
+	scanId,
+}: {
+	emptyLabel?: string;
+	evidence: EvidenceView;
+	scanId?: string;
+}) {
+	if (!evidence.length) {
+		return (
+			<p className="mt-3 rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-[11px] font-semibold text-[var(--muted)]">
+				{emptyLabel}
+			</p>
+		);
+	}
+
+	return (
+		<div className="mt-3 flex min-w-0 flex-wrap gap-2">
+			{evidence.slice(0, 3).map((item, index) => (
+				<DashboardTooltip
+					key={item.id}
+					content={item.summary || item.quote || "Mở bằng chứng gốc"}
+				>
+					<Link
+						href={evidenceHref(item, scanId)}
+						className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+					>
+						<Link2 size={12} className="shrink-0" />
+						<span className="truncate">Bằng chứng {index + 1}</span>
+					</Link>
+				</DashboardTooltip>
+			))}
+		</div>
+	);
+}
+
+function evidenceHref(item: EvidenceView[number], scanId?: string) {
+	const selectedScanId = scanId ?? item.scanJobId;
+	return `/evidence/${item.id}${selectedScanId ? `?scanId=${selectedScanId}` : ""}`;
+}
+
+function relatedEvidenceForFlag(flag: RiskFlagView, evidence: EvidenceView) {
+	const scored = evidence
+		.map((item) => ({
+			item,
+			score:
+				scoreTextMatch(flag.label, item) +
+				(item.riskLevel === flag.severity ? 12 : 0),
+		}))
+		.filter((row) => row.score > 0)
+		.sort((a, b) => b.score - a.score);
+
+	if (scored.length) {
+		return uniqueEvidence(scored.map((row) => row.item)).slice(
+			0,
+			Math.max(1, Math.min(3, flag.count)),
+		);
+	}
+
+	return evidence
+		.filter((item) => item.riskLevel === flag.severity)
+		.slice(0, Math.max(1, Math.min(3, flag.count)));
+}
+
+function scoreTextMatch(label: string, item: EvidenceView[number]) {
+	const tokens = textTokens(label);
+	if (!tokens.length) return 0;
+	const haystack = textTokens(
+		[
+			item.quote,
+			item.summary,
+			item.sourceLabel,
+			item.author,
+			item.stance,
+			item.sentiment,
+		]
+			.filter(Boolean)
+			.join(" "),
+	);
+	return tokens.reduce((score, token) => score + (haystack.includes(token) ? 4 : 0), 0);
+}
+
+function textTokens(value: string) {
+	return normalizeText(value)
+		.split(" ")
+		.filter((token) => token.length >= 3);
+}
+
+function normalizeText(value: string) {
+	return value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+}
+
+function uniqueEvidence(evidence: EvidenceView) {
+	const seen = new Set<string>();
+	return evidence.filter((item) => {
+		if (seen.has(item.id)) return false;
+		seen.add(item.id);
+		return true;
+	});
+}
+
+function stanceTooltip(stance: string) {
+	const normalized = stance.toLowerCase();
+	if (normalized.includes("support")) {
+		return "Claim này được phân tích là ủng hộ hoặc củng cố lập luận đang xét.";
+	}
+	if (normalized.includes("oppose") || normalized.includes("against")) {
+		return "Claim này được phân tích là phản bác hoặc đi ngược lập luận đang xét.";
+	}
+	if (normalized.includes("neutral")) {
+		return "Claim này được phân tích là trung lập, chủ yếu cung cấp bối cảnh.";
+	}
+	return "Nhãn lập trường do LLM gán cho claim này.";
 }
 
 function EmptyPanelText({ children }: { children: string }) {
