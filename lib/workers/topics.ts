@@ -18,6 +18,9 @@ import {
 	type RiskLevel,
 } from "@/lib/db/schema";
 import {
+	inferTopicsForEvidence,
+	inferTopicsFromEvidence,
+	MIN_TOPIC_CONFIDENCE,
 	normalizeTopicName,
 	scoreEvidenceForTopic,
 	selectEvidenceForTopic,
@@ -147,8 +150,11 @@ export async function syncTopicsForScan(
 	topicClusters: unknown,
 	evidenceRows?: TopicEvidenceRow[],
 ) {
-	const clusters = normalizeTopicClusters(topicClusters);
 	const evidence = evidenceRows ?? (await listEvidenceForTopicSync(scanId));
+	const clusters = mergeTopicClusters(
+		normalizeTopicClusters(topicClusters),
+		inferTopicsFromEvidence(evidence),
+	);
 	const started = {
 		evidenceTagsCreated: 0,
 		topicsSeen: clusters.length,
@@ -211,15 +217,25 @@ export async function syncTopicsForScan(
 	const unlinked = evidence.filter((item) => !linkedEvidenceIds.has(item.id));
 	const fallbackTags = unlinked
 		.map((item) => {
+			const inferredSlugs = new Set(
+				inferTopicsForEvidence(item).map((topic) => topicSlug(topic.name)),
+			);
 			const bestTopic = topicRecords
 				.map((record) => ({
 					...record,
-					confidence: Math.max(
-						5,
-						Math.min(100, scoreEvidenceForTopic(record.cluster, item)),
+					confidence: Math.min(
+						100,
+						scoreEvidenceForTopic(record.cluster, item),
 					),
+					isInferred: inferredSlugs.has(topicSlug(record.cluster.name)),
 				}))
-				.sort((left, right) => right.confidence - left.confidence)[0];
+				.filter((record) => record.confidence >= MIN_TOPIC_CONFIDENCE)
+				.sort((left, right) => {
+					if (left.isInferred !== right.isInferred) {
+						return left.isInferred ? -1 : 1;
+					}
+					return right.confidence - left.confidence;
+				})[0];
 
 			return bestTopic
 				? {
@@ -332,6 +348,14 @@ async function refreshTopicCounts() {
 		) as counted
 		where topic.id = counted.id
 	`;
+	await adminSqlClient`
+		delete from topics as topic
+		where not exists (
+			select 1
+			from evidence_topics
+			where evidence_topics.topic_id = topic.id
+		)
+	`;
 }
 
 function normalizeTopicClusters(input: unknown): TopicLike[] {
@@ -357,9 +381,40 @@ function normalizeTopicClusters(input: unknown): TopicLike[] {
 	return [...deduped.values()];
 }
 
+function mergeTopicClusters(...groups: TopicLike[][]): TopicLike[] {
+	const deduped = new Map<string, TopicLike>();
+
+	for (const topic of groups.flat()) {
+		const slug = topicSlug(topic.name);
+		const existing = deduped.get(slug);
+		if (!existing) {
+			deduped.set(slug, topic);
+			continue;
+		}
+
+		deduped.set(slug, {
+			count: Math.max(existing.count ?? 1, topic.count ?? 1),
+			name: existing.name,
+			riskLevel: maxRiskLevel(existing.riskLevel, topic.riskLevel),
+			trend: existing.trend ?? topic.trend ?? "stable",
+		});
+	}
+
+	return [...deduped.values()];
+}
+
 function normalizeRiskLevel(value: unknown): RiskLevel {
 	if (value === "high" || value === "medium" || value === "low") return value;
 	return "medium";
+}
+
+function maxRiskLevel(left: RiskLevel, right: RiskLevel): RiskLevel {
+	const order: Record<RiskLevel, number> = {
+		high: 3,
+		low: 1,
+		medium: 2,
+	};
+	return order[left] >= order[right] ? left : right;
 }
 
 function toTopicView(row: {
