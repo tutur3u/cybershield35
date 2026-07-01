@@ -871,6 +871,7 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const appPage = readFileSync("app/topics/page.tsx", "utf8");
+		const topicDetailPage = readFileSync("app/topics/[slug]/page.tsx", "utf8");
 		const widgets = readFileSync(
 			"components/dashboard/analysis-widgets.tsx",
 			"utf8",
@@ -880,9 +881,14 @@ describe("dashboard auth gate", () => {
 		expect(data).toContain("Chủ đề");
 		expect(types).toContain('| "topics"');
 		expect(dashboard).toContain('case "topics"');
+		expect(dashboard).toContain('case "topic-detail"');
 		expect(appPage).toContain('page="topics"');
+		expect(topicDetailPage).toContain('page="topic-detail"');
+		expect(topicDetailPage).toContain("topicSlug={slug}");
 		expect(pages).toContain("export function TopicsPage");
+		expect(pages).toContain("export function TopicDetailsPage");
 		expect(widgets).toContain("TopicExplorer");
+		expect(widgets).toContain("TopicDetailPanel");
 		expect(widgets).toContain("buildTopicInsights");
 	});
 
@@ -917,6 +923,35 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("useInfiniteQuery");
 		expect(analysisWidgets).toContain("useInfiniteQuery");
 		expect(pages).toContain("enableInfinite");
+	});
+
+	test("dashboard persists topics and exposes dedicated related-post APIs", () => {
+		const schema = readFileSync("lib/db/schema.ts", "utf8");
+		const topicWorker = readFileSync("lib/workers/topics.ts", "utf8");
+		const scanWorker = readFileSync("lib/workers/scans.ts", "utf8");
+		const topicRoute = readFileSync("app/api/topics/route.ts", "utf8");
+		const topicDetailRoute = readFileSync(
+			"app/api/topics/[slug]/route.ts",
+			"utf8",
+		);
+		const migration = readFileSync(
+			"drizzle/0005_daffy_ender_wiggin.sql",
+			"utf8",
+		);
+		const packageJson = readFileSync("package.json", "utf8");
+
+		expect(schema).toContain("export const topics");
+		expect(schema).toContain("export const evidenceTopics");
+		expect(topicWorker).toContain("syncTopicsForScan");
+		expect(topicWorker).toContain("backfillTopicsFromAnalyses");
+		expect(scanWorker).toContain("syncTopicsForScan(claimed.id");
+		expect(scanWorker).toContain("syncExistingAnalysisTopicsForScan");
+		expect(topicRoute).toContain("listTopicsPage");
+		expect(topicDetailRoute).toContain("getTopicDetailPage");
+		expect(migration).toContain('CREATE TABLE "topics"');
+		expect(migration).toContain('CREATE TABLE "evidence_topics"');
+		expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
+		expect(packageJson).toContain("db:backfill-topics");
 	});
 
 	test("dashboard adds operator analytics and overflow-safe prose", () => {

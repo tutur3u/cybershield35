@@ -14,6 +14,7 @@ export type DashboardPage =
 	| "sources"
 	| "analysis"
 	| "topics"
+	| "topic-detail"
 	| "counter-arguments"
 	| "chat"
 	| "members"
@@ -199,6 +200,27 @@ export type TopicCluster = {
 	count: number;
 	trend: string;
 	riskLevel: RiskLevel;
+	slug?: string;
+};
+
+export type TopicView = {
+	createdAt: string;
+	evidenceCount: number;
+	firstSeenAt: string;
+	id: string;
+	lastSeenAt: string;
+	name: string;
+	riskLevel: RiskLevel;
+	slug: string;
+	trend: string;
+	updatedAt: string;
+};
+
+export type TopicsPage = {
+	hasNextPage?: boolean;
+	items: TopicView[];
+	limit?: number;
+	nextCursor?: string | null;
 };
 
 export type RiskFlagView = {
@@ -240,7 +262,12 @@ export type DraftShape = {
 	updatedAt?: string | Date;
 };
 
-export type EvidenceView = Array<Partial<EvidenceItemRow> & { id: string }>;
+export type EvidenceView = Array<
+	Partial<EvidenceItemRow> & {
+		id: string;
+		topicConfidence?: number;
+	}
+>;
 
 export type EvidenceItemsPage = {
 	hasNextPage?: boolean;
@@ -248,6 +275,13 @@ export type EvidenceItemsPage = {
 	limit?: number;
 	nextCursor?: string | null;
 	scanId: string;
+};
+
+export type TopicDetailView = TopicView & {
+	evidence: EvidenceView;
+	hasNextPage?: boolean;
+	limit?: number;
+	nextCursor?: string | null;
 };
 
 export type ProviderAvailabilityView = {

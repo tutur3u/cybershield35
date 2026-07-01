@@ -27,7 +27,7 @@ export function dashboardSnapshotRequirements(
 	}
 
 	return {
-		includeDetail: page !== "sources",
+		includeDetail: !["sources", "topics", "topic-detail"].includes(page),
 		includeScans: true,
 		includeTrackedSources: page === "sources",
 	};

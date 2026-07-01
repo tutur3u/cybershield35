@@ -26,6 +26,7 @@ type DashboardRouteProps = {
 	evidenceId?: string;
 	page?: DashboardPage;
 	scanId?: string;
+	topicSlug?: string;
 };
 
 export async function DashboardRoute({
@@ -33,6 +34,7 @@ export async function DashboardRoute({
 	evidenceId,
 	page = "overview",
 	scanId,
+	topicSlug,
 }: DashboardRouteProps) {
 	const requirements = dashboardSnapshotRequirements(page);
 	const queryClient = getQueryClient();
@@ -77,6 +79,7 @@ export async function DashboardRoute({
 				key={[
 					page,
 					scanId ?? "",
+					topicSlug ?? "",
 					draftId ?? "",
 					evidenceId ?? "",
 					initialData.selectedScanId,
@@ -87,6 +90,7 @@ export async function DashboardRoute({
 				initialWorkspaceMembers={initialWorkspaceMembers}
 				page={page}
 				scanId={scanId}
+				topicSlug={topicSlug}
 			/>
 		</HydrationBoundary>
 	);

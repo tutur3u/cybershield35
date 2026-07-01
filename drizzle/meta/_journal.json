@@ -36,6 +36,13 @@
       "when": 1782633600000,
       "tag": "0004_managed_scheduler_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782880341135,
+      "tag": "0005_daffy_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

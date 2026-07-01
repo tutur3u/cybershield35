@@ -28,6 +28,10 @@ import {
 	runtimeKeySummary,
 	runtimeMode,
 } from "@/lib/runtime/client-runtime";
+import {
+	syncExistingAnalysisTopicsForScan,
+	syncTopicsForScan,
+} from "@/lib/workers/topics";
 
 type ClaimedJob = {
 	id: string;
@@ -396,6 +400,7 @@ export async function createEvidence(input: CreateEvidenceInput) {
 	await writeAudit("evidence_item", item.id, "created", {
 		scanJobId: input.scanJobId,
 	});
+	await syncExistingAnalysisTopicsForScan(input.scanJobId);
 	return item;
 }
 
@@ -419,6 +424,7 @@ export async function updateEvidence(id: string, input: UpdateEvidenceInput) {
 
 	if (!item) return null;
 	await writeAudit("evidence_item", id, "updated", {});
+	await syncExistingAnalysisTopicsForScan(item.scanJobId);
 	return item;
 }
 
@@ -544,6 +550,8 @@ async function processClaimedJob(claimed: ClaimedJob) {
 					sentiment: analysis.sentiment,
 				},
 			});
+
+		await syncTopicsForScan(claimed.id, analysis.topicClusters, insertedEvidence);
 
 		await adminDb
 			.update(scanJobs)
