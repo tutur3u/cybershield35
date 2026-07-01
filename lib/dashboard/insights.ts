@@ -4,8 +4,10 @@ import type {
 	DraftShape,
 	EvidenceView,
 	TopicCluster,
+	TopicView,
 } from "@/components/dashboard/types";
 import type { RiskLevel } from "@/lib/db/schema";
+import { topicSlug } from "@/lib/domain/topics";
 
 export type DashboardInsight = {
 	body: string;
@@ -21,6 +23,7 @@ export type TopicInsight = TopicCluster & {
 	href: string;
 	key: string;
 	recommendation: string;
+	slug: string;
 };
 
 export function buildDashboardInsights({
@@ -109,9 +112,11 @@ export function buildTopicInsights({
 	topics,
 }: {
 	evidence: EvidenceView;
-	topics: TopicCluster[];
+	topics: Array<TopicCluster | TopicView>;
 }): TopicInsight[] {
 	return topics.map((topic) => {
+		const slug = "slug" in topic && topic.slug ? topic.slug : topicSlug(topic.name);
+		const count = topicCount(topic);
 		const relatedEvidence = evidence.filter((item) =>
 			evidenceMatchesTopic(item, topic.name),
 		);
@@ -119,17 +124,24 @@ export function buildTopicInsights({
 			? relatedEvidence
 			: evidence
 					.filter((item) => item.riskLevel === topic.riskLevel)
-					.slice(0, Math.max(1, Math.min(3, topic.count)));
+					.slice(0, Math.max(1, Math.min(3, count)));
 
 		return {
 			...topic,
+			count,
 			attentionLabel: attentionLabel(topic),
 			evidence: fallbackEvidence,
-			href: `/topics?topic=${encodeURIComponent(topic.name)}`,
-			key: slugify(topic.name),
+			href: `/topics/${encodeURIComponent(slug)}`,
+			key: slug,
 			recommendation: topicRecommendation(topic),
+			slug,
 		};
 	});
+}
+
+function topicCount(topic: TopicCluster | TopicView) {
+	if ("count" in topic) return topic.count;
+	return topic.evidenceCount;
 }
 
 export function summarizeScanFreshness(scans: DashboardScan[]) {
@@ -234,13 +246,13 @@ function evidenceMatchesTopic(item: EvidenceView[number], topicName: string) {
 	);
 }
 
-function attentionLabel(topic: TopicCluster) {
+function attentionLabel(topic: Pick<TopicCluster, "riskLevel" | "trend">) {
 	if (topic.riskLevel === "high") return "Cần đọc trước";
 	if (topic.trend.toLowerCase() === "increasing") return "Đang tăng";
 	return "Theo dõi";
 }
 
-function topicRecommendation(topic: TopicCluster) {
+function topicRecommendation(topic: Pick<TopicCluster, "riskLevel" | "trend">) {
 	if (topic.riskLevel === "high") {
 		return "Mở bằng chứng mẫu, xác nhận nguồn, rồi chuẩn bị phản hồi có kiểm duyệt.";
 	}
@@ -266,11 +278,4 @@ function toneForRisk(risk: RiskLevel): DashboardInsight["tone"] {
 	if (risk === "high") return "danger";
 	if (risk === "medium") return "warning";
 	return "success";
-}
-
-function slugify(value: string) {
-	return value
-		.toLocaleLowerCase("vi-VN")
-		.replace(/[^a-z0-9\p{L}]+/gu, "-")
-		.replace(/^-+|-+$/g, "");
 }

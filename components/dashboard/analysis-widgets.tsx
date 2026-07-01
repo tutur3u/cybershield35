@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import type { AnalysisView, EvidenceView, RiskFlagView, TopicCluster } from "./types";
-import { scanEvidenceInfiniteQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	scanEvidenceInfiniteQueryOptions,
+	topicDetailInfiniteQueryOptions,
+	topicsInfiniteQueryOptions,
+} from "@/lib/dashboard/client-queries";
 import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
 import { Panel, PanelHeader, ProgressBar, RiskPill } from "./ui-primitives";
 
@@ -119,7 +123,13 @@ export function TopicExplorer({
 	evidence: EvidenceView;
 	topics: TopicCluster[];
 }) {
-	const topicInsights = buildTopicInsights({ evidence, topics });
+	const topicsQuery = useInfiniteQuery(topicsInfiniteQueryOptions(12));
+	const persistedTopics =
+		topicsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+	const topicInsights = buildTopicInsights({
+		evidence,
+		topics: persistedTopics.length ? persistedTopics : topics,
+	});
 	const leadTopic = topicInsights[0];
 
 	return (
@@ -138,6 +148,20 @@ export function TopicExplorer({
 						<EmptyPanelText>Chưa có chủ đề. Chạy hoặc chọn một scan đã phân tích.</EmptyPanelText>
 					)}
 				</div>
+				{topicsQuery.hasNextPage ? (
+					<div className="border-t border-[var(--border)] p-3">
+						<button
+							type="button"
+							disabled={topicsQuery.isFetchingNextPage}
+							onClick={() => void topicsQuery.fetchNextPage()}
+							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{topicsQuery.isFetchingNextPage
+								? "Đang tải thêm..."
+								: "Tải thêm chủ đề"}
+						</button>
+					</div>
+				) : null}
 			</Panel>
 			<Panel>
 				<PanelHeader
@@ -179,6 +203,94 @@ export function TopicExplorer({
 					) : (
 						<EmptyPanelText>Chọn scan đã hoàn tất để xem cách đọc chủ đề.</EmptyPanelText>
 					)}
+				</div>
+			</Panel>
+		</div>
+	);
+}
+
+export function TopicDetailPanel({ slug }: { slug?: string }) {
+	const topicQuery = useInfiniteQuery(topicDetailInfiniteQueryOptions(slug ?? "", 12));
+	const firstPage = topicQuery.data?.pages[0];
+	const evidence =
+		topicQuery.data?.pages.flatMap((page) => page.evidence) ?? [];
+
+	return (
+		<div className="space-y-5">
+			<Panel>
+				<PanelHeader
+					title={firstPage?.name ?? "Chủ đề"}
+					description={
+						firstPage
+							? "Bài viết và bằng chứng đã được gắn với chủ đề này."
+							: "Đang tải bài viết liên quan."
+					}
+					action={firstPage ? <RiskPill risk={firstPage.riskLevel} /> : null}
+				/>
+				<div className="grid gap-3 p-4 sm:grid-cols-3">
+					<TopicMetric
+						label="Bài viết liên quan"
+						value={(firstPage?.evidenceCount ?? evidence.length).toLocaleString("vi-VN")}
+					/>
+					<TopicMetric label="Xu hướng" value={firstPage?.trend ?? "Đang tải"} />
+					<TopicMetric
+						label="Cập nhật"
+						value={formatTopicDate(firstPage?.updatedAt)}
+					/>
+				</div>
+			</Panel>
+
+			<Panel>
+				<PanelHeader
+					title="Bài viết liên quan"
+					description="Mở từng bài để xem trích dẫn, nguồn, tóm tắt và ngữ cảnh xử lý."
+				/>
+				<div className="divide-y divide-[var(--divider)] p-4">
+					{topicQuery.isPending ? (
+						<EmptyPanelText>Đang tải bài viết liên quan.</EmptyPanelText>
+					) : topicQuery.isError ? (
+						<EmptyPanelText>Không thể tải chủ đề này.</EmptyPanelText>
+					) : evidence.length ? (
+						evidence.map((item) => (
+							<Link
+								key={item.id}
+								href={`/evidence/${item.id}${item.scanJobId ? `?scanId=${item.scanJobId}` : ""}`}
+								className="grid min-w-0 gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:items-start"
+							>
+								<div className="min-w-0">
+									<p className="overflow-hidden text-[13px] leading-6 break-words text-[var(--foreground)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:4]">
+										"{item.quote}"
+									</p>
+									<p className="mt-2 break-words text-[12px] leading-5 text-[var(--muted)]">
+										{item.summary}
+									</p>
+									<p className="mt-2 truncate text-[11px] font-semibold text-[var(--muted)]">
+										{item.sourceLabel ?? "Nguồn công khai"}
+									</p>
+								</div>
+								<span className="text-[12px] font-semibold text-[var(--muted)] sm:text-right">
+									Khớp {item.topicConfidence ?? 0}%
+								</span>
+								<RiskPill risk={item.riskLevel ?? "medium"} />
+							</Link>
+						))
+					) : (
+						<EmptyPanelText>Chủ đề này chưa có bài viết được gắn.</EmptyPanelText>
+					)}
+				</div>
+				<div className="border-t border-[var(--border)] p-3">
+					<button
+						type="button"
+						disabled={!topicQuery.hasNextPage || topicQuery.isFetchingNextPage}
+						onClick={() => void topicQuery.fetchNextPage()}
+						className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{topicQuery.isFetchingNextPage
+							? "Đang tải thêm..."
+							: topicQuery.hasNextPage
+								? "Tải thêm bài viết"
+								: "Đã tải hết bài viết"}
+					</button>
 				</div>
 			</Panel>
 		</div>
@@ -393,6 +505,30 @@ function TopicInsightRow({ topic }: { topic: TopicInsight }) {
 			<RiskPill risk={topic.riskLevel} />
 		</Link>
 	);
+}
+
+function TopicMetric({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<p className="text-[11px] font-bold uppercase text-[var(--muted)]">
+				{label}
+			</p>
+			<p className="mt-2 break-words text-[15px] font-bold text-[var(--foreground)]">
+				{value}
+			</p>
+		</div>
+	);
+}
+
+function formatTopicDate(value?: string | null) {
+	if (!value) return "Chưa có";
+	return new Intl.DateTimeFormat("vi-VN", {
+		hour: "2-digit",
+		minute: "2-digit",
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+	}).format(new Date(value));
 }
 
 function initialEvidencePage(

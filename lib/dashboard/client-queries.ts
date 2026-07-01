@@ -8,6 +8,8 @@ import type {
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	ScanDetail,
+	TopicDetailView,
+	TopicsPage,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
@@ -65,6 +67,33 @@ export function scanEvidenceInfiniteQueryOptions(scanId: string, limit = 8) {
 		queryFn: ({ pageParam }: { pageParam: string | null }) =>
 			fetchScanEvidencePage({ cursor: pageParam, limit, scanId }),
 		queryKey: dashboardQueryKeys.scanEvidenceInfinite(scanId, limit),
+		staleTime: dashboardQueryStaleTimeMs,
+	};
+}
+
+export function topicsInfiniteQueryOptions(limit = 12) {
+	return {
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: TopicsPage) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchTopicsPage({ cursor: pageParam, limit }),
+		queryKey: dashboardQueryKeys.topicsInfinite(limit),
+		staleTime: dashboardQueryStaleTimeMs,
+	};
+}
+
+export function topicDetailInfiniteQueryOptions(slug: string, limit = 12) {
+	return {
+		enabled: Boolean(slug),
+		gcTime: 5 * 60_000,
+		getNextPageParam: (lastPage: TopicDetailView) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchTopicDetailPage({ cursor: pageParam, limit, slug }),
+		queryKey: dashboardQueryKeys.topicDetailInfinite(slug, limit),
 		staleTime: dashboardQueryStaleTimeMs,
 	};
 }
@@ -171,6 +200,59 @@ export async function fetchScanEvidencePage({
 		limit: payload.limit ?? limit,
 		nextCursor: payload.nextCursor ?? null,
 		scanId: payload.scanId ?? scanId,
+	};
+}
+
+export async function fetchTopicsPage({
+	cursor,
+	limit = 12,
+}: {
+	cursor?: string | null;
+	limit?: number;
+} = {}): Promise<TopicsPage> {
+	const searchParams = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (cursor) searchParams.set("cursor", cursor);
+	const payload = await fetchJson<Partial<TopicsPage>>(
+		`/api/topics?${searchParams.toString()}`,
+	);
+
+	return {
+		hasNextPage: Boolean(payload.hasNextPage),
+		items: Array.isArray(payload.items) ? payload.items : [],
+		limit: payload.limit ?? limit,
+		nextCursor: payload.nextCursor ?? null,
+	};
+}
+
+export async function fetchTopicDetailPage({
+	cursor,
+	limit = 12,
+	slug,
+}: {
+	cursor?: string | null;
+	limit?: number;
+	slug: string;
+}): Promise<TopicDetailView> {
+	const searchParams = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (cursor) searchParams.set("cursor", cursor);
+	const payload = await fetchJson<{ topic?: TopicDetailView }>(
+		`/api/topics/${encodeURIComponent(slug)}?${searchParams.toString()}`,
+	);
+
+	if (!payload.topic) throw new Error("Không tìm thấy chủ đề.");
+
+	return {
+		...payload.topic,
+		evidence: Array.isArray(payload.topic.evidence)
+			? payload.topic.evidence
+			: [],
+		hasNextPage: Boolean(payload.topic.hasNextPage),
+		limit: payload.topic.limit ?? limit,
+		nextCursor: payload.topic.nextCursor ?? null,
 	};
 }
 

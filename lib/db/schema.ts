@@ -184,6 +184,57 @@ export const analyses = pgTable(
 	(table) => [uniqueIndex("analyses_job_unique").on(table.scanJobId)],
 );
 
+export const topics = pgTable(
+	"topics",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		slug: text("slug").notNull(),
+		name: text("name").notNull(),
+		riskLevel: riskLevelEnum("risk_level").default("medium").notNull(),
+		trend: text("trend").default("stable").notNull(),
+		evidenceCount: integer("evidence_count").default(0).notNull(),
+		firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("topics_slug_unique").on(table.slug),
+		index("topics_priority_idx").on(table.riskLevel, table.evidenceCount),
+	],
+);
+
+export const evidenceTopics = pgTable(
+	"evidence_topics",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		evidenceItemId: uuid("evidence_item_id")
+			.notNull()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		topicId: uuid("topic_id")
+			.notNull()
+			.references(() => topics.id, { onDelete: "cascade" }),
+		scanJobId: uuid("scan_job_id")
+			.notNull()
+			.references(() => scanJobs.id, { onDelete: "cascade" }),
+		confidence: integer("confidence").default(0).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("evidence_topics_unique").on(
+			table.evidenceItemId,
+			table.topicId,
+		),
+		index("evidence_topics_topic_idx").on(table.topicId, table.createdAt),
+		index("evidence_topics_evidence_idx").on(table.evidenceItemId),
+		index("evidence_topics_scan_idx").on(table.scanJobId),
+	],
+);
+
 export const counterArgumentDrafts = pgTable(
 	"counter_argument_drafts",
 	{
@@ -259,6 +310,8 @@ export type ScanJobRow = typeof scanJobs.$inferSelect;
 export type TrackedSourceRow = typeof trackedSources.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;
+export type TopicRow = typeof topics.$inferSelect;
+export type EvidenceTopicRow = typeof evidenceTopics.$inferSelect;
 export type CounterArgumentDraftRow = typeof counterArgumentDrafts.$inferSelect;
 export type ManagedSchedulerIntegrationRow =
 	typeof managedSchedulerIntegrations.$inferSelect;

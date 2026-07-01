@@ -54,6 +54,7 @@ import {
 	ReportsPage,
 	SettingsPage,
 	SourcesPage,
+	TopicDetailsPage,
 	TopicsPage,
 	type DashboardPageProps,
 } from "@/components/dashboard/dashboard-pages";
@@ -88,6 +89,7 @@ export type CyberShieldDashboardProps = {
 	initialWorkspaceMembers?: WorkspaceMembersResponse;
 	page?: DashboardPage;
 	scanId?: string;
+	topicSlug?: string;
 };
 
 export function CyberShieldDashboard({
@@ -98,6 +100,7 @@ export function CyberShieldDashboard({
 	initialWorkspaceMembers,
 	page = "overview",
 	scanId,
+	topicSlug,
 }: CyberShieldDashboardProps) {
 	const layoutAuth = useDashboardAuthState();
 	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
@@ -399,7 +402,7 @@ export function CyberShieldDashboard({
 
 	return (
 		<>
-			{renderPage(page, pageProps, { draftId, evidenceId, scanId })}
+			{renderPage(page, pageProps, { draftId, evidenceId, scanId, topicSlug })}
 			<ScanDialog
 				open={scanDialogOpen}
 				onClose={() => setScanDialogOpen(false)}
@@ -552,6 +555,8 @@ function shouldLoadScanDetail(page: DashboardPage) {
 		"members",
 		"settings",
 		"sources",
+		"topics",
+		"topic-detail",
 	].includes(page);
 }
 
@@ -631,7 +636,12 @@ export function LockedDashboard({
 function renderPage(
 	page: DashboardPage,
 	props: DashboardPageProps,
-	routeIds: { draftId?: string; evidenceId?: string; scanId?: string },
+	routeIds: {
+		draftId?: string;
+		evidenceId?: string;
+		scanId?: string;
+		topicSlug?: string;
+	},
 ) {
 	switch (page) {
 		case "sources":
@@ -640,6 +650,8 @@ function renderPage(
 			return <AnalysisPage {...props} />;
 		case "topics":
 			return <TopicsPage {...props} />;
+		case "topic-detail":
+			return <TopicDetailsPage {...props} topicSlug={routeIds.topicSlug} />;
 		case "counter-arguments":
 			return <CounterArgumentsPage {...props} />;
 		case "chat":

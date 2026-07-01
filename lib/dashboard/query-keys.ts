@@ -32,6 +32,10 @@ export const dashboardQueryKeys = {
 		["dashboard", "scans", "infinite", limit] as const,
 	scanEvidenceInfinite: (scanId: string, limit: number) =>
 		["dashboard", "scan-evidence", "infinite", scanId, limit] as const,
+	topicsInfinite: (limit: number) =>
+		["dashboard", "topics", "infinite", limit] as const,
+	topicDetailInfinite: (slug: string, limit: number) =>
+		["dashboard", "topic-detail", "infinite", slug, limit] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,
