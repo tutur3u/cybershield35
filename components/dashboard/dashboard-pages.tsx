@@ -25,6 +25,7 @@ import { useState } from "react";
 
 import {
 	AlertPanel,
+	ClaimEvidencePanel,
 	EvidencePanel,
 	RiskFlagPanel,
 	SentimentAndStance,
@@ -423,11 +424,20 @@ export function AnalysisPage(props: DashboardPageProps) {
 				<div className="space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
 					<TopicPanel evidence={props.evidence} topics={props.topics} />
-					<RiskFlagPanel analysis={props.analysis} />
+					<RiskFlagPanel
+						analysis={props.analysis}
+						evidence={props.evidence}
+						scanId={props.selectedScanId}
+					/>
 				</div>
 				<div className="grid gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
 					<SentimentAndStance analysis={props.analysis} className="h-full" />
-					<AlertPanel flags={props.analysis.riskFlags} className="h-full" />
+					<AlertPanel
+						flags={props.analysis.riskFlags}
+						evidence={props.evidence}
+						scanId={props.selectedScanId}
+						className="h-full"
+					/>
 				</div>
 				<div className="xl:col-span-2">
 					<EvidencePanel
@@ -564,11 +574,25 @@ export function AlertsPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={AlertTriangle}
 				title="Cảnh báo & Rủi ro"
-				description="Tổng hợp cờ rủi ro và tín hiệu cần ưu tiên xử lý."
+				description="Tổng hợp cờ rủi ro, claim và bằng chứng cần ưu tiên xử lý."
 			/>
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<AlertPanel flags={props.analysis.riskFlags} />
-				<RiskFlagPanel analysis={props.analysis} />
+				<AlertPanel
+					flags={props.analysis.riskFlags}
+					evidence={props.evidence}
+					scanId={props.selectedScanId}
+				/>
+				<RiskFlagPanel
+					analysis={props.analysis}
+					evidence={props.evidence}
+					scanId={props.selectedScanId}
+				/>
+				<ClaimEvidencePanel
+					claims={props.analysis.claims}
+					evidence={props.evidence}
+					scanId={props.selectedScanId}
+					className="xl:col-span-2"
+				/>
 			</div>
 		</div>
 	);

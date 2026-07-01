@@ -1,4 +1,10 @@
 import type { ReactNode } from "react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@tuturuuu/ui/tooltip";
 
 import type { RiskLevel, ScanStatus } from "@/lib/db/schema";
 
@@ -59,13 +65,22 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 		failed: "Lỗi",
 		retrying: "Thử lại",
 	};
+	const help: Record<string, string> = {
+		queued: "Scan đã được tạo và đang chờ worker xử lý.",
+		running: "Worker đang thu thập hoặc phân tích dữ liệu cho scan này.",
+		completed: "Scan đã xử lý xong và có thể đọc bằng chứng, chủ đề, cảnh báo.",
+		failed: "Scan gặp lỗi. Mở chi tiết hoặc nhật ký để xem bước bị chặn.",
+		retrying: "Hệ thống đang thử chạy lại sau một lỗi tạm thời.",
+	};
 
 	return (
-		<span
-			className={`inline-flex h-6 min-w-[72px] max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
-		>
-			{labels[status] ?? status}
-		</span>
+		<DashboardTooltip content={help[status] ?? "Trạng thái hiện tại của scan."}>
+			<span
+				className={`inline-flex h-6 min-w-[72px] max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
+			>
+				{labels[status] ?? status}
+			</span>
+		</DashboardTooltip>
 	);
 }
 
@@ -80,13 +95,42 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 		medium: "Trung bình",
 		low: "Thấp",
 	};
+	const help: Record<string, string> = {
+		high: "Rủi ro cao: cần đọc bằng chứng và ưu tiên xử lý trước khi dùng báo cáo.",
+		medium: "Rủi ro trung bình: có tín hiệu cần kiểm tra cùng bằng chứng liên quan.",
+		low: "Rủi ro thấp: chưa thấy tín hiệu nghiêm trọng trong dữ liệu hiện tại.",
+	};
 
 	return (
-		<span
-			className={`inline-flex h-6 min-w-12 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
-		>
-			{labels[risk] ?? risk}
-		</span>
+		<DashboardTooltip content={help[risk] ?? "Mức rủi ro do phân tích gán cho mục này."}>
+			<span
+				className={`inline-flex h-6 min-w-12 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
+			>
+				{labels[risk] ?? risk}
+			</span>
+		</DashboardTooltip>
+	);
+}
+
+export function DashboardTooltip({
+	children,
+	content,
+}: {
+	children: ReactNode;
+	content: ReactNode;
+}) {
+	return (
+		<TooltipProvider delayDuration={120}>
+			<Tooltip>
+				<TooltipTrigger asChild>{children}</TooltipTrigger>
+				<TooltipContent
+					sideOffset={8}
+					className="max-w-[280px] rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_12px_30px_rgb(0_0_0/0.22)]"
+				>
+					{content}
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 

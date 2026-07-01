@@ -62,6 +62,7 @@ import type {
 	AnalysisView,
 	AuthViewState,
 	ChatMessage,
+	ClaimView,
 	DashboardInitialData,
 	DashboardScan,
 	DashboardPage,
@@ -702,6 +703,7 @@ const initialChatMessages: ChatMessage[] = [
 ];
 
 const emptyAnalysis: AnalysisView = {
+	claims: [],
 	riskLevel: "low",
 	summary: "Chưa có phân tích live. Hãy tạo hoặc chọn một scan đã xử lý.",
 	stanceSummary: "Chưa có dữ liệu",
@@ -721,6 +723,7 @@ function toAnalysisView(input: ScanDetail["analysis"]): AnalysisView {
 		topicClusters: isTopicClusterArray(input.topicClusters)
 			? input.topicClusters
 			: [],
+		claims: isClaimArray(input.claims) ? input.claims : [],
 		riskFlags: isRiskFlagArray(input.riskFlags) ? input.riskFlags : [],
 		sentiment: normalizeSentiment(input.sentiment),
 	};
@@ -743,6 +746,23 @@ function isTopicClusterArray(input: unknown): input is TopicCluster[] {
 
 function isRiskFlagArray(input: unknown): input is AnalysisView["riskFlags"] {
 	return Array.isArray(input);
+}
+
+function isClaimArray(input: unknown): input is ClaimView[] {
+	return (
+		Array.isArray(input) &&
+		input.every((item) => {
+			if (!item || typeof item !== "object") return false;
+			const claim = item as Partial<ClaimView>;
+			return (
+				typeof claim.claim === "string" &&
+				typeof claim.stance === "string" &&
+				typeof claim.confidence === "number" &&
+				Array.isArray(claim.evidenceIds) &&
+				claim.evidenceIds.every((id) => typeof id === "string")
+			);
+		})
+	);
 }
 
 function createCustomReportKind() {

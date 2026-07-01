@@ -203,6 +203,13 @@ export type TopicCluster = {
 	slug?: string;
 };
 
+export type ClaimView = {
+	claim: string;
+	confidence: number;
+	evidenceIds: string[];
+	stance: string;
+};
+
 export type TopicView = {
 	createdAt: string;
 	evidenceCount: number;
@@ -231,8 +238,9 @@ export type RiskFlagView = {
 
 export type AnalysisView = Omit<
 	Partial<AnalysisRow>,
-	"riskFlags" | "sentiment" | "topicClusters"
+	"claims" | "riskFlags" | "sentiment" | "topicClusters"
 > & {
+	claims: ClaimView[];
 	riskLevel: RiskLevel;
 	summary: string;
 	stanceSummary: string;

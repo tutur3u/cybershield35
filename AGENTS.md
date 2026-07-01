@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## CS35 Deployment Check
 
 Before committing and pushing CS35 changes, run `bun run build` and ensure it passes. Also run the relevant focused tests and lint for the touched area.
+
+## CS35 Shipping Flow
+
+For CS35 implementation work, commit and push the verified changes to `main` when the work is complete unless the user explicitly asks not to.

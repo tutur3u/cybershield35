@@ -1053,6 +1053,44 @@ describe("dashboard auth gate", () => {
 		expect(pages).not.toContain("Thông báo trên thanh trên cùng");
 	});
 
+	test("alerts and claims deep link to evidence with explanatory tooltips", () => {
+		const widgets = readFileSync(
+			"components/dashboard/analysis-widgets.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const primitives = readFileSync(
+			"components/dashboard/ui-primitives.tsx",
+			"utf8",
+		);
+		const types = readFileSync("components/dashboard/types.ts", "utf8");
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+
+		expect(types).toContain("export type ClaimView");
+		expect(types).toContain("evidenceIds: string[]");
+		expect(dashboard).toContain("claims: []");
+		expect(dashboard).toContain("claims: isClaimArray(input.claims)");
+		expect(widgets).toContain("function relatedEvidenceForFlag");
+		expect(widgets).toContain("function EvidenceDeepLinks");
+		expect(widgets).toContain("evidenceHref(item, scanId)");
+		expect(widgets).toContain("href={evidenceHref(item, scanId)}");
+		expect(widgets).toContain("export function ClaimEvidencePanel");
+		expect(widgets).toContain("claim.evidenceIds");
+		expect(widgets).toContain("stanceTooltip");
+		expect(pages).toContain("<ClaimEvidencePanel");
+		expect(pages).toContain("evidence={props.evidence}");
+		expect(primitives).toContain("export function DashboardTooltip");
+		expect(primitives).toContain("@tuturuuu/ui/tooltip");
+		expect(primitives).toContain("Rủi ro cao");
+		expect(primitives).toContain("Scan đã được tạo");
+	});
+
 	test("verify-token callback page completes login without manual token entry", () => {
 		const page = readFileSync("app/verify-token/page.tsx", "utf8");
 		const client = readFileSync(
