@@ -124,6 +124,46 @@ describe("managed scheduler client queries", () => {
 		});
 	});
 
+	test("preserves local setup and remote status diagnostics independently", async () => {
+		globalThis.fetch = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						adminRecoveryHref:
+							"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+						code: "MANAGED_CRON_STATUS_CHECK_FAILED",
+						configured: true,
+						enabled: true,
+						error:
+							"Managed cron operation failed inside Tuturuuu. Check Tuturuuu server logs, then retry.",
+						jobs: [],
+						localStorageReady: true,
+						remoteConfigured: false,
+						remoteStatusAvailable: false,
+						setupDisabled: true,
+						setupDisabledReason:
+							"Managed cron operation failed inside Tuturuuu. Check Tuturuuu server logs, then retry.",
+						tokenLastFour: "nxHA",
+						updatedAt: "2026-06-29T11:28:00.000Z",
+						upstreamStatus: 500,
+					},
+					{ status: 500 },
+				),
+			),
+		) as unknown as typeof fetch;
+
+		const status = await fetchManagedSchedulerStatus();
+
+		expect(status).toMatchObject({
+			configured: true,
+			remoteConfigured: false,
+			remoteStatusAvailable: false,
+			setupDisabled: true,
+			tokenLastFour: "nxHA",
+			upstreamStatus: 500,
+		});
+	});
+
 	test("uses sanitized upstream messages instead of the generic load error", async () => {
 		globalThis.fetch = mock(() =>
 			Promise.resolve(

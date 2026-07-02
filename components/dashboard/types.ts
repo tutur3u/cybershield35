@@ -93,6 +93,7 @@ export type ManagedSchedulerJobView = {
 	nextRunAt: string | null;
 	overdueReason?: string | null;
 	overdueSince?: string | null;
+	remoteStatusUnknown?: boolean;
 	schedule: string;
 	scheduleDescription?: string;
 	scheduleTimezone?: string;
@@ -137,6 +138,8 @@ export type ManagedSchedulerStatusView = {
 	jobs: ManagedSchedulerJobView[];
 	localStorageReady?: boolean;
 	missingApprovalItems?: string[];
+	remoteConfigured?: boolean;
+	remoteStatusAvailable?: boolean;
 	setupDisabled?: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
