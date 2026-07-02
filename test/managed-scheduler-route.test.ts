@@ -14,25 +14,24 @@ const missingRelationError = Object.assign(
 	new Error('relation "managed_scheduler_integrations" does not exist'),
 	{ code: "42P01" },
 );
-const dbMode = { missingStorage: true };
+const localIntegrationRow = {
+	createdAt: new Date("2026-06-28T00:00:00.000Z"),
+	enabled: true,
+	id: "integration-1",
+	provider: "managed-scheduler",
+	setupMetadata: {},
+	tokenHash: "hash",
+	tokenLastFour: "1234",
+	updatedAt: new Date("2026-06-28T00:00:00.000Z"),
+};
+const dbMode = { hasLocalIntegration: false, missingStorage: true };
 const selectLimit = mock(async () => {
 	if (dbMode.missingStorage) throw missingRelationError;
-	return [];
+	return dbMode.hasLocalIntegration ? [localIntegrationRow] : [];
 });
 const insertReturning = mock(async () => {
 	if (dbMode.missingStorage) throw missingRelationError;
-	return [
-		{
-			createdAt: new Date("2026-06-28T00:00:00.000Z"),
-			enabled: true,
-			id: "integration-1",
-			provider: "managed-scheduler",
-			setupMetadata: {},
-			tokenHash: "hash",
-			tokenLastFour: "1234",
-			updatedAt: new Date("2026-06-28T00:00:00.000Z"),
-		},
-	];
+	return [localIntegrationRow];
 });
 
 mock.module("server-only", () => ({}));
@@ -124,6 +123,7 @@ beforeEach(() => {
 		TUTURUUU_CYBERSHIELD35_WORKSPACE_ID: "workspace-1",
 	};
 	dbMode.missingStorage = true;
+	dbMode.hasLocalIntegration = false;
 	selectLimit.mockClear();
 	insertReturning.mockClear();
 });
@@ -217,6 +217,52 @@ describe("managed scheduler proxy routes", () => {
 		});
 		expect(JSON.stringify(body)).not.toContain("raw-secret");
 		expect(JSON.stringify(body)).not.toContain("Failed query");
+	});
+
+	test("keeps local setup configured when upstream status is blocked", async () => {
+		dbMode.missingStorage = false;
+		dbMode.hasLocalIntegration = true;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{
+						adminRecoveryHref:
+							"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+						code: "MANAGED_CRON_STATUS_CHECK_FAILED",
+						configured: false,
+						enabled: false,
+						error:
+							"Managed cron operation failed inside Tuturuuu. Check Tuturuuu server logs, then retry.",
+						jobs: [],
+						setupDisabledReason:
+							"Managed cron operation failed inside Tuturuuu. Check Tuturuuu server logs, then retry.",
+					},
+					{ status: 500 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const { GET } = await import("@/app/api/workspace/cron/route");
+		const response = await GET(
+			request("/api/workspace/cron", createSessionCookie(session())),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			adminRecoveryHref:
+				"https://tuturuuu.com/vi/internal/infrastructure/monitoring/cron?focus=cron-runner",
+			code: "MANAGED_CRON_STATUS_CHECK_FAILED",
+			configured: true,
+			enabled: true,
+			remoteConfigured: false,
+			remoteStatusAvailable: false,
+			setupDisabled: true,
+			tokenLastFour: "1234",
+			updatedAt: "2026-06-28T00:00:00.000Z",
+			upstreamStatus: 500,
+		});
 	});
 
 	test("preserves Tuturuuu admin recovery links for blocked scheduler status checks", async () => {

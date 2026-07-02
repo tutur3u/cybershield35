@@ -87,6 +87,14 @@ function normalizeManagedSchedulerStatus(
 				}))
 			: [],
 		localStorageReady: payload.localStorageReady !== false,
+		remoteConfigured:
+			typeof payload.remoteConfigured === "boolean"
+				? payload.remoteConfigured
+				: undefined,
+		remoteStatusAvailable:
+			typeof payload.remoteStatusAvailable === "boolean"
+				? payload.remoteStatusAvailable
+				: undefined,
 		setupDisabled:
 			(Boolean(payload.setupDisabled) && !payload.approvalHref) ||
 			Boolean(payload.setupDisabledReason) ||

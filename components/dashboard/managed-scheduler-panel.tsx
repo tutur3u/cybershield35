@@ -32,6 +32,39 @@ import {
 	parseManagedSchedulerStatusResponse,
 } from "@/lib/managed-scheduler/client";
 
+const FALLBACK_MANAGED_JOBS: ManagedSchedulerJobView[] = [
+	{
+		active: true,
+		failureCount: 0,
+		jobId: null,
+		jobKey: "process-queue",
+		lastExecution: null,
+		lastRunAt: null,
+		lastStatus: null,
+		name: "Managed scheduler process queue",
+		nextRunAt: null,
+		remoteStatusUnknown: true,
+		schedule: "*/5 * * * *",
+		scheduleDescription: "Mỗi 5 phút",
+		scheduleTimezone: "Asia/Ho_Chi_Minh",
+	},
+	{
+		active: true,
+		failureCount: 0,
+		jobId: null,
+		jobKey: "enqueue-tracked-sources",
+		lastExecution: null,
+		lastRunAt: null,
+		lastStatus: null,
+		name: "Managed scheduler enqueue tracked sources",
+		nextRunAt: null,
+		remoteStatusUnknown: true,
+		schedule: "0 * * * *",
+		scheduleDescription: "Mỗi giờ",
+		scheduleTimezone: "Asia/Ho_Chi_Minh",
+	},
+];
+
 export function ManagedSchedulerPanel({
 	autoRetryToken,
 }: {
@@ -83,11 +116,21 @@ export function ManagedSchedulerPanel({
 		},
 	});
 	const status = setupMutation.data ?? query.data;
+	const hasLocalScheduler = Boolean(status?.configured || status?.tokenLastFour);
+	const remoteStatusUnavailable =
+		hasLocalScheduler && status?.remoteStatusAvailable === false;
+	const displayJobs = useMemo(() => {
+		if (hasLocalScheduler && status?.jobs.length === 0) {
+			return FALLBACK_MANAGED_JOBS;
+		}
+
+		return status?.jobs ?? [];
+	}, [hasLocalScheduler, status?.jobs]);
 	const executionsQuery = useQuery({
 		...managedSchedulerExecutionsQueryOptions(
 			historyJobKey === "all" ? undefined : historyJobKey,
 		),
-		enabled: Boolean(status?.configured),
+		enabled: hasLocalScheduler,
 		refetchInterval: 30_000,
 	});
 
@@ -123,12 +166,18 @@ export function ManagedSchedulerPanel({
 					  status?.error
 					? status.error
 					: "";
+	const actionError =
+		runMutation.error instanceof Error
+			? runMutation.error.message
+			: patchMutation.error instanceof Error
+				? patchMutation.error.message
+				: "";
 	const statusFreshness = useMemo(
 		() => schedulerFreshness(status?.generatedAt ?? status?.serverNow ?? null),
 		[status?.generatedAt, status?.serverNow],
 	);
-	const overdueJobs = status?.jobs.filter((job) => job.isOverdue) ?? [];
-	const nextJob = useMemo(() => nearestNextJob(status?.jobs ?? []), [status?.jobs]);
+	const overdueJobs = displayJobs.filter((job) => job.isOverdue);
+	const nextJob = useMemo(() => nearestNextJob(displayJobs), [displayJobs]);
 	const executionItems = executionsQuery.data?.items ?? [];
 
 	return (
@@ -183,6 +232,7 @@ export function ManagedSchedulerPanel({
 				) : error ? (
 					<InlineError message={error} />
 				) : null}
+				{actionError ? <InlineError message={actionError} /> : null}
 				{storageNotReady ? (
 					<StorageNotReadyNotice
 						message={
@@ -218,6 +268,7 @@ export function ManagedSchedulerPanel({
 						setupOrigin={status.setupOrigin}
 					/>
 				) : null}
+				{remoteStatusUnavailable ? <LocalSchedulerConfiguredNotice /> : null}
 				{status && !query.isLoading ? (
 					<>
 						<div className="grid gap-3 sm:grid-cols-3">
@@ -233,9 +284,9 @@ export function ManagedSchedulerPanel({
 							nextJob={nextJob}
 							overdueJobs={overdueJobs}
 						/>
-						{status.jobs.length > 0 ? (
+						{displayJobs.length > 0 ? (
 							<div className="space-y-2">
-								{status.jobs.map((job) => (
+								{displayJobs.map((job) => (
 									<SchedulerJobRow
 										key={job.jobKey}
 										job={job}
@@ -251,23 +302,34 @@ export function ManagedSchedulerPanel({
 										pending={
 											runMutation.isPending ||
 											patchMutation.isPending ||
-											Boolean(status.setupDisabled)
+											(Boolean(status.setupDisabled) && !job.remoteStatusUnknown)
 										}
+										runDisabled={!hasLocalScheduler}
 									/>
 								))}
 							</div>
 						) : (
-							<EmptyState configured={status.configured} />
+							<EmptyState
+								configured={status.configured}
+								hasLocalScheduler={hasLocalScheduler}
+								remoteStatusUnavailable={remoteStatusUnavailable}
+							/>
 						)}
 						<SchedulerHistory
 							executions={executionItems}
+							error={
+								executionsQuery.error instanceof Error
+									? executionsQuery.error.message
+									: ""
+							}
 							filterJobKey={historyJobKey}
-							jobs={status.jobs}
+							jobs={displayJobs}
 							loading={executionsQuery.isFetching}
 							onFilterChange={(jobKey) => {
 								setHistoryJobKey(jobKey);
 								setSelectedExecution(null);
 							}}
+							onRetry={() => void executionsQuery.refetch()}
 							onSelect={setSelectedExecution}
 							selectedExecution={selectedExecution}
 						/>
@@ -298,6 +360,7 @@ function SchedulerJobRow({
 	onPatch,
 	onRun,
 	pending,
+	runDisabled,
 }: {
 	job: ManagedSchedulerJobView;
 	onEdit: () => void;
@@ -305,9 +368,11 @@ function SchedulerJobRow({
 	onPatch: (enabled: boolean) => void;
 	onRun: () => void;
 	pending: boolean;
+	runDisabled: boolean;
 }) {
 	const overdue = job.isOverdue;
 	const scheduleText = job.scheduleDescription || describeSchedule(job);
+	const remoteControlsDisabled = pending || job.remoteStatusUnknown === true;
 
 	return (
 		<div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -329,6 +394,11 @@ function SchedulerJobRow({
 						<span className="inline-flex items-center gap-1 rounded-md bg-[var(--warning-soft)] px-2 py-1 text-[10px] font-bold text-[var(--warning-strong)]">
 							<AlertTriangle size={12} />
 							Quá hạn
+						</span>
+					) : null}
+					{job.remoteStatusUnknown ? (
+						<span className="rounded-md bg-[var(--warning-soft)] px-2 py-1 text-[10px] font-bold text-[var(--warning-strong)]">
+							Trạng thái Tuturuuu chưa rõ
 						</span>
 					) : null}
 				</div>
@@ -356,9 +426,13 @@ function SchedulerJobRow({
 			<div className="flex gap-2 sm:justify-end">
 				<button
 					type="button"
-					disabled={pending}
+					disabled={remoteControlsDisabled}
 					onClick={onEdit}
-					title="Sửa lịch"
+					title={
+						job.remoteStatusUnknown
+							? "Không thể sửa lịch khi chưa lấy được trạng thái Tuturuuu"
+							: "Sửa lịch"
+					}
 					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
 				>
 					<Edit3 size={14} />
@@ -374,7 +448,7 @@ function SchedulerJobRow({
 				</button>
 				<button
 					type="button"
-					disabled={pending}
+					disabled={pending || runDisabled}
 					onClick={onRun}
 					title="Chạy ngay"
 					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
@@ -383,9 +457,15 @@ function SchedulerJobRow({
 				</button>
 				<button
 					type="button"
-					disabled={pending}
+					disabled={remoteControlsDisabled}
 					onClick={() => onPatch(!job.active)}
-					title={job.active ? "Tạm dừng" : "Bật lại"}
+					title={
+						job.remoteStatusUnknown
+							? "Không thể tạm dừng khi chưa lấy được trạng thái Tuturuuu"
+							: job.active
+								? "Tạm dừng"
+								: "Bật lại"
+					}
 					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
 				>
 					{job.active ? <Pause size={14} /> : <RefreshCw size={14} />}
@@ -628,18 +708,22 @@ function ScheduleEditor({
 
 function SchedulerHistory({
 	executions,
+	error,
 	filterJobKey,
 	jobs,
 	loading,
 	onFilterChange,
+	onRetry,
 	onSelect,
 	selectedExecution,
 }: {
 	executions: ManagedSchedulerExecutionView[];
+	error: string;
 	filterJobKey: string;
 	jobs: ManagedSchedulerJobView[];
 	loading: boolean;
 	onFilterChange: (jobKey: string) => void;
+	onRetry: () => void;
 	onSelect: (execution: ManagedSchedulerExecutionView) => void;
 	selectedExecution: ManagedSchedulerExecutionView | null;
 }) {
@@ -671,6 +755,19 @@ function SchedulerHistory({
 				{loading ? (
 					<div className="p-4 text-[12px] text-[var(--muted)]">
 						Đang tải lịch sử...
+					</div>
+				) : error ? (
+					<div className="flex flex-col gap-3 p-4 text-[12px] text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+						<p className="font-semibold text-[var(--warning-strong)]">
+							Không thể tải lịch sử chạy: {error}
+						</p>
+						<button
+							type="button"
+							onClick={onRetry}
+							className="inline-flex h-8 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--foreground)]"
+						>
+							Thử lại
+						</button>
 					</div>
 				) : executions.length > 0 ? (
 					executions.map((execution) => (
@@ -724,14 +821,33 @@ function SchedulerHistory({
 	);
 }
 
-function EmptyState({ configured }: { configured: boolean }) {
+function EmptyState({
+	configured,
+	hasLocalScheduler,
+	remoteStatusUnavailable,
+}: {
+	configured: boolean;
+	hasLocalScheduler: boolean;
+	remoteStatusUnavailable: boolean;
+}) {
+	const title =
+		hasLocalScheduler && remoteStatusUnavailable
+			? "Đã cấu hình cục bộ, chưa lấy được trạng thái Tuturuuu"
+			: configured
+				? "Chưa có job nào"
+				: "Chưa thiết lập managed scheduler";
+	const description =
+		hasLocalScheduler && remoteStatusUnavailable
+			? "CS35 vẫn giữ token cục bộ. Bạn có thể thử chạy job thủ công hoặc mở trang vận hành Tuturuuu để kiểm tra trạng thái managed cron."
+			: "Thiết lập sẽ tạo lịch xử lý hàng đợi mỗi 5 phút và tạo scan theo dõi mỗi giờ.";
+
 	return (
 		<div className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center">
 			<p className="text-[13px] font-bold text-[var(--foreground)]">
-				{configured ? "Chưa có job nào" : "Chưa thiết lập managed scheduler"}
+				{title}
 			</p>
 			<p className="mt-1 text-[12px] text-[var(--muted)]">
-				Thiết lập sẽ tạo lịch xử lý hàng đợi mỗi 5 phút và tạo scan theo dõi mỗi giờ.
+				{description}
 			</p>
 		</div>
 	);
@@ -749,6 +865,21 @@ function StorageNotReadyNotice({ message }: { message: string }) {
 			<code className="mt-3 inline-flex rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
 				bun db:migrate
 			</code>
+		</div>
+	);
+}
+
+function LocalSchedulerConfiguredNotice() {
+	return (
+		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<p className="text-[13px] font-bold text-[var(--foreground)]">
+				Đã cấu hình cục bộ, chưa lấy được trạng thái Tuturuuu
+			</p>
+			<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+				CS35 vẫn có token managed scheduler. Các job mặc định bên dưới có thể
+				chạy thủ công, nhưng lịch và trạng thái chính xác cần Tuturuuu phản hồi
+				thành công.
+			</p>
 		</div>
 	);
 }

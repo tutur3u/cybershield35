@@ -1032,6 +1032,13 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("canOpenRecovery");
 		expect(panel).toContain("href={status?.adminRecoveryHref}");
 		expect(panel).toContain("Khôi phục cron");
+		expect(panel).toContain("FALLBACK_MANAGED_JOBS");
+		expect(panel).toContain("hasLocalScheduler");
+		expect(panel).toContain("enabled: hasLocalScheduler");
+		expect(panel).toContain("remoteStatusAvailable === false");
+		expect(panel).toContain("remoteStatusUnknown");
+		expect(panel).toContain("Đã cấu hình cục bộ, chưa lấy được trạng thái Tuturuuu");
+		expect(panel).toContain("Không thể tải lịch sử chạy");
 		expect(panel).toContain("disabled={controlsDisabled}");
 		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
 		expect(panel).toContain("Mở trang vận hành Tuturuuu");

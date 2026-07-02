@@ -109,6 +109,8 @@ type ManagedSchedulerStatus = {
 	jobs: ManagedSchedulerJobStatus[];
 	localStorageReady: boolean;
 	missingApprovalItems?: string[];
+	remoteConfigured?: boolean;
+	remoteStatusAvailable?: boolean;
 	setupDisabled: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
@@ -406,6 +408,11 @@ function normalizeSchedulerStatus({
 		: [];
 	const generatedAt = cleanString(remoteRecord.generatedAt);
 	const serverNow = cleanString(remoteRecord.serverNow);
+	const remoteStatusAvailable = !blocked && !error && !setupDisabledReason;
+	const remoteConfigured =
+		typeof remoteRecord.configured === "boolean"
+			? remoteRecord.configured
+			: undefined;
 
 	return {
 		...(adminRecoveryHref ? { adminRecoveryHref } : {}),
@@ -416,12 +423,16 @@ function normalizeSchedulerStatus({
 		...(error ? { error } : {}),
 		...(generatedAt ? { generatedAt } : {}),
 		...(missingApprovalItems.length > 0 ? { missingApprovalItems } : {}),
+		...(remoteConfigured === undefined ? {} : { remoteConfigured }),
+		remoteStatusAvailable,
 		...(setupDisabledReason ? { setupDisabledReason } : {}),
 		...(setupOrigin ? { setupOrigin } : {}),
 		...(serverNow ? { serverNow } : {}),
 		...(normalizedUpstreamStatus ? { upstreamStatus: normalizedUpstreamStatus } : {}),
-		configured: Boolean(local) && remoteRecord.configured !== false,
-		enabled: Boolean(local?.enabled) && remoteRecord.enabled !== false,
+		configured: Boolean(local),
+		enabled:
+			Boolean(local?.enabled) &&
+			(remoteStatusAvailable ? remoteRecord.enabled !== false : true),
 		jobs,
 		localStorageReady: true,
 		setupDisabled:
