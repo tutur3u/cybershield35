@@ -1039,6 +1039,10 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("remoteStatusUnknown");
 		expect(panel).toContain("Đã cấu hình cục bộ, chưa lấy được trạng thái Tuturuuu");
 		expect(panel).toContain("Không thể tải lịch sử chạy");
+		expect(panel).toContain("executionFailureInsight");
+		expect(panel).toContain("Tuturuuu runner could not connect to the CS35 callback");
+		expect(panel).toContain("CS35 rejected the scheduler token");
+		expect(panel).toContain("cs35_managed_scheduler_callback_failed");
 		expect(panel).toContain("disabled={controlsDisabled}");
 		expect(panel).toContain("Duyệt thiết lập trên Tuturuuu");
 		expect(panel).toContain("Mở trang vận hành Tuturuuu");
@@ -1046,6 +1050,29 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("setupDisabledReason");
 		expect(panel).toContain("!status?.setupDisabledReason");
 		expect(server).toContain("CYBERSHIELD35_PUBLIC_APP_URL");
+	});
+
+	test("managed scheduler callbacks return sanitized structured failures", () => {
+		const processRoute = readFileSync(
+			"app/api/cron/scans/process-queue/route.ts",
+			"utf8",
+		);
+		const trackedRoute = readFileSync(
+			"app/api/cron/scans/enqueue-tracked-sources/route.ts",
+			"utf8",
+		);
+		const callback = readFileSync(
+			"lib/managed-scheduler/callback.ts",
+			"utf8",
+		);
+
+		expect(processRoute).toContain("managedSchedulerCallbackFailureBody");
+		expect(processRoute).toContain('operation: "process-queue"');
+		expect(trackedRoute).toContain("managedSchedulerCallbackFailureBody");
+		expect(trackedRoute).toContain('operation: "enqueue-tracked-sources"');
+		expect(callback).toContain("CS35_MANAGED_SCHEDULER_CALLBACK_FAILED");
+		expect(callback).toContain("developerDebug");
+		expect(callback).not.toContain("stack");
 	});
 
 	test("notification dropdown has no mock operational items", () => {

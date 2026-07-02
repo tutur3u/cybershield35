@@ -784,6 +784,11 @@ function SchedulerHistory({
 								<p className="mt-1 text-[11px] text-[var(--muted)]">
 									{execution.source === "manual" ? "Chạy thủ công" : "Theo lịch"}
 								</p>
+								{executionFailureInsight(execution) ? (
+									<p className="mt-1 line-clamp-2 text-[11px] font-semibold text-[var(--warning-strong)]">
+										{executionFailureInsight(execution)}
+									</p>
+								) : null}
 							</div>
 							<p className="text-[11px] text-[var(--muted)]">
 								{formatDate(execution.startedAt)}
@@ -811,9 +816,16 @@ function SchedulerHistory({
 						<Metric label="Thời lượng" value={formatDuration(selectedExecution.durationMs)} />
 					</div>
 					{selectedExecution.error || selectedExecution.response ? (
-						<pre className="mt-3 max-h-40 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-[11px] text-[var(--foreground)]">
-							{selectedExecution.error ?? selectedExecution.response}
-						</pre>
+						<div className="mt-3 space-y-2">
+							{executionFailureInsight(selectedExecution) ? (
+								<p className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3 text-[11px] font-semibold leading-5 text-[var(--warning-strong)]">
+									{executionFailureInsight(selectedExecution)}
+								</p>
+							) : null}
+							<pre className="max-h-40 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-[11px] text-[var(--foreground)]">
+								{selectedExecution.error ?? selectedExecution.response}
+							</pre>
+						</div>
 					) : null}
 				</div>
 			) : null}
@@ -1131,6 +1143,26 @@ function labelForExecution(
 ) {
 	const job = jobs.find((candidate) => candidate.jobKey === execution.jobKey);
 	return job ? labelForJob(job) : execution.jobName || execution.jobKey;
+}
+
+function executionFailureInsight(execution: ManagedSchedulerExecutionView) {
+	if (execution.status === "success") return null;
+	const detail = `${execution.error ?? ""} ${execution.response ?? ""}`.trim();
+	const normalized = detail.toLowerCase();
+
+	if (normalized.includes("fetch failed")) {
+		return "Tuturuuu runner could not connect to the CS35 callback. The public CS35 URL responds externally, so check Tuturuuu container DNS, TLS, outbound network, or proxy logs.";
+	}
+
+	if (execution.httpStatus === 403 || /(^|\s)403(\s|$)|forbidden/iu.test(detail)) {
+		return "CS35 rejected the scheduler token. Rotate the managed scheduler token, then retry setup so Tuturuuu stores the new callback secret.";
+	}
+
+	if (normalized.includes("cs35_managed_scheduler_callback_failed")) {
+		return "The request reached CS35, but the callback failed inside CS35. Check CS35 server logs and the scan database/provider configuration.";
+	}
+
+	return null;
 }
 
 function SchedulerLoadError({
