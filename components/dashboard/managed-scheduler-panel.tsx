@@ -44,8 +44,8 @@ const FALLBACK_MANAGED_JOBS: ManagedSchedulerJobView[] = [
 		name: "Managed scheduler process queue",
 		nextRunAt: null,
 		remoteStatusUnknown: true,
-		schedule: "*/5 * * * *",
-		scheduleDescription: "Mỗi 5 phút",
+		schedule: "*/30 * * * *",
+		scheduleDescription: "Mỗi 30 phút",
 		scheduleTimezone: "Asia/Ho_Chi_Minh",
 	},
 	{
@@ -59,8 +59,8 @@ const FALLBACK_MANAGED_JOBS: ManagedSchedulerJobView[] = [
 		name: "Managed scheduler enqueue tracked sources",
 		nextRunAt: null,
 		remoteStatusUnknown: true,
-		schedule: "0 * * * *",
-		scheduleDescription: "Mỗi giờ",
+		schedule: "0 0 * * *",
+		scheduleDescription: "Hằng ngày lúc 00:00 UTC",
 		scheduleTimezone: "Asia/Ho_Chi_Minh",
 	},
 ];
@@ -305,6 +305,12 @@ export function ManagedSchedulerPanel({
 							nextJob={nextJob}
 							overdueJobs={overdueJobs}
 						/>
+						<ImmediateCronActions
+							disabled={!hasLocalScheduler}
+							onProcess={() => runMutation.mutate("process-queue")}
+							onQueue={() => runMutation.mutate("enqueue-tracked-sources")}
+							pending={runMutation.isPending}
+						/>
 						{displayJobs.length > 0 ? (
 							<div className="space-y-2">
 								{displayJobs.map((job) => (
@@ -373,6 +379,54 @@ export function ManagedSchedulerPanel({
 				) : null}
 			</div>
 		</Panel>
+	);
+}
+
+function ImmediateCronActions({
+	disabled,
+	onProcess,
+	onQueue,
+	pending,
+}: {
+	disabled: boolean;
+	onProcess: () => void;
+	onQueue: () => void;
+	pending: boolean;
+}) {
+	return (
+		<div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+			<div className="min-w-0">
+				<p className="text-[13px] font-bold text-[var(--foreground)]">
+					Chạy thủ công
+				</p>
+				<p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
+					Tạo scan theo dõi ngay hoặc xử lý hàng đợi ngay, không cần chờ lịch
+					Vercel Cron kế tiếp.
+				</p>
+			</div>
+			<div className="flex flex-wrap gap-2 sm:justify-end">
+				<button
+					type="button"
+					disabled={disabled || pending}
+					onClick={onQueue}
+					title="Tạo scan theo dõi ngay"
+					className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--foreground)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
+				>
+					{pending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+					Tạo scan ngay
+				</button>
+				<button
+					type="button"
+					disabled={disabled || pending}
+					onClick={onProcess}
+					title="Xử lý hàng đợi ngay"
+					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+				>
+					{pending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+					Xử lý ngay
+				</button>
+			</div>
+		</div>
 	);
 }
 

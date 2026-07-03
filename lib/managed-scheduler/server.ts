@@ -120,16 +120,16 @@ const VERCEL_CRON_JOBS: CronJobDefinition[] = [
 		jobKey: "process-queue",
 		legacyServiceName: "managed-scheduler:process-queue",
 		name: "Managed scheduler process queue",
-		schedule: "*/5 * * * *",
-		scheduleDescription: "Mỗi 5 phút",
+		schedule: "*/30 * * * *",
+		scheduleDescription: "Mỗi 30 phút",
 		serviceName: "vercel-cron:process-queue",
 	},
 	{
 		jobKey: "enqueue-tracked-sources",
 		legacyServiceName: "managed-scheduler:enqueue-tracked-sources",
 		name: "Managed scheduler enqueue tracked sources",
-		schedule: "0 * * * *",
-		scheduleDescription: "Mỗi giờ",
+		schedule: "0 0 * * *",
+		scheduleDescription: "Hằng ngày lúc 00:00 UTC",
 		serviceName: "vercel-cron:enqueue-tracked-sources",
 	},
 ];
@@ -556,10 +556,18 @@ function nextRunForSchedule(schedule: string, from: Date) {
 	const next = new Date(from.getTime());
 	next.setUTCSeconds(0, 0);
 
-	if (schedule === "*/5 * * * *") {
+	if (schedule === "*/30 * * * *") {
 		const minutes = next.getUTCMinutes();
-		const remainder = minutes % 5;
-		next.setUTCMinutes(minutes + (remainder === 0 ? 5 : 5 - remainder));
+		const remainder = minutes % 30;
+		next.setUTCMinutes(minutes + (remainder === 0 ? 30 : 30 - remainder));
+		return next;
+	}
+
+	if (schedule === "0 0 * * *") {
+		next.setUTCHours(0, 0, 0, 0);
+		if (next.getTime() <= from.getTime()) {
+			next.setUTCDate(next.getUTCDate() + 1);
+		}
 		return next;
 	}
 
@@ -569,7 +577,8 @@ function nextRunForSchedule(schedule: string, from: Date) {
 }
 
 function overdueWindowMs(schedule: string) {
-	return schedule === "*/5 * * * *" ? 12 * 60_000 : 75 * 60_000;
+	if (schedule === "0 0 * * *") return 30 * 60 * 60_000;
+	return schedule === "*/30 * * * *" ? 75 * 60_000 : 75 * 60_000;
 }
 
 function safeCronError(error: unknown) {
