@@ -116,7 +116,10 @@ export function ManagedSchedulerPanel({
 		},
 	});
 	const status = setupMutation.data ?? query.data;
-	const hasLocalScheduler = Boolean(status?.configured || status?.tokenLastFour);
+	const isVercelScheduler = status?.schedulerProvider === "vercel-cron";
+	const hasLocalScheduler = Boolean(
+		isVercelScheduler || status?.configured || status?.tokenLastFour,
+	);
 	const remoteStatusUnavailable =
 		hasLocalScheduler && status?.remoteStatusAvailable === false;
 	const displayJobs = useMemo(() => {
@@ -183,10 +186,19 @@ export function ManagedSchedulerPanel({
 	return (
 		<Panel>
 			<PanelHeader
-				title="Managed scheduler"
-				description="Tự động tạo lịch quét định kỳ và xử lý hàng đợi khi worker riêng chưa chạy."
+				title={isVercelScheduler ? "Vercel Cron scheduler" : "Managed scheduler"}
+				description={
+					isVercelScheduler
+						? "Vercel gọi trực tiếp các endpoint cron của CS35 theo lịch trong vercel.json."
+						: "Tự động tạo lịch quét định kỳ và xử lý hàng đợi khi worker riêng chưa chạy."
+				}
 				action={
-					status?.approvalHref && !controlsDisabled ? (
+					isVercelScheduler ? (
+						<span className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--foreground)]">
+							<Clock3 size={14} />
+							Vercel Cron
+						</span>
+					) : status?.approvalHref && !controlsDisabled ? (
 						<a
 							href={status.approvalHref}
 							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
@@ -263,6 +275,7 @@ export function ManagedSchedulerPanel({
 				!storageNotReady ? (
 					<SetupBlockedNotice
 						adminRecoveryHref={status.adminRecoveryHref}
+						code={status.code}
 						message={status.setupDisabledReason}
 						missingApprovalItems={status.missingApprovalItems}
 						setupOrigin={status.setupOrigin}
@@ -274,8 +287,16 @@ export function ManagedSchedulerPanel({
 						<div className="grid gap-3 sm:grid-cols-3">
 							<Metric label="Trạng thái" value={status.enabled ? "Đang bật" : "Tạm dừng"} />
 							<Metric
-								label="Token"
-								value={status.tokenLastFour ? `...${status.tokenLastFour}` : "Chưa có"}
+								label={isVercelScheduler ? "Bảo mật" : "Token"}
+								value={
+									isVercelScheduler
+										? status.enabled
+											? "CRON_SECRET"
+											: "Thiếu CRON_SECRET"
+										: status.tokenLastFour
+											? `...${status.tokenLastFour}`
+											: "Chưa có"
+								}
 							/>
 							<Metric label="Cập nhật" value={formatDate(status.updatedAt)} />
 						</div>
@@ -302,7 +323,9 @@ export function ManagedSchedulerPanel({
 										pending={
 											runMutation.isPending ||
 											patchMutation.isPending ||
-											(Boolean(status.setupDisabled) && !job.remoteStatusUnknown)
+											(Boolean(status.setupDisabled) &&
+												!job.remoteStatusUnknown &&
+												!isVercelScheduler)
 										}
 										runDisabled={!hasLocalScheduler}
 									/>
@@ -372,7 +395,8 @@ function SchedulerJobRow({
 }) {
 	const overdue = job.isOverdue;
 	const scheduleText = job.scheduleDescription || describeSchedule(job);
-	const remoteControlsDisabled = pending || job.remoteStatusUnknown === true;
+	const remoteControlsDisabled =
+		pending || job.remoteStatusUnknown === true || job.lockedByDeployment === true;
 
 	return (
 		<div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -399,6 +423,11 @@ function SchedulerJobRow({
 					{job.remoteStatusUnknown ? (
 						<span className="rounded-md bg-[var(--warning-soft)] px-2 py-1 text-[10px] font-bold text-[var(--warning-strong)]">
 							Trạng thái Tuturuuu chưa rõ
+						</span>
+					) : null}
+					{job.lockedByDeployment ? (
+						<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
+							Vercel Cron
 						</span>
 					) : null}
 				</div>
@@ -429,8 +458,10 @@ function SchedulerJobRow({
 					disabled={remoteControlsDisabled}
 					onClick={onEdit}
 					title={
-						job.remoteStatusUnknown
-							? "Không thể sửa lịch khi chưa lấy được trạng thái Tuturuuu"
+						job.lockedByDeployment
+							? "Lịch được quản lý bằng vercel.json và cần redeploy để thay đổi"
+							: job.remoteStatusUnknown
+								? "Không thể sửa lịch khi chưa lấy được trạng thái Tuturuuu"
 							: "Sửa lịch"
 					}
 					className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
@@ -460,8 +491,10 @@ function SchedulerJobRow({
 					disabled={remoteControlsDisabled}
 					onClick={() => onPatch(!job.active)}
 					title={
-						job.remoteStatusUnknown
-							? "Không thể tạm dừng khi chưa lấy được trạng thái Tuturuuu"
+						job.lockedByDeployment
+							? "Bật/tắt lịch Vercel Cron trong Vercel dashboard hoặc vercel.json"
+							: job.remoteStatusUnknown
+								? "Không thể tạm dừng khi chưa lấy được trạng thái Tuturuuu"
 							: job.active
 								? "Tạm dừng"
 								: "Bật lại"
@@ -898,11 +931,13 @@ function LocalSchedulerConfiguredNotice() {
 
 function SetupBlockedNotice({
 	adminRecoveryHref,
+	code,
 	message,
 	missingApprovalItems,
 	setupOrigin,
 }: {
 	adminRecoveryHref?: string;
+	code?: string;
 	message: string;
 	missingApprovalItems?: string[];
 	setupOrigin?: string;
@@ -910,7 +945,9 @@ function SetupBlockedNotice({
 	return (
 		<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
 			<p className="text-[13px] font-bold text-[var(--warning-strong)]">
-				Cần cấu hình URL public
+				{code === "VERCEL_CRON_SECRET_MISSING"
+					? "Cần cấu hình Vercel Cron"
+					: "Cần cấu hình URL public"}
 			</p>
 			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
 				{message}

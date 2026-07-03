@@ -1,30 +1,24 @@
 import {
 	json,
-	verifyManagedSchedulerRequest,
+	runLegacyManagedSchedulerRoute,
+	runVercelCronRoute,
 } from "@/lib/managed-scheduler/server";
 import { managedSchedulerCallbackFailureBody } from "@/lib/managed-scheduler/callback";
-import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
-import { heartbeat } from "@/lib/workers/scans";
+
+const JOB_KEY = "enqueue-tracked-sources";
+
+export async function GET(request: Request) {
+	return runVercelCronRoute(request, JOB_KEY);
+}
 
 export async function POST(request: Request) {
 	try {
-		if (!(await verifyManagedSchedulerRequest(request))) {
-			return json({ error: "Forbidden" }, { status: 403 });
-		}
-
-		await heartbeat("managed-scheduler:enqueue-tracked-sources");
-		const result = await enqueueDueTrackedSources();
-
-		return json({
-			enqueued: result.enqueued,
-			scanIds: result.scans.map((scan) => scan.scanId),
-			skipped: result.skipped,
-		});
+		return await runLegacyManagedSchedulerRoute(request, JOB_KEY);
 	} catch (error) {
 		return json(
 			managedSchedulerCallbackFailureBody({
 				error,
-				operation: "enqueue-tracked-sources",
+				operation: JOB_KEY,
 			}),
 			{ status: 500 },
 		);

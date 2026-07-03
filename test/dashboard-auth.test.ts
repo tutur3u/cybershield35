@@ -1013,19 +1013,32 @@ describe("dashboard auth gate", () => {
 		expect(dashboard).toContain("runScanRecord");
 	});
 
-	test("managed scheduler load failures disable setup and expose retry UI", () => {
+	test("managed scheduler uses Vercel Cron instead of Tuturuuu managed-cron", () => {
 		const panel = readFileSync(
 			"components/dashboard/managed-scheduler-panel.tsx",
 			"utf8",
 		);
 		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
 		const server = readFileSync("lib/managed-scheduler/server.ts", "utf8");
+		const processRoute = readFileSync(
+			"app/api/cron/scans/process-queue/route.ts",
+			"utf8",
+		);
+		const trackedRoute = readFileSync(
+			"app/api/cron/scans/enqueue-tracked-sources/route.ts",
+			"utf8",
+		);
+		const vercelConfig = readFileSync("vercel.json", "utf8");
 
 		expect(queries).toContain("parseManagedSchedulerStatusResponse");
 		expect(queries).not.toContain('return fetchJson("/api/workspace/cron")');
 		expect(panel).toContain("queryUnavailable");
 		expect(panel).toContain("query.refetch()");
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
+		expect(panel).toContain("Vercel Cron scheduler");
+		expect(panel).toContain("CRON_SECRET");
+		expect(panel).toContain("lockedByDeployment");
+		expect(panel).toContain("vercel.json");
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
 		expect(panel).toContain("href={status.approvalHref}");
 		expect(panel).toContain("Duyệt thiết lập");
@@ -1049,7 +1062,18 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("missingApprovalItems");
 		expect(panel).toContain("setupDisabledReason");
 		expect(panel).toContain("!status?.setupDisabledReason");
-		expect(server).toContain("CYBERSHIELD35_PUBLIC_APP_URL");
+		expect(server).toContain("VERCEL_CRON_SECRET_MISSING");
+		expect(server).toContain("runVercelCronRoute");
+		expect(server).toContain("CRON_SECRET");
+		expect(server).not.toContain("buildManagedSchedulerUrl");
+		expect(processRoute).toContain("export async function GET");
+		expect(processRoute).toContain("runVercelCronRoute");
+		expect(trackedRoute).toContain("export async function GET");
+		expect(trackedRoute).toContain("runVercelCronRoute");
+		expect(vercelConfig).toContain("/api/cron/scans/process-queue");
+		expect(vercelConfig).toContain("*/5 * * * *");
+		expect(vercelConfig).toContain("/api/cron/scans/enqueue-tracked-sources");
+		expect(vercelConfig).toContain("0 * * * *");
 	});
 
 	test("managed scheduler callbacks return sanitized structured failures", () => {
@@ -1067,9 +1091,13 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(processRoute).toContain("managedSchedulerCallbackFailureBody");
-		expect(processRoute).toContain('operation: "process-queue"');
+		expect(processRoute).toContain('const JOB_KEY = "process-queue"');
+		expect(processRoute).toContain("operation: JOB_KEY");
 		expect(trackedRoute).toContain("managedSchedulerCallbackFailureBody");
-		expect(trackedRoute).toContain('operation: "enqueue-tracked-sources"');
+		expect(trackedRoute).toContain(
+			'const JOB_KEY = "enqueue-tracked-sources"',
+		);
+		expect(trackedRoute).toContain("operation: JOB_KEY");
 		expect(callback).toContain("CS35_MANAGED_SCHEDULER_CALLBACK_FAILED");
 		expect(callback).toContain("developerDebug");
 		expect(callback).not.toContain("stack");
