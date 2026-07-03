@@ -534,12 +534,14 @@ describe("dashboard auth gate", () => {
 				configured: true,
 				error: "Requested scope is not allowed for this app",
 				loginHref: "/login?nextUrl=%2Fsources",
-				reason: "logged-out",
 			}),
 		);
-		expect(withoutApproval).toContain("Đã đăng xuất");
+		expect(withoutApproval).toContain("Đăng nhập để tiếp tục");
 		expect(withoutApproval).toContain("Đăng nhập bằng Tuturuuu");
 		expect(withoutApproval).not.toContain("Duyệt quyền truy cập");
+		expect(withoutApproval).not.toContain("Đã đăng xuất");
+		expect(withoutApproval).not.toContain("Phiên hiện tại đã được đóng");
+		expect(withoutApproval).not.toContain("Bạn đã đăng xuất an toàn");
 
 		const withApproval = renderToStaticMarkup(
 			createElement(AuthRequiredScreen, {
@@ -1264,17 +1266,31 @@ describe("dashboard auth gate", () => {
 		expect(source).not.toContain("Đăng nhập để tiếp tục");
 	});
 
-	test("logout routes back to centralized login with reason", () => {
+	test("logout routes back to the empty centralized login state", () => {
 		const actions = readFileSync("components/dashboard/client-actions.ts", "utf8");
 		const shell = readFileSync(
 			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
 		);
+		const loginScreen = readFileSync(
+			"components/auth/centralized-login-screen.tsx",
+			"utf8",
+		);
 
 		expect(actions).toContain("window.location.assign");
-		expect(actions).toContain("/login?reason=logged-out");
-		expect(shell).toContain('currentLoginHref("logged-out")');
+		expect(actions).toContain('loginHref ?? "/login"');
+		expect(actions).not.toContain("/login?reason=logged-out");
+		expect(shell).toContain("auth.loginHref ?? currentLoginHref()");
+		expect(shell).not.toContain('currentLoginHref("logged-out")');
 		expect(shell).toContain("<LoginRedirect");
+		expect(loginScreen).not.toContain("Phiên hiện tại đã được đóng");
+		expect(loginScreen).not.toContain("Bạn đã đăng xuất an toàn");
+		expect(loginScreen).not.toContain("Đăng nhập trung tâm cho bảng điều khiển vận hành");
+		expect(loginScreen).not.toContain("Một điểm vào duy nhất");
+		expect(loginScreen).not.toContain("AuthSignal");
+		expect(loginScreen).not.toContain('label="Provider"');
+		expect(loginScreen).not.toContain('label="Workspace"');
+		expect(loginScreen).not.toContain('label="Session"');
 	});
 
 	test("dark theme uses the near-green-black login palette", () => {
