@@ -410,6 +410,10 @@ describe("dashboard auth gate", () => {
 			"components/auth/centralized-login-screen.tsx",
 			"utf8",
 		);
+		const loginLink = readFileSync(
+			"components/auth/tuturuuu-login-link.tsx",
+			"utf8",
+		);
 
 		expect(source).toContain("authDiagnostics.required");
 		expect(source).toContain("statusLabel");
@@ -417,7 +421,8 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("Sai cấu hình");
 		expect(source).toContain("Thiếu");
 		expect(source).toContain("loginHref");
-		expect(source).toContain("Đăng nhập bằng Tuturuuu");
+		expect(source).toContain("TuturuuuLoginLink");
+		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
 		expect(source).toContain("AUTH_LOCAL_BYPASS");
 
 		expect(source).not.toContain('"use client"');
@@ -429,6 +434,30 @@ describe("dashboard auth gate", () => {
 		expect(source).not.toContain("Xác thực Tuturuuu");
 		expect(source).not.toContain("verify-app-token");
 		expect(source).not.toContain("<input");
+	});
+
+	test("Tuturuuu login click shows persistent loading before provider redirect", () => {
+		const loginLink = readFileSync(
+			"components/auth/tuturuuu-login-link.tsx",
+			"utf8",
+		);
+		const loginScreen = readFileSync(
+			"components/auth/centralized-login-screen.tsx",
+			"utf8",
+		);
+
+		expect(loginScreen).toContain("<TuturuuuLoginLink href={loginHref} />");
+		expect(loginLink).toContain('"use client"');
+		expect(loginLink).toContain("useState(false)");
+		expect(loginLink).toContain("event.preventDefault()");
+		expect(loginLink).toContain("setPending(true)");
+		expect(loginLink).toContain("window.requestAnimationFrame");
+		expect(loginLink).toContain("window.location.assign(href)");
+		expect(loginLink).toContain("aria-busy={pending}");
+		expect(loginLink).toContain("Loader2");
+		expect(loginLink).toContain("animate-spin");
+		expect(loginLink).toContain("Đang mở Tuturuuu...");
+		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
 	});
 
 	test("configured unauthenticated screen hides admin setup diagnostics", () => {
@@ -1293,27 +1322,29 @@ describe("dashboard auth gate", () => {
 		expect(loginScreen).not.toContain('label="Session"');
 	});
 
-	test("dark theme uses the near-green-black login palette", () => {
+	test("dark theme uses a neutral gray dashboard palette", () => {
 		const globals = readFileSync("app/globals.css", "utf8");
 
 		for (const token of [
-			"--background: #06120d",
-			"--surface: #0a1711",
-			"--surface-elevated: #0e1f17",
-			"--surface-soft: #13281e",
-			"--border: #1f3d31",
-			"--border-strong: #2f5a48",
-			"--divider: #183329",
-			"--muted: #8eb2a2",
-			"--muted-strong: #c2ddcf",
-			"--accent: #5ea7ff",
-			"--accent-strong: #cfe3ff",
-			"--accent-soft: #0b2533",
+			"--background: #10151d",
+			"--surface: #161d27",
+			"--surface-elevated: #1b2430",
+			"--surface-soft: #202936",
+			"--border: #273444",
+			"--border-strong: #3b4b5e",
+			"--divider: #243040",
+			"--muted: #94a3b8",
+			"--muted-strong: #cbd5e1",
+			"--accent: #60a5fa",
+			"--accent-strong: #bfdbfe",
+			"--accent-soft: #172b45",
 		]) {
 			expect(globals).toContain(token);
 		}
 
-		expect(globals).toContain("linear-gradient(180deg, rgb(9 29 21");
+		expect(globals).toContain("linear-gradient(180deg, rgb(22 29 39");
+		expect(globals).not.toContain("#06120d");
+		expect(globals).not.toContain("#0a1711");
 		expect(globals).not.toContain("orb");
 		expect(globals).not.toContain("bokeh");
 	});
