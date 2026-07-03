@@ -80,6 +80,7 @@ function normalizeManagedSchedulerStatus(
 					...job,
 					isOverdue: job.isOverdue === true,
 					lastExecution: job.lastExecution ?? null,
+					lockedByDeployment: job.lockedByDeployment === true,
 					overdueReason: job.overdueReason ?? null,
 					overdueSince: job.overdueSince ?? null,
 					scheduleDescription: job.scheduleDescription ?? "",
@@ -95,6 +96,7 @@ function normalizeManagedSchedulerStatus(
 			typeof payload.remoteStatusAvailable === "boolean"
 				? payload.remoteStatusAvailable
 				: undefined,
+		schedulerProvider: payload.schedulerProvider,
 		setupDisabled:
 			(Boolean(payload.setupDisabled) && !payload.approvalHref) ||
 			Boolean(payload.setupDisabledReason) ||

@@ -89,6 +89,7 @@ export type ManagedSchedulerJobView = {
 	lastExecution?: ManagedSchedulerExecutionView | null;
 	lastRunAt: string | null;
 	lastStatus: string | null;
+	lockedByDeployment?: boolean;
 	name: string;
 	nextRunAt: string | null;
 	overdueReason?: string | null;
@@ -140,6 +141,7 @@ export type ManagedSchedulerStatusView = {
 	missingApprovalItems?: string[];
 	remoteConfigured?: boolean;
 	remoteStatusAvailable?: boolean;
+	schedulerProvider?: "managed-scheduler" | "vercel-cron";
 	setupDisabled?: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;

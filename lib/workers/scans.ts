@@ -689,19 +689,28 @@ export async function reviewDraft(id: string, status: DraftStatus) {
 	return draft;
 }
 
-export async function heartbeat(serviceName = "worker") {
+export async function heartbeat(
+	serviceName = "worker",
+	metadata: Record<string, unknown> = {},
+) {
+	const nextMetadata = {
+		pid: process.pid,
+		updatedAt: new Date().toISOString(),
+		...metadata,
+	};
+
 	await adminDb
 		.insert(cronHeartbeats)
 		.values({
 			serviceName,
 			lastSeenAt: new Date(),
-			metadata: { pid: process.pid, updatedAt: new Date().toISOString() },
+			metadata: nextMetadata,
 		})
 		.onConflictDoUpdate({
 			target: cronHeartbeats.serviceName,
 			set: {
 				lastSeenAt: new Date(),
-				metadata: { pid: process.pid, updatedAt: new Date().toISOString() },
+				metadata: nextMetadata,
 			},
 		});
 }
