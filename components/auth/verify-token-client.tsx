@@ -1,11 +1,10 @@
 "use client";
 
-import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
-import Link from "next/link";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-type VerificationState = "failed" | "loading" | "success";
+type VerificationState = "loading" | "success";
 
 type VerificationResponse = {
 	error?: string;
@@ -37,8 +36,6 @@ function sanitizeNextPath(
 export function VerifyTokenClient() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const [error, setError] = useState<string | null>(null);
-	const [scopeApprovalHref, setScopeApprovalHref] = useState<string | null>(null);
 	const [state, setState] = useState<VerificationState>("loading");
 	const nextPath = useMemo(
 		() =>
@@ -49,10 +46,11 @@ export function VerifyTokenClient() {
 			),
 		[searchParams],
 	);
-	const retryHref = useMemo(
-		() => `/login?nextUrl=${encodeURIComponent(nextPath)}`,
+	const invalidLinkHref = useMemo(
+		() => loginHref(nextPath, "invalid-link"),
 		[nextPath],
 	);
+	const scopeHref = useMemo(() => loginHref(nextPath, "scope"), [nextPath]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -61,10 +59,7 @@ export function VerifyTokenClient() {
 			const token = searchParams.get("token");
 
 			if (!token) {
-				setError(
-					"Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
-				);
-				setState("failed");
+				router.replace(invalidLinkHref);
 				return;
 			}
 
@@ -79,22 +74,17 @@ export function VerifyTokenClient() {
 					.catch(() => null)) as VerificationResponse | null;
 
 				if (!response.ok || !data?.session?.authenticated || !data.session.user?.id) {
-					setScopeApprovalHref(data?.scopeApprovalHref ?? null);
-					throw new Error(data?.error || "Không thể xác thực phiên đăng nhập.");
+					router.replace(data?.scopeApprovalHref ? scopeHref : invalidLinkHref);
+					return;
 				}
 
 				if (cancelled) return;
 				setState("success");
 				router.replace(nextPath);
 				router.refresh();
-			} catch (verificationError) {
+			} catch {
 				if (cancelled) return;
-				setError(
-					verificationError instanceof Error
-						? verificationError.message
-						: "Không thể xác thực phiên đăng nhập.",
-				);
-				setState("failed");
+				router.replace(invalidLinkHref);
 			}
 		}
 
@@ -103,37 +93,7 @@ export function VerifyTokenClient() {
 		return () => {
 			cancelled = true;
 		};
-	}, [nextPath, router, searchParams]);
-
-	if (state === "failed") {
-		return (
-			<>
-				<span className="grid size-11 place-items-center rounded-md bg-[var(--danger-soft)] text-[var(--danger-strong)]">
-					<AlertTriangle size={22} />
-				</span>
-				<h1 className="mt-5 text-[22px] font-bold leading-7">
-					Không thể đăng nhập
-				</h1>
-				<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
-					{error}
-				</p>
-				<Link
-					href={retryHref}
-					className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-				>
-					Đăng nhập lại
-				</Link>
-				{scopeApprovalHref ? (
-					<Link
-						href={scopeApprovalHref}
-						className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
-					>
-						Duyệt quyền truy cập
-					</Link>
-				) : null}
-			</>
-		);
-	}
+	}, [invalidLinkHref, nextPath, router, scopeHref, searchParams]);
 
 	return (
 		<>
@@ -152,4 +112,9 @@ export function VerifyTokenClient() {
 			</p>
 		</>
 	);
+}
+
+function loginHref(nextPath: string, reason: "invalid-link" | "scope") {
+	const params = new URLSearchParams({ nextUrl: nextPath, reason });
+	return `/login?${params.toString()}`;
 }

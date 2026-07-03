@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 
+import { LoginRedirect } from "@/components/auth/login-redirect";
 import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
 import {
@@ -223,13 +224,7 @@ export function CyberShieldDashboard({
 	}
 
 	if (!auth.authenticated) {
-		return (
-			<LockedDashboard
-				error={auth.error}
-				loginHref={auth.loginHref}
-				scopeApprovalHref={auth.scopeApprovalHref}
-			/>
-		);
+		return <LoginRedirect href={auth.loginHref ?? "/login?reason=expired"} />;
 	}
 
 	if (
@@ -574,79 +569,6 @@ function shouldLoadScanDetail(page: DashboardPage) {
 		"topics",
 		"topic-detail",
 	].includes(page);
-}
-
-export function LockedDashboard({
-	error,
-	loginHref,
-	scopeApprovalHref,
-}: {
-	error?: string;
-	loginHref?: string;
-	scopeApprovalHref?: string;
-}) {
-	return (
-		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
-			<div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center">
-				<section className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-soft)]">
-					<div className="flex items-start gap-3">
-						<span className="grid size-12 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
-							<svg
-								aria-hidden="true"
-								viewBox="0 0 24 24"
-								className="size-6"
-								fill="none"
-								stroke="currentColor"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth="2"
-							>
-								<path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z" />
-								<path d="m9 12 2 2 4-4" />
-							</svg>
-						</span>
-						<div className="min-w-0">
-							<p className="text-[13px] font-bold uppercase tracking-[0.04em] text-[var(--brand)]">
-								CyberShield 35
-							</p>
-							<h1 className="mt-1 text-[22px] font-bold leading-7 text-[var(--foreground)]">
-								Đăng nhập để tiếp tục
-							</h1>
-							<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
-								{error ??
-									"Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại để mở bảng điều khiển."}
-							</p>
-						</div>
-					</div>
-
-					{loginHref ? (
-						<a
-							href={loginHref}
-							className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[var(--accent-strong)]"
-						>
-							Đăng nhập lại
-						</a>
-					) : (
-						<button
-							type="button"
-							disabled
-							className="mt-6 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-md bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--muted)]"
-						>
-							Đăng nhập chưa khả dụng
-						</button>
-					)}
-					{scopeApprovalHref ? (
-						<a
-							href={scopeApprovalHref}
-							className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-						>
-							Duyệt quyền truy cập
-						</a>
-					) : null}
-				</section>
-			</div>
-		</main>
-	);
 }
 
 function renderPage(

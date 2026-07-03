@@ -71,17 +71,18 @@ export async function resolveDashboardAuthFromRequest(
 
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
-		const scopeApprovalHref =
+		const needsScopeApproval =
 			authDiagnostics.configured &&
 			isTuturuuuScopeNotAllowedError({
 				error: auth.error,
 				status: auth.status,
-			})
-				? buildTuturuuuScopeApprovalUrl({
-						appBaseUrl: requestUrl.origin,
-						nextUrl: nextPath,
-					})
-				: undefined;
+			});
+		const scopeApprovalHref = needsScopeApproval
+			? buildTuturuuuScopeApprovalUrl({
+					appBaseUrl: requestUrl.origin,
+					nextUrl: nextPath,
+				})
+			: undefined;
 
 		return {
 			authenticated: false,
@@ -89,7 +90,10 @@ export async function resolveDashboardAuthFromRequest(
 			configured: authDiagnostics.configured,
 			error: auth.error,
 			loginHref,
-			loginPath,
+			loginPath: buildLocalLoginPath(
+				nextPath,
+				needsScopeApproval ? "scope" : auth.status === 401 ? "expired" : undefined,
+			),
 			scopeApprovalHref,
 			status: auth.status,
 		};

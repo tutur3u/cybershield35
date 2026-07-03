@@ -6,7 +6,8 @@ import { Suspense } from "react";
 import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
 import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requestUrlFromHeaders } from "@/lib/auth/request-url";
-import { safePostLoginPath } from "@/lib/auth/routes";
+import { safeLoginReason, safePostLoginPath } from "@/lib/auth/routes";
+import { buildTuturuuuScopeApprovalUrl } from "@/lib/auth/scope-approval";
 import {
 	allowLocalAuthBypass,
 	getTuturuuuAuthDiagnostics,
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 };
 
 type LoginPageProps = {
-	searchParams: Promise<{ nextUrl?: string | string[] }>;
+	searchParams: Promise<{
+		nextUrl?: string | string[];
+		reason?: string | string[];
+	}>;
 };
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
@@ -42,11 +46,12 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 	}
 
 	const requestUrl = new URL(requestUrlFromHeaders(requestHeaders));
-	const { nextUrl } = await searchParams;
+	const { nextUrl, reason } = await searchParams;
 	const nextPath = safePostLoginPath(
 		Array.isArray(nextUrl) ? nextUrl[0] : nextUrl,
 		requestUrl.origin,
 	);
+	const loginReason = safeLoginReason(Array.isArray(reason) ? reason[0] : reason);
 	const request = new Request(requestUrl, { headers: requestHeaders });
 	const session = await readAdminSession(request);
 
@@ -61,6 +66,13 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 				nextUrl: nextPath,
 			})
 		: undefined;
+	const scopeApprovalHref =
+		loginReason === "scope" && authDiagnostics.configured
+			? buildTuturuuuScopeApprovalUrl({
+					appBaseUrl: requestUrl.origin,
+					nextUrl: nextPath,
+				})
+			: undefined;
 
 	return (
 		<AuthRequiredScreen
@@ -68,6 +80,8 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 			configured={authDiagnostics.configured}
 			error="Authentication required"
 			loginHref={loginHref}
+			reason={loginReason}
+			scopeApprovalHref={scopeApprovalHref}
 		/>
 	);
 }

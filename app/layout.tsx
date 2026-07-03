@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import Script from "next/script";
 import { Suspense } from "react";
 
-import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -85,13 +85,7 @@ async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 	const auth = await resolveDashboardAuthFromCurrentRequest();
 
 	if (!auth.authenticated && !auth.publicRoute) {
-		return (
-			<LockedDashboard
-				error={auth.error}
-				loginHref={auth.loginHref}
-				scopeApprovalHref={auth.scopeApprovalHref}
-			/>
-		);
+		redirect(auth.loginPath);
 	}
 
 	if (!auth.authenticated) return children;
