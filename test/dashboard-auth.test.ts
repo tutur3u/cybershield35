@@ -434,6 +434,8 @@ describe("dashboard auth gate", () => {
 		expect(source).not.toContain("Xác thực Tuturuuu");
 		expect(source).not.toContain("verify-app-token");
 		expect(source).not.toContain("<input");
+		expect(source).not.toContain("ShieldCheck");
+		expect(source).not.toContain("CyberShield 35");
 	});
 
 	test("Tuturuuu login click shows persistent loading before provider redirect", () => {
@@ -485,6 +487,8 @@ describe("dashboard auth gate", () => {
 		expect(markup).toContain("Đăng nhập để tiếp tục");
 		expect(markup).toContain("Đăng nhập bằng Tuturuuu");
 		expect(markup).toContain("/brand-icons/tuturuuu.svg");
+		expect(markup).not.toContain("CyberShield 35");
+		expect(markup).not.toContain("lucide-shield");
 		expect(markup).not.toContain("Không có phiên quản trị hợp lệ");
 		expect(markup).not.toContain("Authentication required");
 		expect(markup).not.toContain("Tuturuuu Auth");
@@ -568,6 +572,8 @@ describe("dashboard auth gate", () => {
 		expect(withoutApproval).toContain("Đăng nhập để tiếp tục");
 		expect(withoutApproval).toContain("Đăng nhập bằng Tuturuuu");
 		expect(withoutApproval).not.toContain("Duyệt quyền truy cập");
+		expect(withoutApproval).not.toContain("CyberShield 35");
+		expect(withoutApproval).not.toContain("lucide-shield");
 		expect(withoutApproval).not.toContain("Đã đăng xuất");
 		expect(withoutApproval).not.toContain("Phiên hiện tại đã được đóng");
 		expect(withoutApproval).not.toContain("Bạn đã đăng xuất an toàn");

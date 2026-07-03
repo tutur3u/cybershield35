@@ -3,7 +3,6 @@ import {
 	CheckCircle2,
 	ExternalLink,
 	Server,
-	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react";
 
@@ -39,28 +38,7 @@ export function CentralizedLoginScreen({
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
 			<div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-xl place-items-center">
 				<section className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
-					<div className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-2.5 py-1.5 text-[11px] font-bold uppercase text-[var(--brand)]">
-						<ShieldCheck size={14} />
-						CyberShield 35
-					</div>
-					<span
-						className={`mt-5 grid size-12 place-items-center rounded-md ${
-							setupIncomplete
-								? "bg-[var(--warning-soft)] text-[var(--warning-strong)]"
-								: scopeApprovalHref
-									? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-									: "bg-[var(--success-soft)] text-[var(--brand)]"
-						}`}
-					>
-						{setupIncomplete ? (
-							<AlertTriangle size={24} />
-						) : scopeApprovalHref ? (
-							<ExternalLink size={22} />
-						) : (
-							<ShieldCheck size={24} />
-						)}
-					</span>
-					<h2 className="mt-5 text-[24px] font-extrabold leading-8 text-[var(--foreground)]">
+					<h2 className="text-[24px] font-extrabold leading-8 text-[var(--foreground)]">
 						{copy.title}
 					</h2>
 					<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
