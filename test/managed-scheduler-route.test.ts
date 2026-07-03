@@ -156,7 +156,13 @@ describe("managed scheduler Vercel Cron routes", () => {
 		expect(jobs[0]).toMatchObject({
 			jobKey: "process-queue",
 			lockedByDeployment: true,
-			schedule: "*/5 * * * *",
+			schedule: "*/30 * * * *",
+			scheduleTimezone: "UTC",
+		});
+		expect(jobs[1]).toMatchObject({
+			jobKey: "enqueue-tracked-sources",
+			lockedByDeployment: true,
+			schedule: "0 0 * * *",
 			scheduleTimezone: "UTC",
 		});
 		expect(globalThis.fetch).not.toHaveBeenCalled();
@@ -229,30 +235,50 @@ describe("managed scheduler Vercel Cron routes", () => {
 		expect(JSON.stringify(heartbeatRows)).toContain("enqueue-tracked-sources");
 	});
 
-	test("allows manual run-now through the admin route without Tuturuuu", async () => {
+	test("allows manual process and queue run-now through the admin route", async () => {
 		processResults.push({ processed: true, scanId: "scan-1" });
 		processResults.push({ processed: false });
 
 		const { POST } = await import(
 			"@/app/api/workspace/cron/jobs/[jobKey]/run-now/route"
 		);
-		const response = await POST(
+		const processResponse = await POST(
 			localRequest("/api/workspace/cron/jobs/process-queue/run-now", {
 				method: "POST",
 			}),
 			{ params: Promise.resolve({ jobKey: "process-queue" }) },
 		);
-		const body = (await response.json()) as Record<string, unknown>;
+		const processBody = (await processResponse.json()) as Record<string, unknown>;
+		const queueResponse = await POST(
+			localRequest(
+				"/api/workspace/cron/jobs/enqueue-tracked-sources/run-now",
+				{ method: "POST" },
+			),
+			{ params: Promise.resolve({ jobKey: "enqueue-tracked-sources" }) },
+		);
+		const queueBody = (await queueResponse.json()) as Record<string, unknown>;
 
-		expect(response.status).toBe(200);
-		expect(body).toMatchObject({
+		expect(processResponse.status).toBe(200);
+		expect(processBody).toMatchObject({
 			jobKey: "process-queue",
 			processed: 1,
 			provider: "vercel-cron",
 			status: "success",
 		});
-		expect(body.execution).toMatchObject({
+		expect(processBody.execution).toMatchObject({
 			jobKey: "process-queue",
+			source: "manual",
+			status: "success",
+		});
+		expect(queueResponse.status).toBe(200);
+		expect(queueBody).toMatchObject({
+			enqueued: 1,
+			jobKey: "enqueue-tracked-sources",
+			provider: "vercel-cron",
+			status: "success",
+		});
+		expect(queueBody.execution).toMatchObject({
+			jobKey: "enqueue-tracked-sources",
 			source: "manual",
 			status: "success",
 		});

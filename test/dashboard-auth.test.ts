@@ -1037,6 +1037,11 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
 		expect(panel).toContain("Vercel Cron scheduler");
 		expect(panel).toContain("CRON_SECRET");
+		expect(panel).toContain("ImmediateCronActions");
+		expect(panel).toContain('runMutation.mutate("enqueue-tracked-sources")');
+		expect(panel).toContain('runMutation.mutate("process-queue")');
+		expect(panel).toContain("Tạo scan ngay");
+		expect(panel).toContain("Xử lý ngay");
 		expect(panel).toContain("lockedByDeployment");
 		expect(panel).toContain("vercel.json");
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
@@ -1071,9 +1076,9 @@ describe("dashboard auth gate", () => {
 		expect(trackedRoute).toContain("export async function GET");
 		expect(trackedRoute).toContain("runVercelCronRoute");
 		expect(vercelConfig).toContain("/api/cron/scans/process-queue");
-		expect(vercelConfig).toContain("*/5 * * * *");
+		expect(vercelConfig).toContain("*/30 * * * *");
 		expect(vercelConfig).toContain("/api/cron/scans/enqueue-tracked-sources");
-		expect(vercelConfig).toContain("0 * * * *");
+		expect(vercelConfig).toContain("0 0 * * *");
 	});
 
 	test("managed scheduler callbacks return sanitized structured failures", () => {
