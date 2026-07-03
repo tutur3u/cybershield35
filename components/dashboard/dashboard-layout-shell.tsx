@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { logout } from "@/components/dashboard/client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
-import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
+import { LoginRedirect } from "@/components/auth/login-redirect";
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import { ManagedSchedulerPanel } from "@/components/dashboard/managed-scheduler-panel";
 import { ProviderStatus } from "@/components/dashboard/page-widgets";
@@ -86,7 +86,11 @@ export function DashboardLayoutShell({
 							<TopBar
 								auth={auth}
 								onLogout={() =>
-									logout(setAuth, setNotice, auth.loginHref ?? currentLoginHref())
+									logout(
+										setAuth,
+										setNotice,
+										auth.loginHref ?? currentLoginHref("logged-out"),
+									)
 								}
 								onOpenProfile={() => setProfileDialogOpen(true)}
 								onOpenSettings={() => setSettingsDialogOpen(true)}
@@ -135,21 +139,17 @@ export function DashboardLayoutShell({
 					</Dialog>
 				</main>
 			) : (
-				<LockedDashboard
-					error={auth.error}
-					loginHref={auth.loginHref}
-					scopeApprovalHref={auth.scopeApprovalHref}
-				/>
+				<LoginRedirect href={auth.loginHref ?? currentLoginHref("expired")} />
 			)}
 		</DashboardAuthProvider>
 	);
 }
 
-function currentLoginHref() {
+function currentLoginHref(reason = "expired") {
 	if (typeof window === "undefined") return "/login";
 
 	const nextUrl = `${window.location.pathname}${window.location.search}`;
-	return `/login?nextUrl=${encodeURIComponent(nextUrl)}`;
+	return `/login?nextUrl=${encodeURIComponent(nextUrl)}&reason=${encodeURIComponent(reason)}`;
 }
 
 function readSchedulerAutoRetryToken() {

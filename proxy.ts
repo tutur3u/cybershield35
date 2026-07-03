@@ -29,8 +29,8 @@ export async function proxy(request: NextRequest) {
 		return continueRequest();
 	}
 
-	const authenticated =
-		allowLocalAuthBypass(request) || isUsableSession(await readAdminSession(request));
+	const session = await readAdminSession(request);
+	const authenticated = allowLocalAuthBypass(request) || isUsableSession(session);
 
 	if (pathname === LOGIN_PATHNAME) {
 		if (!authenticated) return continueRequest();
@@ -46,7 +46,10 @@ export async function proxy(request: NextRequest) {
 	if (!authenticated) {
 		return NextResponse.redirect(
 			new URL(
-				buildLocalLoginPath(`${request.nextUrl.pathname}${request.nextUrl.search}`),
+				buildLocalLoginPath(
+					`${request.nextUrl.pathname}${request.nextUrl.search}`,
+					session ? "expired" : undefined,
+				),
 				request.nextUrl,
 			),
 		);

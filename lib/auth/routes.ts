@@ -2,6 +2,9 @@ import { sanitizeNextPath } from "@/lib/auth/login-link";
 
 export const LOGIN_PATHNAME = "/login";
 export const VERIFY_TOKEN_PATHNAME = "/verify-token";
+export const LOGIN_REASONS = ["expired", "invalid-link", "logged-out", "scope"] as const;
+
+export type LoginReason = (typeof LOGIN_REASONS)[number];
 
 export function isPublicAuthRoute(pathname: string) {
 	return pathname === LOGIN_PATHNAME || pathname === VERIFY_TOKEN_PATHNAME;
@@ -15,10 +18,16 @@ export function nextPathFromRequestUrl(requestUrl: URL) {
 	return `${requestUrl.pathname}${requestUrl.search}`;
 }
 
-export function buildLocalLoginPath(nextPath = "/") {
+export function buildLocalLoginPath(nextPath = "/", reason?: LoginReason | null) {
 	const safeNextPath = normalizeInternalPath(nextPath);
 	const params = new URLSearchParams({ nextUrl: safeNextPath });
+	const safeReason = safeLoginReason(reason);
+	if (safeReason) params.set("reason", safeReason);
 	return `${LOGIN_PATHNAME}?${params.toString()}`;
+}
+
+export function safeLoginReason(rawValue: string | null | undefined) {
+	return LOGIN_REASONS.find((reason) => reason === rawValue) ?? null;
 }
 
 export function safePostLoginPath(

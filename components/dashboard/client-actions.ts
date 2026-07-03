@@ -22,6 +22,9 @@ export async function logout(
 	await fetch("/api/auth/logout", { method: "POST" });
 	setAuth({ authenticated: false, configured: true, loginHref });
 	setNotice("Đã đăng xuất khỏi phiên hiện tại.");
+	if (typeof window !== "undefined") {
+		window.location.assign(loginHref ?? "/login?reason=logged-out");
+	}
 }
 
 export async function createScan(options: {

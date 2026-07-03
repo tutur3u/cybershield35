@@ -8,7 +8,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { POST as verifyAppToken } from "@/app/api/auth/verify-app-token/route";
 import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
-import { LockedDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { resolveDashboardAuthFromRequest } from "@/lib/auth/dashboard-auth";
 import {
 	createSessionCookie,
@@ -386,12 +385,13 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("resolveDashboardAuthFromCurrentRequest");
 		expect(source).toContain("connection()");
 		expect(source).toContain("DashboardAppSkeleton");
-		expect(source).toContain("LockedDashboard");
+		expect(source).toContain("redirect(auth.loginPath)");
 		expect(source).toContain("DashboardLayoutShell");
 		expect(source).toContain("<DashboardLayoutShell");
 		expect(source).toContain("auth.authenticated");
 		expect(source).toContain("auth.publicRoute");
 		expect(source).toContain("{children}");
+		expect(source).not.toContain("LockedDashboard");
 		expect(source).not.toContain("AuthRequiredScreen");
 		expect(dashboard).not.toContain("<Sidebar");
 		expect(dashboard).not.toContain("<TopBar");
@@ -407,7 +407,7 @@ describe("dashboard auth gate", () => {
 
 	test("unauthenticated screen gives admin setup instructions instead of token entry", () => {
 		const source = readFileSync(
-			"components/dashboard/auth-required-screen.tsx",
+			"components/auth/centralized-login-screen.tsx",
 			"utf8",
 		);
 
@@ -471,6 +471,8 @@ describe("dashboard auth gate", () => {
 
 		expect(source).toContain("AuthRequiredScreen");
 		expect(source).toContain("buildTuturuuuCentralizedLoginUrl");
+		expect(source).toContain("buildTuturuuuScopeApprovalUrl");
+		expect(source).toContain("safeLoginReason");
 		expect(source).toContain("safePostLoginPath");
 		expect(source).toContain("readAdminSession");
 		expect(source).toContain("redirect(nextPath)");
@@ -514,25 +516,44 @@ describe("dashboard auth gate", () => {
 		expect(markup).not.toContain("Đăng nhập bằng Tuturuuu");
 	});
 
-	test("locked dashboard renders approval action only when provided", () => {
+	test("centralized login renders scope approval only when provided", () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.DATABASE_URL = "postgresql://example";
+		process.env.LLM_API_KEY = "llm-key";
+		process.env.APIFY_TOKEN = "apify-token";
+		process.env.FIRECRAWL_API_KEY = "firecrawl-key";
+		process.env.BROWSER_USE_API_KEY = "browser-use-key";
+
 		const withoutApproval = renderToStaticMarkup(
-			createElement(LockedDashboard, {
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: true,
 				error: "Requested scope is not allowed for this app",
 				loginHref: "/login?nextUrl=%2Fsources",
+				reason: "logged-out",
 			}),
 		);
-		expect(withoutApproval).toContain("Đăng nhập lại");
+		expect(withoutApproval).toContain("Đã đăng xuất");
+		expect(withoutApproval).toContain("Đăng nhập bằng Tuturuuu");
 		expect(withoutApproval).not.toContain("Duyệt quyền truy cập");
 
 		const withApproval = renderToStaticMarkup(
-			createElement(LockedDashboard, {
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: true,
 				error: "Requested scope is not allowed for this app",
 				loginHref: "/login?nextUrl=%2Fsources",
+				reason: "scope",
 				scopeApprovalHref:
 					"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
 			}),
 		);
-		expect(withApproval).toContain("Đăng nhập lại");
+		expect(withApproval).toContain("Cần duyệt quyền truy cập");
+		expect(withApproval).toContain("Đăng nhập bằng Tuturuuu");
 		expect(withApproval).toContain("Duyệt quyền truy cập");
 		expect(withApproval).toContain(
 			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
@@ -1179,9 +1200,11 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain('searchParams.get("token")');
 		expect(client).toContain('fetch("/api/auth/verify-app-token"');
 		expect(client).toContain("router.replace(nextPath)");
-		expect(client).toContain("href={retryHref}");
+		expect(client).toContain('loginHref(nextPath, "invalid-link")');
+		expect(client).toContain('loginHref(nextPath, "scope")');
 		expect(client).toContain("scopeApprovalHref");
-		expect(client).toContain("Duyệt quyền truy cập");
+		expect(client).not.toContain("href={retryHref}");
+		expect(client).not.toContain("Duyệt quyền truy cập");
 		expect(client).not.toContain("<input");
 		expect(client).not.toContain("Dán token");
 		expect(client).not.toContain("Short app token");
@@ -1190,7 +1213,7 @@ describe("dashboard auth gate", () => {
 	test("auth provider branding stays on the login surface", () => {
 		const loginPage = readFileSync("app/login/page.tsx", "utf8");
 		const loginScreen = readFileSync(
-			"components/dashboard/auth-required-screen.tsx",
+			"components/auth/centralized-login-screen.tsx",
 			"utf8",
 		);
 		const verifyPage = readFileSync("app/verify-token/page.tsx", "utf8");
@@ -1212,9 +1235,10 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(client).toContain("if (!token) {");
-		expect(client).toContain('setState("failed")');
-		expect(client).toContain("Phiên đăng nhập không hợp lệ");
-		expect(client).toContain("/login?nextUrl=");
+		expect(client).toContain("router.replace(invalidLinkHref)");
+		expect(client).not.toContain('setState("failed")');
+		expect(client).not.toContain("Phiên đăng nhập không hợp lệ");
+		expect(client).toContain("/login?${params.toString()}");
 		expect(client).not.toContain(
 			"if (!token) {\n\t\t\t\trouter.replace(nextPath)",
 		);
@@ -1222,19 +1246,59 @@ describe("dashboard auth gate", () => {
 		expect(client).not.toContain('href="/"');
 	});
 
-	test("dashboard client locks instead of rendering the app shell without auth", () => {
+	test("dashboard client redirects instead of rendering the app shell without auth", () => {
 		const source = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",
 			"utf8",
 		);
 
 		expect(source).toContain("if (!auth.authenticated)");
-		expect(source).toContain("<LockedDashboard");
-		expect(source).toContain("scopeApprovalHref={auth.scopeApprovalHref}");
-		expect(source).toContain("Duyệt quyền truy cập");
-		expect(source).toContain("export function LockedDashboard");
-		expect(source).toContain("href={loginHref}");
+		expect(source).toContain("<LoginRedirect");
+		expect(source).toContain("/login?reason=expired");
+		expect(source).not.toContain("<LockedDashboard");
+		expect(source).not.toContain("scopeApprovalHref={auth.scopeApprovalHref}");
+		expect(source).not.toContain("Duyệt quyền truy cập");
+		expect(source).not.toContain("export function LockedDashboard");
+		expect(source).not.toContain("href={loginHref}");
 		expect(source).not.toContain('href="/"');
-		expect(source).toContain("Đăng nhập để tiếp tục");
+		expect(source).not.toContain("Đăng nhập để tiếp tục");
+	});
+
+	test("logout routes back to centralized login with reason", () => {
+		const actions = readFileSync("components/dashboard/client-actions.ts", "utf8");
+		const shell = readFileSync(
+			"components/dashboard/dashboard-layout-shell.tsx",
+			"utf8",
+		);
+
+		expect(actions).toContain("window.location.assign");
+		expect(actions).toContain("/login?reason=logged-out");
+		expect(shell).toContain('currentLoginHref("logged-out")');
+		expect(shell).toContain("<LoginRedirect");
+	});
+
+	test("dark theme uses the near-green-black login palette", () => {
+		const globals = readFileSync("app/globals.css", "utf8");
+
+		for (const token of [
+			"--background: #06120d",
+			"--surface: #0a1711",
+			"--surface-elevated: #0e1f17",
+			"--surface-soft: #13281e",
+			"--border: #1f3d31",
+			"--border-strong: #2f5a48",
+			"--divider: #183329",
+			"--muted: #8eb2a2",
+			"--muted-strong: #c2ddcf",
+			"--accent: #5ea7ff",
+			"--accent-strong: #cfe3ff",
+			"--accent-soft: #0b2533",
+		]) {
+			expect(globals).toContain(token);
+		}
+
+		expect(globals).toContain("linear-gradient(180deg, rgb(9 29 21");
+		expect(globals).not.toContain("orb");
+		expect(globals).not.toContain("bokeh");
 	});
 });
