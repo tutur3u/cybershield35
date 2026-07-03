@@ -6,8 +6,8 @@ import {
 	ShieldCheck,
 	type LucideIcon,
 } from "lucide-react";
-import Image from "next/image";
 
+import { TuturuuuLoginLink } from "@/components/auth/tuturuuu-login-link";
 import type { LoginReason } from "@/lib/auth/routes";
 import type {
 	EnvironmentDiagnostic,
@@ -85,22 +85,7 @@ export function CentralizedLoginScreen({
 					) : null}
 
 					{loginHref && !setupIncomplete ? (
-						<a
-							href={loginHref}
-							className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:brightness-110"
-						>
-							<span className="grid size-6 shrink-0 place-items-center rounded bg-white">
-								<Image
-									src="/brand-icons/tuturuuu.svg"
-									alt=""
-									width={16}
-									height={16}
-									aria-hidden="true"
-									unoptimized
-								/>
-							</span>
-							Đăng nhập bằng Tuturuuu
-						</a>
+						<TuturuuuLoginLink href={loginHref} />
 					) : (
 						<button
 							type="button"
