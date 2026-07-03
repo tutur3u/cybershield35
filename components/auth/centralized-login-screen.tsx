@@ -37,29 +37,14 @@ export function CentralizedLoginScreen({
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
-			<div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.75fr)]">
-				<section className="min-w-0">
-					<div className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[11px] font-bold uppercase text-[var(--brand)]">
+			<div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-xl place-items-center">
+				<section className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
+					<div className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-2.5 py-1.5 text-[11px] font-bold uppercase text-[var(--brand)]">
 						<ShieldCheck size={14} />
 						CyberShield 35
 					</div>
-					<h1 className="mt-5 max-w-3xl text-[34px] font-extrabold leading-[1.08] text-[var(--foreground)] sm:text-[46px]">
-						Đăng nhập trung tâm cho bảng điều khiển vận hành
-					</h1>
-					<p className="mt-4 max-w-2xl text-[14px] leading-6 text-[var(--muted-strong)]">
-						Một điểm vào duy nhất cho phiên mới, phiên hết hạn, duyệt quyền
-						và kiểm tra cấu hình máy chủ.
-					</p>
-					<div className="mt-5 grid max-w-2xl gap-2 sm:grid-cols-3">
-						<AuthSignal label="Provider" value="Tuturuuu" />
-						<AuthSignal label="Workspace" value="Admin only" />
-						<AuthSignal label="Session" value="Server-side" />
-					</div>
-				</section>
-
-				<section className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
 					<span
-						className={`grid size-12 place-items-center rounded-md ${
+						className={`mt-5 grid size-12 place-items-center rounded-md ${
 							setupIncomplete
 								? "bg-[var(--warning-soft)] text-[var(--warning-strong)]"
 								: scopeApprovalHref
@@ -153,19 +138,6 @@ export function CentralizedLoginScreen({
 				</section>
 			</div>
 		</main>
-	);
-}
-
-function AuthSignal({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-			<p className="text-[10px] font-bold uppercase text-[var(--muted)]">
-				{label}
-			</p>
-			<p className="mt-1 truncate text-[12px] font-bold text-[var(--foreground)]">
-				{value}
-			</p>
-		</div>
 	);
 }
 
@@ -295,15 +267,6 @@ function loginCopy(
 				"Tài khoản cần được duyệt thêm quyền trước khi có thể mở bảng điều khiển.",
 			notice: error ?? "Duyệt quyền, sau đó quay lại đăng nhập để tiếp tục.",
 			title: "Cần duyệt quyền truy cập",
-		};
-	}
-
-	if (reason === "logged-out") {
-		return {
-			description:
-				"Phiên hiện tại đã được đóng. Đăng nhập lại khi bạn muốn tiếp tục.",
-			notice: "Bạn đã đăng xuất an toàn khỏi phiên quản trị.",
-			title: "Đã đăng xuất",
 		};
 	}
 

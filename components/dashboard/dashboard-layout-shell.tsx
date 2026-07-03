@@ -89,7 +89,7 @@ export function DashboardLayoutShell({
 									logout(
 										setAuth,
 										setNotice,
-										auth.loginHref ?? currentLoginHref("logged-out"),
+										auth.loginHref ?? currentLoginHref(),
 									)
 								}
 								onOpenProfile={() => setProfileDialogOpen(true)}
@@ -145,11 +145,13 @@ export function DashboardLayoutShell({
 	);
 }
 
-function currentLoginHref(reason = "expired") {
+function currentLoginHref(reason?: "expired") {
 	if (typeof window === "undefined") return "/login";
 
 	const nextUrl = `${window.location.pathname}${window.location.search}`;
-	return `/login?nextUrl=${encodeURIComponent(nextUrl)}&reason=${encodeURIComponent(reason)}`;
+	const params = new URLSearchParams({ nextUrl });
+	if (reason) params.set("reason", reason);
+	return `/login?${params.toString()}`;
 }
 
 function readSchedulerAutoRetryToken() {
