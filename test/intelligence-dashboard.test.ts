@@ -46,6 +46,7 @@ describe("executive intelligence dashboard architecture", () => {
 			"claims",
 			"sources",
 			"activity",
+			"facebook-pages",
 		]) {
 			const source = read(`app/api/intelligence/${endpoint}/route.ts`);
 			expect(source).toContain("requireAdminSession");
@@ -67,7 +68,26 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(widgets).toContain("DashboardTooltip");
 		expect(queries).toContain("intelligenceOverviewQueryOptions");
 		expect(queries).toContain("intelligenceEvidenceInfiniteQueryOptions");
+		expect(queries).toContain("intelligenceFacebookPagesQueryOptions");
 		expect(keys).toContain("intelligenceEvidenceInfinite");
+		expect(keys).toContain("intelligenceFacebookPages");
+		expect(widgets).toContain("facebookPage");
+		expect(widgets).toContain("Tất cả fanpage");
+	});
+
+	test("exposes Facebook page context for evidence and filters", () => {
+		const types = read("components/dashboard/types.ts");
+		const server = read("lib/dashboard/intelligence-server.ts");
+		const shared = read("app/api/intelligence/_shared.ts");
+
+		expect(types).toContain("IntelligenceFacebookPageOption");
+		expect(types).toContain("facebookPageId");
+		expect(types).toContain("facebookUsername");
+		expect(types).toContain("originalPostHref");
+		expect(server).toContain("listIntelligenceFacebookPages");
+		expect(server).toContain("facebookEvidenceCondition");
+		expect(server).toContain("metadata}->>'facebookId'");
+		expect(shared).toContain("facebookPage");
 	});
 
 	test("keeps broad dashboard routes off selected scan detail fetches", () => {

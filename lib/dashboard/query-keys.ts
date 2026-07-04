@@ -51,6 +51,8 @@ export const dashboardQueryKeys = {
 		["dashboard", "intelligence", "sources", "infinite", params, limit] as const,
 	intelligenceActivityInfinite: (params: Record<string, string>, limit: number) =>
 		["dashboard", "intelligence", "activity", "infinite", params, limit] as const,
+	intelligenceFacebookPages: () =>
+		["dashboard", "intelligence", "facebook-pages"] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,

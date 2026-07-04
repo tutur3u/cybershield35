@@ -8,6 +8,7 @@ import type {
 	IntelligenceActivityRow,
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
+	IntelligenceFacebookPageOption,
 	IntelligenceFilters,
 	IntelligenceOverviewView,
 	IntelligencePage,
@@ -224,6 +225,15 @@ export function intelligenceActivityInfiniteQueryOptions(
 	};
 }
 
+export function intelligenceFacebookPagesQueryOptions() {
+	return queryOptions({
+		gcTime: 5 * 60_000,
+		queryFn: fetchIntelligenceFacebookPages,
+		queryKey: dashboardQueryKeys.intelligenceFacebookPages(),
+		staleTime: intelligenceQueryStaleTimeMs,
+	});
+}
+
 export function workspaceMembersQueryOptions() {
 	return queryOptions({
 		gcTime: 5 * 60_000,
@@ -397,6 +407,15 @@ async function fetchIntelligenceOverview(
 	return payload.overview;
 }
 
+async function fetchIntelligenceFacebookPages(): Promise<
+	IntelligenceFacebookPageOption[]
+> {
+	const payload = await fetchJson<{
+		pages?: IntelligenceFacebookPageOption[];
+	}>("/api/intelligence/facebook-pages");
+	return Array.isArray(payload.pages) ? payload.pages : [];
+}
+
 async function fetchIntelligencePage<T>(
 	kind: "activity" | "claims" | "evidence" | "sources" | "topics",
 	{
@@ -478,6 +497,7 @@ function serializeIntelligenceFilters(
 	filters: IntelligenceFilters = {},
 ): Record<string, string> {
 	const params: Record<string, string> = {};
+	if (filters.facebookPage) params.facebookPage = filters.facebookPage;
 	if (filters.provider) params.provider = filters.provider;
 	if (filters.query) params.q = filters.query;
 	if (filters.risk && filters.risk !== "all") params.risk = filters.risk;

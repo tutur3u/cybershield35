@@ -301,6 +301,7 @@ export type IntelligenceHealthState =
 	| "unknown";
 
 export type IntelligenceFilters = {
+	facebookPage?: string;
 	provider?: string;
 	query?: string;
 	risk?: RiskLevel | "all";
@@ -348,8 +349,11 @@ export type IntelligenceTopicRow = {
 export type IntelligenceEvidenceRow = {
 	author: string | null;
 	createdAt: string;
+	facebookPageId: string | null;
+	facebookUsername: string | null;
 	href: string;
 	id: string;
+	originalPostHref: string | null;
 	provider: ProviderName;
 	publishedAt: string | null;
 	quote: string;
@@ -362,6 +366,18 @@ export type IntelligenceEvidenceRow = {
 	stance: string;
 	summary: string;
 	topicSlugs: string[];
+};
+
+export type IntelligenceFacebookPageOption = {
+	evidenceCount: number;
+	facebookId: string | null;
+	href: string;
+	label: string;
+	lastSeenAt: string | null;
+	sourceUrl: string | null;
+	trackedSourceId: string | null;
+	username: string | null;
+	value: string;
 };
 
 export type IntelligenceClaimRow = {

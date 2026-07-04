@@ -8,6 +8,7 @@ export function parseIntelligenceFilters(searchParams: URLSearchParams): {
 	return {
 		cursor: searchParams.get("cursor"),
 		filters: {
+			facebookPage: searchParams.get("facebookPage") ?? undefined,
 			provider: searchParams.get("provider") ?? undefined,
 			query: searchParams.get("q") ?? undefined,
 			risk: searchParams.get("risk") as IntelligenceFilters["risk"],

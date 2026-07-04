@@ -1038,9 +1038,14 @@ describe("dashboard auth gate", () => {
 		expect(layout).toContain("@vercel/analytics/next");
 		expect(layout).toContain("<Analytics />");
 		expect(pages).toContain("<ExecutiveIntelligenceDashboard");
-		expect(intelligenceWidgets).toContain("Risk and evidence trend");
-		expect(intelligenceWidgets).toContain("Topic momentum");
-		expect(intelligenceWidgets).toContain("Report readiness");
+		expect(pages).toContain("Tổng quan tình báo điều hành");
+		expect(intelligenceWidgets).toContain("Xu hướng rủi ro và bằng chứng");
+		expect(intelligenceWidgets).toContain("Động lượng chủ đề");
+		expect(intelligenceWidgets).toContain("Sẵn sàng báo cáo");
+		expect(intelligenceWidgets).toContain("Tất cả fanpage");
+		expect(intelligenceWidgets).toContain("Facebook ID");
+		expect(intelligenceWidgets).toContain("Bài gốc");
+		expect(intelligenceWidgets).toContain("Mở scan");
 		expect(intelligenceWidgets).toContain("line-clamp-2");
 		expect(widgets).toContain("break-words");
 		expect(widgets).toContain("[-webkit-line-clamp:6]");
@@ -1222,7 +1227,7 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("stanceTooltip");
 		expect(pages).toContain("<IntelligenceClaimsWorkspace");
 		expect(intelligenceWidgets).toContain("evidenceHrefs");
-		expect(intelligenceWidgets).toContain("Claim graph");
+		expect(intelligenceWidgets).toContain("Đồ thị claim");
 		expect(intelligenceWidgets).toContain("href={claim.deepLink}");
 		expect(primitives).toContain("export function DashboardTooltip");
 		expect(primitives).toContain("@tuturuuu/ui/tooltip");

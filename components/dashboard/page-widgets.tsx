@@ -277,8 +277,8 @@ export function ProviderStatus({
 	return (
 		<Panel>
 			<PanelHeader
-				title="Provider adapters"
-				description="Tất cả provider key phải được cấu hình bằng biến môi trường server-side."
+				title="Adapter provider"
+				description="Tất cả khóa provider phải được cấu hình bằng biến môi trường phía server."
 			/>
 			<div className="space-y-3 p-4">
 				{providerRows.map((provider) => (
@@ -450,8 +450,8 @@ function providerStatus(
 }
 
 function providerStatusLabel(status: ProviderStatusState) {
-	if (status === "server") return "Server";
-	return "Missing";
+	if (status === "server") return "Máy chủ";
+	return "Thiếu";
 }
 
 function providerStatusStyle(status: ProviderStatusState) {
@@ -465,12 +465,12 @@ function providerLabel(provider: string) {
 	if (provider.startsWith("apify")) return "Apify";
 	if (provider.startsWith("firecrawl")) return "Firecrawl";
 	if (provider === "browser_use") return "Browser Use";
-	if (provider === "local_text") return "Local Text";
+	if (provider === "local_text") return "Văn bản nội bộ";
 	return provider;
 }
 
 function draftStatusLabel(status?: string) {
-	if (status === "approved") return "Approved";
-	if (status === "rejected") return "Rejected";
-	return "Human review";
+	if (status === "approved") return "Đã duyệt";
+	if (status === "rejected") return "Từ chối";
+	return "Cần người duyệt";
 }

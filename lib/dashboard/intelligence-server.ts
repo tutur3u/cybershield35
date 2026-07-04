@@ -8,6 +8,7 @@ import type {
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
 	IntelligenceFilters,
+	IntelligenceFacebookPageOption,
 	IntelligenceHealthState,
 	IntelligenceKpi,
 	IntelligenceOverviewView,
@@ -28,6 +29,7 @@ import {
 	intelligenceSourceRollups,
 	intelligenceTopicRollups,
 	providerRuns,
+	trackedSources,
 	topics,
 	type ProviderName,
 	type RiskLevel,
@@ -89,7 +91,10 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 				? Math.round((totals.approvedDrafts / Math.max(1, totals.draftCount)) * 100)
 				: 0,
 		draftCount: totals.draftCount,
-		label: totals.reportReadyCount > 0 ? "Ready for briefing" : "Needs evidence",
+		label:
+			totals.reportReadyCount > 0
+				? "Sẵn sàng báo cáo"
+				: "Cần thêm bằng chứng",
 		readyReports: totals.reportReadyCount,
 	};
 
@@ -132,6 +137,7 @@ export async function listIntelligenceEvidence({
 	const offset = normalizeOffsetCursor(cursor);
 	const conditions = [
 		timeCondition(evidenceItems.createdAt, normalized),
+		facebookEvidenceCondition(normalized),
 		normalized.risk && normalized.risk !== "all"
 			? eq(evidenceItems.riskLevel, normalized.risk)
 			: undefined,
@@ -155,6 +161,7 @@ export async function listIntelligenceEvidence({
 		.select({
 			author: evidenceItems.author,
 			createdAt: evidenceItems.createdAt,
+			facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
 			id: evidenceItems.id,
 			provider: evidenceItems.provider,
 			publishedAt: evidenceItems.publishedAt,
@@ -183,8 +190,11 @@ export async function listIntelligenceEvidence({
 		items: pageRows.map((row) => ({
 			author: row.author,
 			createdAt: toIso(row.createdAt),
+			facebookPageId: row.facebookPageId,
+			facebookUsername: facebookUsernameFromEvidence(row.author, row.sourceUrl),
 			href: `/evidence/${row.id}`,
 			id: row.id,
+			originalPostHref: row.sourceUrl,
 			provider: row.provider,
 			publishedAt: toIsoOrNull(row.publishedAt),
 			quote: row.quote,
@@ -216,6 +226,7 @@ export async function listIntelligenceTopics({
 	const pageLimit = normalizePageLimit(limit);
 	const offset = normalizeOffsetCursor(cursor);
 	const conditions = [
+		facebookTopicCondition(normalized),
 		normalized.risk && normalized.risk !== "all"
 			? eq(intelligenceTopicRollups.riskLevel, normalized.risk)
 			: undefined,
@@ -286,6 +297,9 @@ export async function listIntelligenceClaims({
 		normalized.topic
 			? sql`${intelligenceClaimIndex.topicSlugs} ? ${normalized.topic}`
 			: undefined,
+		normalized.facebookPage
+			? sql`${intelligenceClaimIndex.sourceLabels} ? ${normalized.facebookPage}`
+			: undefined,
 	].filter(Boolean);
 	const rows = await adminDb
 		.select()
@@ -340,6 +354,12 @@ export async function listIntelligenceSources({
 		normalized.status
 			? eq(intelligenceSourceRollups.health, normalized.status)
 			: undefined,
+		normalized.facebookPage
+			? ilike(
+					intelligenceSourceRollups.sourceLabel,
+					`%${normalized.facebookPage}%`,
+				)
+			: undefined,
 		normalized.source
 			? ilike(intelligenceSourceRollups.sourceLabel, `%${normalized.source}%`)
 			: undefined,
@@ -364,6 +384,81 @@ export async function listIntelligenceSources({
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+}
+
+export async function listIntelligenceFacebookPages(): Promise<
+	IntelligenceFacebookPageOption[]
+> {
+	const facebookIdExpr = sql<string | null>`${evidenceItems.metadata}->>'facebookId'`;
+	const [evidenceRows, trackedRows] = await Promise.all([
+		adminDb
+			.select({
+				evidenceCount: sql<number>`count(*)::int`,
+				facebookId: facebookIdExpr,
+				lastSeenAt: sql<Date | null>`max(${evidenceItems.createdAt})`,
+				username: evidenceItems.author,
+			})
+			.from(evidenceItems)
+			.where(eq(evidenceItems.provider, "apify_facebook_posts"))
+			.groupBy(evidenceItems.author, facebookIdExpr)
+			.orderBy(sql`count(*) desc`),
+		adminDb
+			.select({
+				displayName: trackedSources.displayName,
+				id: trackedSources.id,
+				lastScannedAt: trackedSources.lastScannedAt,
+				metadata: trackedSources.metadata,
+				normalizedUrl: trackedSources.normalizedUrl,
+			})
+			.from(trackedSources)
+			.where(eq(trackedSources.provider, "apify_facebook_posts"))
+			.orderBy(desc(trackedSources.updatedAt)),
+	]);
+	const byUsername = new Map<string, IntelligenceFacebookPageOption>();
+
+	for (const row of evidenceRows) {
+		const username = cleanFacebookUsername(row.username);
+		const value = username ?? cleanText(row.facebookId);
+		if (!value) continue;
+		byUsername.set(value, {
+			evidenceCount: Number(row.evidenceCount) || 0,
+			facebookId: cleanText(row.facebookId),
+			href: `/evidence?facebookPage=${encodeURIComponent(value)}`,
+			label: username ?? `Facebook ID ${row.facebookId}`,
+			lastSeenAt: toIsoOrNull(row.lastSeenAt),
+			sourceUrl: username ? `https://www.facebook.com/${username}` : null,
+			trackedSourceId: null,
+			username,
+			value,
+		});
+	}
+
+	for (const row of trackedRows) {
+		const metadataLabel =
+			typeof row.metadata?.label === "string" ? row.metadata.label : null;
+		const username =
+			cleanFacebookUsername(metadataLabel) ??
+			usernameFromFacebookUrl(row.normalizedUrl);
+		const value = username ?? row.id;
+		const current = byUsername.get(value);
+		byUsername.set(value, {
+			evidenceCount: current?.evidenceCount ?? 0,
+			facebookId: current?.facebookId ?? null,
+			href: `/evidence?facebookPage=${encodeURIComponent(value)}`,
+			label: row.displayName,
+			lastSeenAt: current?.lastSeenAt ?? toIsoOrNull(row.lastScannedAt),
+			sourceUrl: row.normalizedUrl,
+			trackedSourceId: row.id,
+			username,
+			value,
+		});
+	}
+
+	return [...byUsername.values()].sort(
+		(left, right) =>
+			right.evidenceCount - left.evidenceCount ||
+			left.label.localeCompare(right.label, "vi"),
+	);
 }
 
 export async function listIntelligenceActivity({
@@ -511,43 +606,43 @@ function buildKpis(
 
 	return [
 		{
-			description: "Completed scan coverage in the active time range.",
-			help: "Measures whether the scan fleet is producing usable analysis rather than queue or failure states.",
+			description: "Độ phủ scan đã hoàn tất trong khoảng thời gian đang xem.",
+			help: "Đo xem pipeline scan có tạo phân tích dùng được hay đang bị kẹt ở trạng thái chờ, chạy hoặc lỗi.",
 			href: `/sources?status=completed`,
 			id: "scan-throughput",
-			label: "Scan throughput",
+			label: "Thông lượng scan",
 			tone: completion >= 80 ? "success" : completion >= 50 ? "warning" : "danger",
-			trendLabel: `${completion}% complete`,
+			trendLabel: `${completion}% hoàn tất`,
 			value: totals.scanCount.toLocaleString("vi-VN"),
 		},
 		{
-			description: "High-risk evidence requiring leadership attention.",
-			help: "Counts stored evidence tagged high risk; click through to inspect the underlying citations.",
+			description: "Bằng chứng rủi ro cao cần ưu tiên xem xét.",
+			help: "Đếm bằng chứng được gắn mức rủi ro cao; mở chi tiết để kiểm tra trích dẫn gốc.",
 			href: `/evidence?risk=high`,
 			id: "risk-posture",
-			label: "Risk posture",
+			label: "Tư thế rủi ro",
 			tone: highRiskShare > 35 ? "danger" : highRiskShare > 10 ? "warning" : "success",
-			trendLabel: `${highRiskShare}% high risk`,
+			trendLabel: `${highRiskShare}% rủi ro cao`,
 			value: totals.highRiskEvidenceCount.toLocaleString("vi-VN"),
 		},
 		{
-			description: "Claims indexed with supporting evidence links.",
-			help: "Claims are extracted from structured analyses and linked back to scan/evidence detail for auditability.",
+			description: "Claim đã được lập chỉ mục với liên kết bằng chứng hỗ trợ.",
+			help: "Claim được trích xuất từ phân tích có cấu trúc và liên kết ngược về scan/bằng chứng để kiểm toán.",
 			href: "/alerts",
 			id: "claim-index",
-			label: "Claim index",
+			label: "Chỉ mục claim",
 			tone: totals.claimCount > 0 ? "accent" : "neutral",
-			trendLabel: `${totals.evidenceCount} evidence items`,
+			trendLabel: `${totals.evidenceCount} bằng chứng`,
 			value: totals.claimCount.toLocaleString("vi-VN"),
 		},
 		{
-			description: "Reports with approved drafts and evidence coverage.",
-			help: "A readiness indicator for executive briefings; it improves when approved drafts cite stored evidence.",
+			description: "Báo cáo có bản nháp đã duyệt và độ phủ bằng chứng.",
+			help: "Chỉ báo sẵn sàng cho briefing điều hành; tăng khi bản nháp đã duyệt có trích dẫn bằng chứng đã lưu.",
 			href: "/reports",
 			id: "report-readiness",
-			label: "Report readiness",
+			label: "Sẵn sàng báo cáo",
 			tone: readiness.readyReports > 0 ? "success" : "warning",
-			trendLabel: `${readiness.citationCoverage}% citation coverage`,
+			trendLabel: `${readiness.citationCoverage}% phủ citation`,
 			value: readiness.readyReports.toLocaleString("vi-VN"),
 		},
 	];
@@ -571,45 +666,45 @@ function buildActionItems({
 
 	if (totals.highRiskEvidenceCount > 0) {
 		actions.push({
-			body: `${totals.highRiskEvidenceCount} high-risk evidence items need review.`,
-			help: "Open the filtered vault to confirm citations before using the claim in a report.",
+			body: `${totals.highRiskEvidenceCount} bằng chứng rủi ro cao cần được xem xét.`,
+			help: "Mở kho bằng chứng đã lọc để xác nhận citation trước khi dùng claim trong báo cáo.",
 			href: "/evidence?risk=high",
 			id: "review-high-risk-evidence",
-			label: "Review high-risk evidence",
+			label: "Duyệt bằng chứng rủi ro cao",
 			severity: "high" as RiskLevel,
 		});
 	}
 	if (topClaim) {
 		actions.push({
 			body: topClaim.claim,
-			help: "This claim has high risk and evidence links. Open it to inspect support and disputes.",
+			help: "Claim này có rủi ro cao và đã liên kết bằng chứng. Mở để kiểm tra phần hỗ trợ hoặc tranh chấp.",
 			href: topClaim.deepLink,
 			id: "inspect-top-claim",
-			label: "Inspect priority claim",
+			label: "Kiểm tra claim ưu tiên",
 			severity: topClaim.riskLevel,
 		});
 	}
 	if (blockedProvider || blockedSource || totals.failedScanCount > 0) {
 		actions.push({
 			body: blockedProvider
-				? `${providerLabel(blockedProvider.provider)} is blocked.`
+				? `${providerLabel(blockedProvider.provider)} đang bị chặn.`
 				: blockedSource
-					? `${blockedSource.sourceLabel} has blocked scans.`
-					: `${totals.failedScanCount} scans failed.`,
-			help: "Open source and provider health to rerun failed scans or fix the provider configuration.",
+					? `${blockedSource.sourceLabel} có scan bị chặn.`
+					: `${totals.failedScanCount} scan bị lỗi.`,
+			help: "Mở sức khỏe nguồn/provider để chạy lại scan lỗi hoặc xử lý cấu hình provider.",
 			href: "/sources?status=blocked",
 			id: "recover-pipeline",
-			label: "Recover collection pipeline",
+			label: "Khôi phục pipeline thu thập",
 			severity: "medium" as RiskLevel,
 		});
 	}
 	if (!actions.length) {
 		actions.push({
-			body: "No urgent exception is visible in the current rollup window.",
-			help: "Keep the scan schedule active and review topic momentum for emerging risks.",
+			body: "Không có ngoại lệ khẩn cấp trong cửa sổ rollup hiện tại.",
+			help: "Giữ lịch scan hoạt động và theo dõi động lượng chủ đề để phát hiện rủi ro mới.",
 			href: "/topics",
 			id: "monitor-topic-momentum",
-			label: "Monitor topic momentum",
+			label: "Theo dõi động lượng chủ đề",
 			severity: "low" as RiskLevel,
 		});
 	}
@@ -636,6 +731,7 @@ function toSourceRow(row: typeof intelligenceSourceRollups.$inferSelect): Intell
 }
 
 type NormalizedFilters = {
+	facebookPage?: string;
 	provider?: ProviderName;
 	query?: string;
 	risk?: RiskLevel | "all";
@@ -647,6 +743,7 @@ type NormalizedFilters = {
 
 function normalizeFilters(filters: IntelligenceFilters = {}): NormalizedFilters {
 	return {
+		facebookPage: normalizeText(filters.facebookPage),
 		provider: normalizeProvider(filters.provider),
 		query: normalizeText(filters.query),
 		risk: normalizeRisk(filters.risk),
@@ -655,6 +752,35 @@ function normalizeFilters(filters: IntelligenceFilters = {}): NormalizedFilters 
 		timeRange: normalizeTimeRange(filters.timeRange),
 		topic: normalizeText(filters.topic),
 	};
+}
+
+function facebookEvidenceCondition(filters: NormalizedFilters) {
+	if (!filters.facebookPage) return undefined;
+	const value = filters.facebookPage;
+	return or(
+		eq(evidenceItems.author, value),
+		sql`${evidenceItems.metadata}->>'facebookId' = ${value}`,
+		ilike(evidenceItems.sourceUrl, `%facebook.com/${value}%`),
+	);
+}
+
+function facebookTopicCondition(filters: NormalizedFilters) {
+	if (!filters.facebookPage) return undefined;
+	const value = filters.facebookPage;
+	const evidenceCondition = or(
+		eq(evidenceItems.author, value),
+		sql`${evidenceItems.metadata}->>'facebookId' = ${value}`,
+		ilike(evidenceItems.sourceUrl, `%facebook.com/${value}%`),
+	);
+	return sql`${intelligenceTopicRollups.slug} in (
+		select ${topics.slug}
+		from ${topics}
+		inner join ${evidenceTopics}
+			on ${evidenceTopics.topicId} = ${topics.id}
+		inner join ${evidenceItems}
+			on ${evidenceItems.id} = ${evidenceTopics.evidenceItemId}
+		where ${evidenceCondition}
+	)`;
 }
 
 function timeCondition<TColumn>(
@@ -736,23 +862,54 @@ function normalizeHealth(value: string): IntelligenceHealthState {
 	return "unknown";
 }
 
-function toIso(value: Date | string) {
+function toIso(value: Date | string): string {
 	return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function toIsoOrNull(value: Date | string | null) {
+function toIsoOrNull(value: Date | string | null): string | null {
 	return value ? toIso(value) : null;
 }
 
-function providerLabel(provider: ProviderName) {
+function providerLabel(provider: ProviderName): string {
 	const labels: Record<ProviderName, string> = {
-		apify_facebook_comments: "Apify comments",
-		apify_facebook_groups: "Apify groups",
-		apify_facebook_posts: "Apify posts",
+		apify_facebook_comments: "Apify bình luận",
+		apify_facebook_groups: "Apify nhóm",
+		apify_facebook_posts: "Apify bài viết",
 		browser_use: "Browser Use",
 		firecrawl: "Firecrawl",
 		firecrawl_parse: "Firecrawl parse",
-		local_text: "Local text",
+		local_text: "Văn bản nội bộ",
 	};
 	return labels[provider];
+}
+
+function facebookUsernameFromEvidence(
+	author: string | null,
+	sourceUrl: string | null,
+): string | null {
+	return cleanFacebookUsername(author) ?? usernameFromFacebookUrl(sourceUrl);
+}
+
+function usernameFromFacebookUrl(value?: string | null): string | null {
+	if (!value) return null;
+	try {
+		const url = new URL(value);
+		if (!/(^|\.)facebook\.com$/iu.test(url.hostname)) return null;
+		return cleanFacebookUsername(url.pathname.split("/").filter(Boolean)[0]);
+	} catch {
+		return null;
+	}
+}
+
+function cleanFacebookUsername(value?: string | null): string | null {
+	const cleaned = cleanText(value);
+	if (!cleaned) return null;
+	if (/^\d+$/u.test(cleaned)) return null;
+	if (/facebook\.com/iu.test(cleaned)) return usernameFromFacebookUrl(cleaned);
+	return cleaned.replace(/^@/u, "");
+}
+
+function cleanText(value?: string | null): string | null {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed.slice(0, 160) : null;
 }
