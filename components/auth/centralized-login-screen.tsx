@@ -17,6 +17,7 @@ export function CentralizedLoginScreen({
 	authDiagnostics,
 	configured,
 	error,
+	invitationHref,
 	loginHref,
 	reason,
 	scopeApprovalHref,
@@ -24,6 +25,7 @@ export function CentralizedLoginScreen({
 	authDiagnostics: TuturuuuAuthDiagnostics;
 	configured: boolean;
 	error?: string;
+	invitationHref?: string;
 	loginHref?: string;
 	reason?: LoginReason | null;
 	scopeApprovalHref?: string;
@@ -59,6 +61,16 @@ export function CentralizedLoginScreen({
 						>
 							<ExternalLink size={15} />
 							Duyệt quyền truy cập
+						</a>
+					) : null}
+
+					{invitationHref ? (
+						<a
+							href={invitationHref}
+							className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--foreground)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
+						>
+							<ExternalLink size={15} />
+							Xem lời mời Tuturuuu
 						</a>
 					) : null}
 
@@ -230,6 +242,26 @@ function loginCopy(
 				"Tài khoản cần được duyệt thêm quyền trước khi có thể mở bảng điều khiển.",
 			notice: error ?? "Duyệt quyền, sau đó quay lại đăng nhập để tiếp tục.",
 			title: "Cần duyệt quyền truy cập",
+		};
+	}
+
+	if (reason === "invitation") {
+		return {
+			description:
+				"Tài khoản có lời mời Tuturuuu đang chờ cho workspace này.",
+			notice:
+				"Mở Tuturuuu để chấp nhận hoặc từ chối lời mời, sau đó quay lại đăng nhập.",
+			title: "Có lời mời đang chờ",
+		};
+	}
+
+	if (reason === "no-access") {
+		return {
+			description:
+				"Tài khoản Tuturuuu này chưa được cấp quyền truy cập bảng điều khiển.",
+			notice:
+				"Liên hệ quản trị viên CS35 để được thêm vào workspace hoặc đăng nhập bằng tài khoản khác.",
+			title: "Không có quyền truy cập",
 		};
 	}
 

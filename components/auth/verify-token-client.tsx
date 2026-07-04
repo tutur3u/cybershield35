@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 type VerificationState = "loading" | "success";
 
 type VerificationResponse = {
+	code?: string;
 	error?: string;
+	invitationUrl?: string;
 	scopeApprovalHref?: string;
 	session?: {
 		authenticated?: boolean;
@@ -50,6 +52,7 @@ export function VerifyTokenClient() {
 		() => loginHref(nextPath, "invalid-link"),
 		[nextPath],
 	);
+	const noAccessHref = useMemo(() => loginHref(nextPath, "no-access"), [nextPath]);
 	const scopeHref = useMemo(() => loginHref(nextPath, "scope"), [nextPath]);
 
 	useEffect(() => {
@@ -74,7 +77,16 @@ export function VerifyTokenClient() {
 					.catch(() => null)) as VerificationResponse | null;
 
 				if (!response.ok || !data?.session?.authenticated || !data.session.user?.id) {
-					router.replace(data?.scopeApprovalHref ? scopeHref : invalidLinkHref);
+					router.replace(
+						loginFailureHref({
+							data,
+							invalidLinkHref,
+							nextPath,
+							noAccessHref,
+							responseStatus: response.status,
+							scopeHref,
+						}),
+					);
 					return;
 				}
 
@@ -93,7 +105,7 @@ export function VerifyTokenClient() {
 		return () => {
 			cancelled = true;
 		};
-	}, [invalidLinkHref, nextPath, router, scopeHref, searchParams]);
+	}, [invalidLinkHref, nextPath, noAccessHref, router, scopeHref, searchParams]);
 
 	return (
 		<>
@@ -114,7 +126,39 @@ export function VerifyTokenClient() {
 	);
 }
 
-function loginHref(nextPath: string, reason: "invalid-link" | "scope") {
+function loginFailureHref({
+	data,
+	invalidLinkHref,
+	nextPath,
+	noAccessHref,
+	responseStatus,
+	scopeHref,
+}: {
+	data: VerificationResponse | null;
+	invalidLinkHref: string;
+	nextPath: string;
+	noAccessHref: string;
+	responseStatus: number;
+	scopeHref: string;
+}) {
+	if (data?.scopeApprovalHref) return scopeHref;
+	if (data?.code === "PENDING_WORKSPACE_INVITE" && data.invitationUrl) {
+		return loginHref(nextPath, "invitation", data.invitationUrl);
+	}
+	if (responseStatus === 403 || data?.code === "NO_WORKSPACE_ACCESS") {
+		return noAccessHref;
+	}
+	return invalidLinkHref;
+}
+
+function loginHref(
+	nextPath: string,
+	reason: "invalid-link" | "invitation" | "no-access" | "scope",
+	invitationUrl?: string,
+) {
 	const params = new URLSearchParams({ nextUrl: nextPath, reason });
+	if (reason === "invitation" && invitationUrl) {
+		params.set("invitationUrl", invitationUrl);
+	}
 	return `/login?${params.toString()}`;
 }

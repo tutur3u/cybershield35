@@ -2,7 +2,14 @@ import { sanitizeNextPath } from "@/lib/auth/login-link";
 
 export const LOGIN_PATHNAME = "/login";
 export const VERIFY_TOKEN_PATHNAME = "/verify-token";
-export const LOGIN_REASONS = ["expired", "invalid-link", "logged-out", "scope"] as const;
+export const LOGIN_REASONS = [
+	"expired",
+	"invalid-link",
+	"invitation",
+	"logged-out",
+	"no-access",
+	"scope",
+] as const;
 
 export type LoginReason = (typeof LOGIN_REASONS)[number];
 
@@ -18,11 +25,18 @@ export function nextPathFromRequestUrl(requestUrl: URL) {
 	return `${requestUrl.pathname}${requestUrl.search}`;
 }
 
-export function buildLocalLoginPath(nextPath = "/", reason?: LoginReason | null) {
+export function buildLocalLoginPath(
+	nextPath = "/",
+	reason?: LoginReason | null,
+	options: { invitationUrl?: string | null } = {},
+) {
 	const safeNextPath = normalizeInternalPath(nextPath);
 	const params = new URLSearchParams({ nextUrl: safeNextPath });
 	const safeReason = safeLoginReason(reason);
 	if (safeReason) params.set("reason", safeReason);
+	if (safeReason === "invitation" && options.invitationUrl) {
+		params.set("invitationUrl", options.invitationUrl);
+	}
 	return `${LOGIN_PATHNAME}?${params.toString()}`;
 }
 
