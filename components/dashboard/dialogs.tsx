@@ -8,7 +8,7 @@ import {
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
 import {
@@ -24,6 +24,7 @@ import type {
 	ReportSpec,
 } from "@/components/dashboard/types";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
+import { detectSource } from "@/lib/domain/source-detection";
 
 export { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 
@@ -44,6 +45,33 @@ export function ScanDialog(props: {
 	onCreate: () => Promise<boolean>;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
+	const hasInput =
+		props.inputMode === "url"
+			? Boolean(props.urlInput.trim())
+			: props.inputMode === "file"
+				? Boolean(props.selectedFile)
+				: Boolean(props.manualText.trim());
+	const preview = useMemo(() => {
+		if (props.inputMode === "file" && props.selectedFile) {
+			return detectSource(props.selectedFile.name, {
+				fileName: props.selectedFile.name,
+				mimeType: props.selectedFile.type,
+			});
+		}
+		if (props.inputMode === "text" && props.manualText.trim()) {
+			return detectSource(props.manualText);
+		}
+		if (props.inputMode === "url" && props.urlInput.trim()) {
+			return detectSource(props.urlInput);
+		}
+		return null;
+	}, [
+		props.inputMode,
+		props.manualText,
+		props.selectedFile,
+		props.urlInput,
+	]);
+	const selectedProvider = props.providerOverride ?? preview?.provider ?? "Tự động";
 
 	function selectInputMode(mode: SourceTab) {
 		props.setInputMode(mode);
@@ -60,10 +88,10 @@ export function ScanDialog(props: {
 			open={props.open}
 			onClose={props.onClose}
 			title="Tạo lượt quét mới"
-			description="Nhập URL, tải tệp, hoặc dán văn bản để hệ thống tự chọn adapter phù hợp."
+			description="Chọn loại nguồn, kiểm tra adapter được đề xuất rồi đưa scan vào hàng đợi xử lý."
 			size="wide"
 		>
-			<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+			<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
 				<div className="min-w-0 space-y-5">
 					<div className="grid grid-cols-3 gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-1">
 						{sourceTabs.map((tab) => (
@@ -90,7 +118,7 @@ export function ScanDialog(props: {
 									<input
 										value={props.urlInput}
 										onChange={(event) => props.setUrlInput(event.target.value)}
-										placeholder="https://facebook.com/example hoặc https://..."
+										placeholder="https://facebook.com/page hoặc https://..."
 										className="h-11 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)]"
 									/>
 									<span className="grid size-11 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)]">
@@ -148,11 +176,22 @@ export function ScanDialog(props: {
 							</span>
 						</label>
 					) : null}
+					<div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 text-[12px] font-semibold text-[var(--muted-strong)] sm:grid-cols-3">
+						<StepHint value="1" label="Tạo scan" />
+						<StepHint value="2" label="Xử lý queue" />
+						<StepHint value="3" label="Bằng chứng" />
+					</div>
 				</div>
 				<div className="space-y-3">
-					<p className="text-[13px] font-bold text-[var(--foreground)]">
-						Nhà cung cấp thu thập
-					</p>
+					<div>
+						<p className="text-[13px] font-bold text-[var(--foreground)]">
+							Adapter thu thập
+						</p>
+						<p className="mt-1 text-[11px] font-semibold leading-4 text-[var(--muted)]">
+							CS35 sẽ tự chọn adapter theo nguồn. Chỉ ép Browser Use khi trang URL
+							khó scrape.
+						</p>
+					</div>
 					<div
 						className="space-y-2"
 						role="radiogroup"
@@ -174,13 +213,58 @@ export function ScanDialog(props: {
 							onClick={() => props.setProviderOverride("browser_use")}
 						/>
 					</div>
-					<PrimaryButton disabled={props.isCreating} onClick={createAndClose}>
-						<Play size={16} />
-						{props.isCreating ? "Đang tạo scan" : "Run scan"}
-					</PrimaryButton>
+					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+						<p className="text-[11px] font-bold uppercase tracking-[0.02em] text-[var(--muted)]">
+							Xem trước
+						</p>
+						<div className="mt-2 space-y-1 text-[12px] font-semibold text-[var(--muted-strong)]">
+							<p className="truncate">
+								Loại nguồn:{" "}
+								<span className="text-[var(--foreground)]">
+									{preview ? sourceTypeLabel(preview.type) : "Chưa có dữ liệu"}
+								</span>
+							</p>
+							<p className="truncate">
+								Adapter:{" "}
+								<span className="text-[var(--foreground)]">
+									{providerLabel(String(selectedProvider))}
+								</span>
+							</p>
+							<p className="truncate">
+								Tên gợi ý:{" "}
+								<span className="text-[var(--foreground)]">
+									{preview?.label ?? "Sẽ tự tạo sau khi nhập nguồn"}
+								</span>
+							</p>
+						</div>
+					</div>
+					<div className="grid gap-2">
+						<PrimaryButton
+							disabled={props.isCreating || !hasInput}
+							onClick={createAndClose}
+						>
+							<Play size={16} />
+							{props.isCreating ? "Đang đưa vào hàng đợi..." : "Tạo scan"}
+						</PrimaryButton>
+						<p className="text-[11px] font-semibold leading-4 text-[var(--muted)]">
+							Scan mới sẽ ở trạng thái “Đang chờ” và được job xử lý hàng đợi chạy
+							mỗi 30 phút, hoặc bạn có thể bấm xử lý ngay trong phần Tự động.
+						</p>
+					</div>
 				</div>
 			</div>
 		</Dialog>
+	);
+}
+
+function StepHint({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="flex min-w-0 items-center gap-2">
+			<span className="grid size-6 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[11px] font-black text-[var(--accent-strong)]">
+				{value}
+			</span>
+			<span className="min-w-0 text-[11px] leading-4">{label}</span>
+		</div>
 	);
 }
 
@@ -230,6 +314,31 @@ function autoProviderHelper(inputMode: SourceTab) {
 		return "Tệp dùng parser tài liệu hoặc phân tích văn bản cục bộ.";
 	if (inputMode === "text") return "Văn bản thủ công dùng phân tích cục bộ.";
 	return "Facebook dùng Apify; website dùng Firecrawl theo nhận diện nguồn.";
+}
+
+function providerLabel(provider: string) {
+	const labels: Record<string, string> = {
+		apify_facebook_comments: "Apify Facebook comments",
+		apify_facebook_groups: "Apify Facebook groups",
+		apify_facebook_posts: "Apify Facebook posts",
+		browser_use: "Browser Use",
+		firecrawl: "Firecrawl",
+		firecrawl_parse: "Firecrawl Parse",
+		local_text: "Phân tích văn bản",
+	};
+	return labels[provider] ?? provider;
+}
+
+function sourceTypeLabel(type: string) {
+	const labels: Record<string, string> = {
+		facebook_group: "Facebook group",
+		facebook_page: "Facebook page",
+		facebook_post: "Facebook post",
+		file: "Tệp",
+		text: "Văn bản",
+		url: "Website",
+	};
+	return labels[type] ?? type;
 }
 
 export function CounterArgumentDialog(props: {

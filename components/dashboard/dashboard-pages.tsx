@@ -77,6 +77,10 @@ import {
 } from "@/components/dashboard/ui-primitives";
 import { WorkspaceMembersPage } from "@/components/dashboard/workspace-members-page";
 import { managedSchedulerQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	classifyTrackedSourceAutomation,
+	type TrackedSourceAutomationDecision,
+} from "@/lib/domain/tracked-source-automation";
 
 export type DashboardPageProps = {
 	scans: DashboardScan[];
@@ -344,7 +348,12 @@ function SourceAutomationPanel({
 		[sources],
 	);
 	const activeSources = sourceStates.filter((item) => item.source.isActive);
-	const dueSources = sourceStates.filter((item) => item.state.kind === "due");
+	const dueSources = sourceStates.filter((item) =>
+		["due", "stale_active"].includes(item.state.kind),
+	);
+	const recoverySources = sourceStates.filter(
+		(item) => item.state.kind === "stale_active",
+	);
 	const blockedSources = sourceStates.filter((item) =>
 		["inactive", "in_progress", "recent"].includes(item.state.kind),
 	);
@@ -392,21 +401,22 @@ function SourceAutomationPanel({
 						value={activeSources.length.toLocaleString("vi-VN")}
 					/>
 					<AutomationMetric
-						help="Đến hạn nghĩa là nguồn đang bật, không có scan đang chạy/chờ và đã qua khoảng chống trùng 1 giờ."
+						help="Đến hạn gồm nguồn sẵn sàng quét và nguồn có scan cũ bị kẹt quá lâu cần được xếp hàng lại."
 						label="Đến hạn xếp hàng"
 						tone={dueSources.length ? "warning" : "success"}
 						value={dueSources.length.toLocaleString("vi-VN")}
 					/>
 					<AutomationMetric
-						help="Scan đang chờ hoặc thử lại sẽ được job xử lý hàng đợi lấy theo batch."
-						label="Trong hàng đợi"
-						value={queuedScans.length.toLocaleString("vi-VN")}
+						help="Nguồn cần khôi phục sẽ được job xếp hàng đánh dấu scan cũ là lỗi rồi tạo scan mới."
+						label="Cần khôi phục"
+						tone={recoverySources.length ? "warning" : "neutral"}
+						value={recoverySources.length.toLocaleString("vi-VN")}
 					/>
 					<AutomationMetric
-						help="Scan đang được worker xử lý ngay lúc trạng thái được tải."
-						label="Đang chạy"
+						help="Scan đang chờ, thử lại hoặc đang được worker xử lý."
+						label="Hàng đợi / chạy"
 						tone={runningScans.length ? "accent" : "neutral"}
-						value={runningScans.length.toLocaleString("vi-VN")}
+						value={`${queuedScans.length.toLocaleString("vi-VN")} / ${runningScans.length.toLocaleString("vi-VN")}`}
 					/>
 				</div>
 				<div className="grid gap-3">
@@ -469,6 +479,7 @@ function SourceAutomationPanel({
 						<li>Nguồn phải đang bật theo dõi.</li>
 						<li>Không tạo scan trùng nếu nguồn đã quét trong vòng 1 giờ.</li>
 						<li>Không tạo scan mới khi nguồn còn scan đang chờ, chạy hoặc thử lại.</li>
+						<li>Scan cũ bị kẹt quá 12 giờ sẽ được đánh dấu lỗi và xếp hàng lại.</li>
 						<li>Job xử lý hàng đợi chạy mỗi 30 phút và lấy tối đa 3 scan mỗi lượt.</li>
 					</ul>
 				</AutomationAccordion>
@@ -541,11 +552,14 @@ function TrackedSourcesPanel({
 
 		if (!matchesQuery) return false;
 		if (sourceFilter === "active") return item.source.isActive;
-		if (sourceFilter === "due") return item.state.kind === "due";
+		if (sourceFilter === "due")
+			return ["due", "stale_active"].includes(item.state.kind);
 		if (sourceFilter === "paused") return !item.source.isActive;
 		return true;
 	});
-	const dueCount = sourceStates.filter((item) => item.state.kind === "due").length;
+	const dueCount = sourceStates.filter((item) =>
+		["due", "stale_active"].includes(item.state.kind),
+	).length;
 	const activeCount = sourceStates.filter((item) => item.source.isActive).length;
 
 	async function createSource() {
@@ -763,12 +777,7 @@ function TrackedSourcesPanel({
 
 type SourceFilterKey = "active" | "all" | "due" | "paused";
 
-type SourceAutomationState = {
-	help: string;
-	kind: "due" | "inactive" | "in_progress" | "recent";
-	label: string;
-	tone: "accent" | "neutral" | "success" | "warning";
-};
+type SourceAutomationState = TrackedSourceAutomationDecision;
 
 function AutomationMetric({
 	help,
@@ -1010,6 +1019,7 @@ function AutomationDetailsDialog({
 							<li>Job xếp hàng chỉ chạy tự động một lần mỗi ngày lúc 00:00 UTC.</li>
 							<li>Nguồn mới quét trong vòng 1 giờ sẽ được bỏ qua để chống trùng.</li>
 							<li>Nếu scan cũ vẫn đang chờ, chạy hoặc thử lại, nguồn sẽ không tạo scan mới.</li>
+							<li>Scan cũ bị kẹt quá 12 giờ sẽ được tự khôi phục ở lần xếp hàng kế tiếp.</li>
 							<li>
 								Nút “Xếp hàng ngay” kiểm tra cùng quy tắc nhưng chạy tức thì cho
 								người vận hành.
@@ -1023,45 +1033,11 @@ function AutomationDetailsDialog({
 }
 
 function sourceAutomationState(source: TrackedSourceView): SourceAutomationState {
-	if (!source.isActive) {
-		return {
-			help: "Nguồn đã tắt nên job hằng ngày sẽ bỏ qua.",
-			kind: "inactive",
-			label: "Đã tắt",
-			tone: "neutral",
-		};
-	}
-
-	if (
-		source.lastScanStatus &&
-		["queued", "running", "retrying"].includes(source.lastScanStatus)
-	) {
-		return {
-			help: "Nguồn đang có scan chưa hoàn tất nên không tạo scan trùng.",
-			kind: "in_progress",
-			label: "Đang xử lý",
-			tone: "accent",
-		};
-	}
-
-	const lastScannedAt = source.lastScannedAt
-		? new Date(source.lastScannedAt).getTime()
-		: 0;
-	if (lastScannedAt && Date.now() - lastScannedAt < 60 * 60 * 1000) {
-		return {
-			help: "Nguồn vừa được quét gần đây; hệ thống đợi qua cửa sổ chống trùng 1 giờ.",
-			kind: "recent",
-			label: "Mới quét",
-			tone: "success",
-		};
-	}
-
-	return {
-		help: "Nguồn đang bật và đủ điều kiện để được xếp hàng ở lần chạy hằng ngày hoặc khi bấm xếp hàng ngay.",
-		kind: "due",
-		label: "Đến hạn",
-		tone: "warning",
-	};
+	return classifyTrackedSourceAutomation({
+		isActive: source.isActive,
+		lastScannedAt: source.lastScannedAt,
+		lastScanStatus: source.lastScanStatus,
+	});
 }
 
 function facebookIdentity(source: TrackedSourceView) {

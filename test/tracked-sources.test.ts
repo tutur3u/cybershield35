@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 
 import {
+	classifyTrackedSourceAutomation,
+	TRACKED_SOURCE_DUPLICATE_GUARD_MS,
+	TRACKED_SOURCE_STALE_ACTIVE_SCAN_MS,
+} from "@/lib/domain/tracked-source-automation";
+import {
 	defaultTrackedSourceSeeds,
 	toTrackedSourceSeed,
 } from "@/lib/domain/tracked-sources";
@@ -50,5 +55,54 @@ describe("tracked sources", () => {
 		expect(worker).not.toContain(
 			".onConflictDoNothing({ target: trackedSources.normalizedUrl })",
 		);
+	});
+
+	test("classifies active tracked source automation states deterministically", () => {
+		const now = new Date("2026-07-04T00:00:00.000Z");
+
+		expect(
+			classifyTrackedSourceAutomation({
+				isActive: true,
+				lastScannedAt: null,
+				lastScanStatus: null,
+				now,
+			}),
+		).toMatchObject({ blocksEnqueue: false, kind: "due", reason: "due" });
+		expect(
+			classifyTrackedSourceAutomation({
+				isActive: true,
+				lastScannedAt: new Date(now.getTime() - TRACKED_SOURCE_DUPLICATE_GUARD_MS + 1),
+				lastScanStatus: "completed",
+				now,
+			}),
+		).toMatchObject({
+			blocksEnqueue: true,
+			kind: "recent",
+			reason: "recently_scanned",
+		});
+		expect(
+			classifyTrackedSourceAutomation({
+				isActive: true,
+				lastScannedAt: new Date(now.getTime() - 30 * 60 * 1000),
+				lastScanStatus: "running",
+				now,
+			}),
+		).toMatchObject({
+			blocksEnqueue: true,
+			kind: "in_progress",
+			reason: "scan_in_progress",
+		});
+		expect(
+			classifyTrackedSourceAutomation({
+				isActive: true,
+				lastScannedAt: new Date(now.getTime() - TRACKED_SOURCE_STALE_ACTIVE_SCAN_MS),
+				lastScanStatus: "queued",
+				now,
+			}),
+		).toMatchObject({
+			blocksEnqueue: false,
+			kind: "stale_active",
+			reason: "stale_active_scan",
+		});
 	});
 });

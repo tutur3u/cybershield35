@@ -20,6 +20,8 @@ const processResults: Array<Record<string, unknown>> = [];
 const processNextJob = mock(async () => processResults.shift() ?? { processed: false });
 const enqueueDueTrackedSources = mock(async () => ({
 	enqueued: 1,
+	recovered: 0,
+	recoveredSources: [],
 	scans: [{ scanId: "scan-1", sourceId: "source-1" }],
 	skipped: 0,
 	skippedSources: [],
@@ -229,10 +231,49 @@ describe("managed scheduler Vercel Cron routes", () => {
 			enqueued: 1,
 			jobKey: "enqueue-tracked-sources",
 			provider: "vercel-cron",
+			recovered: 0,
 			status: "success",
 		});
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
 		expect(JSON.stringify(heartbeatRows)).toContain("enqueue-tracked-sources");
+	});
+
+	test("reports stale tracked-source recovery metadata from enqueue cron", async () => {
+		process.env.CRON_SECRET = "cron-secret";
+		enqueueDueTrackedSources.mockImplementationOnce(async () => ({
+			enqueued: 1,
+			recovered: 1,
+			recoveredSources: [
+				{
+					reason: "stale_active_scan",
+					sourceId: "source-1",
+					staleScanId: "old-scan",
+				},
+			],
+			scans: [{ scanId: "scan-2", sourceId: "source-1" }],
+			skipped: 0,
+			skippedSources: [],
+		}));
+
+		const { GET } = await import(
+			"@/app/api/cron/scans/enqueue-tracked-sources/route"
+		);
+		const response = await GET(
+			authorizedCronRequest("/api/cron/scans/enqueue-tracked-sources"),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			enqueued: 1,
+			jobKey: "enqueue-tracked-sources",
+			provider: "vercel-cron",
+			recovered: 1,
+			status: "success",
+		});
+		expect(String((body.execution as Record<string, unknown>).response)).not.toContain(
+			"old-scan",
+		);
 	});
 
 	test("allows manual process and queue run-now through the admin route", async () => {
@@ -283,6 +324,28 @@ describe("managed scheduler Vercel Cron routes", () => {
 			status: "success",
 		});
 		expect(globalThis.fetch).not.toHaveBeenCalled();
+	});
+
+	test("process queue drains at most the configured batch size", async () => {
+		process.env.CRON_SECRET = "cron-secret";
+		processResults.push({ processed: true, scanId: "scan-1" });
+		processResults.push({ processed: true, scanId: "scan-2" });
+		processResults.push({ processed: true, scanId: "scan-3" });
+		processResults.push({ processed: true, scanId: "scan-4" });
+
+		const { GET } = await import("@/app/api/cron/scans/process-queue/route");
+		const response = await GET(
+			authorizedCronRequest("/api/cron/scans/process-queue"),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			failed: 0,
+			processed: 3,
+			scanIds: ["scan-1", "scan-2", "scan-3"],
+		});
+		expect(processNextJob).toHaveBeenCalledTimes(3);
 	});
 
 	test("rejects schedule edits because Vercel Cron schedules live in vercel.json", async () => {
