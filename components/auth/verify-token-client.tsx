@@ -9,7 +9,7 @@ type VerificationState = "loading" | "success";
 type VerificationResponse = {
 	code?: string;
 	error?: string;
-	invitationUrl?: string;
+	pendingInvitation?: unknown;
 	scopeApprovalHref?: string;
 	session?: {
 		authenticated?: boolean;
@@ -142,8 +142,8 @@ function loginFailureHref({
 	scopeHref: string;
 }) {
 	if (data?.scopeApprovalHref) return scopeHref;
-	if (data?.code === "PENDING_WORKSPACE_INVITE" && data.invitationUrl) {
-		return loginHref(nextPath, "invitation", data.invitationUrl);
+	if (data?.code === "PENDING_WORKSPACE_INVITE") {
+		return loginHref(nextPath, "invitation");
 	}
 	if (responseStatus === 403 || data?.code === "NO_WORKSPACE_ACCESS") {
 		return noAccessHref;
@@ -154,11 +154,7 @@ function loginFailureHref({
 function loginHref(
 	nextPath: string,
 	reason: "invalid-link" | "invitation" | "no-access" | "scope",
-	invitationUrl?: string,
 ) {
 	const params = new URLSearchParams({ nextUrl: nextPath, reason });
-	if (reason === "invitation" && invitationUrl) {
-		params.set("invitationUrl", invitationUrl);
-	}
 	return `/login?${params.toString()}`;
 }

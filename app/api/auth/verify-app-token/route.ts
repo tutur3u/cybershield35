@@ -1,12 +1,14 @@
 import { z } from "zod";
 
-import { sanitizeTuturuuuWebHref } from "@/lib/auth/login-link";
 import {
+	AuthError,
+	createPendingInvitationCookie,
 	createSessionCookie,
 	exchangeTuturuuuAppToken,
 	sanitizeAuthError,
 	toSafeSession,
 } from "@/lib/auth/tuturuuu-session";
+import { safePostLoginPath } from "@/lib/auth/routes";
 import {
 	buildTuturuuuScopeApprovalUrl,
 	isTuturuuuScopeNotAllowedError,
@@ -38,14 +40,36 @@ export async function POST(request: Request) {
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
+		const pendingInvitation =
+			safe.code === "PENDING_WORKSPACE_INVITE" &&
+			safe.invitation?.workspaceId &&
+			error instanceof AuthError &&
+			error.details.invitationActionToken
+				? createPendingInvitationCookie({
+						invitation: safe.invitation,
+						invitationActionToken: error.details.invitationActionToken,
+						nextPath: safePostLoginPath(
+							parsed.data.nextUrl,
+							new URL(request.url).origin,
+						),
+						workspaceId: safe.workspaceId ?? safe.invitation.workspaceId,
+					})
+				: null;
+		const headers = new Headers({ "Cache-Control": "no-store" });
+		if (pendingInvitation) {
+			headers.append("Set-Cookie", pendingInvitation.cookie);
+		}
+
 		return Response.json(
 			{
 				code: authFailureCode(safe),
 				error: safe.message,
-				invitationUrl:
-					safe.code === "PENDING_WORKSPACE_INVITE"
-						? sanitizeTuturuuuWebHref(safe.invitationUrl)
-						: undefined,
+				pendingInvitation: pendingInvitation
+					? {
+							expiresAt: pendingInvitation.pendingInvitation.expiresAt,
+							invitation: pendingInvitation.pendingInvitation.invitation,
+						}
+					: undefined,
 				scopeApprovalHref: isTuturuuuScopeNotAllowedError({
 					error: safe.message,
 					status: safe.status,
@@ -56,7 +80,7 @@ export async function POST(request: Request) {
 						})
 					: undefined,
 			},
-			{ status: safe.status },
+			{ headers, status: safe.status },
 		);
 	}
 }

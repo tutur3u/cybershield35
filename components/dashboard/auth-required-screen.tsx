@@ -1,13 +1,17 @@
 import { CentralizedLoginScreen } from "@/components/auth/centralized-login-screen";
 import type { LoginReason } from "@/lib/auth/routes";
-import type { TuturuuuAuthDiagnostics } from "@/lib/auth/tuturuuu-session";
+import type {
+	PendingInvitationPublicView,
+	TuturuuuAuthDiagnostics,
+} from "@/lib/auth/tuturuuu-session";
 
 export function AuthRequiredScreen({
 	authDiagnostics,
 	configured,
 	error,
 	loginHref,
-	invitationHref,
+	pendingInvitation,
+	pendingInvitationExpired,
 	reason,
 	scopeApprovalHref,
 }: {
@@ -15,7 +19,8 @@ export function AuthRequiredScreen({
 	configured: boolean;
 	error?: string;
 	loginHref?: string;
-	invitationHref?: string;
+	pendingInvitation?: PendingInvitationPublicView | null;
+	pendingInvitationExpired?: boolean;
 	reason?: LoginReason | null;
 	scopeApprovalHref?: string;
 }) {
@@ -24,8 +29,9 @@ export function AuthRequiredScreen({
 			authDiagnostics={authDiagnostics}
 			configured={configured}
 			error={error}
-			invitationHref={invitationHref}
 			loginHref={loginHref}
+			pendingInvitation={pendingInvitation}
+			pendingInvitationExpired={pendingInvitationExpired}
 			reason={reason}
 			scopeApprovalHref={scopeApprovalHref}
 		/>

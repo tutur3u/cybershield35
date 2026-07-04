@@ -1,5 +1,4 @@
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { sanitizeTuturuuuWebHref } from "@/lib/auth/login-link";
 import {
 	isTuturuuuAuthConfigured,
 	toSafeSession,
@@ -25,17 +24,12 @@ export async function GET(request: Request) {
 				error: auth.error,
 				status: auth.status,
 			});
-		const invitationUrl =
-			auth.code === "PENDING_WORKSPACE_INVITE"
-				? sanitizeTuturuuuWebHref(auth.invitationUrl)
-				: undefined;
 		return Response.json(
 			{
 				authenticated: false,
 				code: auth.code,
 				configured,
 				error: auth.error,
-				invitationUrl,
 				loginHref: buildLoginHref(
 					nextPath,
 					loginReasonForAuthFailure({
@@ -43,7 +37,6 @@ export async function GET(request: Request) {
 						needsScopeApproval,
 						status: auth.status,
 					}),
-					invitationUrl,
 				),
 				scopeApprovalHref: needsScopeApproval
 					? buildTuturuuuScopeApprovalUrl({
@@ -79,9 +72,8 @@ function getNextPath(request: Request) {
 function buildLoginHref(
 	nextPath: string,
 	reason?: LoginReason,
-	invitationUrl?: string | null,
 ) {
-	return buildLocalLoginPath(nextPath, reason, { invitationUrl });
+	return buildLocalLoginPath(nextPath, reason);
 }
 
 function loginReasonForAuthFailure({

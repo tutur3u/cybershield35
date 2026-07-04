@@ -4,17 +4,16 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
-import {
-	buildTuturuuuCentralizedLoginUrl,
-	sanitizeTuturuuuWebHref,
-} from "@/lib/auth/login-link";
+import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requestUrlFromHeaders } from "@/lib/auth/request-url";
 import { safeLoginReason, safePostLoginPath } from "@/lib/auth/routes";
 import { buildTuturuuuScopeApprovalUrl } from "@/lib/auth/scope-approval";
 import {
 	allowLocalAuthBypass,
 	getTuturuuuAuthDiagnostics,
+	pendingInvitationPublicView,
 	readAdminSession,
+	readPendingInvitation,
 	sessionCanRefresh,
 	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
@@ -28,7 +27,6 @@ export const metadata: Metadata = {
 
 type LoginPageProps = {
 	searchParams: Promise<{
-		invitationUrl?: string | string[];
 		nextUrl?: string | string[];
 		reason?: string | string[];
 	}>;
@@ -51,7 +49,7 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 	}
 
 	const requestUrl = new URL(requestUrlFromHeaders(requestHeaders));
-	const { invitationUrl, nextUrl, reason } = await searchParams;
+	const { nextUrl, reason } = await searchParams;
 	const nextPath = safePostLoginPath(
 		Array.isArray(nextUrl) ? nextUrl[0] : nextUrl,
 		requestUrl.origin,
@@ -63,12 +61,10 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 	const session = await readAdminSession(request);
 	const needsScopeApproval = Boolean(session && sessionNeedsScopeRefresh(session));
 	const loginReason = needsScopeApproval ? "scope" : requestedReason;
-	const invitationHref =
+	const pendingInvitation =
 		loginReason === "invitation"
-			? sanitizeTuturuuuWebHref(
-					Array.isArray(invitationUrl) ? invitationUrl[0] : invitationUrl,
-				)
-			: undefined;
+			? pendingInvitationPublicView(await readPendingInvitation(request))
+			: null;
 
 	if (
 		allowLocalAuthBypass(request) ||
@@ -97,8 +93,11 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 			authDiagnostics={authDiagnostics}
 			configured={authDiagnostics.configured}
 			error="Authentication required"
-			invitationHref={invitationHref ?? undefined}
 			loginHref={loginHref}
+			pendingInvitation={pendingInvitation}
+			pendingInvitationExpired={
+				loginReason === "invitation" && !pendingInvitation
+			}
 			reason={loginReason}
 			scopeApprovalHref={scopeApprovalHref}
 		/>
