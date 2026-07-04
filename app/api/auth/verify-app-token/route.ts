@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { sanitizeTuturuuuWebHref } from "@/lib/auth/login-link";
 import {
 	createSessionCookie,
 	exchangeTuturuuuAppToken,
@@ -39,7 +40,12 @@ export async function POST(request: Request) {
 		const safe = sanitizeAuthError(error);
 		return Response.json(
 			{
+				code: authFailureCode(safe),
 				error: safe.message,
+				invitationUrl:
+					safe.code === "PENDING_WORKSPACE_INVITE"
+						? sanitizeTuturuuuWebHref(safe.invitationUrl)
+						: undefined,
 				scopeApprovalHref: isTuturuuuScopeNotAllowedError({
 					error: safe.message,
 					status: safe.status,
@@ -53,4 +59,18 @@ export async function POST(request: Request) {
 			{ status: safe.status },
 		);
 	}
+}
+
+function authFailureCode(error: ReturnType<typeof sanitizeAuthError>) {
+	if (error.code === "PENDING_WORKSPACE_INVITE") return error.code;
+	if (
+		error.status === 403 &&
+		!isTuturuuuScopeNotAllowedError({
+			error: error.message,
+			status: error.status,
+		})
+	) {
+		return "NO_WORKSPACE_ACCESS";
+	}
+	return error.code;
 }

@@ -19,7 +19,9 @@ export type AdminAuthResult =
 			setCookie: string | null;
 	  }
 	| {
+			code?: string;
 			error: string;
+			invitationUrl?: string;
 			status: number;
 	  };
 
@@ -56,6 +58,15 @@ export async function requireAdminSession(
 				})
 			) {
 				return { error: safe.message, status: safe.status };
+			}
+
+			if (safe.status === 403) {
+				return {
+					code: safe.code ?? "NO_WORKSPACE_ACCESS",
+					error: safe.message,
+					invitationUrl: safe.invitationUrl,
+					status: safe.status,
+				};
 			}
 
 			return { error: "Tuturuuu admin session expired", status: 401 };

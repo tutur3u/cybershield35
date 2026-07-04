@@ -83,6 +83,12 @@ export type TuturuuuAuthDiagnostics = {
 	required: EnvironmentDiagnostic[];
 };
 
+export type AuthErrorDetails = {
+	code?: string;
+	invitationUrl?: string;
+	workspaceId?: string;
+};
+
 export function isTuturuuuAuthConfigured() {
 	return getTuturuuuAuthDiagnostics().configured;
 }
@@ -172,7 +178,7 @@ export async function exchangeTuturuuuAppToken(input: {
 			body && typeof body === "object" && "error" in body
 				? String(body.error)
 				: "Tuturuuu token exchange failed";
-		throw new AuthError(message, response.status);
+		throw new AuthError(message, response.status, authErrorDetails(body));
 	}
 
 	const parsed = exchangeResponseSchema.parse(body);
@@ -320,12 +326,21 @@ export async function getBearerForPlatformRequest(request: Request) {
 
 export function sanitizeAuthError(error: unknown) {
 	if (error instanceof AuthError) {
-		return { message: error.message, status: error.status };
+		return {
+			code: error.details.code,
+			invitationUrl: error.details.invitationUrl,
+			message: error.message,
+			status: error.status,
+			workspaceId: error.details.workspaceId,
+		};
 	}
 
 	return {
+		code: undefined,
+		invitationUrl: undefined,
 		message: error instanceof Error ? error.message : "Authentication failed",
 		status: 500,
+		workspaceId: undefined,
 	};
 }
 
@@ -333,10 +348,28 @@ export class AuthError extends Error {
 	constructor(
 		message: string,
 		readonly status = 401,
+		readonly details: AuthErrorDetails = {},
 	) {
 		super(message);
 		this.name = "AuthError";
 	}
+}
+
+function authErrorDetails(body: unknown): AuthErrorDetails {
+	if (!body || typeof body !== "object") return {};
+	const row = body as Record<string, unknown>;
+	const code = cleanEnv(typeof row.code === "string" ? row.code : undefined);
+	const invitationUrl = cleanEnv(
+		typeof row.invitationUrl === "string" ? row.invitationUrl : undefined,
+	);
+	const workspaceId = cleanEnv(
+		typeof row.workspaceId === "string" ? row.workspaceId : undefined,
+	);
+	return {
+		...(code ? { code } : {}),
+		...(invitationUrl ? { invitationUrl } : {}),
+		...(workspaceId ? { workspaceId } : {}),
+	};
 }
 
 function getAuthConfig() {

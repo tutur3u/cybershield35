@@ -197,6 +197,120 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
+	test("verify-token route preserves pending invitation recovery links", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "PENDING_WORKSPACE_INVITE",
+						error: "Pending workspace invitation",
+						invitationUrl: "https://tuturuuu.com/workspace-1",
+						workspaceId: "workspace-1",
+					},
+					{ status: 403 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await verifyAppToken(
+				new Request("https://cybershield.example.com/api/auth/verify-app-token", {
+					body: JSON.stringify({ nextUrl: "/sources", token: "short" }),
+					headers: { "Content-Type": "application/json" },
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(403);
+			expect(body).toMatchObject({
+				code: "PENDING_WORKSPACE_INVITE",
+				error: "Pending workspace invitation",
+				invitationUrl: "https://tuturuuu.com/workspace-1",
+			});
+			expect(JSON.stringify(body)).not.toContain("app-secret");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test("verify-token route drops pending invitation URLs outside Tuturuuu", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "PENDING_WORKSPACE_INVITE",
+						error: "Pending workspace invitation",
+						invitationUrl: "https://attacker.example/workspace-1",
+					},
+					{ status: 403 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await verifyAppToken(
+				new Request("https://cybershield.example.com/api/auth/verify-app-token", {
+					body: JSON.stringify({ nextUrl: "/sources", token: "short" }),
+					headers: { "Content-Type": "application/json" },
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(403);
+			expect(body.code).toBe("PENDING_WORKSPACE_INVITE");
+			expect(body.invitationUrl).toBeNull();
+			expect(JSON.stringify(body)).not.toContain("attacker.example");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test("verify-token route reports forbidden access distinctly from invalid links", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(Response.json({ error: "Forbidden" }, { status: 403 }))) as typeof fetch;
+
+		try {
+			const response = await verifyAppToken(
+				new Request("https://cybershield.example.com/api/auth/verify-app-token", {
+					body: JSON.stringify({ nextUrl: "/sources", token: "short" }),
+					headers: { "Content-Type": "application/json" },
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(403);
+			expect(body).toMatchObject({
+				code: "NO_WORKSPACE_ACCESS",
+				error: "Forbidden",
+			});
+			expect(body.scopeApprovalHref).toBeUndefined();
+			expect(body.invitationUrl).toBeUndefined();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test("allows the login page to render before authentication", async () => {
 		process.env.NODE_ENV = "production";
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
@@ -626,6 +740,35 @@ describe("dashboard auth gate", () => {
 		expect(withApproval).toContain(
 			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
 		);
+
+		const withInvitation = renderToStaticMarkup(
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: true,
+				error: "Pending workspace invitation",
+				invitationHref: "https://tuturuuu.com/workspace-1",
+				loginHref: "/login?nextUrl=%2Fsources",
+				reason: "invitation",
+			}),
+		);
+		expect(withInvitation).toContain("Có lời mời đang chờ");
+		expect(withInvitation).toContain("Xem lời mời Tuturuuu");
+		expect(withInvitation).toContain("https://tuturuuu.com/workspace-1");
+		expect(withInvitation).toContain("chấp nhận hoặc từ chối");
+
+		const noAccess = renderToStaticMarkup(
+			createElement(AuthRequiredScreen, {
+				authDiagnostics: getTuturuuuAuthDiagnostics(),
+				configured: true,
+				error: "Forbidden",
+				loginHref: "/login?nextUrl=%2Fsources",
+				reason: "no-access",
+			}),
+		);
+		expect(noAccess).toContain("Không có quyền truy cập");
+		expect(noAccess).toContain("chưa được cấp quyền truy cập");
+		expect(noAccess).toContain("Đăng nhập bằng Tuturuuu");
+		expect(noAccess).not.toContain("Liên kết đăng nhập không hợp lệ");
 	});
 
 	test("dashboard UI does not expose a browser token paste flow", () => {
@@ -1303,7 +1446,10 @@ describe("dashboard auth gate", () => {
 		expect(client).toContain('fetch("/api/auth/verify-app-token"');
 		expect(client).toContain("router.replace(nextPath)");
 		expect(client).toContain('loginHref(nextPath, "invalid-link")');
+		expect(client).toContain('loginHref(nextPath, "no-access")');
 		expect(client).toContain('loginHref(nextPath, "scope")');
+		expect(client).toContain('"PENDING_WORKSPACE_INVITE"');
+		expect(client).toContain("invitationUrl");
 		expect(client).toContain("scopeApprovalHref");
 		expect(client).not.toContain("href={retryHref}");
 		expect(client).not.toContain("Duyệt quyền truy cập");

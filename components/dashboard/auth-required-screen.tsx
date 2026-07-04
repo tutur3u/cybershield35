@@ -7,6 +7,7 @@ export function AuthRequiredScreen({
 	configured,
 	error,
 	loginHref,
+	invitationHref,
 	reason,
 	scopeApprovalHref,
 }: {
@@ -14,6 +15,7 @@ export function AuthRequiredScreen({
 	configured: boolean;
 	error?: string;
 	loginHref?: string;
+	invitationHref?: string;
 	reason?: LoginReason | null;
 	scopeApprovalHref?: string;
 }) {
@@ -22,6 +24,7 @@ export function AuthRequiredScreen({
 			authDiagnostics={authDiagnostics}
 			configured={configured}
 			error={error}
+			invitationHref={invitationHref}
 			loginHref={loginHref}
 			reason={reason}
 			scopeApprovalHref={scopeApprovalHref}

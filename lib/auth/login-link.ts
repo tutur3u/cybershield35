@@ -41,6 +41,21 @@ export function getTuturuuuWebAppUrl() {
 		: "https://tuturuuu.com";
 }
 
+export function sanitizeTuturuuuWebHref(rawValue: string | null | undefined) {
+	const cleaned = rawValue?.trim();
+	if (!cleaned) return null;
+
+	try {
+		const base = new URL(getTuturuuuWebAppUrl());
+		const url = new URL(cleaned, base);
+		if (url.origin !== base.origin) return null;
+		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+		return url.toString();
+	} catch {
+		return null;
+	}
+}
+
 function trimTrailingSlash(value: string) {
 	return value.replace(/\/+$/u, "");
 }

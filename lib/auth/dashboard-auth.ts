@@ -3,6 +3,7 @@ import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
 	buildLocalLoginPath,
 	isPublicAuthRoute,
+	type LoginReason,
 	nextPathFromRequestUrl,
 } from "@/lib/auth/routes";
 import {
@@ -83,6 +84,11 @@ export async function resolveDashboardAuthFromRequest(
 					nextUrl: nextPath,
 				})
 			: undefined;
+		const loginReason = loginReasonForAuthFailure({
+			code: auth.code,
+			needsScopeApproval,
+			status: auth.status,
+		});
 
 		return {
 			authenticated: false,
@@ -90,10 +96,9 @@ export async function resolveDashboardAuthFromRequest(
 			configured: authDiagnostics.configured,
 			error: auth.error,
 			loginHref,
-			loginPath: buildLocalLoginPath(
-				nextPath,
-				needsScopeApproval ? "scope" : auth.status === 401 ? "expired" : undefined,
-			),
+			loginPath: buildLocalLoginPath(nextPath, loginReason, {
+				invitationUrl: auth.invitationUrl,
+			}),
 			scopeApprovalHref,
 			status: auth.status,
 		};
@@ -108,4 +113,20 @@ export async function resolveDashboardAuthFromRequest(
 export async function resolveDashboardAuthFromCurrentRequest() {
 	const { requestFromCurrentHeaders } = await import("@/lib/auth/current-request");
 	return resolveDashboardAuthFromRequest(await requestFromCurrentHeaders());
+}
+
+function loginReasonForAuthFailure({
+	code,
+	needsScopeApproval,
+	status,
+}: {
+	code?: string;
+	needsScopeApproval: boolean;
+	status: number;
+}): LoginReason | undefined {
+	if (needsScopeApproval) return "scope";
+	if (code === "PENDING_WORKSPACE_INVITE") return "invitation";
+	if (status === 403) return "no-access";
+	if (status === 401) return "expired";
+	return undefined;
 }
