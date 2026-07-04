@@ -4,6 +4,7 @@ import {
 	allowLocalAuthBypass,
 	readAdminSession,
 	sessionCanRefresh,
+	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
 import {
 	LOGIN_PATHNAME,
@@ -44,11 +45,16 @@ export async function proxy(request: NextRequest) {
 	}
 
 	if (!authenticated) {
+		const reason = session
+			? sessionNeedsScopeRefresh(session)
+				? "scope"
+				: "expired"
+			: undefined;
 		return NextResponse.redirect(
 			new URL(
 				buildLocalLoginPath(
 					`${request.nextUrl.pathname}${request.nextUrl.search}`,
-					session ? "expired" : undefined,
+					reason,
 				),
 				request.nextUrl,
 			),
@@ -59,7 +65,9 @@ export async function proxy(request: NextRequest) {
 }
 
 function isUsableSession(session: Awaited<ReturnType<typeof readAdminSession>>) {
-	return Boolean(session && sessionCanRefresh(session));
+	return Boolean(
+		session && sessionCanRefresh(session) && !sessionNeedsScopeRefresh(session),
+	);
 }
 
 function isPublicFilePath(pathname: string) {

@@ -16,6 +16,7 @@ const legacyIntegrationRows: Array<{
 	tokenLastFour: string;
 }> = [];
 const processResults: Array<Record<string, unknown>> = [];
+let heartbeatFailure: Error | null = null;
 
 const processNextJob = mock(async () => processResults.shift() ?? { processed: false });
 const enqueueDueTrackedSources = mock(async () => ({
@@ -57,6 +58,7 @@ mock.module("@/lib/workers/scans", () => ({
 		serviceName = "worker",
 		metadata: Record<string, unknown> = {},
 	) => {
+		if (heartbeatFailure) throw heartbeatFailure;
 		upsertHeartbeat(serviceName, metadata);
 	},
 	processNextJob,
@@ -106,6 +108,7 @@ beforeEach(() => {
 	heartbeatRows.length = 0;
 	legacyIntegrationRows.length = 0;
 	processResults.length = 0;
+	heartbeatFailure = null;
 	processNextJob.mockClear();
 	enqueueDueTrackedSources.mockClear();
 	globalThis.fetch = mock(() => {
@@ -346,6 +349,59 @@ describe("managed scheduler Vercel Cron routes", () => {
 			scanIds: ["scan-1", "scan-2", "scan-3"],
 		});
 		expect(processNextJob).toHaveBeenCalledTimes(3);
+	});
+
+	test("sanitizes database connect timeouts from cron work failures", async () => {
+		process.env.CRON_SECRET = "cron-secret";
+		processNextJob.mockImplementationOnce(async () => {
+			throw new Error("write CONNECT_TIMEOUT undefined:undefined");
+		});
+
+		const { GET } = await import("@/app/api/cron/scans/process-queue/route");
+		const response = await GET(
+			authorizedCronRequest("/api/cron/scans/process-queue"),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+		const serialized = JSON.stringify(body);
+
+		expect(response.status).toBe(500);
+		expect(body).toMatchObject({
+			error:
+				"Cron job failed because the database connection is unavailable or timed out.",
+			jobKey: "process-queue",
+			provider: "vercel-cron",
+			status: "failed",
+		});
+		expect(serialized).not.toContain("CONNECT_TIMEOUT undefined");
+		expect(serialized).not.toContain("Failed query");
+		expect(serialized).not.toContain("insert into");
+	});
+
+	test("returns sanitized failure when cron heartbeat cannot be recorded", async () => {
+		process.env.CRON_SECRET = "cron-secret";
+		heartbeatFailure = new Error(
+			'Failed query: insert into "cron_heartbeats" values (...) write CONNECT_TIMEOUT undefined:undefined',
+		);
+
+		const { GET } = await import("@/app/api/cron/scans/process-queue/route");
+		const response = await GET(
+			authorizedCronRequest("/api/cron/scans/process-queue"),
+		);
+		const body = (await response.json()) as Record<string, unknown>;
+		const serialized = JSON.stringify(body);
+
+		expect(response.status).toBe(500);
+		expect(body).toMatchObject({
+			heartbeatError:
+				"Cron job failed because the database connection is unavailable or timed out.",
+			jobKey: "process-queue",
+			provider: "vercel-cron",
+			status: "failed",
+		});
+		expect(serialized).not.toContain("CONNECT_TIMEOUT undefined");
+		expect(serialized).not.toContain("Failed query");
+		expect(serialized).not.toContain("insert into");
+		expect(heartbeatRows).toHaveLength(0);
 	});
 
 	test("rejects schedule edits because Vercel Cron schedules live in vercel.json", async () => {

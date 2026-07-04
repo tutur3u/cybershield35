@@ -315,15 +315,40 @@ async function runVercelSchedulerJob(
 		status,
 	};
 
-	await heartbeat(job.serviceName, {
-		jobKey: job.jobKey,
-		lastExecution: execution,
-		provider: VERCEL_SCHEDULER_PROVIDER,
-		schedule: job.schedule,
-		source,
-	});
+	const heartbeatError = await writeSchedulerHeartbeat(job, execution, source);
+	if (heartbeatError) {
+		payload.heartbeatError = heartbeatError;
+		if (status === "success") {
+			status = "failed";
+			statusCode = 500;
+			error = heartbeatError;
+			execution.error = error;
+			execution.httpStatus = statusCode;
+			execution.status = status;
+		}
+		execution.response = JSON.stringify(payload).slice(0, 2000);
+	}
 
 	return { execution, payload, statusCode };
+}
+
+async function writeSchedulerHeartbeat(
+	job: CronJobDefinition,
+	execution: ManagedSchedulerExecutionStatus,
+	source: "manual" | "scheduled",
+) {
+	try {
+		await heartbeat(job.serviceName, {
+			jobKey: job.jobKey,
+			lastExecution: execution,
+			provider: VERCEL_SCHEDULER_PROVIDER,
+			schedule: job.schedule,
+			source,
+		});
+		return null;
+	} catch (error) {
+		return safeCronError(error);
+	}
 }
 
 async function executeVercelCronJob(job: CronJobDefinition) {
@@ -584,8 +609,12 @@ function overdueWindowMs(schedule: string) {
 
 function safeCronError(error: unknown) {
 	if (!(error instanceof Error)) return "Cron job failed.";
-	if (/database|postgres|connection|failed query/iu.test(error.message)) {
-		return "Cron job failed because the database is unavailable.";
+	if (
+		/CONNECT_TIMEOUT|connection|connect|timeout|database|postgres|failed query/iu.test(
+			error.message,
+		)
+	) {
+		return "Cron job failed because the database connection is unavailable or timed out.";
 	}
 	if (/token|secret|authorization|cookie/iu.test(error.message)) {
 		return "Cron job failed because a required secret or authorization value is unavailable.";

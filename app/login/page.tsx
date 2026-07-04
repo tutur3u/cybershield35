@@ -13,6 +13,7 @@ import {
 	getTuturuuuAuthDiagnostics,
 	readAdminSession,
 	sessionCanRefresh,
+	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
 
 export const unstable_instant = false;
@@ -51,11 +52,18 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 		Array.isArray(nextUrl) ? nextUrl[0] : nextUrl,
 		requestUrl.origin,
 	);
-	const loginReason = safeLoginReason(Array.isArray(reason) ? reason[0] : reason);
+	const requestedReason = safeLoginReason(
+		Array.isArray(reason) ? reason[0] : reason,
+	);
 	const request = new Request(requestUrl, { headers: requestHeaders });
 	const session = await readAdminSession(request);
+	const needsScopeApproval = Boolean(session && sessionNeedsScopeRefresh(session));
+	const loginReason = needsScopeApproval ? "scope" : requestedReason;
 
-	if (allowLocalAuthBypass(request) || (session && sessionCanRefresh(session))) {
+	if (
+		allowLocalAuthBypass(request) ||
+		(session && sessionCanRefresh(session) && !needsScopeApproval)
+	) {
 		redirect(nextPath);
 	}
 
