@@ -25,6 +25,7 @@ import {
 	generateDraft,
 	reviewDraft,
 	runScanRecord,
+	runManagedSchedulerJobNow,
 	sendChatMessage,
 	scanTrackedSource,
 	updateEvidenceRecord,
@@ -362,6 +363,13 @@ export function CyberShieldDashboard({
 				setTrackedSources,
 				setScans,
 				setSelectedScanId,
+				setNotice,
+			}).then((success) => {
+				if (success) invalidateDashboardQueries();
+			}),
+		onRunSchedulerJob: (jobKey) =>
+			runManagedSchedulerJobNow({
+				jobKey,
 				setNotice,
 			}).then((success) => {
 				if (success) invalidateDashboardQueries();

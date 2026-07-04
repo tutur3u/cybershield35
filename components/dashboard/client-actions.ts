@@ -102,6 +102,42 @@ export async function scanTrackedSource(options: {
 	}
 }
 
+export async function runManagedSchedulerJobNow(options: {
+	jobKey: "enqueue-tracked-sources" | "process-queue";
+	setNotice: (notice: string) => void;
+}) {
+	try {
+		const response = await fetch(
+			`/api/workspace/cron/jobs/${encodeURIComponent(options.jobKey)}/run-now`,
+			{
+				credentials: "same-origin",
+				headers: { Accept: "application/json" },
+				method: "POST",
+			},
+		);
+		const payload = await response.json().catch(() => null);
+		if (!response.ok) {
+			const message =
+				payload && typeof payload === "object" && "error" in payload
+					? String(payload.error)
+					: "Không thể chạy job tự động.";
+			throw new Error(message);
+		}
+
+		const label =
+			options.jobKey === "enqueue-tracked-sources"
+				? "Đã xếp hàng các nguồn đến hạn."
+				: "Đã xử lý hàng đợi scan.";
+		options.setNotice(label);
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể chạy job tự động.",
+		);
+		return false;
+	}
+}
+
 export async function createTrackedSourceRecord(options: {
 	displayName: string;
 	setNotice: (notice: string) => void;

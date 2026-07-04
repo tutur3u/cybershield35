@@ -845,6 +845,7 @@ describe("dashboard auth gate", () => {
 		expect(actions).toContain("createTrackedSourceRecord");
 		expect(actions).toContain("updateTrackedSourceRecord");
 		expect(actions).toContain("deleteTrackedSourceRecord");
+		expect(actions).toContain("runManagedSchedulerJobNow");
 		expect(dashboard).toContain("customReports");
 		expect(dashboard).toContain("onCreateReport");
 		expect(dashboard).toContain("onUpdateReport");
@@ -858,6 +859,13 @@ describe("dashboard auth gate", () => {
 		expect(pages).toContain("Đã tắt");
 		expect(pages).toContain("Tắt tự động quét hằng ngày");
 		expect(pages).toContain("Bật tự động quét hằng ngày");
+		expect(pages).toContain("SourceTabs");
+		expect(pages).toContain("Tự động tái quét");
+		expect(pages).toContain("Xếp hàng ngay");
+		expect(pages).toContain("Xử lý ngay");
+		expect(pages).toContain("Nguồn đến hạn");
+		expect(pages).toContain("Quy tắc tự động");
+		expect(pages).toContain("Tìm theo tên trang, username, Facebook ID hoặc URL");
 		expect(scansRoute).toContain("export async function PATCH");
 		expect(scansRoute).toContain("export async function DELETE");
 		expect(evidenceRoute).toContain("export async function POST");
@@ -1074,10 +1082,14 @@ describe("dashboard auth gate", () => {
 		expect(runRoute).toContain("export async function POST");
 		expect(runRoute).toContain("processScanJobNow");
 		expect(actions).toContain("runScanRecord");
+		expect(actions).toContain("/api/workspace/cron/jobs");
 		expect(widgets).toContain("onRunScan");
 		expect(widgets).toContain("aria-label=\"Chạy scan ngay\"");
 		expect(pages).toContain("onRunScan");
+		expect(pages).toContain("onRunSchedulerJob");
+		expect(pages).toContain("managedSchedulerQueryOptions");
 		expect(dashboard).toContain("runScanRecord");
+		expect(dashboard).toContain("runManagedSchedulerJobNow");
 	});
 
 	test("managed scheduler uses Vercel Cron instead of Tuturuuu managed-cron", () => {
