@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -37,5 +39,16 @@ describe("tracked sources", () => {
 			isActive: true,
 			metadata: { label: "hongbien47fanpage" },
 		});
+	});
+
+	test("keeps built-in tracked sources active for daily automation", () => {
+		const worker = readFileSync("lib/workers/tracked-sources.ts", "utf8");
+
+		expect(worker).toContain("function insertDefaultTrackedSource");
+		expect(worker).toContain(".onConflictDoUpdate({");
+		expect(worker).toContain("isActive: seed.isActive");
+		expect(worker).not.toContain(
+			".onConflictDoNothing({ target: trackedSources.normalizedUrl })",
+		);
 	});
 });

@@ -202,5 +202,14 @@ async function insertDefaultTrackedSource(seed: TrackedSourceSeed) {
 			isActive: seed.isActive,
 			metadata: seed.metadata,
 		})
-		.onConflictDoNothing({ target: trackedSources.normalizedUrl });
+		.onConflictDoUpdate({
+			target: trackedSources.normalizedUrl,
+			set: {
+				type: seed.type,
+				provider: seed.provider,
+				isActive: seed.isActive,
+				metadata: seed.metadata,
+				updatedAt: new Date(),
+			},
+		});
 }
