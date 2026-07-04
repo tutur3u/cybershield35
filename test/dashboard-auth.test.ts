@@ -281,6 +281,35 @@ describe("dashboard auth gate", () => {
 		);
 	});
 
+	test("proxy sends scope-incomplete sessions to the centralized scope login state", async () => {
+		process.env.NODE_ENV = "production";
+		const incompleteSession = session();
+		incompleteSession.scopes = ["workspace:session"];
+		const cookie = createSessionCookie(incompleteSession);
+
+		const protectedResponse = await proxy(
+			new NextRequest("https://cybershield.example.com/sources", {
+				headers: { cookie },
+			}),
+		);
+		const loginResponse = await proxy(
+			new NextRequest(
+				"https://cybershield.example.com/login?nextUrl=/sources",
+				{
+					headers: { cookie },
+				},
+			),
+		);
+
+		expect(protectedResponse.status).toBe(307);
+		const location = new URL(protectedResponse.headers.get("location") ?? "");
+		expect(location.pathname).toBe("/login");
+		expect(location.searchParams.get("nextUrl")).toBe("/sources");
+		expect(location.searchParams.get("reason")).toBe("scope");
+		expect(loginResponse.status).toBe(200);
+		expect(loginResponse.headers.get("location")).toBeNull();
+	});
+
 	test("allows explicit localhost dev bypass", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
 		process.env.NODE_ENV = "development";
@@ -508,6 +537,8 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("safeLoginReason");
 		expect(source).toContain("safePostLoginPath");
 		expect(source).toContain("readAdminSession");
+		expect(source).toContain("sessionNeedsScopeRefresh");
+		expect(source).toContain("!needsScopeApproval");
 		expect(source).toContain("redirect(nextPath)");
 		expect(source).not.toContain("<input");
 		expect(source).not.toContain("Dán token");
@@ -1185,6 +1216,19 @@ describe("dashboard auth gate", () => {
 		expect(callback).toContain("CS35_MANAGED_SCHEDULER_CALLBACK_FAILED");
 		expect(callback).toContain("developerDebug");
 		expect(callback).not.toContain("stack");
+	});
+
+	test("database client prefers pooled production connection URLs", () => {
+		const client = readFileSync("lib/db/client.ts", "utf8");
+
+		expect(client).toContain("firstConfiguredEnv");
+		expect(client).toContain('"CS35_DATABASE_URL"');
+		expect(client).toContain('"POSTGRES_URL"');
+		expect(client).toContain('"POSTGRES_PRISMA_URL"');
+		expect(client).toContain('"DATABASE_URL"');
+		expect(client.indexOf('"POSTGRES_URL"')).toBeLessThan(
+			client.indexOf('"DATABASE_URL"'),
+		);
 	});
 
 	test("notification dropdown has no mock operational items", () => {
