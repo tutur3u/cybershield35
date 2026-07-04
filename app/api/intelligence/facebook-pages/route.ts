@@ -1,6 +1,5 @@
-import { parseIntelligenceFilters } from "@/app/api/intelligence/_shared";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { listIntelligenceTopics } from "@/lib/dashboard/intelligence-server";
+import { listIntelligenceFacebookPages } from "@/lib/dashboard/intelligence-server";
 
 export async function GET(request: Request) {
 	const auth = await requireAdminSession(request);
@@ -9,19 +8,18 @@ export async function GET(request: Request) {
 	}
 
 	try {
-		const { cursor, filters, limit } = parseIntelligenceFilters(
-			new URL(request.url).searchParams,
-		);
-		const page = await listIntelligenceTopics({ cursor, filters, limit });
+		const pages = await listIntelligenceFacebookPages();
 		return Response.json(
-			{ ...page, mode: "live" },
+			{ mode: "live", pages },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {
 		return Response.json(
 			{
 				error:
-					error instanceof Error ? error.message : "Không thể tải chủ đề.",
+					error instanceof Error
+						? error.message
+						: "Không thể tải danh sách fanpage.",
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);

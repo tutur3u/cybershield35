@@ -21,7 +21,9 @@ export async function GET(request: Request) {
 		return Response.json(
 			{
 				error:
-					error instanceof Error ? error.message : "Unable to load activity.",
+					error instanceof Error
+						? error.message
+						: "Không thể tải nhật ký hoạt động.",
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);

@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 		return Response.json(
 			{
 				error:
-					error instanceof Error ? error.message : "Unable to load evidence.",
+					error instanceof Error ? error.message : "Không thể tải bằng chứng.",
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);

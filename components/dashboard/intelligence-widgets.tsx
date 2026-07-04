@@ -30,6 +30,7 @@ import {
 	intelligenceActivityInfiniteQueryOptions,
 	intelligenceClaimsInfiniteQueryOptions,
 	intelligenceEvidenceInfiniteQueryOptions,
+	intelligenceFacebookPagesQueryOptions,
 	intelligenceOverviewQueryOptions,
 	intelligenceSourcesInfiniteQueryOptions,
 	intelligenceTopicsInfiniteQueryOptions,
@@ -38,6 +39,7 @@ import type {
 	IntelligenceActivityRow,
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
+	IntelligenceFacebookPageOption,
 	IntelligenceFilters,
 	IntelligenceHealthState,
 	IntelligenceKpi,
@@ -168,7 +170,7 @@ export function IntelligenceEvidenceVault() {
 					action={
 						<DashboardTooltip content="Bằng chứng được lấy từ bảng đã chuẩn hóa, không hiển thị raw provider payload hoặc khóa bí mật.">
 							<span className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-bold text-[var(--muted-strong)]">
-								<Database size={13} /> Backed
+								<Database size={13} /> Có dữ liệu gốc
 							</span>
 						</DashboardTooltip>
 					}
@@ -222,7 +224,7 @@ export function IntelligenceClaimsWorkspace() {
 			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
 			<Panel>
 				<PanelHeader
-					title="Claim graph"
+					title="Đồ thị claim"
 					description="Claim, mức tin cậy, bằng chứng hỗ trợ và điều hướng xử lý."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
@@ -261,7 +263,7 @@ export function IntelligenceSourcesWorkspace({
 			<Panel>
 				<PanelHeader
 					title="Sức khỏe nguồn và pipeline"
-					description="Freshness, failure streaks, provider state and deep links into scan detail."
+					description="Độ mới, chuỗi lỗi, trạng thái provider và liên kết vào chi tiết scan."
 					action={
 						onOpenScan ? (
 							<button
@@ -309,7 +311,7 @@ export function IntelligenceActivityStream() {
 			/>
 			<Panel>
 				<PanelHeader
-					title="Activity intelligence"
+					title="Nhật ký intelligence"
 					description="Hoạt động vận hành có liên kết đến scan, evidence và draft liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
@@ -366,9 +368,13 @@ function IntelligenceFilterBar({
 	showStatus?: boolean;
 }) {
 	const [, startTransition] = useTransition();
+	const facebookPagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
+	const facebookPageOptions = facebookPageSelectOptions(
+		facebookPagesQuery.data ?? [],
+	);
 
 	return (
-		<div className="grid min-w-0 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] md:grid-cols-[minmax(160px,1.1fr)_repeat(4,minmax(118px,0.7fr))]">
+		<div className="grid min-w-0 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] md:grid-cols-2 xl:grid-cols-[minmax(180px,1.2fr)_repeat(5,minmax(126px,0.75fr))]">
 			<label className="relative min-w-0">
 				<Search
 					aria-hidden
@@ -381,10 +387,18 @@ function IntelligenceFilterBar({
 						const value = event.target.value;
 						startTransition(() => setFilter("query", value));
 					}}
-					placeholder="Tìm claim, evidence, nguồn..."
+					placeholder="Tìm claim, bằng chứng, nguồn..."
 					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 				/>
 			</label>
+			<FilterSelect
+				icon={Radar}
+				label="Fanpage"
+				value={filters.facebookPage ?? ""}
+				onChange={(value) => setFilter("facebookPage", value)}
+				options={[["", "Tất cả fanpage"], ...facebookPageOptions]}
+				help="Lọc theo fanpage Facebook đã theo dõi. Nhãn hiển thị tên trang, username và Facebook ID nếu hệ thống đã thu thập được."
+			/>
 			<FilterSelect
 				icon={Filter}
 				label="Thời gian"
@@ -419,12 +433,12 @@ function IntelligenceFilterBar({
 					onChange={(value) => setFilter("provider", value)}
 					options={[
 						["", "Tất cả"],
-						["apify_facebook_posts", "Apify posts"],
-						["apify_facebook_comments", "Apify comments"],
-						["apify_facebook_groups", "Apify groups"],
+						["apify_facebook_posts", "Apify bài viết"],
+						["apify_facebook_comments", "Apify bình luận"],
+						["apify_facebook_groups", "Apify nhóm"],
 						["firecrawl", "Firecrawl"],
 						["browser_use", "Browser Use"],
-						["local_text", "Local text"],
+						["local_text", "Văn bản nội bộ"],
 					]}
 					help="Provider là adapter thu thập dữ liệu cho scan."
 				/>
@@ -494,6 +508,22 @@ function FilterSelect({
 	);
 }
 
+function facebookPageSelectOptions(
+	pages: IntelligenceFacebookPageOption[],
+): [string, string][] {
+	return pages.map((page) => {
+		const details = [
+			page.username ? `@${page.username}` : null,
+			page.facebookId ? `ID ${page.facebookId}` : null,
+			page.evidenceCount ? `${page.evidenceCount} bằng chứng` : null,
+		].filter(Boolean);
+		return [
+			page.value,
+			details.length ? `${page.label} - ${details.join(" - ")}` : page.label,
+		];
+	});
+}
+
 function ExecutiveKpiGrid({
 	isLoading,
 	kpis,
@@ -551,10 +581,10 @@ function RiskTrendPanel({
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Risk and evidence trend"
-				description="Volume, high-risk evidence and scan coverage by day."
+				title="Xu hướng rủi ro và bằng chứng"
+				description="Khối lượng, bằng chứng rủi ro cao và độ phủ scan theo ngày."
 				action={
-					<DashboardTooltip content="Chart is rendered with lightweight SVG from cached rollups, not a heavy chart bundle.">
+					<DashboardTooltip content="Biểu đồ dùng SVG nhẹ từ rollup đã cache, không dùng thư viện chart nặng.">
 						<span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]">
 							<BarChart3 size={13} /> Rollup
 						</span>
@@ -608,7 +638,7 @@ function TrendSvg({
 				viewBox={`0 0 ${width} ${height}`}
 				className="h-56 w-full"
 				role="img"
-				aria-label="Trend chart for scans and evidence"
+				aria-label="Biểu đồ xu hướng scan và bằng chứng"
 			>
 				<polyline
 					points={points("evidence")}
@@ -636,9 +666,9 @@ function TrendSvg({
 				/>
 			</svg>
 			<div className="flex flex-wrap gap-2 text-[11px] font-bold text-[var(--muted-strong)]">
-				<Legend color="var(--accent)" label="Evidence" />
-				<Legend color="var(--danger-strong)" label="High risk" />
-				<Legend color="var(--success-strong)" label="Scans" />
+				<Legend color="var(--accent)" label="Bằng chứng" />
+				<Legend color="var(--danger-strong)" label="Rủi ro cao" />
+				<Legend color="var(--success-strong)" label="Scan" />
 			</div>
 		</div>
 	);
@@ -656,8 +686,8 @@ function ActionRoutingPanel({
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Exceptions needing action"
-				description="Prioritized from risk, claim and pipeline rollups."
+				title="Ngoại lệ cần xử lý"
+				description="Ưu tiên từ rollup rủi ro, claim và pipeline."
 				action={
 					onOpenScan ? (
 						<button
@@ -665,7 +695,7 @@ function ActionRoutingPanel({
 							onClick={onOpenScan}
 							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							<Play size={14} /> New scan
+							<Play size={14} /> Scan mới
 						</button>
 					) : null
 				}
@@ -691,7 +721,13 @@ function ActionRoutingPanel({
 					</Link>
 				))}
 				{!overview?.actions.length ? (
-					<EmptyRow text={isLoading ? "Đang tải action..." : "Không có action khẩn cấp."} />
+					<EmptyRow
+						text={
+							isLoading
+								? "Đang tải việc cần xử lý..."
+								: "Không có việc khẩn cấp."
+						}
+					/>
 				) : null}
 			</div>
 		</Panel>
@@ -702,7 +738,7 @@ function TopicMomentumPanel({ topics }: { topics?: IntelligenceTopicRow[] }) {
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Topic momentum"
+				title="Động lượng chủ đề"
 				description="Chủ đề đang tăng về rủi ro, claim và evidence."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
@@ -725,7 +761,7 @@ function SourceHealthPanel({
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Source and provider health"
+				title="Sức khỏe nguồn và provider"
 				description="Nguồn, adapter và freshness cần theo dõi."
 			/>
 			<div className="grid gap-0 divide-y divide-[var(--divider)]">
@@ -747,7 +783,7 @@ function ClaimGraphPanel({ claims }: { claims?: IntelligenceClaimRow[] }) {
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Claims and reasoning"
+				title="Claim và lập luận"
 				description="Claim quan trọng, độ tin cậy và bằng chứng liên quan."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
@@ -768,7 +804,7 @@ function CriticalEvidencePanel({
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Critical evidence"
+				title="Bằng chứng trọng yếu"
 				description="Bằng chứng mới hoặc rủi ro cao có thể mở trực tiếp."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
@@ -794,7 +830,7 @@ function ReportReadinessPanel({
 	return (
 		<Panel className={className}>
 			<PanelHeader
-				title="Executive report readiness"
+				title="Độ sẵn sàng báo cáo điều hành"
 				description="Độ sẵn sàng dựa trên draft đã duyệt, bằng chứng và citation coverage."
 				action={
 					onCreateReport ? (
@@ -803,30 +839,30 @@ function ReportReadinessPanel({
 							onClick={onCreateReport}
 							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							<FileBarChart size={14} /> Preset
+							<FileBarChart size={14} /> Mẫu báo cáo
 						</button>
 					) : null
 				}
 			/>
 			<div className="grid min-w-0 gap-3 p-4 md:grid-cols-4">
 				<ReadinessMetric
-					help="Report-ready scans are completed scans with approved drafts in the rollup window."
-					label="Ready reports"
+					help="Scan sẵn sàng báo cáo là scan đã hoàn tất và có bản nháp được duyệt trong khoảng rollup."
+					label="Báo cáo sẵn sàng"
 					value={readiness?.readyReports ?? 0}
 				/>
 				<ReadinessMetric
-					help="Approved drafts have been reviewed by an operator."
-					label="Approved drafts"
+					help="Bản nháp đã duyệt là bản nháp được người vận hành kiểm tra."
+					label="Bản nháp đã duyệt"
 					value={readiness?.approvedDrafts ?? 0}
 				/>
 				<ReadinessMetric
-					help="Draft count includes all generated response drafts."
-					label="Drafts"
+					help="Bao gồm tất cả bản nháp phản hồi đã tạo."
+					label="Bản nháp"
 					value={readiness?.draftCount ?? 0}
 				/>
 				<ReadinessMetric
-					help="Citation coverage compares approved drafts against available draft volume."
-					label="Citation coverage"
+					help="Độ phủ citation so sánh bản nháp đã duyệt với tổng bản nháp sẵn có."
+					label="Độ phủ citation"
 					value={`${readiness?.citationCoverage ?? 0}%`}
 				/>
 			</div>
@@ -855,10 +891,10 @@ function TopicRow({
 					{topic.name}
 				</p>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{topic.evidenceCount} evidence - {topic.claimCount} claims - {topic.scanCount} scans
+					{topic.evidenceCount} bằng chứng - {topic.claimCount} claim - {topic.scanCount} scan
 				</p>
 			</div>
-			<DashboardTooltip content="Momentum combines evidence volume, scan coverage and high-risk evidence.">
+			<DashboardTooltip content="Động lượng kết hợp khối lượng bằng chứng, độ phủ scan và bằng chứng rủi ro cao.">
 				<span className="min-w-0 rounded-md bg-[var(--surface-soft)] px-2 py-1 text-center text-[11px] font-bold text-[var(--foreground)]">
 					{topic.momentumScore}/100
 				</span>
@@ -896,6 +932,12 @@ function EvidenceRow({
 				<p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
 					{evidence.summary}
 				</p>
+				<p className="mt-2 truncate text-[11px] font-semibold text-[var(--muted)]">
+					{evidence.facebookUsername
+						? `Fanpage @${evidence.facebookUsername}`
+						: evidence.sourceLabel ?? providerLabel(evidence.provider)}
+					{evidence.facebookPageId ? ` - Facebook ID ${evidence.facebookPageId}` : ""}
+				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{evidence.topicSlugs.slice(0, 3).map((slug) => (
 						<Link
@@ -906,6 +948,22 @@ function EvidenceRow({
 							{slug}
 						</Link>
 					))}
+					<Link
+						href={evidence.scanHref}
+						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
+					>
+						Mở scan
+					</Link>
+					{evidence.originalPostHref ? (
+						<a
+							href={evidence.originalPostHref}
+							target="_blank"
+							rel="noreferrer"
+							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
+						>
+							Bài gốc
+						</a>
+					) : null}
 				</div>
 			</div>
 			{compact ? null : (
@@ -913,7 +971,7 @@ function EvidenceRow({
 					<p className="truncate">{evidence.sourceLabel ?? providerLabel(evidence.provider)}</p>
 					<p className="mt-1 truncate">{formatDate(evidence.createdAt)}</p>
 					<Link href={evidence.scanHref} className="mt-1 inline-flex text-[var(--accent-strong)]">
-						Scan <ArrowRight size={12} />
+						Chi tiết scan <ArrowRight size={12} />
 					</Link>
 				</div>
 			)}
@@ -943,7 +1001,7 @@ function ClaimRow({
 					{claim.claim}
 				</Link>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{claim.evidenceCount} evidence - {claim.stance} - {claim.sourceLabels.slice(0, 2).join(", ") || "no source label"}
+					{claim.evidenceCount} bằng chứng - {claim.stance} - {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{claim.evidenceHrefs.slice(0, 3).map((href, index) => (
@@ -952,15 +1010,15 @@ function ClaimRow({
 							href={href}
 							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
-							Evidence {index + 1}
+							Bằng chứng {index + 1}
 						</Link>
 					))}
 				</div>
 			</div>
 			{compact ? null : (
-				<DashboardTooltip content="Confidence is the structured score returned by the analysis pipeline, normalized to 0-100.">
+				<DashboardTooltip content="Độ tin cậy là điểm có cấu trúc do pipeline phân tích trả về, chuẩn hóa từ 0 đến 100.">
 					<span className="w-fit rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
-						{claim.confidence}% confidence
+						{claim.confidence}% tin cậy
 					</span>
 				</DashboardTooltip>
 			)}
@@ -990,12 +1048,28 @@ function SourceRow({
 					{source.sourceLabel}
 				</Link>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{source.evidenceCount} evidence - {source.failedScanCount} failed - {providerLabel(source.provider)}
+					{source.evidenceCount} bằng chứng - {source.failedScanCount} lỗi - {providerLabel(source.provider)}
 				</p>
+				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+					<Link
+						href={`/evidence?facebookPage=${encodeURIComponent(source.sourceLabel)}`}
+						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
+					>
+						Xem bài viết
+					</Link>
+					{source.lastScanHref ? (
+						<Link
+							href={source.lastScanHref}
+							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
+						>
+							Scan gần nhất
+						</Link>
+					) : null}
+				</div>
 			</div>
 			{compact ? null : (
 				<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-					{source.lastScannedAt ? formatDate(source.lastScannedAt) : "Never scanned"}
+					{source.lastScannedAt ? formatDate(source.lastScannedAt) : "Chưa từng quét"}
 				</p>
 			)}
 			<HealthBadge health={source.health} />
@@ -1011,11 +1085,11 @@ function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) 
 					{providerLabel(provider.provider)}
 				</p>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{provider.completedRunCount} completed - {provider.failedRunCount} failed
+					{provider.completedRunCount} hoàn tất - {provider.failedRunCount} lỗi
 				</p>
 			</div>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-				{provider.avgDurationMs ? `${provider.avgDurationMs}ms avg` : "No duration"}
+				{provider.avgDurationMs ? `${provider.avgDurationMs}ms trung bình` : "Chưa có thời lượng"}
 			</p>
 			<HealthBadge health={provider.health} />
 		</div>
@@ -1165,6 +1239,7 @@ function useIntelligenceFiltersFromUrl(): [
 	const searchParams = useSearchParams();
 	const filters = useMemo<IntelligenceFilters>(
 		() => ({
+			facebookPage: searchParams.get("facebookPage") ?? undefined,
 			provider: searchParams.get("provider") ?? undefined,
 			query: searchParams.get("q") ?? undefined,
 			risk: (searchParams.get("risk") as IntelligenceFilters["risk"]) ?? "all",
@@ -1205,15 +1280,15 @@ function toneText(tone: IntelligenceKpi["tone"]) {
 
 function providerLabel(provider?: string | null) {
 	const labels: Record<string, string> = {
-		apify_facebook_comments: "Apify comments",
-		apify_facebook_groups: "Apify groups",
-		apify_facebook_posts: "Apify posts",
+		apify_facebook_comments: "Apify bình luận",
+		apify_facebook_groups: "Apify nhóm",
+		apify_facebook_posts: "Apify bài viết",
 		browser_use: "Browser Use",
 		firecrawl: "Firecrawl",
 		firecrawl_parse: "Firecrawl parse",
-		local_text: "Local text",
+		local_text: "Văn bản nội bộ",
 	};
-	return provider ? (labels[provider] ?? provider) : "No provider";
+	return provider ? (labels[provider] ?? provider) : "Chưa có provider";
 }
 
 function formatDate(value?: string | null) {
@@ -1229,43 +1304,43 @@ function formatDate(value?: string | null) {
 
 const skeletonKpis: IntelligenceKpi[] = [
 	{
-		description: "Loading scan rollups.",
-		help: "Rollups load from the intelligence overview endpoint.",
+		description: "Đang tải rollup scan.",
+		help: "Rollup được tải từ endpoint tổng quan intelligence.",
 		href: "/sources",
 		id: "loading-scans",
-		label: "Scan throughput",
+		label: "Thông lượng scan",
 		tone: "neutral",
-		trendLabel: "Loading",
+		trendLabel: "Đang tải",
 		value: "-",
 	},
 	{
-		description: "Loading risk posture.",
-		help: "Rollups load from the intelligence overview endpoint.",
+		description: "Đang tải tư thế rủi ro.",
+		help: "Rollup được tải từ endpoint tổng quan intelligence.",
 		href: "/evidence",
 		id: "loading-risk",
-		label: "Risk posture",
+		label: "Tư thế rủi ro",
 		tone: "neutral",
-		trendLabel: "Loading",
+		trendLabel: "Đang tải",
 		value: "-",
 	},
 	{
-		description: "Loading claims.",
-		help: "Rollups load from the intelligence overview endpoint.",
+		description: "Đang tải claim.",
+		help: "Rollup được tải từ endpoint tổng quan intelligence.",
 		href: "/alerts",
 		id: "loading-claims",
-		label: "Claim index",
+		label: "Chỉ mục claim",
 		tone: "neutral",
-		trendLabel: "Loading",
+		trendLabel: "Đang tải",
 		value: "-",
 	},
 	{
-		description: "Loading report readiness.",
-		help: "Rollups load from the intelligence overview endpoint.",
+		description: "Đang tải độ sẵn sàng báo cáo.",
+		help: "Rollup được tải từ endpoint tổng quan intelligence.",
 		href: "/reports",
 		id: "loading-reports",
-		label: "Report readiness",
+		label: "Sẵn sàng báo cáo",
 		tone: "neutral",
-		trendLabel: "Loading",
+		trendLabel: "Đang tải",
 		value: "-",
 	},
 ];

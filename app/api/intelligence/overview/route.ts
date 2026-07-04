@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 				error:
 					error instanceof Error
 						? error.message
-						: "Unable to load intelligence overview.",
+						: "Không thể tải tổng quan intelligence.",
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);

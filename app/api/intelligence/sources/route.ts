@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 		return Response.json(
 			{
 				error:
-					error instanceof Error ? error.message : "Unable to load sources.",
+					error instanceof Error ? error.message : "Không thể tải nguồn.",
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);

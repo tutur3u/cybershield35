@@ -72,15 +72,25 @@ export const providerRows = [
 	{
 		key: "googleGenerativeAi",
 		label: "Google AI",
-		helper: "Gemini analysis and response drafting",
+		helper: "Phân tích Gemini và tạo bản nháp phản hồi",
 		active: true,
 	},
-	{ key: "apify", label: "Apify", helper: "Facebook posts, comments, groups", active: true },
-	{ key: "firecrawl", label: "Firecrawl", helper: "Web scrape, search, parse", active: true },
+	{
+		key: "apify",
+		label: "Apify",
+		helper: "Bài viết, bình luận và nhóm Facebook",
+		active: true,
+	},
+	{
+		key: "firecrawl",
+		label: "Firecrawl",
+		helper: "Quét web, tìm kiếm và phân tích trang",
+		active: true,
+	},
 	{
 		key: "browserUse",
 		label: "Browser Use",
-		helper: "Dynamic page enrichment",
+		helper: "Làm giàu dữ liệu từ trang động",
 		active: true,
 	},
 ] as const;

@@ -114,8 +114,8 @@ export function OverviewPage(props: DashboardPageProps) {
 		<div className="space-y-5">
 			<PageHeader
 				icon={ShieldCheck}
-				title="Executive intelligence"
-				description="Risk posture, topic momentum, evidence strength, source health and report readiness."
+				title="Tổng quan tình báo điều hành"
+				description="Tư thế rủi ro, động lượng chủ đề, độ mạnh bằng chứng, sức khỏe nguồn và độ sẵn sàng báo cáo."
 				actions={
 					<>
 						<SecondaryButton onClick={props.onOpenScan}>
@@ -389,12 +389,12 @@ function TrackedSourcesPanel({
 
 function providerLabel(provider: string) {
 	const labels: Record<string, string> = {
-		apify_facebook_comments: "Apify comments",
-		apify_facebook_groups: "Apify groups",
-		apify_facebook_posts: "Apify posts",
+		apify_facebook_comments: "Apify bình luận",
+		apify_facebook_groups: "Apify nhóm",
+		apify_facebook_posts: "Apify bài viết",
 		firecrawl: "Firecrawl",
 		firecrawl_parse: "Firecrawl parse",
-		local_text: "Local text",
+		local_text: "Văn bản nội bộ",
 		browser_use: "Browser Use",
 	};
 
@@ -573,7 +573,7 @@ export function AlertsPage() {
 			<PageHeader
 				icon={AlertTriangle}
 				title="Cảnh báo & Rủi ro"
-				description="Claim graph, supporting evidence and action routing for risks."
+				description="Đồ thị claim, bằng chứng hỗ trợ và luồng xử lý rủi ro."
 			/>
 			<IntelligenceClaimsWorkspace />
 		</div>
@@ -727,7 +727,7 @@ export function AuditPage(props: DashboardPageProps) {
 								</span>
 								<div className="min-w-0">
 									<p className="text-[13px] font-bold text-[var(--foreground)]">
-										{event.action ?? "activity"}
+										{event.action ?? "hoạt động"}
 									</p>
 									<p className="mt-1 text-[12px] text-[var(--muted)]">
 										Bản ghi phục vụ kiểm toán nội bộ và truy vết xử lý.
