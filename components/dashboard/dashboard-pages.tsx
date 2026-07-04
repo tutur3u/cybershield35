@@ -251,7 +251,7 @@ function TrackedSourcesPanel({
 		<Panel>
 			<PanelHeader
 				title="Nguồn theo dõi"
-				description="Các liên kết công khai được lưu để quét lại khi cần."
+				description="Các liên kết công khai được xếp hàng quét hằng ngày và có thể quét thủ công."
 			/>
 			<div className="grid gap-2 border-b border-[var(--border)] p-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
 				<input
@@ -275,7 +275,7 @@ function TrackedSourcesPanel({
 					sources.map((source) => (
 						<div
 							key={source.id}
-							className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_132px_220px] md:items-center"
+							className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_132px_280px] md:items-center"
 						>
 							<div className="min-w-0">
 								{editingSourceId === source.id ? (
@@ -295,9 +295,20 @@ function TrackedSourcesPanel({
 										</button>
 									</div>
 								) : (
-									<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-										{source.displayName}
-									</p>
+									<div className="flex min-w-0 flex-wrap items-center gap-2">
+										<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
+											{source.displayName}
+										</p>
+										<span
+											className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[10px] font-black ${
+												source.isActive
+													? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
+													: "border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning-strong)]"
+											}`}
+										>
+											{source.isActive ? "Đang theo dõi" : "Đã tắt"}
+										</span>
+									</div>
 								)}
 								<a
 									href={source.normalizedUrl}
@@ -333,10 +344,16 @@ function TrackedSourcesPanel({
 											isActive: !source.isActive,
 										})
 									}
-									className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+									className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 									aria-label={source.isActive ? "Tắt nguồn" : "Bật nguồn"}
+									title={
+										source.isActive
+											? "Tắt tự động quét hằng ngày"
+											: "Bật tự động quét hằng ngày"
+									}
 								>
 									<ShieldCheck size={14} />
+									{source.isActive ? "Tắt" : "Bật"}
 								</button>
 								<button
 									type="button"

@@ -854,6 +854,10 @@ describe("dashboard auth gate", () => {
 		expect(pages).toContain("onCreateEvidence");
 		expect(pages).toContain("onEditEvidence");
 		expect(pages).toContain("onDeleteEvidence");
+		expect(pages).toContain("Đang theo dõi");
+		expect(pages).toContain("Đã tắt");
+		expect(pages).toContain("Tắt tự động quét hằng ngày");
+		expect(pages).toContain("Bật tự động quét hằng ngày");
 		expect(scansRoute).toContain("export async function PATCH");
 		expect(scansRoute).toContain("export async function DELETE");
 		expect(evidenceRoute).toContain("export async function POST");

@@ -20,7 +20,7 @@ export const adminSqlClient =
 		max: Number(process.env.DB_POOL_SIZE ?? 5),
 		prepare: false,
 		idle_timeout: 20,
-		connect_timeout: 8,
+		connect_timeout: Number(process.env.DB_CONNECT_TIMEOUT ?? 15),
 	});
 
 if (process.env.NODE_ENV !== "production") {
