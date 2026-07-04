@@ -8,6 +8,9 @@ import {
 import { z } from "zod";
 
 const SESSION_COOKIE_NAME = "cybershield35_admin_session";
+const PENDING_INVITATION_COOKIE_NAME =
+	"cybershield35_pending_invitation";
+const PENDING_INVITATION_MAX_AGE_SECONDS = 15 * 60;
 const REQUESTED_SCOPES = [
 	"workspace:session",
 	"workspace:members:read",
@@ -45,6 +48,29 @@ const exchangeResponseSchema = z.object({
 	}),
 	workspaceId: z.string().nullable().optional(),
 });
+
+const invitationSummarySchema = z.object({
+	createdAt: z.string().nullable().optional(),
+	role: z.string().nullable().optional(),
+	source: z.string().nullable().optional(),
+	workspaceHandle: z.string().nullable().optional(),
+	workspaceId: z.string().min(1),
+	workspaceName: z.string().nullable().optional(),
+});
+
+const pendingInvitationSchema = z.object({
+	csrfToken: z.string().min(16),
+	expiresAt: z.string().min(1),
+	invitation: invitationSummarySchema,
+	invitationActionToken: z.string().min(1),
+	nextPath: z.string().min(1),
+	workspaceId: z.string().min(1),
+});
+
+const invitationDecisionResponseSchema = z.union([
+	exchangeResponseSchema,
+	z.object({ status: z.literal("rejected") }),
+]);
 
 export type TuturuuuAdminSession = z.infer<typeof exchangeResponseSchema> & {
 	createdAt: string;
@@ -85,8 +111,20 @@ export type TuturuuuAuthDiagnostics = {
 
 export type AuthErrorDetails = {
 	code?: string;
-	invitationUrl?: string;
+	invitation?: PendingInvitationSummary;
+	invitationActionToken?: string;
 	workspaceId?: string;
+};
+
+export type PendingInvitationSummary = z.infer<typeof invitationSummarySchema>;
+
+export type PendingInvitation = z.infer<typeof pendingInvitationSchema>;
+
+export type PendingInvitationPublicView = {
+	csrfToken: string;
+	expiresAt: string;
+	invitation: PendingInvitationSummary;
+	nextPath: string;
 };
 
 export function isTuturuuuAuthConfigured() {
@@ -194,6 +232,49 @@ export async function exchangeTuturuuuAppToken(input: {
 	} satisfies TuturuuuAdminSession;
 }
 
+export async function decideTuturuuuPendingInvitation(
+	pendingInvitation: PendingInvitation,
+	action: "accept" | "reject",
+) {
+	const config = getAuthConfig();
+	const response = await fetch(buildInvitationDecisionUrl(config.apiBaseUrl), {
+		body: JSON.stringify({
+			action,
+			appId: config.appId,
+			appSecret: config.appSecret,
+			invitationActionToken: pendingInvitation.invitationActionToken,
+			requestedScopes: getRequestedScopes(),
+			workspaceId: pendingInvitation.workspaceId,
+		}),
+		cache: "no-store",
+		headers: { "Content-Type": "application/json" },
+		method: "POST",
+	});
+	const body = await response.json().catch(() => null);
+
+	if (!response.ok) {
+		const message =
+			body && typeof body === "object" && "error" in body
+				? String(body.error)
+				: "Tuturuuu invitation decision failed";
+		throw new AuthError(message, response.status, authErrorDetails(body));
+	}
+
+	const parsed = invitationDecisionResponseSchema.parse(body);
+	if ("status" in parsed) return parsed;
+
+	const now = new Date().toISOString();
+	const scopes = normalizeScopes(
+		parsed.scopes ?? decodeAccessTokenScopes(parsed.accessToken),
+	);
+	return {
+		...parsed,
+		createdAt: now,
+		identityRefreshedAt: now,
+		scopes,
+	} satisfies TuturuuuAdminSession;
+}
+
 export function buildTuturuuuApiUrl(path: string) {
 	const { apiBaseUrl } = getAuthConfig();
 	const base = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
@@ -271,6 +352,83 @@ export async function readAdminSession(request: Request) {
 	return decryptSession(cookieValue);
 }
 
+export function pendingInvitationPublicView(
+	pendingInvitation: PendingInvitation | null,
+): PendingInvitationPublicView | null {
+	if (!pendingInvitation || pendingInvitationIsExpired(pendingInvitation)) {
+		return null;
+	}
+
+	return {
+		csrfToken: pendingInvitation.csrfToken,
+		expiresAt: pendingInvitation.expiresAt,
+		invitation: pendingInvitation.invitation,
+		nextPath: pendingInvitation.nextPath,
+	};
+}
+
+export async function readPendingInvitation(request: Request) {
+	const cookieValue = getCookie(request, PENDING_INVITATION_COOKIE_NAME);
+	if (!cookieValue) return null;
+	const pendingInvitation = decryptPendingInvitation(cookieValue);
+	if (!pendingInvitation || pendingInvitationIsExpired(pendingInvitation)) {
+		return null;
+	}
+
+	return pendingInvitation;
+}
+
+export function pendingInvitationIsExpired(
+	pendingInvitation: Pick<PendingInvitation, "expiresAt">,
+) {
+	return Date.parse(pendingInvitation.expiresAt) <= Date.now();
+}
+
+export function createPendingInvitationCookie(input: {
+	invitation: PendingInvitationSummary;
+	invitationActionToken: string;
+	nextPath: string;
+	workspaceId: string;
+}) {
+	const csrfToken = randomBytes(24).toString("base64url");
+	const expiresAt = new Date(
+		Date.now() + PENDING_INVITATION_MAX_AGE_SECONDS * 1000,
+	).toISOString();
+	const pendingInvitation: PendingInvitation = {
+		csrfToken,
+		expiresAt,
+		invitation: input.invitation,
+		invitationActionToken: input.invitationActionToken,
+		nextPath: input.nextPath,
+		workspaceId: input.workspaceId,
+	};
+
+	return {
+		cookie: serializeCookie(
+			PENDING_INVITATION_COOKIE_NAME,
+			encryptPendingInvitation(pendingInvitation),
+			{
+				httpOnly: true,
+				maxAge: PENDING_INVITATION_MAX_AGE_SECONDS,
+				path: "/",
+				sameSite: "Lax",
+				secure: process.env.NODE_ENV === "production",
+			},
+		),
+		pendingInvitation,
+	};
+}
+
+export function clearPendingInvitationCookie() {
+	return serializeCookie(PENDING_INVITATION_COOKIE_NAME, "", {
+		httpOnly: true,
+		maxAge: 0,
+		path: "/",
+		sameSite: "Lax",
+		secure: process.env.NODE_ENV === "production",
+	});
+}
+
 export async function refreshAdminSession(session: TuturuuuAdminSession) {
 	if (Date.parse(session.refreshExpiresAt) <= Date.now()) {
 		throw new AuthError("Tuturuuu admin session expired", 401);
@@ -328,7 +486,7 @@ export function sanitizeAuthError(error: unknown) {
 	if (error instanceof AuthError) {
 		return {
 			code: error.details.code,
-			invitationUrl: error.details.invitationUrl,
+			invitation: error.details.invitation,
 			message: error.message,
 			status: error.status,
 			workspaceId: error.details.workspaceId,
@@ -337,7 +495,7 @@ export function sanitizeAuthError(error: unknown) {
 
 	return {
 		code: undefined,
-		invitationUrl: undefined,
+		invitation: undefined,
 		message: error instanceof Error ? error.message : "Authentication failed",
 		status: 500,
 		workspaceId: undefined,
@@ -359,15 +517,23 @@ function authErrorDetails(body: unknown): AuthErrorDetails {
 	if (!body || typeof body !== "object") return {};
 	const row = body as Record<string, unknown>;
 	const code = cleanEnv(typeof row.code === "string" ? row.code : undefined);
-	const invitationUrl = cleanEnv(
-		typeof row.invitationUrl === "string" ? row.invitationUrl : undefined,
+	const invitationActionToken = cleanEnv(
+		typeof row.invitationActionToken === "string"
+			? row.invitationActionToken
+			: undefined,
 	);
+	const invitation = invitationSummarySchema
+		.safeParse(row.invitation)
+		.success
+		? invitationSummarySchema.parse(row.invitation)
+		: undefined;
 	const workspaceId = cleanEnv(
 		typeof row.workspaceId === "string" ? row.workspaceId : undefined,
 	);
 	return {
 		...(code ? { code } : {}),
-		...(invitationUrl ? { invitationUrl } : {}),
+		...(invitation ? { invitation } : {}),
+		...(invitationActionToken ? { invitationActionToken } : {}),
 		...(workspaceId ? { workspaceId } : {}),
 	};
 }
@@ -500,10 +666,18 @@ function getCookie(request: Request, name: string) {
 }
 
 function encryptSession(session: TuturuuuAdminSession) {
+	return encryptJson(session);
+}
+
+function encryptPendingInvitation(pendingInvitation: PendingInvitation) {
+	return encryptJson(pendingInvitation);
+}
+
+function encryptJson(value: unknown) {
 	const iv = randomBytes(12);
 	const cipher = createCipheriv("aes-256-gcm", getSessionKey(), iv);
 	const encrypted = Buffer.concat([
-		cipher.update(JSON.stringify(session), "utf8"),
+		cipher.update(JSON.stringify(value), "utf8"),
 		cipher.final(),
 	]);
 	const tag = cipher.getAuthTag();
@@ -539,6 +713,33 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 	}
 }
 
+function decryptPendingInvitation(value: string): PendingInvitation | null {
+	try {
+		const parsed = decryptJson(value);
+		return pendingInvitationSchema.parse(parsed);
+	} catch {
+		return null;
+	}
+}
+
+function decryptJson(value: string) {
+	const [ivPart, tagPart, encryptedPart] = value.split(".");
+	if (!ivPart || !tagPart || !encryptedPart) return null;
+
+	const decipher = createDecipheriv(
+		"aes-256-gcm",
+		getSessionKey(),
+		Buffer.from(ivPart, "base64url"),
+	);
+	decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
+	return JSON.parse(
+		Buffer.concat([
+			decipher.update(Buffer.from(encryptedPart, "base64url")),
+			decipher.final(),
+		]).toString("utf8"),
+	);
+}
+
 function getSessionKey() {
 	const secret =
 		process.env.CYBERSHIELD35_SESSION_SECRET ??
@@ -555,6 +756,11 @@ function getSessionKey() {
 function buildExchangeUrl(apiBaseUrl: string) {
 	const base = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
 	return new URL("auth/app-token/exchange", base).toString();
+}
+
+function buildInvitationDecisionUrl(apiBaseUrl: string) {
+	const base = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
+	return new URL("auth/app-token/invitation-decision", base).toString();
 }
 
 function normalizeScopes(scopes: unknown) {

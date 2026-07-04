@@ -21,7 +21,6 @@ export type AdminAuthResult =
 	| {
 			code?: string;
 			error: string;
-			invitationUrl?: string;
 			status: number;
 	  };
 
@@ -64,7 +63,6 @@ export async function requireAdminSession(
 				return {
 					code: safe.code ?? "NO_WORKSPACE_ACCESS",
 					error: safe.message,
-					invitationUrl: safe.invitationUrl,
 					status: safe.status,
 				};
 			}

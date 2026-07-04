@@ -96,9 +96,7 @@ export async function resolveDashboardAuthFromRequest(
 			configured: authDiagnostics.configured,
 			error: auth.error,
 			loginHref,
-			loginPath: buildLocalLoginPath(nextPath, loginReason, {
-				invitationUrl: auth.invitationUrl,
-			}),
+			loginPath: buildLocalLoginPath(nextPath, loginReason),
 			scopeApprovalHref,
 			status: auth.status,
 		};

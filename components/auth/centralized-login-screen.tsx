@@ -1,15 +1,16 @@
 import {
 	AlertTriangle,
 	CheckCircle2,
-	ExternalLink,
 	Server,
 	type LucideIcon,
 } from "lucide-react";
 
+import { PendingInvitationActions } from "@/components/auth/pending-invitation-actions";
 import { TuturuuuLoginLink } from "@/components/auth/tuturuuu-login-link";
 import type { LoginReason } from "@/lib/auth/routes";
 import type {
 	EnvironmentDiagnostic,
+	PendingInvitationPublicView,
 	TuturuuuAuthDiagnostics,
 } from "@/lib/auth/tuturuuu-session";
 
@@ -17,16 +18,18 @@ export function CentralizedLoginScreen({
 	authDiagnostics,
 	configured,
 	error,
-	invitationHref,
 	loginHref,
+	pendingInvitation,
+	pendingInvitationExpired,
 	reason,
 	scopeApprovalHref,
 }: {
 	authDiagnostics: TuturuuuAuthDiagnostics;
 	configured: boolean;
 	error?: string;
-	invitationHref?: string;
 	loginHref?: string;
+	pendingInvitation?: PendingInvitationPublicView | null;
+	pendingInvitationExpired?: boolean;
 	reason?: LoginReason | null;
 	scopeApprovalHref?: string;
 }) {
@@ -34,7 +37,13 @@ export function CentralizedLoginScreen({
 	const authIssues = authDiagnostics.required.filter(isBlockingIssue);
 	const runtimeIssues = runtimeDiagnostics.filter(isBlockingIssue);
 	const setupIncomplete = authIssues.length > 0 || runtimeIssues.length > 0;
-	const copy = loginCopy(reason, setupIncomplete, Boolean(scopeApprovalHref), error);
+	const copy = loginCopy(
+		reason,
+		setupIncomplete,
+		Boolean(scopeApprovalHref),
+		error,
+		Boolean(pendingInvitationExpired),
+	);
 
 	return (
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
@@ -59,19 +68,12 @@ export function CentralizedLoginScreen({
 							href={scopeApprovalHref}
 							className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--foreground)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
 						>
-							<ExternalLink size={15} />
 							Duyệt quyền truy cập
 						</a>
 					) : null}
 
-					{invitationHref ? (
-						<a
-							href={invitationHref}
-							className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--foreground)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
-						>
-							<ExternalLink size={15} />
-							Xem lời mời Tuturuuu
-						</a>
+					{pendingInvitation ? (
+						<PendingInvitationActions pendingInvitation={pendingInvitation} />
 					) : null}
 
 					{loginHref && !setupIncomplete ? (
@@ -226,6 +228,7 @@ function loginCopy(
 	setupIncomplete: boolean,
 	hasScopeApproval: boolean,
 	error?: string,
+	pendingInvitationExpired = false,
 ) {
 	if (setupIncomplete) {
 		return {
@@ -246,11 +249,21 @@ function loginCopy(
 	}
 
 	if (reason === "invitation") {
+		if (pendingInvitationExpired) {
+			return {
+				description:
+					"Lời mời đang chờ không còn khả dụng trong phiên đăng nhập này.",
+				notice:
+					"Đăng nhập lại bằng Tuturuuu để tải lại lời mời và tiếp tục.",
+				title: "Cần tải lại lời mời",
+			};
+		}
+
 		return {
 			description:
 				"Tài khoản có lời mời Tuturuuu đang chờ cho workspace này.",
 			notice:
-				"Mở Tuturuuu để chấp nhận hoặc từ chối lời mời, sau đó quay lại đăng nhập.",
+				"Chấp nhận để mở CS35 ngay, hoặc từ chối nếu đây không phải workspace bạn muốn tham gia.",
 			title: "Có lời mời đang chờ",
 		};
 	}

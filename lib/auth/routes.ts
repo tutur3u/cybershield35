@@ -28,15 +28,11 @@ export function nextPathFromRequestUrl(requestUrl: URL) {
 export function buildLocalLoginPath(
 	nextPath = "/",
 	reason?: LoginReason | null,
-	options: { invitationUrl?: string | null } = {},
 ) {
 	const safeNextPath = normalizeInternalPath(nextPath);
 	const params = new URLSearchParams({ nextUrl: safeNextPath });
 	const safeReason = safeLoginReason(reason);
 	if (safeReason) params.set("reason", safeReason);
-	if (safeReason === "invitation" && options.invitationUrl) {
-		params.set("invitationUrl", options.invitationUrl);
-	}
 	return `${LOGIN_PATHNAME}?${params.toString()}`;
 }
 
