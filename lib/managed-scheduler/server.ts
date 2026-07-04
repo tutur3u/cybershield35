@@ -331,6 +331,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		const result = await enqueueDueTrackedSources();
 		return {
 			enqueued: result.enqueued,
+			recovered: result.recovered,
 			scanIds: result.scans.map((scan) => scan.scanId),
 			skipped: result.skipped,
 		};

@@ -1,16 +1,19 @@
 import { desc, eq } from "drizzle-orm";
 
 import { adminDb } from "@/lib/db/client";
-import { trackedSources } from "@/lib/db/schema";
+import { scanJobs, trackedSources, type ScanStatus } from "@/lib/db/schema";
+import {
+	classifyTrackedSourceAutomation,
+	isActiveTrackedSourceScanStatus,
+	TRACKED_SOURCE_DUPLICATE_GUARD_MS,
+	TRACKED_SOURCE_STALE_ACTIVE_SCAN_MS,
+} from "@/lib/domain/tracked-source-automation";
 import {
 	defaultTrackedSourceSeeds,
 	toTrackedSourceSeed,
 	type TrackedSourceSeed,
 } from "@/lib/domain/tracked-sources";
 import { createScan } from "@/lib/workers/scans";
-
-const ACTIVE_SCAN_STATUSES = new Set(["queued", "running", "retrying"]);
-const DEFAULT_TRACKED_SOURCE_SCAN_WINDOW_MS = 60 * 60 * 1000;
 
 export async function ensureDefaultTrackedSources() {
 	for (const seed of defaultTrackedSourceSeeds) {
@@ -105,8 +108,10 @@ export async function scanTrackedSource(id: string) {
 }
 
 export async function enqueueDueTrackedSources({
-	windowMs = DEFAULT_TRACKED_SOURCE_SCAN_WINDOW_MS,
+	staleActiveScanMs = TRACKED_SOURCE_STALE_ACTIVE_SCAN_MS,
+	windowMs = TRACKED_SOURCE_DUPLICATE_GUARD_MS,
 }: {
+	staleActiveScanMs?: number;
 	windowMs?: number;
 } = {}) {
 	await ensureDefaultTrackedSources();
@@ -115,35 +120,45 @@ export async function enqueueDueTrackedSources({
 		.select()
 		.from(trackedSources)
 		.orderBy(desc(trackedSources.updatedAt));
-	const now = Date.now();
+	const now = new Date();
 	const scans: Array<{ scanId: string; sourceId: string }> = [];
+	const recovered: Array<{
+		reason: string;
+		sourceId: string;
+		staleScanId: string | null;
+	}> = [];
 	const skipped: Array<{ reason: string; sourceId: string }> = [];
 
 	for (const source of sources) {
-		if (!source.isActive) {
-			skipped.push({ reason: "inactive", sourceId: source.id });
+		const normalizedSource = await normalizeTrackedSourceScanState(source, {
+			now,
+		});
+
+		const decision = classifyTrackedSourceAutomation({
+			duplicateGuardMs: windowMs,
+			isActive: normalizedSource.isActive,
+			lastScannedAt: normalizedSource.lastScannedAt,
+			lastScanStatus: normalizedSource.lastScanStatus,
+			now,
+			staleActiveScanMs,
+		});
+		if (decision.blocksEnqueue) {
+			skipped.push({ reason: decision.reason, sourceId: normalizedSource.id });
 			continue;
 		}
 
-		if (
-			source.lastScanStatus &&
-			ACTIVE_SCAN_STATUSES.has(source.lastScanStatus)
-		) {
-			skipped.push({ reason: "scan_in_progress", sourceId: source.id });
-			continue;
-		}
-
-		if (
-			source.lastScannedAt &&
-			now - source.lastScannedAt.getTime() < windowMs
-		) {
-			skipped.push({ reason: "recently_scanned", sourceId: source.id });
-			continue;
+		if (decision.kind === "stale_active") {
+			await markStaleTrackedSourceScanFailed(normalizedSource, now);
+			recovered.push({
+				reason: decision.reason,
+				sourceId: normalizedSource.id,
+				staleScanId: normalizedSource.lastScanJobId,
+			});
 		}
 
 		const scan = await createScan({
-			input: source.normalizedUrl,
-			title: source.displayName,
+			input: normalizedSource.normalizedUrl,
+			title: normalizedSource.displayName,
 		});
 
 		await adminDb
@@ -151,20 +166,77 @@ export async function enqueueDueTrackedSources({
 			.set({
 				lastScanJobId: scan.scanId,
 				lastScanStatus: scan.status,
-				lastScannedAt: new Date(),
-				updatedAt: new Date(),
+				lastScannedAt: now,
+				updatedAt: now,
 			})
-			.where(eq(trackedSources.id, source.id));
+			.where(eq(trackedSources.id, normalizedSource.id));
 
-		scans.push({ scanId: scan.scanId, sourceId: source.id });
+		scans.push({ scanId: scan.scanId, sourceId: normalizedSource.id });
 	}
 
 	return {
 		enqueued: scans.length,
+		recovered: recovered.length,
+		recoveredSources: recovered,
 		scans,
 		skipped: skipped.length,
 		skippedSources: skipped,
 	};
+}
+
+async function normalizeTrackedSourceScanState(
+	source: typeof trackedSources.$inferSelect,
+	input: { now: Date },
+) {
+	if (!isActiveTrackedSourceScanStatus(source.lastScanStatus)) return source;
+	if (!source.lastScanJobId) return source;
+
+	const [job] = await adminDb
+		.select({
+			completedAt: scanJobs.completedAt,
+			status: scanJobs.status,
+			updatedAt: scanJobs.updatedAt,
+		})
+		.from(scanJobs)
+		.where(eq(scanJobs.id, source.lastScanJobId))
+		.limit(1);
+
+	if (!job) return source;
+	if (isActiveTrackedSourceScanStatus(job.status)) return source;
+
+	const lastScannedAt = job.completedAt ?? job.updatedAt ?? source.lastScannedAt;
+	await adminDb
+		.update(trackedSources)
+		.set({
+			lastScanStatus: job.status,
+			lastScannedAt,
+			updatedAt: input.now,
+		})
+		.where(eq(trackedSources.id, source.id));
+
+	return {
+		...source,
+		lastScanStatus: job.status,
+		lastScannedAt,
+	};
+}
+
+async function markStaleTrackedSourceScanFailed(
+	source: typeof trackedSources.$inferSelect,
+	now: Date,
+) {
+	if (!source.lastScanJobId) return;
+
+	await adminDb
+		.update(scanJobs)
+		.set({
+			completedAt: now,
+			errorMessage:
+				"Superseded by tracked-source automation after the previous scan stayed active past the recovery window.",
+			status: "failed" satisfies ScanStatus,
+			updatedAt: now,
+		})
+		.where(eq(scanJobs.id, source.lastScanJobId));
 }
 
 async function upsertTrackedSource(seed: TrackedSourceSeed) {
