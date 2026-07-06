@@ -531,6 +531,63 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
+	test("pending invitation route classifies legacy Tuturuuu already-used action token responses", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const pending = createPendingInvitationCookie({
+			invitation: {
+				workspaceId: "workspace-1",
+				workspaceName: "CS35",
+			},
+			invitationActionToken: "ttr_app_invitation_action_secret",
+			nextPath: "/",
+			workspaceId: "workspace-1",
+		});
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{
+						error: "Invitation action token is expired or already used",
+					},
+					{ status: 409 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await pendingInvitationDecision(
+				new Request("https://cybershield.example.com/api/auth/pending-invitation", {
+					body: JSON.stringify({
+						action: "accept",
+						csrfToken: pending.pendingInvitation.csrfToken,
+					}),
+					headers: {
+						"Content-Type": "application/json",
+						cookie: pending.cookie,
+					},
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(409);
+			expect(body).toMatchObject({
+				code: "INVITATION_ACTION_TOKEN_ALREADY_USED",
+				error: "Invitation action token is expired or already used",
+				redirectTo: "/login?nextUrl=%2F&reason=invitation",
+			});
+			expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+			expect(JSON.stringify(body)).not.toContain(
+				"ttr_app_invitation_action_secret",
+			);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test("pending invitation route keeps retryable replay-store failures actionable", async () => {
 		process.env.NODE_ENV = "production";
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
