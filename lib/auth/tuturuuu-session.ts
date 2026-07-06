@@ -516,7 +516,10 @@ export class AuthError extends Error {
 function authErrorDetails(body: unknown): AuthErrorDetails {
 	if (!body || typeof body !== "object") return {};
 	const row = body as Record<string, unknown>;
-	const code = cleanEnv(typeof row.code === "string" ? row.code : undefined);
+	const errorMessage = typeof row.error === "string" ? row.error : undefined;
+	const code =
+		cleanEnv(typeof row.code === "string" ? row.code : undefined) ??
+		inferAuthErrorCode(errorMessage);
 	const invitationActionToken = cleanEnv(
 		typeof row.invitationActionToken === "string"
 			? row.invitationActionToken
@@ -536,6 +539,19 @@ function authErrorDetails(body: unknown): AuthErrorDetails {
 		...(invitationActionToken ? { invitationActionToken } : {}),
 		...(workspaceId ? { workspaceId } : {}),
 	};
+}
+
+function inferAuthErrorCode(errorMessage: string | undefined) {
+	if (!errorMessage) return undefined;
+	const normalized = errorMessage.toLowerCase();
+	if (
+		normalized.includes("invitation action token") &&
+		normalized.includes("expired") &&
+		normalized.includes("already used")
+	) {
+		return "INVITATION_ACTION_TOKEN_ALREADY_USED";
+	}
+	return undefined;
 }
 
 function getAuthConfig() {
