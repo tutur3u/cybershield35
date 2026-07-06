@@ -8,6 +8,13 @@ import type { PendingInvitationPublicView } from "@/lib/auth/tuturuuu-session";
 
 type ActionState = "idle" | "accepting" | "rejecting" | "success";
 
+const TERMINAL_INVITATION_ERROR_CODES = new Set([
+	"INVITATION_ACTION_TOKEN_INVALID_OR_EXPIRED",
+	"INVITATION_ACTION_TOKEN_ALREADY_USED",
+	"PENDING_INVITATION_NOT_FOUND",
+	"PENDING_INVITATION_EXPIRED",
+]);
+
 export function PendingInvitationActions({
 	pendingInvitation,
 }: {
@@ -24,6 +31,8 @@ export function PendingInvitationActions({
 		invitation.workspaceId;
 
 	async function decide(action: "accept" | "reject") {
+		if (isPending || state === "success") return;
+
 		setError(null);
 		setState(action === "accept" ? "accepting" : "rejecting");
 
@@ -37,12 +46,24 @@ export function PendingInvitationActions({
 				method: "POST",
 			});
 			const body = (await response.json().catch(() => null)) as {
+				code?: string;
 				error?: string;
 				redirectTo?: string;
+				retryable?: boolean;
 				status?: string;
 			} | null;
 
 			if (!response.ok) {
+				if (
+					body?.redirectTo &&
+					isTerminalInvitationFailure(body.code, response.status)
+				) {
+					setState("success");
+					router.replace(body.redirectTo);
+					router.refresh();
+					return;
+				}
+
 				throw new Error(body?.error ?? "Không thể xử lý lời mời.");
 			}
 
@@ -121,4 +142,12 @@ function sourceLabel(source: string | null | undefined) {
 	if (source === "direct") return "Mời trực tiếp";
 	if (source === "email") return "Email";
 	return "Chưa rõ";
+}
+
+function isTerminalInvitationFailure(
+	code: string | undefined,
+	status: number,
+) {
+	if (code && TERMINAL_INVITATION_ERROR_CODES.has(code)) return true;
+	return status === 401 || status === 404 || status === 409 || status === 410;
 }
