@@ -18,6 +18,16 @@ const bodySchema = z
 	})
 	.strict();
 
+const TERMINAL_INVITATION_ERROR_CODES = new Set([
+	"INVITATION_ACTION_TOKEN_INVALID_OR_EXPIRED",
+	"INVITATION_ACTION_TOKEN_ALREADY_USED",
+	"PENDING_INVITATION_NOT_FOUND",
+]);
+
+const RETRYABLE_INVITATION_ERROR_CODES = new Set([
+	"INVITATION_ACTION_REPLAY_STORE_UNAVAILABLE",
+]);
+
 export async function POST(request: Request) {
 	const body = await request.json().catch(() => null);
 	const parsed = bodySchema.safeParse(body);
@@ -81,15 +91,29 @@ export async function POST(request: Request) {
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
+		const terminal =
+			isTerminalInvitationError(safe.code) ||
+			(!isRetryableInvitationError(safe.code) &&
+				(safe.status === 401 || safe.status === 404 || safe.status === 409));
+		const retryable =
+			isRetryableInvitationError(safe.code) ||
+			(!terminal && safe.status >= 500);
 		return jsonWithCookies(
 			{
+				...(safe.code ? { code: safe.code } : {}),
 				error: safe.message,
+				...(terminal
+					? {
+							redirectTo: buildLocalLoginPath(
+								pendingInvitation.nextPath,
+								"invitation",
+							),
+						}
+					: {}),
+				...(retryable ? { retryable: true } : {}),
 			},
 			{
-				cookies:
-					safe.status === 401 || safe.status === 404 || safe.status === 409
-						? [clearPendingInvitationCookie()]
-						: undefined,
+				cookies: terminal ? [clearPendingInvitationCookie()] : undefined,
 				status: safe.status,
 			},
 		);
@@ -105,4 +129,12 @@ function jsonWithCookies(
 		headers.append("Set-Cookie", cookie);
 	}
 	return Response.json(body, { headers, status: options.status });
+}
+
+function isTerminalInvitationError(code: string | undefined) {
+	return Boolean(code && TERMINAL_INVITATION_ERROR_CODES.has(code));
+}
+
+function isRetryableInvitationError(code: string | undefined) {
+	return Boolean(code && RETRYABLE_INVITATION_ERROR_CODES.has(code));
 }

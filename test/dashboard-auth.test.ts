@@ -472,6 +472,121 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
+	test("pending invitation route clears stale Tuturuuu action tokens and returns a reload redirect", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const pending = createPendingInvitationCookie({
+			invitation: {
+				workspaceId: "workspace-1",
+				workspaceName: "CS35",
+			},
+			invitationActionToken: "ttr_app_invitation_action_secret",
+			nextPath: "/sources",
+			workspaceId: "workspace-1",
+		});
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "INVITATION_ACTION_TOKEN_ALREADY_USED",
+						error: "Invitation action token is already used",
+					},
+					{ status: 409 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await pendingInvitationDecision(
+				new Request("https://cybershield.example.com/api/auth/pending-invitation", {
+					body: JSON.stringify({
+						action: "accept",
+						csrfToken: pending.pendingInvitation.csrfToken,
+					}),
+					headers: {
+						"Content-Type": "application/json",
+						cookie: pending.cookie,
+					},
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(409);
+			expect(body).toMatchObject({
+				code: "INVITATION_ACTION_TOKEN_ALREADY_USED",
+				error: "Invitation action token is already used",
+				redirectTo: "/login?nextUrl=%2Fsources&reason=invitation",
+			});
+			expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+			expect(JSON.stringify(body)).not.toContain(
+				"ttr_app_invitation_action_secret",
+			);
+			expect(JSON.stringify(body)).not.toContain("app-secret");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	test("pending invitation route keeps retryable replay-store failures actionable", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const pending = createPendingInvitationCookie({
+			invitation: {
+				workspaceId: "workspace-1",
+				workspaceName: "CS35",
+			},
+			invitationActionToken: "ttr_app_invitation_action_secret",
+			nextPath: "/sources",
+			workspaceId: "workspace-1",
+		});
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = (() =>
+			Promise.resolve(
+				Response.json(
+					{
+						code: "INVITATION_ACTION_REPLAY_STORE_UNAVAILABLE",
+						error: "Invitation replay protection is unavailable",
+					},
+					{ status: 503 },
+				),
+			)) as typeof fetch;
+
+		try {
+			const response = await pendingInvitationDecision(
+				new Request("https://cybershield.example.com/api/auth/pending-invitation", {
+					body: JSON.stringify({
+						action: "accept",
+						csrfToken: pending.pendingInvitation.csrfToken,
+					}),
+					headers: {
+						"Content-Type": "application/json",
+						cookie: pending.cookie,
+					},
+					method: "POST",
+				}),
+			);
+			const body = await response.json();
+
+			expect(response.status).toBe(503);
+			expect(body).toMatchObject({
+				code: "INVITATION_ACTION_REPLAY_STORE_UNAVAILABLE",
+				error: "Invitation replay protection is unavailable",
+				retryable: true,
+			});
+			expect(body.redirectTo).toBeUndefined();
+			expect(response.headers.get("set-cookie")).toBeNull();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
 	test("allows the login page to render before authentication", async () => {
 		process.env.NODE_ENV = "production";
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
@@ -927,6 +1042,8 @@ describe("dashboard auth gate", () => {
 		);
 		expect(centralizedLoginScreen).toContain("PendingInvitationActions");
 		expect(pendingInvitationActions).toContain("/api/auth/pending-invitation");
+		expect(pendingInvitationActions).toContain("isTerminalInvitationFailure");
+		expect(pendingInvitationActions).toContain("router.replace(body.redirectTo)");
 		expect(pendingInvitationActions).toContain("Chấp nhận lời mời");
 		expect(pendingInvitationActions).toContain("Từ chối");
 
