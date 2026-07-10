@@ -5,7 +5,6 @@ import {
 	FileText,
 	Globe2,
 } from "lucide-react";
-import Link from "next/link";
 
 import type {
 	AnalysisView,
@@ -13,6 +12,7 @@ import type {
 	DraftShape,
 	ScanDetail,
 } from "@/components/dashboard/types";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	Panel,
 	PanelHeader,
@@ -101,12 +101,12 @@ export function DraftReview({
 							{draft.body}
 						</p>
 						<div className="flex flex-wrap gap-2">
-							<Link
+								<IntentPrefetchLink
 								href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
 								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 							>
 								<FileText size={14} /> Chi tiết
-							</Link>
+								</IntentPrefetchLink>
 							<SecondaryButton onClick={() => onReview("needs_review")}>
 								<FileText size={14} /> Cần duyệt
 							</SecondaryButton>

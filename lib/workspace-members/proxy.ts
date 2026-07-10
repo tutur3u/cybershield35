@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
 	buildTuturuuuApiUrl,
+	fetchTuturuuuWithBearer,
 	getBearerForPlatformRequest,
 	sanitizeAuthError,
 } from "@/lib/auth/tuturuuu-session";
@@ -50,21 +51,25 @@ export async function proxyWorkspaceMembersRequest(
 ) {
 	try {
 		const auth = await getBearerForPlatformRequest(request);
-		const response = await fetch(buildWorkspaceMembersUrl(input.path), {
-			body: input.body === undefined ? undefined : JSON.stringify(input.body),
-			cache: "no-store",
-			headers: {
-				Authorization: auth.authorization,
-				...(input.body === undefined
-					? {}
-					: { "Content-Type": "application/json" }),
+		const upstream = await fetchTuturuuuWithBearer(
+			auth,
+			buildWorkspaceMembersUrl(input.path),
+			{
+				body:
+					input.body === undefined ? undefined : JSON.stringify(input.body),
+				headers: {
+					...(input.body === undefined
+						? {}
+						: { "Content-Type": "application/json" }),
+				},
+				method: input.method,
 			},
-			method: input.method,
-		});
+		);
+		const { response } = upstream;
 		const body = await response.json().catch(() => null);
 
 		return json(body ?? fallbackBody(response.status), {
-			setCookie: auth.setCookie,
+			setCookie: upstream.auth.setCookie,
 			status: response.status,
 		});
 	} catch (error) {
@@ -75,11 +80,11 @@ export async function proxyWorkspaceMembersRequest(
 
 export async function fetchWorkspaceMembersForRequest(request: Request) {
 	const auth = await getBearerForPlatformRequest(request);
-	const response = await fetch(buildWorkspaceMembersUrl(""), {
-		cache: "no-store",
-		headers: { Authorization: auth.authorization },
-		method: "GET",
-	});
+	const { response } = await fetchTuturuuuWithBearer(
+		auth,
+		buildWorkspaceMembersUrl(""),
+		{ method: "GET" },
+	);
 	const body = await response.json().catch(() => null);
 
 	if (!response.ok) {

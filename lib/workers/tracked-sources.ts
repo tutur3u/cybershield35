@@ -9,21 +9,12 @@ import {
 	TRACKED_SOURCE_STALE_ACTIVE_SCAN_MS,
 } from "@/lib/domain/tracked-source-automation";
 import {
-	defaultTrackedSourceSeeds,
 	toTrackedSourceSeed,
 	type TrackedSourceSeed,
 } from "@/lib/domain/tracked-sources";
 import { createScan } from "@/lib/workers/scans";
 
-export async function ensureDefaultTrackedSources() {
-	for (const seed of defaultTrackedSourceSeeds) {
-		await insertDefaultTrackedSource(seed);
-	}
-}
-
 export async function listTrackedSources() {
-	await ensureDefaultTrackedSources();
-
 	return adminDb
 		.select()
 		.from(trackedSources)
@@ -114,8 +105,6 @@ export async function enqueueDueTrackedSources({
 	staleActiveScanMs?: number;
 	windowMs?: number;
 } = {}) {
-	await ensureDefaultTrackedSources();
-
 	const sources = await adminDb
 		.select()
 		.from(trackedSources)
@@ -261,27 +250,4 @@ async function upsertTrackedSource(seed: TrackedSourceSeed) {
 			},
 		})
 		.returning();
-}
-
-async function insertDefaultTrackedSource(seed: TrackedSourceSeed) {
-	return adminDb
-		.insert(trackedSources)
-		.values({
-			displayName: seed.displayName,
-			normalizedUrl: seed.normalizedUrl,
-			type: seed.type,
-			provider: seed.provider,
-			isActive: seed.isActive,
-			metadata: seed.metadata,
-		})
-		.onConflictDoUpdate({
-			target: trackedSources.normalizedUrl,
-			set: {
-				type: seed.type,
-				provider: seed.provider,
-				isActive: seed.isActive,
-				metadata: seed.metadata,
-				updatedAt: new Date(),
-			},
-		});
 }

@@ -40,7 +40,7 @@ import {
 	DraftReview,
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
-import { SocialLogoGrid } from "@/components/dashboard/dialogs";
+import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 import {
 	ExecutiveIntelligenceDashboard,
 	IntelligenceActivityStream,
@@ -1526,7 +1526,7 @@ export function GuidePage({ kind }: { kind: "process" | "user" | "policies" }) {
 }
 
 function formatTime(value?: string | Date) {
-	if (!value) return "10:12 AM";
+	if (!value) return "Không rõ thời gian";
 	return new Intl.DateTimeFormat("vi-VN", {
 		hour: "2-digit",
 		minute: "2-digit",

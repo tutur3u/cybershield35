@@ -9,21 +9,26 @@ export const metadata = {
 	title: "Chi tiết chủ đề",
 };
 
-export const unstable_instant = {
-	prefetch: "static",
-	unstable_disableValidation: true,
-};
+export const instant = true;
+export const prefetch = "allow-runtime";
 
-export default async function TopicDetailRoute({
+export default function TopicDetailPage({
+	params,
+}: {
+	params: Promise<{ slug: string }>;
+}) {
+	return (
+		<Suspense fallback={<DashboardRouteSkeleton />}>
+			<TopicDetailRoute params={params} />
+		</Suspense>
+	);
+}
+
+async function TopicDetailRoute({
 	params,
 }: {
 	params: Promise<{ slug: string }>;
 }) {
 	const { slug } = await params;
-
-	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
-			<DashboardRoute page="topic-detail" topicSlug={slug} />
-		</Suspense>
-	);
+	return <DashboardRoute page="topic-detail" topicSlug={slug} />;
 }

@@ -27,12 +27,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
 	cacheComponents: true,
+	partialPrefetching: true,
+	reactCompiler: true,
 	experimental: {
-		instantNavigationDevToolsToggle: true,
+		instantInsights: {
+			validationLevel: "warning",
+		},
 		staleTimes: {
 			dynamic: 120,
 			static: 300,
 		},
+		turbopackFileSystemCacheForBuild: true,
+		turbopackRustReactCompiler: true,
 	},
 	transpilePackages: ["@tuturuuu/ui", "@tuturuuu/icons", "@tuturuuu/utils"],
 	async headers() {

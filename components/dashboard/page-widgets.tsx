@@ -6,13 +6,11 @@ import {
 	Play,
 	Sparkles,
 	Trash2,
-	type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
-import type { ReactNode } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { providerRows } from "@/components/dashboard/dashboard-data";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import type {
 	AnalysisView,
 	DashboardScan,
@@ -31,36 +29,7 @@ import {
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
 
-export function PageHeader({
-	actions,
-	description,
-	icon: Icon,
-	title,
-}: {
-	actions?: ReactNode;
-	description: string;
-	icon: LucideIcon;
-	title: string;
-}) {
-	return (
-		<div className="flex min-w-0 flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
-			<div className="flex min-w-0 items-start gap-3">
-				<span className="grid size-11 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
-					<Icon size={22} />
-				</span>
-				<div className="min-w-0">
-					<h1 className="text-[20px] font-bold leading-7 text-[var(--foreground)]">
-						{title}
-					</h1>
-					<p className="mt-1 max-w-3xl text-[13px] leading-5 text-[var(--muted)]">
-						{description}
-					</p>
-				</div>
-			</div>
-			{actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
-		</div>
-	);
-}
+export { PageHeader } from "@/components/dashboard/page-header";
 
 export function MetricGrid({ scans }: { scans: DashboardScan[] }) {
 	const stats = [
@@ -123,9 +92,13 @@ export function InsightGrid({ insights }: { insights: DashboardInsight[] }) {
 				);
 
 				return insight.href ? (
-					<Link key={insight.label} href={insight.href} className="block min-w-0">
+					<IntentPrefetchLink
+						key={insight.label}
+						href={insight.href}
+						className="block min-w-0"
+					>
 						{content}
-					</Link>
+					</IntentPrefetchLink>
 				) : (
 					<div key={insight.label} className="min-w-0">
 						{content}
@@ -186,7 +159,7 @@ export function QueueCard({
 									: "hover:bg-[var(--surface-soft)]"
 							}`}
 						>
-							<Link
+								<IntentPrefetchLink
 								href={`/scans/${scan.id}`}
 								onClick={() => onSelectScan(scan.id)}
 								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -197,7 +170,7 @@ export function QueueCard({
 								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 									{scan.sourceLabel} - {providerLabel(scan.provider)}
 								</p>
-							</Link>
+								</IntentPrefetchLink>
 							<StatusPill status={scan.status} />
 							<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
 								{scan.progress}%
@@ -363,12 +336,12 @@ export function DraftSnapshot({
 						<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
 							Trạng thái: {draftStatusLabel(draft.status)}
 						</p>
-						<Link
+							<IntentPrefetchLink
 							href={`/drafts/${draft.id}${scanId ? `?scanId=${scanId}` : ""}`}
 							className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)]"
 						>
 							Xem chi tiết
-						</Link>
+							</IntentPrefetchLink>
 					</>
 				) : (
 					<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">

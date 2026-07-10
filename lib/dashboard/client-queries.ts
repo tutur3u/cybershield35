@@ -23,10 +23,12 @@ import type {
 } from "@/components/dashboard/types";
 import {
 	dashboardQueryKeys,
+	dashboardQueryGcTimeMs,
 	dashboardQueryStaleTimeMs,
 	intelligenceQueryStaleTimeMs,
 	managedSchedulerQueryStaleTimeMs,
 	normalizeDashboardInitialQueryParams,
+	serializeIntelligenceFilters,
 	type DashboardInitialQueryParams,
 	workspaceMembersQueryStaleTimeMs,
 } from "@/lib/dashboard/query-keys";
@@ -38,25 +40,41 @@ export function dashboardInitialDataQueryOptions(
 	const normalized = normalizeDashboardInitialQueryParams(params);
 
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchDashboardInitialData(normalized),
 		queryKey: dashboardQueryKeys.initial(normalized),
+		refetchInterval: (query) =>
+			query.state.data?.scans.some((scan) => isActiveScanStatus(scan.status))
+				? 15_000
+				: false,
+		refetchIntervalInBackground: false,
 		staleTime: dashboardQueryStaleTimeMs,
 	});
 }
 
 export function scanDetailQueryOptions(scanId: string) {
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchScanDetail(scanId),
 		queryKey: dashboardQueryKeys.scanDetail(scanId),
+		refetchInterval: (query) => {
+			const status = query.state.data?.job?.status;
+			return typeof status === "string" && isActiveScanStatus(status)
+				? 15_000
+				: false;
+		},
+		refetchIntervalInBackground: false,
 		staleTime: dashboardQueryStaleTimeMs,
 	});
 }
 
+function isActiveScanStatus(status: string) {
+	return status === "queued" || status === "running" || status === "retrying";
+}
+
 export function dashboardScansInfiniteQueryOptions(limit = 8) {
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: DashboardScansPage) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -70,7 +88,7 @@ export function dashboardScansInfiniteQueryOptions(limit = 8) {
 export function scanEvidenceInfiniteQueryOptions(scanId: string, limit = 8) {
 	return {
 		enabled: Boolean(scanId),
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: EvidenceItemsPage) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -83,7 +101,7 @@ export function scanEvidenceInfiniteQueryOptions(scanId: string, limit = 8) {
 
 export function topicsInfiniteQueryOptions(limit = 12) {
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: TopicsPage) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -97,7 +115,7 @@ export function topicsInfiniteQueryOptions(limit = 12) {
 export function topicDetailInfiniteQueryOptions(slug: string, limit = 12) {
 	return {
 		enabled: Boolean(slug),
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: TopicDetailView) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -113,7 +131,7 @@ export function intelligenceOverviewQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchIntelligenceOverview(params),
 		queryKey: dashboardQueryKeys.intelligenceOverview(params),
 		staleTime: intelligenceQueryStaleTimeMs,
@@ -126,7 +144,7 @@ export function intelligenceEvidenceInfiniteQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: IntelligencePage<IntelligenceEvidenceRow>) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -147,7 +165,7 @@ export function intelligenceTopicsInfiniteQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: IntelligencePage<IntelligenceTopicRow>) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -168,7 +186,7 @@ export function intelligenceClaimsInfiniteQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: IntelligencePage<IntelligenceClaimRow>) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -189,7 +207,7 @@ export function intelligenceSourcesInfiniteQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: IntelligencePage<IntelligenceSourceRow>) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -210,7 +228,7 @@ export function intelligenceActivityInfiniteQueryOptions(
 ) {
 	const params = serializeIntelligenceFilters(filters);
 	return {
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		getNextPageParam: (lastPage: IntelligencePage<IntelligenceActivityRow>) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
@@ -227,7 +245,7 @@ export function intelligenceActivityInfiniteQueryOptions(
 
 export function intelligenceFacebookPagesQueryOptions() {
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: fetchIntelligenceFacebookPages,
 		queryKey: dashboardQueryKeys.intelligenceFacebookPages(),
 		staleTime: intelligenceQueryStaleTimeMs,
@@ -236,7 +254,7 @@ export function intelligenceFacebookPagesQueryOptions() {
 
 export function workspaceMembersQueryOptions() {
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: fetchWorkspaceMembers,
 		queryKey: dashboardQueryKeys.workspaceMembers(),
 		staleTime: workspaceMembersQueryStaleTimeMs,
@@ -245,7 +263,7 @@ export function workspaceMembersQueryOptions() {
 
 export function managedSchedulerQueryOptions() {
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: fetchManagedSchedulerStatus,
 		queryKey: dashboardQueryKeys.managedScheduler(),
 		refetchInterval: 30_000,
@@ -255,7 +273,7 @@ export function managedSchedulerQueryOptions() {
 
 export function managedSchedulerExecutionsQueryOptions(jobKey?: string) {
 	return queryOptions({
-		gcTime: 5 * 60_000,
+		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchManagedSchedulerExecutions(jobKey),
 		queryKey: dashboardQueryKeys.managedSchedulerExecutions(jobKey ?? "all"),
 		staleTime: 30_000,
@@ -491,19 +509,4 @@ async function fetchJson<T>(url: string): Promise<T> {
 	}
 
 	return payload as T;
-}
-
-function serializeIntelligenceFilters(
-	filters: IntelligenceFilters = {},
-): Record<string, string> {
-	const params: Record<string, string> = {};
-	if (filters.facebookPage) params.facebookPage = filters.facebookPage;
-	if (filters.provider) params.provider = filters.provider;
-	if (filters.query) params.q = filters.query;
-	if (filters.risk && filters.risk !== "all") params.risk = filters.risk;
-	if (filters.source) params.source = filters.source;
-	if (filters.status) params.status = filters.status;
-	if (filters.timeRange) params.timeRange = filters.timeRange;
-	if (filters.topic) params.topic = filters.topic;
-	return params;
 }

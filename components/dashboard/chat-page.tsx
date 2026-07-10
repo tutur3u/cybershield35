@@ -6,7 +6,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 
-import { PageHeader } from "@/components/dashboard/page-widgets";
+import { PageHeader } from "@/components/dashboard/page-header";
 import type { ChatMessage } from "@/components/dashboard/types";
 import { Panel, PanelHeader, SecondaryButton } from "@/components/dashboard/ui-primitives";
 
@@ -32,23 +32,27 @@ export function ChatPage({
 	isSending,
 	messages,
 	onOpenComposer,
+	showHeader = true,
 }: {
 	isSending: boolean;
 	messages: ChatMessage[];
 	onOpenComposer: (preset?: string) => void;
+	showHeader?: boolean;
 }) {
 	return (
 		<div className="flex min-h-[calc(100vh-7rem)] flex-col gap-5">
-			<PageHeader
-				icon={MessageCircle}
-				title="Chat LLM"
-				description="Trao đổi với LLM về phân tích, bằng chứng và phản hồi nội bộ."
-				actions={
-					<SecondaryButton onClick={() => onOpenComposer()}>
-						<Send size={14} /> Soạn tin nhắn
-					</SecondaryButton>
-				}
-			/>
+			{showHeader ? (
+				<PageHeader
+					icon={MessageCircle}
+					title="Chat LLM"
+					description="Trao đổi với LLM về phân tích, bằng chứng và phản hồi nội bộ."
+					actions={
+						<SecondaryButton onClick={() => onOpenComposer()}>
+							<Send size={14} /> Soạn tin nhắn
+						</SecondaryButton>
+					}
+				/>
+			) : null}
 			<div className="grid flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
 				<Panel className="flex min-h-[520px] flex-col">
 					<PanelHeader
@@ -139,7 +143,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 				</p>
 				<p className="mt-2 text-[10px] font-semibold uppercase text-[var(--muted)]">
 					{assistant ? `LLM ${message.mode ?? "live"}` : "Người vận hành"} -{" "}
-					{formatMessageTime(message.createdAt)}
+					{message.id === "chat-welcome"
+						? "Phiên hiện tại"
+						: formatMessageTime(message.createdAt)}
 				</p>
 			</div>
 		</div>

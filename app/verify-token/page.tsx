@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { VerifyTokenClient } from "@/components/auth/verify-token-client";
 
-export const unstable_instant = false;
+export const instant = true;
 
 export const metadata: Metadata = {
 	title: "Đăng nhập",

@@ -34,7 +34,10 @@ import {
 	type ProviderName,
 	type RiskLevel,
 } from "@/lib/db/schema";
-import { DASHBOARD_INTELLIGENCE_TAG } from "@/lib/dashboard/cache-tags";
+import {
+	DASHBOARD_INTELLIGENCE_TAG,
+	dashboardIntelligenceTag,
+} from "@/lib/dashboard/cache-tags";
 
 const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 80;
@@ -47,8 +50,8 @@ export async function getIntelligenceOverview(
 
 async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 	"use cache";
-	cacheLife({ stale: 30, revalidate: 10, expire: 180 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG);
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("overview"));
 
 	const [dailyRows, topTopics, topEvidence, topClaims, sourceHealth, providerHealth] =
 		await Promise.all([
@@ -132,9 +135,25 @@ export async function listIntelligenceEvidence({
 	filters?: IntelligenceFilters;
 	limit?: number;
 } = {}): Promise<IntelligencePage<IntelligenceEvidenceRow>> {
-	const normalized = normalizeFilters(filters);
-	const pageLimit = normalizePageLimit(limit);
-	const offset = normalizeOffsetCursor(cursor);
+	return getCachedIntelligenceEvidence(
+		normalizeFilters(filters),
+		normalizePageLimit(limit),
+		normalizeOffsetCursor(cursor),
+	);
+}
+
+async function getCachedIntelligenceEvidence(
+	normalized: NormalizedFilters,
+	pageLimit: number,
+	offset: number,
+): Promise<IntelligencePage<IntelligenceEvidenceRow>> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(
+		DASHBOARD_INTELLIGENCE_TAG,
+		dashboardIntelligenceTag("evidence"),
+	);
+
 	const conditions = [
 		timeCondition(evidenceItems.createdAt, normalized),
 		facebookEvidenceCondition(normalized),
@@ -222,9 +241,22 @@ export async function listIntelligenceTopics({
 	filters?: IntelligenceFilters;
 	limit?: number;
 } = {}): Promise<IntelligencePage<IntelligenceTopicRow>> {
-	const normalized = normalizeFilters(filters);
-	const pageLimit = normalizePageLimit(limit);
-	const offset = normalizeOffsetCursor(cursor);
+	return getCachedIntelligenceTopics(
+		normalizeFilters(filters),
+		normalizePageLimit(limit),
+		normalizeOffsetCursor(cursor),
+	);
+}
+
+async function getCachedIntelligenceTopics(
+	normalized: NormalizedFilters,
+	pageLimit: number,
+	offset: number,
+): Promise<IntelligencePage<IntelligenceTopicRow>> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("topics"));
+
 	const conditions = [
 		facebookTopicCondition(normalized),
 		normalized.risk && normalized.risk !== "all"
@@ -281,9 +313,22 @@ export async function listIntelligenceClaims({
 	filters?: IntelligenceFilters;
 	limit?: number;
 } = {}): Promise<IntelligencePage<IntelligenceClaimRow>> {
-	const normalized = normalizeFilters(filters);
-	const pageLimit = normalizePageLimit(limit);
-	const offset = normalizeOffsetCursor(cursor);
+	return getCachedIntelligenceClaims(
+		normalizeFilters(filters),
+		normalizePageLimit(limit),
+		normalizeOffsetCursor(cursor),
+	);
+}
+
+async function getCachedIntelligenceClaims(
+	normalized: NormalizedFilters,
+	pageLimit: number,
+	offset: number,
+): Promise<IntelligencePage<IntelligenceClaimRow>> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("claims"));
+
 	const conditions = [
 		normalized.risk && normalized.risk !== "all"
 			? eq(intelligenceClaimIndex.riskLevel, normalized.risk)
@@ -344,9 +389,22 @@ export async function listIntelligenceSources({
 	filters?: IntelligenceFilters;
 	limit?: number;
 } = {}): Promise<IntelligencePage<IntelligenceSourceRow>> {
-	const normalized = normalizeFilters(filters);
-	const pageLimit = normalizePageLimit(limit);
-	const offset = normalizeOffsetCursor(cursor);
+	return getCachedIntelligenceSources(
+		normalizeFilters(filters),
+		normalizePageLimit(limit),
+		normalizeOffsetCursor(cursor),
+	);
+}
+
+async function getCachedIntelligenceSources(
+	normalized: NormalizedFilters,
+	pageLimit: number,
+	offset: number,
+): Promise<IntelligencePage<IntelligenceSourceRow>> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("sources"));
+
 	const conditions = [
 		normalized.provider
 			? eq(intelligenceSourceRollups.provider, normalized.provider)
@@ -389,6 +447,13 @@ export async function listIntelligenceSources({
 export async function listIntelligenceFacebookPages(): Promise<
 	IntelligenceFacebookPageOption[]
 > {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(
+		DASHBOARD_INTELLIGENCE_TAG,
+		dashboardIntelligenceTag("facebook-pages"),
+	);
+
 	const facebookIdExpr = sql<string | null>`${evidenceItems.metadata}->>'facebookId'`;
 	const [evidenceRows, trackedRows] = await Promise.all([
 		adminDb
@@ -470,9 +535,22 @@ export async function listIntelligenceActivity({
 	filters?: IntelligenceFilters;
 	limit?: number;
 } = {}): Promise<IntelligencePage<IntelligenceActivityRow>> {
-	const normalized = normalizeFilters(filters);
-	const pageLimit = normalizePageLimit(limit);
-	const offset = normalizeOffsetCursor(cursor);
+	return getCachedIntelligenceActivity(
+		normalizeFilters(filters),
+		normalizePageLimit(limit),
+		normalizeOffsetCursor(cursor),
+	);
+}
+
+async function getCachedIntelligenceActivity(
+	normalized: NormalizedFilters,
+	pageLimit: number,
+	offset: number,
+): Promise<IntelligencePage<IntelligenceActivityRow>> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("activity"));
+
 	const conditions = [
 		timeCondition(intelligenceActivityRollups.occurredAt, normalized),
 		normalized.risk && normalized.risk !== "all"
@@ -831,7 +909,7 @@ function normalizeProvider(value?: string): ProviderName | undefined {
 }
 
 function normalizeRisk(value?: string): RiskLevel | "all" | undefined {
-	if (value === "all") return value;
+	if (value === "all") return undefined;
 	if (value === "high" || value === "medium" || value === "low") return value;
 	return undefined;
 }

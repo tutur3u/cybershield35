@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 import Script from "next/script";
 import { Suspense } from "react";
 
 import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { Telemetry } from "@/components/providers/telemetry";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
-import { getProviderAvailability } from "@/lib/providers";
 
 import "./globals.css";
 
@@ -31,7 +29,7 @@ const themeBootScript = `
 
 const beVietnam = Be_Vietnam_Pro({
 	subsets: ["latin", "vietnamese"],
-	weight: ["300", "400", "500", "600", "700", "800"],
+	weight: ["400", "600", "700", "800", "900"],
 	variable: "--font-be-vietnam",
 	display: "swap",
 });
@@ -50,8 +48,6 @@ export const metadata: Metadata = {
 	metadataBase: new URL("https://ai.daklak.gov.vn"),
 };
 
-export const unstable_instant = false;
-
 export default function RootLayout({
 	children,
 }: Readonly<{
@@ -64,12 +60,10 @@ export default function RootLayout({
 			suppressHydrationWarning
 		>
 			<body>
-				<QueryProvider>
-					<Suspense fallback={<DashboardAppSkeleton />}>
-						<AuthenticatedApp>{children}</AuthenticatedApp>
-					</Suspense>
-				</QueryProvider>
-				<Analytics />
+				<Suspense fallback={<DashboardAppSkeleton />}>
+					<AuthenticatedApp>{children}</AuthenticatedApp>
+				</Suspense>
+				<Telemetry />
 				<Script
 					id="cybershield35-theme-boot"
 					strategy="beforeInteractive"
@@ -81,7 +75,6 @@ export default function RootLayout({
 }
 
 async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
-	await connection();
 	const auth = await resolveDashboardAuthFromCurrentRequest();
 
 	if (!auth.authenticated && !auth.publicRoute) {
@@ -91,15 +84,16 @@ async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 	if (!auth.authenticated) return children;
 
 	return (
-		<DashboardLayoutShell
-			initialAuth={{
-				authenticated: true,
-				configured: true,
-				session: auth.session,
-			}}
-			initialProviderAvailability={getProviderAvailability()}
-		>
-			{children}
-		</DashboardLayoutShell>
+		<QueryProvider>
+			<DashboardLayoutShell
+				initialAuth={{
+					authenticated: true,
+					configured: true,
+					session: auth.session,
+				}}
+			>
+				{children}
+			</DashboardLayoutShell>
+		</QueryProvider>
 	);
 }

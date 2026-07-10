@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 					? buildTuturuuuScopeApprovalUrlForRequest(request)
 					: undefined,
 			},
-			{ status: safe.status },
+			{ headers: { "Cache-Control": "no-store" }, status: safe.status },
 		);
 	}
 }

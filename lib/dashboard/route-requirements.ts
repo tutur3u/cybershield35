@@ -17,6 +17,7 @@ export function dashboardSnapshotRequirements(
 			"guide-user",
 			"members",
 			"settings",
+			"topic-detail",
 		].includes(page)
 	) {
 		return {

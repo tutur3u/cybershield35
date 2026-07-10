@@ -128,9 +128,9 @@ describe("workspace members proxy routes", () => {
 			expect(String(url)).toBe(
 				"https://tuturuuu.com/api/v1/workspaces/workspace-1/external-apps/members",
 			);
-			expect(init?.headers).toMatchObject({
-				Authorization: "Bearer access-token",
-			});
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer access-token",
+			);
 			return Promise.resolve(
 				Response.json({
 					context: {
@@ -154,6 +154,7 @@ describe("workspace members proxy routes", () => {
 		);
 
 		expect(response.status).toBe(200);
+		expect(response.headers.get("Cache-Control")).toBe("no-store");
 		await expect(response.json()).resolves.toMatchObject({
 			context: { canManageMembers: true },
 			members: [],
@@ -181,9 +182,9 @@ describe("workspace members proxy routes", () => {
 				return Promise.resolve(Response.json(exchangeBody()));
 			}
 
-			expect(init?.headers).toMatchObject({
-				Authorization: "Bearer new-access-token",
-			});
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer new-access-token",
+			);
 			return Promise.resolve(
 				Response.json({ message: "1 invite(s) sent successfully" }),
 			);
@@ -211,6 +212,104 @@ describe("workspace members proxy routes", () => {
 			}),
 		);
 		expect(refreshed?.accessToken).toBe("new-access-token");
+	});
+
+	test("coalesces concurrent stale member requests into one token exchange", async () => {
+		let exchangeCount = 0;
+		let memberCount = 0;
+		const fetchMock = mock(async (url: string | URL, init?: RequestInit) => {
+			const pathname = new URL(String(url)).pathname;
+			if (pathname.endsWith("/auth/app-token/exchange")) {
+				exchangeCount += 1;
+				await Promise.resolve();
+				return Response.json(exchangeBody());
+			}
+
+			memberCount += 1;
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer new-access-token",
+			);
+			return Response.json({
+				context: {
+					canManageMembers: true,
+					canManageRoles: true,
+					defaultAdminEnabled: false,
+				},
+				invitations: [],
+				members: [],
+			});
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const cookie = createSessionCookie(
+			session({ expiresAt: new Date(Date.now() + 1000).toISOString() }),
+		);
+
+		const responses = await Promise.all([
+			GET(request("/api/workspace/members", undefined, cookie)),
+			GET(request("/api/workspace/members", undefined, cookie)),
+			GET(request("/api/workspace/members", undefined, cookie)),
+		]);
+
+		expect(exchangeCount).toBe(1);
+		expect(memberCount).toBe(3);
+		for (const response of responses) {
+			expect(response.status).toBe(200);
+			expect(response.headers.get("Cache-Control")).toBe("no-store");
+			expect(response.headers.get("Set-Cookie")).toContain(
+				"cybershield35_admin_session=",
+			);
+		}
+	});
+
+	test("refreshes and retries an unexpected upstream 401 only once", async () => {
+		let memberCount = 0;
+		let exchangeCount = 0;
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			const pathname = new URL(String(url)).pathname;
+			if (pathname.endsWith("/auth/app-token/exchange")) {
+				exchangeCount += 1;
+				return Promise.resolve(Response.json(exchangeBody()));
+			}
+
+			memberCount += 1;
+			if (memberCount === 1) {
+				expect(new Headers(init?.headers).get("Authorization")).toBe(
+					"Bearer access-token",
+				);
+				return Promise.resolve(Response.json({ error: "Unauthorized" }, { status: 401 }));
+			}
+
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer new-access-token",
+			);
+			return Promise.resolve(
+				Response.json({
+					context: {
+						canManageMembers: true,
+						canManageRoles: true,
+						defaultAdminEnabled: false,
+					},
+					invitations: [],
+					members: [],
+				}),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const response = await GET(
+			request(
+				"/api/workspace/members",
+				undefined,
+				createSessionCookie(session()),
+			),
+		);
+
+		expect(response.status).toBe(200);
+		expect(memberCount).toBe(2);
+		expect(exchangeCount).toBe(1);
+		expect(response.headers.get("Set-Cookie")).toContain(
+			"cybershield35_admin_session=",
+		);
 	});
 
 	test("passes upstream errors through for role updates", async () => {

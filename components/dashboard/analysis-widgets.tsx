@@ -1,7 +1,7 @@
 import { ArrowRight, Edit3, Layers3, Link2, Quote, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import type {
 	AnalysisView,
 	ClaimView,
@@ -78,12 +78,12 @@ export function TopicPanel({
 			<PanelHeader
 				title="Cụm chủ đề nổi bật"
 				action={
-					<Link
+										<IntentPrefetchLink
 						href="/topics"
 						className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 					>
 						Mở chủ đề <ArrowRight size={14} />
-					</Link>
+										</IntentPrefetchLink>
 				}
 			/>
 			<div
@@ -100,7 +100,7 @@ export function TopicPanel({
 							key={topic.key}
 							className="grid min-h-14 gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(82px,auto)_minmax(74px,auto)_auto] sm:items-center"
 						>
-							<Link
+								<IntentPrefetchLink
 								href={topic.href}
 								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
 							>
@@ -110,7 +110,7 @@ export function TopicPanel({
 								<span className="mt-0.5 block truncate text-[11px] font-semibold text-[var(--muted)]">
 									{topic.recommendation}
 								</span>
-							</Link>
+								</IntentPrefetchLink>
 							<span className="text-[12px] text-[var(--muted)] sm:text-right">
 								{topic.count.toLocaleString("vi-VN")} mẫu
 							</span>
@@ -197,7 +197,7 @@ export function TopicExplorer({
 							</div>
 							<div className="space-y-3">
 								{leadTopic.evidence.slice(0, 3).map((item) => (
-									<Link
+								<IntentPrefetchLink
 										key={item.id}
 										href={`/evidence/${item.id}${item.scanJobId ? `?scanId=${item.scanJobId}` : ""}`}
 										className="block rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
@@ -208,7 +208,7 @@ export function TopicExplorer({
 										<p className="mt-2 truncate text-[11px] font-semibold text-[var(--muted)]">
 											{item.sourceLabel ?? "Nguồn công khai"}
 										</p>
-									</Link>
+								</IntentPrefetchLink>
 								))}
 							</div>
 						</>
@@ -264,7 +264,7 @@ export function TopicDetailPanel({ slug }: { slug?: string }) {
 						<EmptyPanelText>Không thể tải chủ đề này.</EmptyPanelText>
 					) : evidence.length ? (
 						evidence.map((item) => (
-							<Link
+						<IntentPrefetchLink
 								key={item.id}
 								href={`/evidence/${item.id}${item.scanJobId ? `?scanId=${item.scanJobId}` : ""}`}
 								className="grid min-w-0 gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_100px_auto] sm:items-start"
@@ -284,7 +284,7 @@ export function TopicDetailPanel({ slug }: { slug?: string }) {
 									Khớp {item.topicConfidence ?? 0}%
 								</span>
 								<RiskPill risk={item.riskLevel ?? "medium"} />
-							</Link>
+						</IntentPrefetchLink>
 						))
 					) : (
 						<EmptyPanelText>Chủ đề này chưa có bài viết được gắn.</EmptyPanelText>
@@ -525,8 +525,8 @@ export function EvidencePanel({
 							<span className="text-[12px] font-semibold text-[var(--muted)]">
 								{index + 1}.
 							</span>
-							<Link
-								href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
+								<IntentPrefetchLink
+									href={`/evidence/${item.id}${scanId ? `?scanId=${scanId}` : ""}`}
 								className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
 							>
 								<p className="break-words text-[13px] leading-6 text-[var(--foreground)]">
@@ -535,7 +535,7 @@ export function EvidencePanel({
 								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 									{item.sourceLabel ?? "Nguồn công khai"} - {item.author ?? "Public"}
 								</p>
-							</Link>
+								</IntentPrefetchLink>
 							<RiskPill risk={item.riskLevel ?? "medium"} />
 							{onEditEvidence || onDeleteEvidence ? (
 								<div className="flex gap-2 sm:justify-end">
@@ -589,8 +589,8 @@ export function EvidencePanel({
 
 function TopicInsightRow({ topic }: { topic: TopicInsight }) {
 	return (
-		<Link
-			href={topic.href}
+			<IntentPrefetchLink
+				href={topic.href}
 			className="grid min-w-0 gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_120px_84px] sm:items-center"
 		>
 			<div className="min-w-0">
@@ -613,7 +613,7 @@ function TopicInsightRow({ topic }: { topic: TopicInsight }) {
 				</p>
 			</div>
 			<RiskPill risk={topic.riskLevel} />
-		</Link>
+			</IntentPrefetchLink>
 	);
 }
 
@@ -685,13 +685,13 @@ function EvidenceDeepLinks({
 					key={item.id}
 					content={item.summary || item.quote || "Mở bằng chứng gốc"}
 				>
-					<Link
-						href={evidenceHref(item, scanId)}
+						<IntentPrefetchLink
+							href={evidenceHref(item, scanId)}
 						className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 					>
 						<Link2 size={12} className="shrink-0" />
 						<span className="truncate">Bằng chứng {index + 1}</span>
-					</Link>
+						</IntentPrefetchLink>
 				</DashboardTooltip>
 			))}
 		</div>

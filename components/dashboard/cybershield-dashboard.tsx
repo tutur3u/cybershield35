@@ -2,19 +2,17 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import {
+	type Dispatch,
+	type SetStateAction,
+	useCallback,
+	useMemo,
+	useState,
+} from "react";
 
 import { LoginRedirect } from "@/components/auth/login-redirect";
-import { ChatPage } from "@/components/dashboard/chat-page";
 import { useDashboardAuthState } from "@/components/dashboard/dashboard-auth-context";
-import {
-	CounterArgumentDialog,
-	EvidenceEditDialog,
-	ReportPresetDialog,
-	ScanDialog,
-	ScanEditDialog,
-	type EvidenceFormValues,
-} from "@/components/dashboard/dialogs";
+import type { EvidenceFormValues } from "@/components/dashboard/dialogs";
 import {
 	createEvidenceRecord,
 	createScan,
@@ -38,27 +36,8 @@ import {
 	type SourceTab,
 } from "@/components/dashboard/dashboard-data";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
-import {
-	DraftDetailsPage,
-	EvidenceDetailsPage,
-	ScanDetailsPage,
-} from "@/components/dashboard/detail-pages";
-import {
-	AlertsPage,
-	AnalysisPage,
-	AuditPage,
-	CounterArgumentsPage,
-	EvidencePage,
-	GuidePage,
-	MembersPage,
-	OverviewPage,
-	ReportsPage,
-	SettingsPage,
-	SourcesPage,
-	TopicDetailsPage,
-	TopicsPage,
-	type DashboardPageProps,
-} from "@/components/dashboard/dashboard-pages";
+import { DeferredDialogLoading } from "@/components/dashboard/deferred-dialog-loading";
+import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages";
 import type {
 	AnalysisView,
 	AuthViewState,
@@ -83,16 +62,95 @@ import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { dashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 
+const loadDashboardPages = () => import("@/components/dashboard/dashboard-pages");
+const loadDetailPages = () => import("@/components/dashboard/detail-pages");
+const loadDialogs = () => import("@/components/dashboard/dialogs");
+
+const OverviewPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.OverviewPage),
+);
+const SourcesPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.SourcesPage),
+);
+const AnalysisPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.AnalysisPage),
+);
+const TopicsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.TopicsPage),
+);
+const TopicDetailsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.TopicDetailsPage),
+);
+const CounterArgumentsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.CounterArgumentsPage),
+);
+const EvidencePage = dynamic(() =>
+	loadDashboardPages().then((module) => module.EvidencePage),
+);
+const AlertsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.AlertsPage),
+);
+const ReportsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.ReportsPage),
+);
+const SettingsPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.SettingsPage),
+);
+const AuditPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.AuditPage),
+);
+const GuidePage = dynamic(() =>
+	loadDashboardPages().then((module) => module.GuidePage),
+);
+const MembersPage = dynamic(() =>
+	loadDashboardPages().then((module) => module.MembersPage),
+);
+const ChatPage = dynamic(() =>
+	import("@/components/dashboard/chat-page").then((module) => module.ChatPage),
+);
+const ScanDetailsPage = dynamic(() =>
+	loadDetailPages().then((module) => module.ScanDetailsPage),
+);
+const EvidenceDetailsPage = dynamic(() =>
+	loadDetailPages().then((module) => module.EvidenceDetailsPage),
+);
+const DraftDetailsPage = dynamic(() =>
+	loadDetailPages().then((module) => module.DraftDetailsPage),
+);
+
+const ScanDialog = dynamic(
+	() => loadDialogs().then((module) => module.ScanDialog),
+	{
+		loading: () => <DeferredDialogLoading label="Đang tải biểu mẫu scan" />,
+		ssr: false,
+	},
+);
+const CounterArgumentDialog = dynamic(
+	() => loadDialogs().then((module) => module.CounterArgumentDialog),
+	{ loading: () => <DeferredDialogLoading />, ssr: false },
+);
+const ScanEditDialog = dynamic(
+	() => loadDialogs().then((module) => module.ScanEditDialog),
+	{ loading: () => <DeferredDialogLoading />, ssr: false },
+);
+const EvidenceEditDialog = dynamic(
+	() => loadDialogs().then((module) => module.EvidenceEditDialog),
+	{ loading: () => <DeferredDialogLoading />, ssr: false },
+);
+const ReportPresetDialog = dynamic(
+	() => loadDialogs().then((module) => module.ReportPresetDialog),
+	{ loading: () => <DeferredDialogLoading />, ssr: false },
+);
 const ChatDialog = dynamic(
 	() => import("@/components/dashboard/chat-dialog").then((mod) => mod.ChatDialog),
-	{ ssr: false },
+	{ loading: () => <DeferredDialogLoading label="Đang tải cửa sổ chat" />, ssr: false },
 );
 const ReportDialog = dynamic(
 	() =>
 		import("@/components/dashboard/report-dialog").then(
 			(mod) => mod.ReportDialog,
 		),
-	{ ssr: false },
+	{ loading: () => <DeferredDialogLoading label="Đang tải báo cáo" />, ssr: false },
 );
 
 export type CyberShieldDashboardProps = {
@@ -105,6 +163,9 @@ export type CyberShieldDashboardProps = {
 	scanId?: string;
 	topicSlug?: string;
 };
+
+const emptyScans: DashboardScan[] = [];
+const emptyTrackedSources: TrackedSourceView[] = [];
 
 export function CyberShieldDashboard({
 	draftId,
@@ -134,18 +195,42 @@ export function CyberShieldDashboard({
 	const [scanProviderOverride, setScanProviderOverride] =
 		useState<ScanProviderOverride>();
 	const [operatorNotes, setOperatorNotes] = useState("");
-	const [scans, setScans] = useState<DashboardScan[]>(
-		() => hydratedInitialData?.scans ?? [],
+	const [scansOverride, setScansOverride] = useState<DashboardScan[] | null>(null);
+	const [trackedSourcesOverride, setTrackedSourcesOverride] = useState<
+		TrackedSourceView[] | null
+	>(null);
+	const scans = scansOverride ?? hydratedInitialData?.scans ?? emptyScans;
+	const trackedSources =
+		trackedSourcesOverride ??
+		hydratedInitialData?.trackedSources ??
+		emptyTrackedSources;
+	const setScans: Dispatch<SetStateAction<DashboardScan[]>> = useCallback(
+		(value) => {
+			setScansOverride((current) => {
+				const base = current ?? dashboardQuery.data?.scans ?? initialData?.scans ?? [];
+				return typeof value === "function" ? value(base) : value;
+			});
+		},
+		[dashboardQuery.data?.scans, initialData?.scans],
 	);
-	const [trackedSources, setTrackedSources] = useState<TrackedSourceView[]>(
-		() => hydratedInitialData?.trackedSources ?? [],
-	);
+	const setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>> =
+		useCallback(
+			(value) => {
+				setTrackedSourcesOverride((current) => {
+					const base =
+						current ??
+						dashboardQuery.data?.trackedSources ??
+						initialData?.trackedSources ??
+						[];
+					return typeof value === "function" ? value(base) : value;
+				});
+			},
+			[dashboardQuery.data?.trackedSources, initialData?.trackedSources],
+		);
 	const [selectedScanId, setSelectedScanId] = useState(
 		() => scanId ?? hydratedInitialData?.selectedScanId ?? "",
 	);
-	const [detail, setDetail] = useState<ScanDetail | null>(
-		() => hydratedInitialData?.detail ?? null,
-	);
+	const [detailOverride, setDetailOverride] = useState<ScanDetail | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 	const [isDrafting, setIsDrafting] = useState(false);
 	const [, setNotice] = useState(hydratedInitialData?.loadError ?? "");
@@ -196,12 +281,25 @@ export function CyberShieldDashboard({
 				? hydratedInitialData.detail
 				: undefined,
 	});
+	const setDetail: Dispatch<SetStateAction<ScanDetail | null>> = useCallback(
+		(value) => {
+			setDetailOverride((current) => {
+				const base =
+					current ??
+					detailQuery.data ??
+					hydratedInitialData?.detail ??
+					null;
+				return typeof value === "function" ? value(base) : value;
+			});
+		},
+		[detailQuery.data, hydratedInitialData?.detail],
+	);
 
 	const selectedScan = useMemo(
 		() => scans.find((scan) => scan.id === activeScanId) ?? scans[0],
 		[activeScanId, scans],
 	);
-	const activeDetail = detail ?? detailQuery.data ?? null;
+	const activeDetail = detailOverride ?? detailQuery.data ?? null;
 	const activeDraft =
 		draft ?? (activeDetail?.drafts?.[0] as DraftShape | undefined) ?? null;
 	const analysis = toAnalysisView(activeDetail?.analysis);
@@ -216,12 +314,54 @@ export function CyberShieldDashboard({
 	);
 
 	function invalidateDashboardQueries(scanIdToInvalidate = activeScanId) {
-		void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
-		if (scanIdToInvalidate) {
-			void queryClient.invalidateQueries({
-				queryKey: dashboardQueryKeys.scanDetail(scanIdToInvalidate),
+		void scanIdToInvalidate;
+		void (async () => {
+			const initialKey = dashboardQueryKeys.initial({ ...requirements, scanId });
+			const detailKey = dashboardQueryKeys.scanDetail(activeScanId);
+			await queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.all,
+				refetchType: "none",
 			});
-		}
+
+			const [initialResult, detailResult] = await Promise.allSettled([
+				requirements.includeScans
+					? queryClient.refetchQueries(
+							{ exact: true, queryKey: initialKey, type: "active" },
+							{ throwOnError: true },
+						)
+					: Promise.resolve(),
+				shouldLoadDetail && activeScanId
+					? queryClient.refetchQueries(
+							{ exact: true, queryKey: detailKey, type: "active" },
+							{ throwOnError: true },
+						)
+					: Promise.resolve(),
+			]);
+
+			if (initialResult.status === "fulfilled") {
+				setScansOverride(null);
+				setTrackedSourcesOverride(null);
+			}
+			if (detailResult.status === "fulfilled") {
+				setDetailOverride(null);
+				setDraft(null);
+			}
+
+			const refreshedQueryHashes = new Set(
+				[initialKey, detailKey]
+					.map(
+						(key) =>
+							queryClient.getQueryCache().find({ exact: true, queryKey: key })
+								?.queryHash,
+					)
+					.filter((hash): hash is string => Boolean(hash)),
+			);
+			void queryClient.refetchQueries({
+				predicate: (query) => !refreshedQueryHashes.has(query.queryHash),
+				queryKey: dashboardQueryKeys.all,
+				type: "active",
+			});
+		})();
 	}
 
 	if (!auth.authenticated) {
@@ -418,8 +558,9 @@ export function CyberShieldDashboard({
 	return (
 		<>
 			{renderPage(page, pageProps, { draftId, evidenceId, scanId, topicSlug })}
-			<ScanDialog
-				open={scanDialogOpen}
+				{scanDialogOpen ? (
+					<ScanDialog
+					open
 				onClose={() => setScanDialogOpen(false)}
 				inputMode={inputMode}
 				setInputMode={setInputMode}
@@ -448,9 +589,11 @@ export function CyberShieldDashboard({
 						return success;
 					})
 				}
-			/>
-			<CounterArgumentDialog
-				open={draftDialogOpen}
+					/>
+				) : null}
+				{draftDialogOpen ? (
+					<CounterArgumentDialog
+					open
 				onClose={() => setDraftDialogOpen(false)}
 				tone={tone}
 				setTone={setTone}
@@ -479,9 +622,11 @@ export function CyberShieldDashboard({
 						return success;
 					})
 				}
-			/>
-			<ScanEditDialog
-				open={scanEditDialogOpen}
+					/>
+				) : null}
+				{scanEditDialogOpen ? (
+					<ScanEditDialog
+					open
 				onClose={() => setScanEditDialogOpen(false)}
 				scan={scanBeingEdited}
 				onSave={(scan, values) =>
@@ -496,9 +641,11 @@ export function CyberShieldDashboard({
 						return success;
 					})
 				}
-			/>
-			<EvidenceEditDialog
-				open={evidenceDialogOpen}
+					/>
+				) : null}
+				{evidenceDialogOpen ? (
+					<EvidenceEditDialog
+					open
 				onClose={() => setEvidenceDialogOpen(false)}
 				evidence={evidenceBeingEdited}
 				scanId={activeScanId}
@@ -525,24 +672,30 @@ export function CyberShieldDashboard({
 								return success;
 							})
 				}
-			/>
-			<ReportPresetDialog
-				open={reportPresetDialogOpen}
+					/>
+				) : null}
+				{reportPresetDialogOpen ? (
+					<ReportPresetDialog
+					open
 				onClose={() => setReportPresetDialogOpen(false)}
 				report={reportPresetBeingEdited}
 				onSubmit={onUpdateReport}
-			/>
-			<ReportDialog
-				open={reportDialogOpen}
+					/>
+				) : null}
+				{reportDialogOpen ? (
+					<ReportDialog
+					open
 				onClose={() => setReportDialogOpen(false)}
 				report={selectedReport}
 				selectedScan={selectedScan}
 				analysis={analysis}
 				evidence={evidence}
 				draft={activeDraft}
-			/>
-			<ChatDialog
-				open={chatDialogOpen}
+					/>
+				) : null}
+				{chatDialogOpen ? (
+					<ChatDialog
+					open
 				onClose={() => setChatDialogOpen(false)}
 				draft={chatDraft}
 				setDraft={setChatDraft}
@@ -556,8 +709,9 @@ export function CyberShieldDashboard({
 						setNotice,
 					})
 				}
-			/>
-		</>
+					/>
+				) : null}
+			</>
 	);
 }
 
@@ -603,11 +757,11 @@ function renderPage(
 		case "chat":
 			return (
 				<ChatPage
-					messages={props.chatMessages}
-					isSending={props.isChatting}
-					onOpenComposer={props.onOpenChatComposer}
-				/>
-			);
+						messages={props.chatMessages}
+						isSending={props.isChatting}
+						onOpenComposer={props.onOpenChatComposer}
+					/>
+				);
 		case "members":
 			return <MembersPage initialData={props.initialWorkspaceMembers} />;
 		case "scan-detail":

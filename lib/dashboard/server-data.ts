@@ -73,23 +73,32 @@ export const getDashboardInitialData = cache(
 
 async function getCachedScans() {
 	"use cache";
-	cacheLife({ stale: 15, revalidate: 5, expire: 60 });
+	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
 	cacheTag(DASHBOARD_SCANS_TAG);
 	return listScans();
 }
 
 async function getCachedTrackedSources() {
 	"use cache";
-	cacheLife({ stale: 30, revalidate: 10, expire: 120 });
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
 	cacheTag(DASHBOARD_TRACKED_SOURCES_TAG);
 	return listTrackedSources();
 }
 
 async function getCachedScanDetail(scanId: string) {
 	"use cache";
-	cacheLife({ stale: 15, revalidate: 5, expire: 60 });
-	cacheTag(DASHBOARD_SCANS_TAG, dashboardScanDetailTag(scanId));
 	const detail = await getScanDetail(scanId);
+	const isActive =
+		!detail ||
+		detail.job.status === "queued" ||
+		detail.job.status === "running" ||
+		detail.job.status === "retrying";
+	cacheLife(
+		isActive
+			? { stale: 30, revalidate: 30, expire: 300 }
+			: { stale: 300, revalidate: 300, expire: 3600 },
+	);
+	cacheTag(dashboardScanDetailTag(scanId));
 	return toClientScanDetail(detail);
 }
 

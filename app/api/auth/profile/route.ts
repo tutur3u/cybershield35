@@ -4,10 +4,11 @@ import { verifyAvatarUploadProof } from "@/lib/auth/avatar-upload-proof";
 import {
 	buildTuturuuuApiUrl,
 	createSessionCookie,
+	fetchTuturuuuWithBearer,
 	getBearerForPlatformRequest,
-	refreshAdminSession,
 	sanitizeAuthError,
 	toSafeSession,
+	updateAdminSessionIdentity,
 	type SafeAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 import {
@@ -50,20 +51,21 @@ type SafeProfile = {
 export async function GET(request: Request) {
 	try {
 		const auth = await getBearerForPlatformRequest(request);
-		const response = await fetch(buildTuturuuuApiUrl("users/me/profile"), {
-			cache: "no-store",
-			headers: { Authorization: auth.authorization },
-			method: "GET",
-		});
+		const upstream = await fetchTuturuuuWithBearer(
+			auth,
+			buildTuturuuuApiUrl("users/me/profile"),
+			{ method: "GET" },
+		);
+		const { response } = upstream;
 		const body = await readJson(response);
 		if (!response.ok) {
 			return json(body ?? { error: "Tuturuuu profile request failed" }, {
 				status: response.status,
-				setCookie: auth.setCookie,
+				setCookie: upstream.auth.setCookie,
 			});
 		}
 
-		const safeSession = toSafeSession(auth.session);
+		const safeSession = toSafeSession(upstream.auth.session);
 		const parsed = profileResponseSchema.safeParse(body);
 		return json(
 			{
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
 					: toSafeProfileFromSession(safeSession),
 				session: safeSession,
 			},
-			{ setCookie: auth.setCookie },
+			{ setCookie: upstream.auth.setCookie },
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);
@@ -103,31 +105,44 @@ export async function PATCH(request: Request) {
 
 		const profilePatch = toTuturuuuProfilePatch(parsed.data);
 
-		const response = await fetch(buildTuturuuuApiUrl("users/me/profile"), {
-			body: JSON.stringify(profilePatch),
-			cache: "no-store",
-			headers: {
-				Authorization: auth.authorization,
-				"Content-Type": "application/json",
+		const upstream = await fetchTuturuuuWithBearer(
+			auth,
+			buildTuturuuuApiUrl("users/me/profile"),
+			{
+				body: JSON.stringify(profilePatch),
+				headers: { "Content-Type": "application/json" },
+				method: "PATCH",
 			},
-			method: "PATCH",
-		});
+		);
+		const { response } = upstream;
 		const body = await readJson(response);
 		if (!response.ok) {
 			return json(body ?? { error: "Tuturuuu profile update failed" }, {
 				status: response.status,
-				setCookie: auth.setCookie,
+				setCookie: upstream.auth.setCookie,
 			});
 		}
 
-		const refreshedSession = await refreshAdminSession(auth.session);
-		const safeSession = toSafeSession(refreshedSession);
+		const returnedProfile = profileResponseSchema.safeParse(body);
+		const updatedSession = updateAdminSessionIdentity(upstream.auth.session, {
+			avatarUrl:
+				returnedProfile.success &&
+				returnedProfile.data.avatar_url !== undefined
+					? returnedProfile.data.avatar_url
+					: profilePatch.avatar_url,
+			displayName:
+				returnedProfile.success &&
+				returnedProfile.data.display_name !== undefined
+					? returnedProfile.data.display_name
+					: profilePatch.display_name,
+		});
+		const safeSession = toSafeSession(updatedSession);
 		return json(
 			{
 				profile: toSafeProfileFromSession(safeSession),
 				session: safeSession,
 			},
-			{ setCookie: createSessionCookie(refreshedSession) },
+			{ setCookie: createSessionCookie(updatedSession) },
 		);
 	} catch (error) {
 		const safe = sanitizeAuthError(error);

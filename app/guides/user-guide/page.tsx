@@ -1,19 +1,7 @@
-import { Suspense } from "react";
+import { GuidePage } from "@/components/dashboard/guide-page";
 
-import {
-	DashboardRoute,
-	DashboardRouteSkeleton,
-} from "@/components/dashboard/dashboard-route";
-
-export const unstable_instant = {
-	prefetch: "static",
-	unstable_disableValidation: true,
-};
+export const instant = true;
 
 export default function UserGuidePage() {
-	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
-			<DashboardRoute page="guide-user" />
-		</Suspense>
-	);
+	return <GuidePage kind="user" />;
 }

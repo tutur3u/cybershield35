@@ -46,14 +46,20 @@ describe("tracked sources", () => {
 		});
 	});
 
-	test("keeps built-in tracked sources active for daily automation", () => {
+	test("seeds built-in tracked sources in migration while keeping reads pure", () => {
 		const worker = readFileSync("lib/workers/tracked-sources.ts", "utf8");
+		const migration = readFileSync("drizzle/0008_blue_zemo.sql", "utf8");
 
-		expect(worker).toContain("function insertDefaultTrackedSource");
-		expect(worker).toContain(".onConflictDoUpdate({");
-		expect(worker).toContain("isActive: seed.isActive");
-		expect(worker).not.toContain(
-			".onConflictDoNothing({ target: trackedSources.normalizedUrl })",
+		expect(worker).not.toContain("ensureDefaultTrackedSources");
+		expect(migration).toContain("INSERT INTO \"tracked_sources\"");
+		expect(migration).toContain(
+			"https://www.facebook.com/example-page",
+		);
+		expect(migration).toContain(
+			"https://www.facebook.com/example-fanpage",
+		);
+		expect(migration).toContain(
+			'ON CONFLICT ("normalized_url") DO UPDATE SET',
 		);
 	});
 
