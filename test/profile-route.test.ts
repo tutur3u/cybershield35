@@ -116,7 +116,7 @@ describe("Tuturuuu profile proxy route", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	test("forwards valid PATCH data and refreshes the encrypted session cookie", async () => {
+	test("forwards one PATCH and updates identity in the existing encrypted session", async () => {
 		const cookie = createSessionCookie(session());
 		const publicUrl = "https://storage.example.com/avatars/user-1/123.png";
 		const uploadProof = createAvatarUploadProof({
@@ -126,37 +126,18 @@ describe("Tuturuuu profile proxy route", () => {
 		});
 		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
 			const pathname = new URL(String(url)).pathname;
-			if (pathname.endsWith("/users/me/profile")) {
-				expect(init?.method).toBe("PATCH");
-				expect(init?.headers).toMatchObject({
-					Authorization: "Bearer access-token",
-					"Content-Type": "application/json",
-				});
-				expect(JSON.parse(String(init?.body))).toEqual({
-					avatar_url: publicUrl,
-					display_name: "Updated Admin",
-				});
-				return Promise.resolve(
-					Response.json({ message: "Profile updated successfully" }),
-				);
-			}
-
-			expect(pathname).toBe("/api/v1/auth/app-token/exchange");
-			expect(JSON.parse(String(init?.body))).toMatchObject({
-				refreshToken: "refresh-token",
-				requestedScopes: [
-					"workspace:session",
-					"workspace:members:read",
-					"workspace:members:write",
-					"workspace:roles:read",
-					"workspace:roles:write",
-					"workspace:cron:read",
-					"workspace:cron:write",
-					"users:profile:read",
-					"users:profile:write",
-				],
+			expect(pathname).toBe("/api/v1/users/me/profile");
+			expect(init?.method).toBe("PATCH");
+			const headers = new Headers(init?.headers);
+			expect(headers.get("Authorization")).toBe("Bearer access-token");
+			expect(headers.get("Content-Type")).toBe("application/json");
+			expect(JSON.parse(String(init?.body))).toEqual({
+				avatar_url: publicUrl,
+				display_name: "Updated Admin",
 			});
-			return Promise.resolve(Response.json(exchangeBody({ avatarUrl: publicUrl })));
+			return Promise.resolve(
+				Response.json({ message: "Profile updated successfully" }),
+			);
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -174,6 +155,7 @@ describe("Tuturuuu profile proxy route", () => {
 		);
 
 		expect(response.status).toBe(200);
+		expect(response.headers.get("Cache-Control")).toBe("no-store");
 		expect(await response.json()).toMatchObject({
 			profile: {
 				avatar_url: publicUrl,
@@ -188,8 +170,54 @@ describe("Tuturuuu profile proxy route", () => {
 		});
 		const setCookie = response.headers.get("Set-Cookie");
 		expect(setCookie).toContain("cybershield35_admin_session=");
-		expect(setCookie).not.toContain("new-access-token");
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 
+		const refreshed = await readAdminSession(
+			new Request("https://cybershield.example.com", {
+				headers: { cookie: setCookie ?? "" },
+			}),
+		);
+		expect(refreshed?.accessToken).toBe("access-token");
+		expect(refreshed?.refreshToken).toBe("refresh-token");
+		expect(refreshed?.user.avatarUrl).toBe(publicUrl);
+		expect(refreshed?.user.displayName).toBe("Updated Admin");
+	});
+
+	test("refreshes a stale bearer once before one profile PATCH", async () => {
+		const stale = session({
+			expiresAt: new Date(Date.now() + 1000).toISOString(),
+		});
+		const calls: string[] = [];
+		const fetchMock = mock((url: string | URL, init?: RequestInit) => {
+			const pathname = new URL(String(url)).pathname;
+			calls.push(pathname);
+			if (pathname.endsWith("/auth/app-token/exchange")) {
+				return Promise.resolve(Response.json(exchangeBody()));
+			}
+
+			expect(pathname).toBe("/api/v1/users/me/profile");
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer new-access-token",
+			);
+			return Promise.resolve(
+				Response.json({ message: "Profile updated successfully" }),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const response = await PATCH(
+			request(
+				{ display_name: "Updated Admin" },
+				createSessionCookie(stale),
+			),
+		);
+
+		expect(response.status).toBe(200);
+		expect(calls).toEqual([
+			"/api/v1/auth/app-token/exchange",
+			"/api/v1/users/me/profile",
+		]);
+		const setCookie = response.headers.get("Set-Cookie");
 		const refreshed = await readAdminSession(
 			new Request("https://cybershield.example.com", {
 				headers: { cookie: setCookie ?? "" },
@@ -197,6 +225,7 @@ describe("Tuturuuu profile proxy route", () => {
 		);
 		expect(refreshed?.accessToken).toBe("new-access-token");
 		expect(refreshed?.refreshToken).toBe("new-refresh-token");
+		expect(refreshed?.user.displayName).toBe("Updated Admin");
 	});
 
 	test("passes through Tuturuuu profile errors without refreshing identity", async () => {

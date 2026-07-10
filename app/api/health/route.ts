@@ -1,28 +1,44 @@
+import { cacheLife, cacheTag } from "next/cache";
+
+import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
+import { DASHBOARD_HEALTH_TAG } from "@/lib/dashboard/cache-tags";
 import { adminDb, checkDatabase } from "@/lib/db/client";
 import { cronHeartbeats } from "@/lib/db/schema";
-import { getProviderAvailability } from "@/lib/providers";
-import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
+import { getProviderAvailability } from "@/lib/providers/availability";
 
 export async function GET() {
+	return Response.json(await getHealthSnapshot());
+}
+
+async function getHealthSnapshot() {
+	"use cache";
+	cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+	cacheTag(DASHBOARD_HEALTH_TAG);
+
 	const providers = getProviderAvailability();
-	let database: { ok: boolean; latencyMs?: number; error?: string };
-	let cron: { ok: boolean; lastSeenAt?: string; error?: string } = { ok: false };
+	const [databaseResult, cronResult] = await Promise.allSettled([
+		checkDatabase(),
+		adminDb.select().from(cronHeartbeats).limit(1),
+	]);
+	const database =
+		databaseResult.status === "fulfilled"
+			? databaseResult.value
+			: {
+					ok: false,
+					error: errorMessage(databaseResult.reason, "Database unavailable"),
+				};
+	const cron =
+		cronResult.status === "fulfilled"
+			? {
+					ok: cronResult.value.length > 0,
+					lastSeenAt: cronResult.value[0]?.lastSeenAt?.toISOString(),
+				}
+			: {
+					error: errorMessage(cronResult.reason, "Cron heartbeat unavailable"),
+					ok: false,
+				};
 
-	try {
-		database = await checkDatabase();
-		const rows = await adminDb.select().from(cronHeartbeats).limit(1);
-		cron = {
-			ok: rows.length > 0,
-			lastSeenAt: rows[0]?.lastSeenAt?.toISOString(),
-		};
-	} catch (error) {
-		database = {
-			ok: false,
-			error: error instanceof Error ? error.message : "Database unavailable",
-		};
-	}
-
-	return Response.json({
+	return {
 		status: database.ok ? "ok" : "degraded",
 		database,
 		cron,
@@ -31,5 +47,9 @@ export async function GET() {
 			provider: "tuturuuu-external-app",
 		},
 		providers,
-	});
+	};
+}
+
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error ? error.message : fallback;
 }

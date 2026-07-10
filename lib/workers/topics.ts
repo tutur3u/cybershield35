@@ -1,12 +1,17 @@
 import "server-only";
 
 import { desc, eq } from "drizzle-orm";
+import { cacheLife, cacheTag } from "next/cache";
 
 import type {
 	TopicDetailView,
 	TopicsPage,
 	TopicView,
 } from "@/components/dashboard/types";
+import {
+	DASHBOARD_TOPICS_TAG,
+	dashboardTopicTag,
+} from "@/lib/dashboard/cache-tags";
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import {
 	analyses,
@@ -56,8 +61,20 @@ export async function listTopicsPage(input?: {
 	cursor?: string | null;
 	limit?: number;
 }): Promise<TopicsPage> {
-	const limit = normalizePageLimit(input?.limit);
-	const offset = normalizeOffsetCursor(input?.cursor);
+	return getCachedTopicsPage(
+		normalizePageLimit(input?.limit),
+		normalizeOffsetCursor(input?.cursor),
+	);
+}
+
+async function getCachedTopicsPage(
+	limit: number,
+	offset: number,
+): Promise<TopicsPage> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_TOPICS_TAG);
+
 	const rows = await adminDb
 		.select()
 		.from(topics)
@@ -79,12 +96,26 @@ export async function getTopicDetailPage(input: {
 	limit?: number;
 	slug: string;
 }): Promise<TopicDetailView | null> {
-	const limit = normalizePageLimit(input.limit);
-	const offset = normalizeOffsetCursor(input.cursor);
+	return getCachedTopicDetailPage(
+		input.slug.trim(),
+		normalizePageLimit(input.limit),
+		normalizeOffsetCursor(input.cursor),
+	);
+}
+
+async function getCachedTopicDetailPage(
+	slug: string,
+	limit: number,
+	offset: number,
+): Promise<TopicDetailView | null> {
+	"use cache";
+	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
+	cacheTag(DASHBOARD_TOPICS_TAG, dashboardTopicTag(slug));
+
 	const [topic] = await adminDb
 		.select()
 		.from(topics)
-		.where(eq(topics.slug, input.slug))
+		.where(eq(topics.slug, slug))
 		.limit(1);
 
 	if (!topic) return null;

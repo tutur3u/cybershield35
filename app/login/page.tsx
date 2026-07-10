@@ -18,7 +18,7 @@ import {
 	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
 
-export const unstable_instant = false;
+export const instant = true;
 
 export const metadata: Metadata = {
 	title: "Đăng nhập",

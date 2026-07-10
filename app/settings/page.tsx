@@ -1,19 +1,7 @@
-import { Suspense } from "react";
+import { SettingsPage as SettingsContent } from "@/components/dashboard/settings-page";
 
-import {
-	DashboardRoute,
-	DashboardRouteSkeleton,
-} from "@/components/dashboard/dashboard-route";
-
-export const unstable_instant = {
-	prefetch: "static",
-	unstable_disableValidation: true,
-};
+export const instant = true;
 
 export default function SettingsPage() {
-	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
-			<DashboardRoute page="settings" />
-		</Suspense>
-	);
+	return <SettingsContent />;
 }

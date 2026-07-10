@@ -1,19 +1,25 @@
 import { Suspense } from "react";
 
 import {
-	DashboardRoute,
+	DashboardRouteFromSearchParams,
 	DashboardRouteSkeleton,
+	type DashboardSearchParams,
 } from "@/components/dashboard/dashboard-route";
 
-export const unstable_instant = {
-	prefetch: "static",
-	unstable_disableValidation: true,
-};
+export const instant = true;
+export const prefetch = "allow-runtime";
 
-export default function Home() {
+export default function Home({
+	searchParams,
+}: {
+	searchParams: DashboardSearchParams;
+}) {
 	return (
 		<Suspense fallback={<DashboardRouteSkeleton />}>
-			<DashboardRoute page="overview" />
+			<DashboardRouteFromSearchParams
+				page="overview"
+				searchParams={searchParams}
+			/>
 		</Suspense>
 	);
 }

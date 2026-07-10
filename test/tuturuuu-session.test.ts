@@ -1,6 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	requireAdminSession,
+	requireLocalAdminSession,
+} from "@/lib/auth/require-admin";
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
@@ -8,6 +11,7 @@ import {
 	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
 	readAdminSession,
+	refreshAdminSession,
 	sessionNeedsIdentityRefresh,
 	sessionNeedsScopeRefresh,
 	toSafeSession,
@@ -19,6 +23,7 @@ import {
 } from "@/lib/auth/scope-approval";
 
 const originalEnv = { ...process.env };
+const originalFetch = globalThis.fetch;
 
 function session(): TuturuuuAdminSession {
 	return {
@@ -51,6 +56,8 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.env = { ...originalEnv };
+	globalThis.fetch = originalFetch;
+	mock.restore();
 });
 
 describe("Tuturuuu encrypted admin session", () => {
@@ -328,5 +335,79 @@ describe("Tuturuuu encrypted admin session", () => {
 			error: "Authentication required",
 			status: 401,
 		});
+	});
+
+	test("local authorization never exchanges a near-expiry access token", async () => {
+		const staleAccessSession = session();
+		staleAccessSession.expiresAt = new Date(Date.now() - 60_000).toISOString();
+		const fetchMock = mock(() =>
+			Promise.reject(new Error("local authorization must not call Tuturuuu")),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const auth = await requireLocalAdminSession(
+			new Request("https://cybershield.example.com/api/scans", {
+				headers: { cookie: createSessionCookie(staleAccessSession) },
+			}),
+		);
+
+		expect(auth).toMatchObject({
+			kind: "live",
+			setCookie: null,
+			session: { accessToken: "ttr_app_access_secret" },
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test("local authorization rejects incomplete scopes without an exchange", async () => {
+		const incompleteSession = session();
+		incompleteSession.scopes = ["workspace:session"];
+		const fetchMock = mock(() =>
+			Promise.reject(new Error("local authorization must not call Tuturuuu")),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const auth = await requireLocalAdminSession(
+			new Request("https://cybershield.example.com/api/scans", {
+				headers: { cookie: createSessionCookie(incompleteSession) },
+			}),
+		);
+
+		expect(auth).toEqual({
+			error: "Requested scope is not allowed for this app",
+			status: 403,
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test("coalesces concurrent refreshes for the same encrypted session", async () => {
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const fetchMock = mock(async () => {
+			await Promise.resolve();
+			const refreshed = session();
+			return Response.json({
+				...refreshed,
+				accessToken: "coalesced-access-token",
+				refreshToken: "coalesced-refresh-token",
+			});
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const current = session();
+		const refreshed = await Promise.all([
+			refreshAdminSession(current),
+			refreshAdminSession(current),
+			refreshAdminSession(current),
+		]);
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(refreshed.map((item) => item.accessToken)).toEqual([
+			"coalesced-access-token",
+			"coalesced-access-token",
+			"coalesced-access-token",
+		]);
 	});
 });

@@ -113,10 +113,9 @@ describe("Tuturuuu avatar signed upload proxy", () => {
 				"/api/v1/users/me/avatar/upload-url",
 			);
 			expect(init?.method).toBe("POST");
-			expect(init?.headers).toMatchObject({
-				Authorization: "Bearer access-token",
-				"Content-Type": "application/json",
-			});
+			const headers = new Headers(init?.headers);
+			expect(headers.get("Authorization")).toBe("Bearer access-token");
+			expect(headers.get("Content-Type")).toBe("application/json");
 			expect(JSON.parse(String(init?.body))).toEqual({ filename: "avatar.png" });
 			return Promise.resolve(
 				Response.json({
@@ -141,6 +140,7 @@ describe("Tuturuuu avatar signed upload proxy", () => {
 		);
 
 		expect(response.status).toBe(200);
+		expect(response.headers.get("Cache-Control")).toBe("no-store");
 		const body = await response.json();
 		expect(body).toMatchObject({
 			filePath: "user-1/123.png",

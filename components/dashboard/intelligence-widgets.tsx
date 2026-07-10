@@ -15,10 +15,10 @@ import {
 	Search,
 	ShieldAlert,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
 	type ComponentType,
+	useEffect,
 	useMemo,
 	useRef,
 	useTransition,
@@ -35,6 +35,8 @@ import {
 	intelligenceSourcesInfiniteQueryOptions,
 	intelligenceTopicsInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
+import { defaultIntelligenceFilters } from "@/lib/dashboard/query-keys";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import type {
 	IntelligenceActivityRow,
 	IntelligenceClaimRow,
@@ -368,9 +370,19 @@ function IntelligenceFilterBar({
 	showStatus?: boolean;
 }) {
 	const [, startTransition] = useTransition();
+	const queryDebounceRef = useRef<number | null>(null);
 	const facebookPagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
 	const facebookPageOptions = facebookPageSelectOptions(
 		facebookPagesQuery.data ?? [],
+	);
+
+	useEffect(
+		() => () => {
+			if (queryDebounceRef.current !== null) {
+				window.clearTimeout(queryDebounceRef.current);
+			}
+		},
+		[],
 	);
 
 	return (
@@ -385,7 +397,12 @@ function IntelligenceFilterBar({
 					defaultValue={filters.query ?? ""}
 					onChange={(event) => {
 						const value = event.target.value;
-						startTransition(() => setFilter("query", value));
+						if (queryDebounceRef.current !== null) {
+							window.clearTimeout(queryDebounceRef.current);
+						}
+						queryDebounceRef.current = window.setTimeout(() => {
+							startTransition(() => setFilter("query", value));
+						}, 250);
 					}}
 					placeholder="Tìm claim, bằng chứng, nguồn..."
 					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
@@ -536,7 +553,7 @@ function ExecutiveKpiGrid({
 	return (
 		<div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
 			{visible.map((kpi) => (
-				<Link key={kpi.id} href={kpi.href} className="min-w-0">
+				<IntentPrefetchLink key={kpi.id} href={kpi.href} className="min-w-0">
 					<Panel className="h-full transition hover:border-[var(--border-strong)]">
 						<div className="min-w-0 p-4">
 							<div className="flex min-w-0 items-start justify-between gap-3">
@@ -564,7 +581,7 @@ function ExecutiveKpiGrid({
 							</p>
 						</div>
 					</Panel>
-				</Link>
+				</IntentPrefetchLink>
 			))}
 		</div>
 	);
@@ -702,7 +719,7 @@ function ActionRoutingPanel({
 			/>
 			<div className="divide-y divide-[var(--divider)]">
 				{overview?.actions.map((action) => (
-					<Link
+					<IntentPrefetchLink
 						key={action.id}
 						href={action.href}
 						className="grid min-w-0 gap-2 px-4 py-3 transition hover:bg-[var(--surface-soft)]"
@@ -718,7 +735,7 @@ function ActionRoutingPanel({
 						<p className="line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
 							{action.body}
 						</p>
-					</Link>
+					</IntentPrefetchLink>
 				))}
 				{!overview?.actions.length ? (
 					<EmptyRow
@@ -878,7 +895,7 @@ function TopicRow({
 	topic: IntelligenceTopicRow;
 }) {
 	return (
-		<Link
+		<IntentPrefetchLink
 			href={topic.href}
 			className={`grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] ${
 				compact
@@ -905,7 +922,7 @@ function TopicRow({
 				</span>
 			)}
 			<RiskPill risk={topic.riskLevel} />
-		</Link>
+		</IntentPrefetchLink>
 	);
 }
 
@@ -922,13 +939,13 @@ function EvidenceRow({
 				compact ? "" : "sm:grid-cols-[minmax(0,1fr)_120px_90px]"
 			} sm:items-center`}
 		>
-			<div className="min-w-0">
-				<Link
-					href={evidence.href}
-					className="line-clamp-2 text-[13px] font-bold leading-5 text-[var(--foreground)] hover:text-[var(--accent-strong)]"
-				>
-					{evidence.quote}
-				</Link>
+				<div className="min-w-0">
+					<IntentPrefetchLink
+						href={evidence.href}
+						className="line-clamp-2 text-[13px] font-bold leading-5 text-[var(--foreground)] hover:text-[var(--accent-strong)]"
+					>
+						{evidence.quote}
+					</IntentPrefetchLink>
 				<p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
 					{evidence.summary}
 				</p>
@@ -939,21 +956,21 @@ function EvidenceRow({
 					{evidence.facebookPageId ? ` - Facebook ID ${evidence.facebookPageId}` : ""}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-					{evidence.topicSlugs.slice(0, 3).map((slug) => (
-						<Link
-							key={slug}
+						{evidence.topicSlugs.slice(0, 3).map((slug) => (
+							<IntentPrefetchLink
+								key={slug}
 							href={`/topics/${slug}`}
 							className="max-w-full truncate rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
 							{slug}
-						</Link>
-					))}
-					<Link
-						href={evidence.scanHref}
+							</IntentPrefetchLink>
+						))}
+						<IntentPrefetchLink
+							href={evidence.scanHref}
 						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 					>
 						Mở scan
-					</Link>
+						</IntentPrefetchLink>
 					{evidence.originalPostHref ? (
 						<a
 							href={evidence.originalPostHref}
@@ -970,9 +987,12 @@ function EvidenceRow({
 				<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)]">
 					<p className="truncate">{evidence.sourceLabel ?? providerLabel(evidence.provider)}</p>
 					<p className="mt-1 truncate">{formatDate(evidence.createdAt)}</p>
-					<Link href={evidence.scanHref} className="mt-1 inline-flex text-[var(--accent-strong)]">
-						Chi tiết scan <ArrowRight size={12} />
-					</Link>
+						<IntentPrefetchLink
+							href={evidence.scanHref}
+							className="mt-1 inline-flex text-[var(--accent-strong)]"
+						>
+							Chi tiết scan <ArrowRight size={12} />
+						</IntentPrefetchLink>
 				</div>
 			)}
 			<RiskPill risk={evidence.riskLevel} />
@@ -994,24 +1014,24 @@ function ClaimRow({
 			} sm:items-center`}
 		>
 			<div className="min-w-0">
-				<Link
+				<IntentPrefetchLink
 					href={claim.deepLink}
 					className="line-clamp-2 text-[13px] font-bold leading-5 text-[var(--foreground)] hover:text-[var(--accent-strong)]"
 				>
 					{claim.claim}
-				</Link>
+				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
 					{claim.evidenceCount} bằng chứng - {claim.stance} - {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{claim.evidenceHrefs.slice(0, 3).map((href, index) => (
-						<Link
+						<IntentPrefetchLink
 							key={href}
 							href={href}
 							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
 							Bằng chứng {index + 1}
-						</Link>
+						</IntentPrefetchLink>
 					))}
 				</div>
 			</div>
@@ -1041,29 +1061,29 @@ function SourceRow({
 			} sm:items-center`}
 		>
 			<div className="min-w-0">
-				<Link
+				<IntentPrefetchLink
 					href={source.href}
 					className="truncate text-[13px] font-bold text-[var(--foreground)] hover:text-[var(--accent-strong)]"
 				>
 					{source.sourceLabel}
-				</Link>
+				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
 					{source.evidenceCount} bằng chứng - {source.failedScanCount} lỗi - {providerLabel(source.provider)}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-					<Link
+					<IntentPrefetchLink
 						href={`/evidence?facebookPage=${encodeURIComponent(source.sourceLabel)}`}
 						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 					>
 						Xem bài viết
-					</Link>
+					</IntentPrefetchLink>
 					{source.lastScanHref ? (
-						<Link
+						<IntentPrefetchLink
 							href={source.lastScanHref}
 							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
 							Scan gần nhất
-						</Link>
+						</IntentPrefetchLink>
 					) : null}
 				</div>
 			</div>
@@ -1098,7 +1118,7 @@ function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) 
 
 function ActivityRow({ event }: { event: IntelligenceActivityRow }) {
 	return (
-		<Link
+		<IntentPrefetchLink
 			href={event.href}
 			className="grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[160px_minmax(0,1fr)_90px] sm:items-center"
 		>
@@ -1114,7 +1134,7 @@ function ActivityRow({ event }: { event: IntelligenceActivityRow }) {
 				</p>
 			</div>
 			<RiskPill risk={event.severity} />
-		</Link>
+		</IntentPrefetchLink>
 	);
 }
 
@@ -1234,7 +1254,6 @@ function useIntelligenceFiltersFromUrl(): [
 	IntelligenceFilters,
 	(key: keyof IntelligenceFilters, value: string) => void,
 ] {
-	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const filters = useMemo<IntelligenceFilters>(
@@ -1242,12 +1261,14 @@ function useIntelligenceFiltersFromUrl(): [
 			facebookPage: searchParams.get("facebookPage") ?? undefined,
 			provider: searchParams.get("provider") ?? undefined,
 			query: searchParams.get("q") ?? undefined,
-			risk: (searchParams.get("risk") as IntelligenceFilters["risk"]) ?? "all",
+			risk:
+				(searchParams.get("risk") as IntelligenceFilters["risk"]) ??
+				defaultIntelligenceFilters.risk,
 			source: searchParams.get("source") ?? undefined,
 			status: searchParams.get("status") ?? undefined,
 			timeRange:
 				(searchParams.get("timeRange") as IntelligenceFilters["timeRange"]) ??
-				"30d",
+				defaultIntelligenceFilters.timeRange,
 			topic: searchParams.get("topic") ?? undefined,
 		}),
 		[searchParams],
@@ -1261,7 +1282,12 @@ function useIntelligenceFiltersFromUrl(): [
 		} else {
 			next.set(paramKey, value);
 		}
-		router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+		const query = next.toString();
+		window.history.replaceState(
+			null,
+			"",
+			query ? `${pathname}?${query}` : pathname,
+		);
 	}
 
 	return [filters, setFilter];

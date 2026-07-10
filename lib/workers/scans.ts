@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -196,58 +196,66 @@ export async function getScanDetail(id: string) {
 	const row = rows[0];
 	if (!row) return null;
 
-	const [analysis] = await adminDb
-		.select()
-		.from(analyses)
-		.where(eq(analyses.scanJobId, id))
-		.limit(1);
-	const evidence = await adminDb
-		.select({
-			author: evidenceItems.author,
-			createdAt: evidenceItems.createdAt,
-			engagement: evidenceItems.engagement,
-			id: evidenceItems.id,
-			provider: evidenceItems.provider,
-			publishedAt: evidenceItems.publishedAt,
-			quote: evidenceItems.quote,
-			riskLevel: evidenceItems.riskLevel,
-			scanJobId: evidenceItems.scanJobId,
-			sentiment: evidenceItems.sentiment,
-			sourceId: evidenceItems.sourceId,
-			sourceLabel: evidenceItems.sourceLabel,
-			sourceUrl: evidenceItems.sourceUrl,
-			stance: evidenceItems.stance,
-			summary: evidenceItems.summary,
-		})
-		.from(evidenceItems)
-		.where(eq(evidenceItems.scanJobId, id))
-		.orderBy(desc(evidenceItems.createdAt));
-	const drafts = await adminDb
-		.select()
-		.from(counterArgumentDrafts)
-		.where(eq(counterArgumentDrafts.scanJobId, id))
-		.orderBy(desc(counterArgumentDrafts.createdAt));
-	const runs = await adminDb
-		.select({
-			completedAt: providerRuns.completedAt,
-			errorMessage: providerRuns.errorMessage,
-			id: providerRuns.id,
-			provider: providerRuns.provider,
-			startedAt: providerRuns.startedAt,
-			status: providerRuns.status,
-		})
-		.from(providerRuns)
-		.where(eq(providerRuns.scanJobId, id))
-		.orderBy(desc(providerRuns.startedAt));
-	const audit = await adminDb
-		.select({
-			action: auditEvents.action,
-			createdAt: auditEvents.createdAt,
-			id: auditEvents.id,
-		})
-		.from(auditEvents)
-		.where(eq(auditEvents.entityId, id))
-		.orderBy(desc(auditEvents.createdAt));
+	const [analysisRows, evidence, drafts, runs, audit] = await Promise.all([
+		adminDb
+			.select()
+			.from(analyses)
+			.where(eq(analyses.scanJobId, id))
+			.limit(1),
+		adminDb
+			.select({
+				author: evidenceItems.author,
+				createdAt: evidenceItems.createdAt,
+				engagement: evidenceItems.engagement,
+				id: evidenceItems.id,
+				provider: evidenceItems.provider,
+				publishedAt: evidenceItems.publishedAt,
+				quote: evidenceItems.quote,
+				riskLevel: evidenceItems.riskLevel,
+				scanJobId: evidenceItems.scanJobId,
+				sentiment: evidenceItems.sentiment,
+				sourceId: evidenceItems.sourceId,
+				sourceLabel: evidenceItems.sourceLabel,
+				sourceUrl: evidenceItems.sourceUrl,
+				stance: evidenceItems.stance,
+				summary: evidenceItems.summary,
+			})
+			.from(evidenceItems)
+			.where(eq(evidenceItems.scanJobId, id))
+			.orderBy(desc(evidenceItems.createdAt)),
+		adminDb
+			.select()
+			.from(counterArgumentDrafts)
+			.where(eq(counterArgumentDrafts.scanJobId, id))
+			.orderBy(desc(counterArgumentDrafts.createdAt)),
+		adminDb
+			.select({
+				completedAt: providerRuns.completedAt,
+				errorMessage: providerRuns.errorMessage,
+				id: providerRuns.id,
+				provider: providerRuns.provider,
+				startedAt: providerRuns.startedAt,
+				status: providerRuns.status,
+			})
+			.from(providerRuns)
+			.where(eq(providerRuns.scanJobId, id))
+			.orderBy(desc(providerRuns.startedAt)),
+		adminDb
+			.select({
+				action: auditEvents.action,
+				createdAt: auditEvents.createdAt,
+				id: auditEvents.id,
+			})
+			.from(auditEvents)
+			.where(
+				and(
+					eq(auditEvents.entityType, "scan_job"),
+					eq(auditEvents.entityId, id),
+				),
+			)
+			.orderBy(desc(auditEvents.createdAt)),
+	]);
+	const analysis = analysisRows[0];
 
 	return {
 		job: {

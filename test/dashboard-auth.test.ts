@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -15,12 +15,14 @@ import {
 	createSessionCookie,
 	getRequestedScopes,
 	getTuturuuuAuthDiagnostics,
+	readAdminSession,
 	readPendingInvitation,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 import { proxy } from "@/proxy";
 
 const originalEnv = { ...process.env };
+const originalFetch = globalThis.fetch;
 
 function session(): TuturuuuAdminSession {
 	return {
@@ -45,6 +47,15 @@ function session(): TuturuuuAdminSession {
 	};
 }
 
+function exchangeBody() {
+	return {
+		...session(),
+		accessToken: "new-access-token",
+		expiresAt: new Date(Date.now() + 120_000).toISOString(),
+		refreshToken: "new-refresh-token",
+	};
+}
+
 function pageFiles(dir = "app"): string[] {
 	return readdirSync(dir).flatMap((entry) => {
 		const path = join(dir, entry);
@@ -60,6 +71,8 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.env = { ...originalEnv };
+	globalThis.fetch = originalFetch;
+	mock.restore();
 });
 
 describe("dashboard auth gate", () => {
@@ -730,9 +743,22 @@ describe("dashboard auth gate", () => {
 
 	test("proxy sends scope-incomplete sessions to the centralized scope login state", async () => {
 		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
 		const incompleteSession = session();
 		incompleteSession.scopes = ["workspace:session"];
 		const cookie = createSessionCookie(incompleteSession);
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json(
+					{ error: "Requested scope is not allowed for this app" },
+					{ status: 403 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const protectedResponse = await proxy(
 			new NextRequest("https://cybershield.example.com/sources", {
@@ -755,6 +781,7 @@ describe("dashboard auth gate", () => {
 		expect(location.searchParams.get("reason")).toBe("scope");
 		expect(loginResponse.status).toBe(200);
 		expect(loginResponse.headers.get("location")).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	test("allows explicit localhost dev bypass", async () => {
@@ -800,55 +827,86 @@ describe("dashboard auth gate", () => {
 		expect(JSON.stringify(auth)).not.toContain("workspaceId");
 	});
 
-	test("returns a scope approval href for Tuturuuu scope-denied refreshes", async () => {
+	test("local dashboard auth accepts stale access without a Tuturuuu exchange", async () => {
+		process.env.NODE_ENV = "production";
+		const staleSession = session();
+		staleSession.expiresAt = new Date(Date.now() - 60_000).toISOString();
+		const cookie = createSessionCookie(staleSession);
+		const fetchMock = mock(() =>
+			Promise.reject(new Error("local auth must not call Tuturuuu")),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const auth = await resolveDashboardAuthFromRequest(
+			new Request("https://cybershield.example.com/sources?tab=facebook", {
+				headers: { cookie },
+			}),
+		);
+
+		expect(auth.authenticated).toBe(true);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test("proxy refreshes once and persists the cookie for the current render", async () => {
 		process.env.NODE_ENV = "production";
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
 		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
-		process.env.TUTURUUU_WEB_APP_URL = "https://tuturuuu.com";
 		const staleSession = session();
-		staleSession.expiresAt = new Date(Date.now() - 60_000).toISOString();
-		const cookie = createSessionCookie(staleSession);
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = (() =>
+		staleSession.expiresAt = new Date(Date.now() + 1000).toISOString();
+		const fetchMock = mock(() => Promise.resolve(Response.json(exchangeBody())));
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const response = await proxy(
+			new NextRequest("https://cybershield.example.com/sources", {
+				headers: { cookie: createSessionCookie(staleSession) },
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		const setCookie = response.headers.get("Set-Cookie");
+		expect(setCookie).toContain("cybershield35_admin_session=");
+		const refreshed = await readAdminSession(
+			new Request("https://cybershield.example.com", {
+				headers: { cookie: setCookie ?? "" },
+			}),
+		);
+		expect(refreshed?.accessToken).toBe("new-access-token");
+		expect(response.headers.get("x-middleware-request-cookie")).toContain(
+			"cybershield35_admin_session=",
+		);
+	});
+
+	test("proxy clears a failed refresh session before redirecting", async () => {
+		process.env.NODE_ENV = "production";
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		const staleSession = session();
+		staleSession.expiresAt = new Date(Date.now() + 1000).toISOString();
+		globalThis.fetch = mock(() =>
 			Promise.resolve(
 				Response.json(
-					{ error: "Requested scope is not allowed for this app" },
-					{ status: 403 },
+					{ error: "Invalid or expired refresh token" },
+					{ status: 401 },
 				),
-			)) as typeof fetch;
+			),
+		) as unknown as typeof fetch;
 
-		try {
-			const auth = await resolveDashboardAuthFromRequest(
-				new Request("https://cybershield.example.com/sources?tab=facebook", {
-					headers: { cookie },
-				}),
-			);
+		const response = await proxy(
+			new NextRequest("https://cybershield.example.com/sources", {
+				headers: { cookie: createSessionCookie(staleSession) },
+			}),
+		);
 
-			if (auth.authenticated) throw new Error("Expected blocked request");
-			expect(auth.status).toBe(403);
-			expect(auth.error).toBe("Requested scope is not allowed for this app");
-			expect(auth.scopeApprovalHref).toBeTruthy();
-			const approvalUrl = new URL(auth.scopeApprovalHref ?? "");
-			expect(approvalUrl.pathname).toBe(
-				"/vi/internal/infrastructure/external-apps/approve",
-			);
-			expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
-			expect(approvalUrl.searchParams.getAll("scope")).toEqual([
-				"workspace:session",
-				"workspace:members:read",
-				"workspace:members:write",
-				"workspace:roles:read",
-				"workspace:roles:write",
-				"workspace:cron:read",
-				"workspace:cron:write",
-				"users:profile:read",
-				"users:profile:write",
-			]);
-		} finally {
-			globalThis.fetch = originalFetch;
-		}
+		expect(response.status).toBe(307);
+		const location = new URL(response.headers.get("location") ?? "");
+		expect(location.pathname).toBe("/login");
+		expect(location.searchParams.get("reason")).toBe("expired");
+		expect(response.headers.get("Set-Cookie")).toContain("Max-Age=0");
 	});
 
 	test("root layout gates protected pages before rendering protected children", () => {
@@ -859,7 +917,7 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(source).toContain("resolveDashboardAuthFromCurrentRequest");
-		expect(source).toContain("connection()");
+		expect(source).not.toContain("connection()");
 		expect(source).toContain("DashboardAppSkeleton");
 		expect(source).toContain("redirect(auth.loginPath)");
 		expect(source).toContain("DashboardLayoutShell");
@@ -1335,7 +1393,7 @@ describe("dashboard auth gate", () => {
 		expect(panel).not.toContain('type="url"');
 		expect(panel).not.toContain("https://example.com/avatar.png");
 		expect(route).toContain('buildTuturuuuApiUrl("users/me/avatar/upload-url")');
-		expect(route).toContain("Authorization: auth.authorization");
+		expect(route).toContain("fetchTuturuuuWithBearer");
 		expect(route).not.toContain("CYBERSHIELD35_APP_SECRET");
 	});
 
@@ -1414,15 +1472,18 @@ describe("dashboard auth gate", () => {
 		expect(data).toContain("Thành viên");
 		expect(types).toContain('| "members"');
 		expect(dashboard).toContain('case "members"');
-		expect(appPage).toContain('page="members"');
+		expect(appPage).toContain("getWorkspaceMembersInitialData");
+		expect(appPage).toContain("WorkspaceMembersPage");
 		expect(page).toContain("workspaceMembersQueryOptions");
 		expect(queries).toContain('fetchJson("/api/workspace/members")');
 		expect(page).toContain("/api/workspace/members/invitations");
 		expect(page).toContain("/api/workspace/members/default-admin");
 		expect(page).toContain("confirmDefaultAdminDisable");
 		expect(proxy).toContain("getBearerForPlatformRequest");
-		expect(proxy).toContain("Authorization: auth.authorization");
+		expect(proxy).toContain("fetchTuturuuuWithBearer");
 		expect(proxy).not.toContain("CYBERSHIELD35_APP_SECRET");
+		expect(page.match(/membersQuery\.refetch\(\)/gu)).toHaveLength(1);
+		expect(page.match(/invalidateQueries\(/gu)).toHaveLength(1);
 	});
 
 	test("dashboard hydrates TanStack Query data from server routes", () => {
@@ -1446,7 +1507,7 @@ describe("dashboard auth gate", () => {
 		expect(route).toContain("dehydrate(queryClient)");
 		expect(dashboard).toContain("useQuery");
 		expect(dashboard).toContain("invalidateQueries");
-		expect(queryKeys).toContain("120_000");
+		expect(queryKeys).toContain("5 * 60_000");
 		expect(initialRoute).toContain("getDashboardInitialData");
 		expect(initialRoute).toContain("requireAdminSession");
 	});
@@ -1546,8 +1607,9 @@ describe("dashboard auth gate", () => {
 		expect(packageJson).toContain("db:backfill-topics");
 	});
 
-	test("dashboard adds operator analytics and overflow-safe prose", () => {
-		const layout = readFileSync("app/layout.tsx", "utf8");
+		test("dashboard adds operator analytics and overflow-safe prose", () => {
+			const layout = readFileSync("app/layout.tsx", "utf8");
+			const telemetry = readFileSync("components/providers/telemetry.tsx", "utf8");
 		const pages = readFileSync(
 			"components/dashboard/dashboard-pages.tsx",
 			"utf8",
@@ -1565,8 +1627,9 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 
-		expect(layout).toContain("@vercel/analytics/next");
-		expect(layout).toContain("<Analytics />");
+			expect(layout).toContain("<Telemetry />");
+			expect(telemetry).toContain("@vercel/analytics/next");
+			expect(telemetry).toContain("@vercel/speed-insights/next");
 		expect(pages).toContain("<ExecutiveIntelligenceDashboard");
 		expect(pages).toContain("Tổng quan tình báo điều hành");
 		expect(intelligenceWidgets).toContain("Xu hướng rủi ro và bằng chứng");

@@ -5,10 +5,8 @@ import {
 	DashboardRouteSkeleton,
 } from "@/components/dashboard/dashboard-route";
 
-export const unstable_instant = {
-	prefetch: "static",
-	unstable_disableValidation: true,
-};
+export const instant = true;
+export const prefetch = "allow-runtime";
 
 export default function AnalysisPage() {
 	return (

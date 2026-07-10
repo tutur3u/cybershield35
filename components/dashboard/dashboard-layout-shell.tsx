@@ -1,21 +1,45 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { logout } from "@/components/dashboard/client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
 import { LoginRedirect } from "@/components/auth/login-redirect";
-import { Dialog } from "@/components/dashboard/dialog-frame";
-import { ManagedSchedulerPanel } from "@/components/dashboard/managed-scheduler-panel";
-import { ProviderStatus } from "@/components/dashboard/page-widgets";
-import { ProfileSettingsPanel } from "@/components/dashboard/profile-settings-panel";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type {
 	AuthViewState,
 	ProviderAvailabilityView,
 } from "@/components/dashboard/types";
+
+const loadProfileSettingsPanelDialog = () =>
+	import("@/components/dashboard/shell-profile-dialog");
+const loadOperationalSettingsDialog = () =>
+	import("@/components/dashboard/shell-settings-dialog");
+
+const ProfileSettingsPanelDialog = dynamic(
+	() =>
+		loadProfileSettingsPanelDialog().then(
+			(module) => module.ProfileSettingsPanelDialog,
+		),
+	{
+		loading: () => <DeferredDialogLoading label="Đang tải hồ sơ tài khoản" />,
+		ssr: false,
+	},
+);
+
+const ProviderStatusDialog = dynamic(
+	() =>
+		loadOperationalSettingsDialog().then(
+			(module) => module.OperationalSettingsDialog,
+		),
+	{
+		loading: () => <DeferredDialogLoading label="Đang tải cài đặt vận hành" />,
+		ssr: false,
+	},
+);
 
 export function DashboardLayoutShell({
 	children,
@@ -33,27 +57,8 @@ export function DashboardLayoutShell({
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(() =>
 		Boolean(schedulerAutoRetryToken)
 	);
-	const [providerAvailability, setProviderAvailability] =
-		useState<ProviderAvailabilityView | null>(initialProviderAvailability);
 	const [, setNotice] = useState("");
 	const { preference, resolvedTheme, setPreference } = useThemePreference();
-
-	useEffect(() => {
-		if (!auth.authenticated) return;
-
-		let alive = true;
-		fetch("/api/health", { cache: "no-store" })
-			.then((response) => response.json())
-			.then((payload: { providers?: ProviderAvailabilityView }) => {
-				if (!alive) return;
-				setProviderAvailability(payload.providers ?? null);
-			})
-			.catch(() => setProviderAvailability(null));
-
-		return () => {
-			alive = false;
-		};
-	}, [auth.authenticated]);
 
 	useEffect(() => {
 		if (!schedulerAutoRetryToken || typeof window === "undefined") return;
@@ -94,6 +99,12 @@ export function DashboardLayoutShell({
 								}
 								onOpenProfile={() => setProfileDialogOpen(true)}
 								onOpenSettings={() => setSettingsDialogOpen(true)}
+								onPreloadProfile={() => {
+									void loadProfileSettingsPanelDialog();
+								}}
+								onPreloadSettings={() => {
+									void loadOperationalSettingsDialog();
+								}}
 								onSelectTheme={setPreference}
 								resolvedTheme={resolvedTheme}
 								themePreference={preference}
@@ -103,16 +114,10 @@ export function DashboardLayoutShell({
 							</div>
 						</section>
 					</div>
-					<Dialog
-						open={profileDialogOpen}
-						onClose={() => setProfileDialogOpen(false)}
-						title="Hồ sơ tài khoản"
-						description="Tên hiển thị và ảnh đại diện cho phiên đang đăng nhập."
-						size="wide"
-					>
-						<ProfileSettingsPanel
+					{profileDialogOpen ? (
+						<ProfileSettingsPanelDialog
 							auth={auth}
-							embedded
+							onClose={() => setProfileDialogOpen(false)}
 							onProfileUpdated={(session) => {
 								setAuth((current) => ({
 									...current,
@@ -122,26 +127,33 @@ export function DashboardLayoutShell({
 								}));
 							}}
 						/>
-					</Dialog>
-					<Dialog
-						open={settingsDialogOpen}
-						onClose={() => setSettingsDialogOpen(false)}
-						title="Cài đặt vận hành"
-						description="Trạng thái provider và tự động hóa lịch quét."
-						size="wide"
-					>
-						<div className="space-y-4">
-							<ManagedSchedulerPanel
-								autoRetryToken={schedulerAutoRetryToken}
-							/>
-							<ProviderStatus availability={providerAvailability ?? undefined} />
-						</div>
-					</Dialog>
+					) : null}
+					{settingsDialogOpen ? (
+						<ProviderStatusDialog
+							autoRetryToken={schedulerAutoRetryToken}
+							initialProviderAvailability={initialProviderAvailability}
+							onClose={() => setSettingsDialogOpen(false)}
+						/>
+					) : null}
 				</main>
 			) : (
 				<LoginRedirect href={auth.loginHref ?? currentLoginHref("expired")} />
 			)}
 		</DashboardAuthProvider>
+	);
+}
+
+function DeferredDialogLoading({ label }: { label: string }) {
+	return (
+		<div
+			aria-live="polite"
+			className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6 backdrop-blur-sm"
+			role="status"
+		>
+			<div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-5 py-4 text-[13px] font-semibold text-[var(--muted-strong)] shadow-2xl">
+				{label}...
+			</div>
+		</div>
 	);
 }
 

@@ -77,6 +77,12 @@ export type TuturuuuAdminSession = z.infer<typeof exchangeResponseSchema> & {
 	identityRefreshedAt?: string;
 };
 
+export type PlatformBearerResult = {
+	authorization: string;
+	session: TuturuuuAdminSession;
+	setCookie: string | null;
+};
+
 export type SafeAdminSession = {
 	appName: string | null;
 	authenticated: boolean;
@@ -434,8 +440,30 @@ export async function refreshAdminSession(session: TuturuuuAdminSession) {
 		throw new AuthError("Tuturuuu admin session expired", 401);
 	}
 
-	return exchangeTuturuuuAppToken({ refreshToken: session.refreshToken });
+	const refreshKey = createHash("sha256")
+		.update(session.refreshToken)
+		.digest("base64url");
+	const inFlight = inFlightSessionRefreshes.get(refreshKey);
+	if (inFlight) return inFlight;
+
+	const refresh = exchangeTuturuuuAppToken({
+		refreshToken: session.refreshToken,
+	});
+	inFlightSessionRefreshes.set(refreshKey, refresh);
+
+	try {
+		return await refresh;
+	} finally {
+		if (inFlightSessionRefreshes.get(refreshKey) === refresh) {
+			inFlightSessionRefreshes.delete(refreshKey);
+		}
+	}
 }
+
+const inFlightSessionRefreshes = new Map<
+	string,
+	Promise<TuturuuuAdminSession>
+>();
 
 export function createSessionCookie(session: TuturuuuAdminSession) {
 	const maxAge = Math.max(
@@ -461,7 +489,9 @@ export function clearSessionCookie() {
 	});
 }
 
-export async function getBearerForPlatformRequest(request: Request) {
+export async function getBearerForPlatformRequest(
+	request: Request,
+): Promise<PlatformBearerResult> {
 	let session = await readAdminSession(request);
 	if (!session) throw new AuthError("Authentication required", 401);
 
@@ -480,6 +510,73 @@ export async function getBearerForPlatformRequest(request: Request) {
 		session,
 		setCookie,
 	};
+}
+
+export async function fetchTuturuuuWithBearer(
+	auth: PlatformBearerResult,
+	input: string | URL,
+	init: RequestInit = {},
+) {
+	let currentAuth = auth;
+	let response = await fetchWithAuthorization(currentAuth, input, init);
+
+	// A fresh request can still race platform-side token revocation. Refresh and
+	// retry exactly once, but never rotate a token twice in the same operation.
+	if (response.status === 401 && !currentAuth.setCookie) {
+		await response.body?.cancel().catch(() => undefined);
+		const session = await refreshAdminSession(currentAuth.session);
+		currentAuth = {
+			authorization: `Bearer ${session.accessToken}`,
+			session,
+			setCookie: createSessionCookie(session),
+		};
+		response = await fetchWithAuthorization(currentAuth, input, init);
+	}
+
+	return { auth: currentAuth, response };
+}
+
+export function updateAdminSessionIdentity(
+	session: TuturuuuAdminSession,
+	identity: {
+		avatarUrl?: string | null;
+		displayName?: string | null;
+	},
+) {
+	const current = toSafeSession(session).user;
+	const avatarUrl =
+		identity.avatarUrl === undefined ? current.avatarUrl : identity.avatarUrl;
+	const displayName =
+		identity.displayName === undefined
+			? current.displayName
+			: identity.displayName;
+
+	return {
+		...session,
+		identityRefreshedAt: new Date().toISOString(),
+		user: {
+			...session.user,
+			avatar_url: avatarUrl,
+			avatarUrl,
+			display_name: displayName,
+			displayName,
+		},
+	} satisfies TuturuuuAdminSession;
+}
+
+function fetchWithAuthorization(
+	auth: PlatformBearerResult,
+	input: string | URL,
+	init: RequestInit,
+) {
+	const headers = new Headers(init.headers);
+	headers.set("Authorization", auth.authorization);
+
+	return fetch(input, {
+		...init,
+		cache: "no-store",
+		headers,
+	});
 }
 
 export function sanitizeAuthError(error: unknown) {

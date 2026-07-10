@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
 	buildTuturuuuApiUrl,
+	fetchTuturuuuWithBearer,
 	getBearerForPlatformRequest,
 	sanitizeAuthError,
 } from "@/lib/auth/tuturuuu-session";
@@ -46,22 +47,22 @@ export async function POST(request: Request) {
 			return json({ error: "Invalid avatar upload payload" }, { status: 400 });
 		}
 
-		const response = await fetch(
+		const upstream = await fetchTuturuuuWithBearer(
+			auth,
 			buildTuturuuuApiUrl("users/me/avatar/upload-url"),
 			{
 				body: JSON.stringify({ filename: parsed.data.filename }),
-				cache: "no-store",
 				headers: {
-					Authorization: auth.authorization,
 					"Content-Type": "application/json",
 				},
 				method: "POST",
 			},
 		);
+		const { response } = upstream;
 		const body = await readJson(response);
 		if (!response.ok) {
 			return json(body ?? { error: "Tuturuuu avatar upload request failed" }, {
-				setCookie: auth.setCookie,
+				setCookie: upstream.auth.setCookie,
 				status: response.status,
 			});
 		}
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
 				}),
 				uploadUrl: upload.uploadUrl,
 			},
-			{ setCookie: auth.setCookie },
+			{ setCookie: upstream.auth.setCookie },
 		);
 	} catch (error) {
 		if (error instanceof z.ZodError) {

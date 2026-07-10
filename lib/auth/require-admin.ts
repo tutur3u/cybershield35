@@ -2,15 +2,19 @@ import {
 	allowLocalAuthBypass,
 	createSessionCookie,
 	getRequestedScopes,
-	refreshAdminSession,
 	readAdminSession,
+	refreshAdminSession,
 	sanitizeAuthError,
+	sessionCanRefresh,
 	sessionNeedsIdentityRefresh,
 	sessionNeedsRefresh,
 	sessionNeedsScopeRefresh,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
-import { isTuturuuuScopeNotAllowedError } from "@/lib/auth/scope-approval";
+import {
+	isTuturuuuScopeNotAllowedError,
+	TUTURUUU_SCOPE_NOT_ALLOWED_ERROR,
+} from "@/lib/auth/scope-approval";
 
 export type AdminAuthResult =
 	| {
@@ -24,6 +28,32 @@ export type AdminAuthResult =
 			status: number;
 	  };
 
+export async function requireLocalAdminSession(
+	request: Request,
+): Promise<AdminAuthResult> {
+	if (allowLocalAuthBypass(request)) {
+		return { kind: "live", session: localDevSession(), setCookie: null };
+	}
+
+	const session = await readAdminSession(request);
+	if (!session) {
+		return { error: "Authentication required", status: 401 };
+	}
+
+	if (!sessionCanRefresh(session)) {
+		return { error: "Tuturuuu admin session expired", status: 401 };
+	}
+
+	if (sessionNeedsScopeRefresh(session)) {
+		return {
+			error: TUTURUUU_SCOPE_NOT_ALLOWED_ERROR,
+			status: 403,
+		};
+	}
+
+	return { kind: "live", session, setCookie: null };
+}
+
 export async function requireAdminSession(
 	request: Request,
 ): Promise<AdminAuthResult> {
@@ -34,6 +64,10 @@ export async function requireAdminSession(
 	let session = await readAdminSession(request);
 	if (!session) {
 		return { error: "Authentication required", status: 401 };
+	}
+
+	if (!sessionCanRefresh(session)) {
+		return { error: "Tuturuuu admin session expired", status: 401 };
 	}
 
 	if (

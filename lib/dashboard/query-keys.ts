@@ -1,9 +1,60 @@
+import type { IntelligenceFilters } from "@/components/dashboard/types";
 import type { DashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 
-export const dashboardQueryStaleTimeMs = 120_000;
-export const intelligenceQueryStaleTimeMs = 60_000;
-export const workspaceMembersQueryStaleTimeMs = 120_000;
-export const managedSchedulerQueryStaleTimeMs = 120_000;
+export const dashboardQueryGcTimeMs = 30 * 60_000;
+export const dashboardQueryStaleTimeMs = 5 * 60_000;
+export const intelligenceQueryStaleTimeMs = 5 * 60_000;
+export const workspaceMembersQueryStaleTimeMs = 5 * 60_000;
+export const managedSchedulerQueryStaleTimeMs = 60_000;
+
+export const defaultIntelligenceFilters = {
+	risk: "all",
+	timeRange: "30d",
+} as const satisfies IntelligenceFilters;
+
+export type DashboardSearchParams = Promise<
+	Record<string, string | string[] | undefined>
+>;
+
+export function intelligenceFiltersFromSearchParams(
+	searchParams: Awaited<DashboardSearchParams>,
+): IntelligenceFilters {
+	return {
+		facebookPage: firstSearchParam(searchParams.facebookPage),
+		provider: firstSearchParam(searchParams.provider),
+		query: firstSearchParam(searchParams.q),
+		risk:
+			(firstSearchParam(searchParams.risk) as IntelligenceFilters["risk"]) ??
+			defaultIntelligenceFilters.risk,
+		source: firstSearchParam(searchParams.source),
+		status: firstSearchParam(searchParams.status),
+		timeRange:
+			(firstSearchParam(
+				searchParams.timeRange,
+			) as IntelligenceFilters["timeRange"]) ??
+			defaultIntelligenceFilters.timeRange,
+		topic: firstSearchParam(searchParams.topic),
+	};
+}
+
+export function serializeIntelligenceFilters(
+	filters: IntelligenceFilters = {},
+): Record<string, string> {
+	const params: Record<string, string> = {};
+	if (filters.facebookPage) params.facebookPage = filters.facebookPage;
+	if (filters.provider) params.provider = filters.provider;
+	if (filters.query) params.q = filters.query;
+	if (filters.risk && filters.risk !== "all") params.risk = filters.risk;
+	if (filters.source) params.source = filters.source;
+	if (filters.status) params.status = filters.status;
+	if (filters.timeRange) params.timeRange = filters.timeRange;
+	if (filters.topic) params.topic = filters.topic;
+	return params;
+}
+
+function firstSearchParam(value: string | string[] | undefined) {
+	return Array.isArray(value) ? value[0] : value;
+}
 
 export type DashboardInitialQueryParams = DashboardSnapshotRequirements & {
 	scanId?: string | null;

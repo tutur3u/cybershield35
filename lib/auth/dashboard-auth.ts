@@ -1,5 +1,5 @@
 import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
-import { requireAdminSession } from "@/lib/auth/require-admin";
+import { requireLocalAdminSession } from "@/lib/auth/require-admin";
 import {
 	buildLocalLoginPath,
 	isPublicAuthRoute,
@@ -70,7 +70,7 @@ export async function resolveDashboardAuthFromRequest(
 		};
 	}
 
-	const auth = await requireAdminSession(request);
+	const auth = await requireLocalAdminSession(request);
 	if ("error" in auth) {
 		const needsScopeApproval =
 			authDiagnostics.configured &&

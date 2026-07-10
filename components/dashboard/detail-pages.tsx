@@ -7,7 +7,6 @@ import {
 	Radar,
 	Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { EvidencePanel, TopicPanel } from "@/components/dashboard/analysis-widgets";
@@ -16,6 +15,7 @@ import {
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
 import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import type { DraftShape } from "@/components/dashboard/types";
 import { AnalysisSummary, PageHeader } from "@/components/dashboard/page-widgets";
 import {
@@ -278,20 +278,20 @@ function EvidenceActionsPanel({ scanId }: { scanId: string }) {
 		<Panel>
 			<PanelHeader title="Liên kết xử lý" />
 			<div className="space-y-3 p-4">
-				<Link
+				<IntentPrefetchLink
 					href={`/scans/${scanId}`}
 					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
 					<span className="truncate">Mở scan liên quan</span>
 					<ArrowLeft className="rotate-180" size={14} />
-				</Link>
-				<Link
+				</IntentPrefetchLink>
+				<IntentPrefetchLink
 					href="/counter-arguments"
 					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
 					<span className="truncate">Soạn phản hồi từ bằng chứng</span>
 					<ArrowLeft className="rotate-180" size={14} />
-				</Link>
+				</IntentPrefetchLink>
 				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[11px] leading-5 text-[var(--muted)]">
 					Bằng chứng này chỉ được dùng làm căn cứ nội bộ; mọi phản hồi phải qua
 					trạng thái duyệt thủ công trước khi xuất.
@@ -356,12 +356,12 @@ function DetailGrid({ rows }: { rows: Array<[string, ReactNode]> }) {
 
 function BackLink({ href, label }: { href: string; label: string }) {
 	return (
-		<Link
+		<IntentPrefetchLink
 			href={href}
 			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 		>
 			<ArrowLeft size={14} /> {label}
-		</Link>
+		</IntentPrefetchLink>
 	);
 }
 

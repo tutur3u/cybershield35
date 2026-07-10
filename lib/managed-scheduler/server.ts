@@ -6,6 +6,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	revalidateDashboardHealth,
+	revalidateDashboardScan,
+	revalidateDashboardTrackedSources,
+} from "@/lib/dashboard/cache-invalidation";
 import { adminDb } from "@/lib/db/client";
 import {
 	cronHeartbeats,
@@ -268,6 +273,12 @@ async function runSchedulerJobResponse(
 	}
 
 	const result = await runVercelSchedulerJob(job, source);
+	const scanIds = Array.isArray(result.payload.scanIds)
+		? result.payload.scanIds.filter(
+				(scanId): scanId is string => typeof scanId === "string",
+			)
+		: [];
+	revalidateSchedulerDashboardCaches(job.jobKey, scanIds);
 	return json(
 		{
 			...result.payload,
@@ -278,6 +289,29 @@ async function runSchedulerJobResponse(
 		},
 		{ setCookie, status: result.statusCode },
 	);
+}
+
+function revalidateSchedulerDashboardCaches(jobKey: string, scanIds: string[]) {
+	try {
+		for (const scanId of scanIds) revalidateDashboardScan(scanId);
+		if (
+			jobKey === "enqueue-tracked-sources" ||
+			(jobKey === "process-queue" && scanIds.length > 0)
+		) {
+			revalidateDashboardTrackedSources();
+		}
+		revalidateDashboardHealth();
+	} catch (error) {
+		// Direct worker/unit-test execution has no Next.js static-generation store.
+		// Route-handler execution does, so cache invalidation still remains strict there.
+		if (
+			error instanceof Error &&
+			error.message.includes("static generation store missing")
+		) {
+			return;
+		}
+		throw error;
+	}
 }
 
 async function runVercelSchedulerJob(

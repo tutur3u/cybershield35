@@ -18,7 +18,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
-import { PageHeader } from "@/components/dashboard/page-widgets";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import type {
 	WorkspaceInvitationView,
@@ -53,7 +53,9 @@ export function WorkspaceMembersPage({
 	const queryClient = useQueryClient();
 	const membersQuery = useQuery({
 		...workspaceMembersQueryOptions(),
+		gcTime: 30 * 60_000,
 		initialData,
+		staleTime: 5 * 60_000,
 	});
 	const data = membersQuery.data ?? emptyPayload;
 	const [emails, setEmails] = useState("");
@@ -81,9 +83,6 @@ export function WorkspaceMembersPage({
 	async function loadMembers() {
 		setError("");
 		try {
-			await queryClient.invalidateQueries({
-				queryKey: dashboardQueryKeys.workspaceMembers(),
-			});
 			const result = await membersQuery.refetch();
 			if (result.error) throw result.error;
 		} catch (loadError) {
@@ -192,8 +191,8 @@ export function WorkspaceMembersPage({
 			setNotice(success);
 			await queryClient.invalidateQueries({
 				queryKey: dashboardQueryKeys.workspaceMembers(),
+				refetchType: "active",
 			});
-			await membersQuery.refetch();
 		} catch (mutationError) {
 			setError(
 				mutationError instanceof Error

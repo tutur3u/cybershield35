@@ -88,6 +88,7 @@ export const scanJobs = pgTable(
 		index("scan_jobs_queue_idx").on(table.status, table.scheduledAt, table.priority),
 		index("scan_jobs_source_idx").on(table.sourceId),
 		index("scan_jobs_status_created_idx").on(table.status, table.createdAt),
+		index("scan_jobs_created_at_idx").on(table.createdAt),
 	],
 );
 
@@ -131,7 +132,10 @@ export const providerRuns = pgTable(
 		startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
 		completedAt: timestamp("completed_at", { withTimezone: true }),
 	},
-	(table) => [index("provider_runs_job_idx").on(table.scanJobId)],
+	(table) => [
+		index("provider_runs_job_idx").on(table.scanJobId),
+		index("provider_runs_job_started_idx").on(table.scanJobId, table.startedAt),
+	],
 );
 
 export const evidenceItems = pgTable(
@@ -163,6 +167,7 @@ export const evidenceItems = pgTable(
 	},
 	(table) => [
 		index("evidence_items_job_idx").on(table.scanJobId),
+		index("evidence_items_job_created_idx").on(table.scanJobId, table.createdAt),
 		index("evidence_items_source_idx").on(table.sourceId),
 		index("evidence_items_risk_created_idx").on(
 			table.riskLevel,
@@ -269,7 +274,13 @@ export const counterArgumentDrafts = pgTable(
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => [index("counter_argument_drafts_job_idx").on(table.scanJobId)],
+	(table) => [
+		index("counter_argument_drafts_job_idx").on(table.scanJobId),
+		index("counter_argument_drafts_job_created_idx").on(
+			table.scanJobId,
+			table.createdAt,
+		),
+	],
 );
 
 export const auditEvents = pgTable(
@@ -282,7 +293,14 @@ export const auditEvents = pgTable(
 		payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => [index("audit_events_entity_idx").on(table.entityType, table.entityId)],
+	(table) => [
+		index("audit_events_entity_idx").on(table.entityType, table.entityId),
+		index("audit_events_entity_created_idx").on(
+			table.entityType,
+			table.entityId,
+			table.createdAt,
+		),
+	],
 );
 
 export const cronHeartbeats = pgTable("cron_heartbeats", {

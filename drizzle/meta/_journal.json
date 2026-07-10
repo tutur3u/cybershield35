@@ -57,6 +57,13 @@
       "when": 1782895606035,
       "tag": "0007_many_nightshade",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783668157375,
+      "tag": "0008_blue_zemo",
+      "breakpoints": true
     }
   ]
 }

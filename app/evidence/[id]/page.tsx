@@ -5,16 +5,8 @@ import {
 	DashboardRouteSkeleton,
 } from "@/components/dashboard/dashboard-route";
 
-export const unstable_instant = {
-	prefetch: "runtime",
-	unstable_disableValidation: true,
-	samples: [
-		{
-			params: { id: "00000000-0000-0000-0000-000000000000" },
-			searchParams: { scanId: "00000000-0000-0000-0000-000000000000" },
-		},
-	],
-};
+export const instant = true;
+export const prefetch = "allow-runtime";
 
 export default function EvidenceDetailPage({
 	params,

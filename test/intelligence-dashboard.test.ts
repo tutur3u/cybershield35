@@ -64,7 +64,7 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(widgets).toContain("useInfiniteQuery");
 		expect(widgets).toContain("useVirtualizer");
 		expect(widgets).toContain("useSearchParams");
-		expect(widgets).toContain("router.replace");
+		expect(widgets).toContain("window.history.replaceState");
 		expect(widgets).toContain("DashboardTooltip");
 		expect(queries).toContain("intelligenceOverviewQueryOptions");
 		expect(queries).toContain("intelligenceEvidenceInfiniteQueryOptions");

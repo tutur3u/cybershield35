@@ -38,11 +38,11 @@ import {
 	Sun,
 	UserRound,
 } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { navItems, quickLinks } from "@/components/dashboard/dashboard-data";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	themeLabel,
 	type ResolvedTheme,
@@ -113,7 +113,7 @@ export function Sidebar({
 							return (
 								<Tooltip key={item.label}>
 									<TooltipTrigger asChild>
-										<Link
+										<IntentPrefetchLink
 											href={item.href}
 											title={collapsed ? item.label : undefined}
 											className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
@@ -128,7 +128,7 @@ export function Sidebar({
 											<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
 												{item.label}
 											</span>
-										</Link>
+										</IntentPrefetchLink>
 									</TooltipTrigger>
 									{collapsed ? (
 										<TooltipContent
@@ -153,7 +153,7 @@ export function Sidebar({
 						</p>
 						<div className="mt-3 space-y-2">
 							{quickLinks.map((link) => (
-								<Link
+								<IntentPrefetchLink
 									key={link.href}
 									href={link.href}
 									className={`flex items-center gap-2 rounded-md px-1 py-0.5 text-[11px] transition ${
@@ -164,7 +164,7 @@ export function Sidebar({
 								>
 									<CircleHelp size={13} />
 									<span className="truncate">{link.label}</span>
-								</Link>
+								</IntentPrefetchLink>
 							))}
 						</div>
 					</div>
@@ -219,7 +219,7 @@ function BrandmarkLink({
 	const brandmarkDirection = collapsed || compact ? "down" : "up";
 
 	return (
-		<Link
+		<IntentPrefetchLink
 			href="/"
 			aria-label="CyberShield35"
 			onFocus={expandBrandmark}
@@ -244,7 +244,7 @@ function BrandmarkLink({
 					stagger: 28,
 				}}
 			/>
-		</Link>
+		</IntentPrefetchLink>
 	);
 }
 
@@ -259,6 +259,8 @@ export function TopBar({
 	onLogout,
 	onOpenProfile,
 	onOpenSettings,
+	onPreloadProfile,
+	onPreloadSettings,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -267,6 +269,8 @@ export function TopBar({
 	onLogout: () => Promise<void>;
 	onOpenProfile: () => void;
 	onOpenSettings: () => void;
+	onPreloadProfile: () => void;
+	onPreloadSettings: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -311,7 +315,7 @@ export function TopBar({
 						{notifications.length ? (
 							<div className="max-h-[340px] overflow-y-auto p-2">
 								{notifications.map((notification) => (
-									<Link
+									<IntentPrefetchLink
 										key={notification.id}
 										href={notification.href}
 										className="flex gap-3 rounded-md p-3 transition hover:bg-[var(--surface-soft)]"
@@ -334,7 +338,7 @@ export function TopBar({
 												{notification.description}
 											</span>
 										</span>
-									</Link>
+									</IntentPrefetchLink>
 								))}
 							</div>
 						) : (
@@ -383,6 +387,8 @@ export function TopBar({
 						onLogout={onLogout}
 						onOpenProfile={onOpenProfile}
 						onOpenSettings={onOpenSettings}
+						onPreloadProfile={onPreloadProfile}
+						onPreloadSettings={onPreloadSettings}
 						onSelectTheme={onSelectTheme}
 						resolvedTheme={resolvedTheme}
 						themePreference={themePreference}
@@ -399,6 +405,8 @@ function AccountMenu({
 	onLogout,
 	onOpenProfile,
 	onOpenSettings,
+	onPreloadProfile,
+	onPreloadSettings,
 	onSelectTheme,
 	resolvedTheme,
 	themePreference,
@@ -408,6 +416,8 @@ function AccountMenu({
 	onLogout: () => Promise<void>;
 	onOpenProfile: () => void;
 	onOpenSettings: () => void;
+	onPreloadProfile: () => void;
+	onPreloadSettings: () => void;
 	onSelectTheme: (preference: ThemePreference) => void;
 	resolvedTheme: ResolvedTheme;
 	themePreference: ThemePreference;
@@ -438,6 +448,8 @@ function AccountMenu({
 			</DropdownMenuLabel>
 			<DropdownMenuSeparator className="bg-[var(--border)]" />
 			<DropdownMenuItem
+				onFocus={onPreloadProfile}
+				onPointerEnter={onPreloadProfile}
 				onSelect={() => {
 					onOpenProfile();
 					onClose();
@@ -448,6 +460,8 @@ function AccountMenu({
 				Hồ sơ tài khoản
 			</DropdownMenuItem>
 			<DropdownMenuItem
+				onFocus={onPreloadSettings}
+				onPointerEnter={onPreloadSettings}
 				onSelect={() => {
 					onOpenSettings();
 					onClose();
