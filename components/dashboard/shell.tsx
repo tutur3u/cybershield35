@@ -125,7 +125,7 @@ export function Sidebar({
 				</div>
 				<nav
 					aria-label="Điều hướng chính"
-					className={`${mobileOpen ? "block" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-2 lg:overflow-visible lg:py-4`}
+					className={`${mobileOpen ? "block" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-1 lg:overflow-visible lg:py-3`}
 				>
 					<SidebarNavLink
 						collapsed={collapsed}
@@ -133,26 +133,30 @@ export function Sidebar({
 						onNavigate={() => setMobileOpen(false)}
 						pathname={pathname}
 					/>
-					{navSections.map((section) => {
+					{navSections.map((section, sectionIndex) => {
 						const expanded = collapsed || section.id === activeSection || expandedSections[section.id] !== false;
 						return (
-							<div key={section.id} className="pt-1">
+							<div
+								key={section.id}
+								className={sectionIndex === 0 ? "pt-1" : "border-t border-[var(--divider)] pt-1"}
+							>
 								<button
 									type="button"
 									aria-expanded={expanded}
+									aria-controls={`sidebar-section-${section.id}`}
 									onClick={() =>
 										setExpandedSections((current) => ({
 											...current,
 											[section.id]: current[section.id] === false,
 										}))
 									}
-									className={`flex h-8 w-full items-center justify-between px-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)] ${collapsed ? "lg:hidden" : ""}`}
+									className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-bold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
 								>
-									<span>{section.label}</span>
-									<ChevronRight size={13} className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
+									<span className="min-w-0 truncate whitespace-nowrap">{section.label}</span>
+									<ChevronRight aria-hidden size={11} strokeWidth={2} className={`shrink-0 opacity-70 transition-transform group-hover:opacity-100 ${expanded ? "rotate-90" : ""}`} />
 								</button>
 								{expanded ? (
-									<div className="space-y-1">
+									<div id={`sidebar-section-${section.id}`} className="space-y-0.5">
 										{section.items.map((item) => (
 											<SidebarNavLink
 												collapsed={collapsed}
@@ -182,8 +186,8 @@ export function Sidebar({
 									href={link.href}
 									className={`flex items-center gap-2 rounded-md px-1 py-0.5 text-[11px] transition ${
 										pathname === link.href
-											? "text-[var(--brand)]"
-											: "text-[var(--muted-strong)] hover:text-[var(--foreground)]"
+											? "text-[color:var(--brand)]"
+											: "text-[color:var(--muted-strong)] hover:text-[color:var(--foreground)]"
 									}`}
 								>
 									<CircleHelp size={13} />
@@ -212,19 +216,20 @@ function SidebarNavLink({
 	const active = isNavActive(pathname, item.href);
 	return (
 		<IntentPrefetchLink
+			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
+			className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-10 lg:w-full lg:text-[12px] ${
 				collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
 			} ${
 				active
-					? "bg-[var(--brand)] text-white shadow-sm"
-					: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+					? "bg-[var(--success-soft)] text-[color:var(--brand-strong)] ring-1 ring-inset ring-[var(--success-border)]"
+					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
 			}`}
 			href={item.href}
 			onClick={onNavigate}
 			title={collapsed ? item.label : undefined}
 		>
-			<item.icon size={17} strokeWidth={2.1} />
+			<item.icon aria-hidden size={16} strokeWidth={2} />
 			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
 		</IntentPrefetchLink>
 	);
