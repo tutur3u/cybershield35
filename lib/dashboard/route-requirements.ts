@@ -17,6 +17,7 @@ export function dashboardSnapshotRequirements(
 			"guide-process",
 			"guide-user",
 			"members",
+			"operations",
 			"settings",
 			"topic-detail",
 		].includes(page)

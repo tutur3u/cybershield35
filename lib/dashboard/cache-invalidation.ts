@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import {
 	DASHBOARD_HEALTH_TAG,
 	DASHBOARD_INTELLIGENCE_TAG,
+	DASHBOARD_OPERATIONS_TAG,
 	DASHBOARD_SCANS_TAG,
 	DASHBOARD_TOPICS_TAG,
 	DASHBOARD_TRACKED_SOURCES_TAG,
@@ -48,4 +49,5 @@ export function revalidateDashboardIntelligence(
 
 export function revalidateDashboardHealth() {
 	revalidateTag(DASHBOARD_HEALTH_TAG, immediateExpire);
+	revalidateTag(DASHBOARD_OPERATIONS_TAG, immediateExpire);
 }

@@ -71,6 +71,13 @@
       "when": 1783749182005,
       "tag": "0009_flashy_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783753072509,
+      "tag": "0010_nasty_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }

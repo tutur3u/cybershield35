@@ -16,6 +16,7 @@ import type {
 	IntelligenceTopicRow,
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
+	OperationsOverview,
 	ScanDetail,
 	TopicDetailView,
 	TopicsPage,
@@ -304,6 +305,17 @@ export function managedSchedulerQueryOptions() {
 		queryKey: dashboardQueryKeys.managedScheduler(),
 		refetchInterval: 30_000,
 		staleTime: managedSchedulerQueryStaleTimeMs,
+	});
+}
+
+export function operationsOverviewQueryOptions() {
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: () => fetchJson<OperationsOverview>("/api/operations/overview"),
+		queryKey: dashboardQueryKeys.operationsOverview(),
+		refetchInterval: 15_000,
+		refetchIntervalInBackground: false,
+		staleTime: 10_000,
 	});
 }
 

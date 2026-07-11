@@ -29,6 +29,7 @@ import {
 	runtimeKeySummary,
 	runtimeMode,
 } from "@/lib/runtime/client-runtime";
+import { recordScanEvent } from "@/lib/operations/telemetry";
 import {
 	syncExistingAnalysisTopicsForScan,
 	syncTopicsForScan,
@@ -125,6 +126,14 @@ export async function createScan(input: CreateScanInput) {
 		provider: job.provider,
 		runtimeMode: runtimeMode(),
 		clientKeys: runtimeKeySummary(),
+	});
+	await recordScanEvent({
+		eventType: "scan_queued",
+		message: "Scan đã được thêm vào hàng đợi.",
+		metadata: { priority: job.priority, provider: job.provider },
+		scanJobId: job.id,
+		stage: "queue",
+		status: "waiting",
 	});
 	await refreshIntelligenceRollupsBestEffort(`scan-created:${job.id}`);
 
@@ -472,7 +481,16 @@ export async function processScanJobNow(scanId: string) {
 }
 
 async function processClaimedJob(claimed: ClaimedJob) {
+	const processingStartedAt = Date.now();
 	try {
+		await recordScanEvent({
+			eventType: "scan_claimed",
+			message: "Worker đã nhận scan từ hàng đợi.",
+			metadata: { attempt: claimed.attempts, provider: claimed.provider },
+			scanJobId: claimed.id,
+			stage: "queue",
+			status: "completed",
+		});
 		const [source] = await adminDb
 			.select()
 			.from(sources)
@@ -496,6 +514,14 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			.returning();
 
 		if (!run) throw new Error("Failed to create provider run");
+		await recordScanEvent({
+			eventType: "provider_started",
+			message: "Provider bắt đầu thu thập dữ liệu.",
+			metadata: { provider: claimed.provider, providerRunId: run.id },
+			scanJobId: claimed.id,
+			stage: "provider",
+			status: "running",
+		});
 
 		const result = await runProvider(claimed.provider, source);
 
@@ -507,6 +533,17 @@ async function processClaimedJob(claimed: ClaimedJob) {
 				completedAt: new Date(),
 			})
 			.where(eq(providerRuns.id, run.id));
+		await recordScanEvent({
+			eventType: "provider_completed",
+			message: "Provider đã hoàn tất thu thập dữ liệu.",
+			metadata: {
+				candidateCount: result.evidence.length,
+				provider: result.provider,
+			},
+			scanJobId: claimed.id,
+			stage: "provider",
+			status: "completed",
+		});
 
 		const insertedEvidence =
 			result.evidence.length > 0
@@ -532,7 +569,22 @@ async function processClaimedJob(claimed: ClaimedJob) {
 						)
 						.returning()
 				: [];
+		await recordScanEvent({
+			eventType: "evidence_persisted",
+			message: "Bằng chứng chuẩn hóa đã được lưu.",
+			metadata: { evidenceCount: insertedEvidence.length },
+			scanJobId: claimed.id,
+			stage: "evidence",
+			status: "completed",
+		});
 
+		await recordScanEvent({
+			eventType: "analysis_started",
+			message: "AI bắt đầu phân tích bằng chứng.",
+			scanJobId: claimed.id,
+			stage: "analysis",
+			status: "running",
+		});
 		const analysis = await analyzeEvidence(
 			insertedEvidence.map((item) => ({
 				id: item.id,
@@ -566,8 +618,24 @@ async function processClaimedJob(claimed: ClaimedJob) {
 					sentiment: analysis.sentiment,
 				},
 			});
+		await recordScanEvent({
+			eventType: "analysis_completed",
+			message: "Phân tích rủi ro và lập trường đã hoàn tất.",
+			metadata: { riskLevel: analysis.riskLevel },
+			scanJobId: claimed.id,
+			stage: "analysis",
+			status: "completed",
+		});
 
 		await syncTopicsForScan(claimed.id, analysis.topicClusters, insertedEvidence);
+		await recordScanEvent({
+			eventType: "topics_completed",
+			message: "Chủ đề và liên kết bằng chứng đã được cập nhật.",
+			metadata: { topicCount: analysis.topicClusters.length },
+			scanJobId: claimed.id,
+			stage: "topics",
+			status: "completed",
+		});
 
 		await adminDb
 			.update(scanJobs)
@@ -585,6 +653,17 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			providerMode: result.mode,
 			credentialSource: result.credentialSource,
 			evidenceCount: insertedEvidence.length,
+		});
+		await recordScanEvent({
+			eventType: "scan_completed",
+			message: "Scan đã hoàn tất toàn bộ pipeline.",
+			metadata: {
+				durationMs: Date.now() - processingStartedAt,
+				evidenceCount: insertedEvidence.length,
+			},
+			scanJobId: claimed.id,
+			stage: "complete",
+			status: "completed",
 		});
 		await refreshIntelligenceRollupsBestEffort(`scan-processed:${claimed.id}`);
 
@@ -609,6 +688,22 @@ async function processClaimedJob(claimed: ClaimedJob) {
 		await updateTrackedSourceLastScan(claimed.id, nextStatus);
 
 		await writeAudit("scan_job", claimed.id, "failed", { message, nextStatus });
+		await recordScanEvent({
+			eventType: nextStatus === "retrying" ? "scan_retry_scheduled" : "scan_failed",
+			message:
+				nextStatus === "retrying"
+					? "Scan gặp lỗi và đã được lên lịch thử lại."
+					: "Scan đã dừng sau khi hết số lần thử.",
+			metadata: {
+				attempt: claimed.attempts,
+				durationMs: Date.now() - processingStartedAt,
+				errorType: error instanceof Error ? error.name : "UnknownError",
+				nextStatus,
+			},
+			scanJobId: claimed.id,
+			stage: "complete",
+			status: "failed",
+		});
 		await refreshIntelligenceRollupsBestEffort(`scan-failed:${claimed.id}`);
 		return { processed: true, scanId: claimed.id, error: message };
 	}

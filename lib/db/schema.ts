@@ -147,6 +147,31 @@ export const providerRuns = pgTable(
 	],
 );
 
+export const scanJobEvents = pgTable(
+	"scan_job_events",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		scanJobId: uuid("scan_job_id")
+			.notNull()
+			.references(() => scanJobs.id, { onDelete: "cascade" }),
+		eventType: text("event_type").notNull(),
+		stage: text("stage").notNull(),
+		status: text("status").notNull(),
+		message: text("message").notNull(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("scan_job_events_job_time_idx").on(table.scanJobId, table.occurredAt),
+		index("scan_job_events_time_idx").on(table.occurredAt),
+		index("scan_job_events_stage_status_time_idx").on(
+			table.stage,
+			table.status,
+			table.occurredAt,
+		),
+	],
+);
+
 export const evidenceItems = pgTable(
 	"evidence_items",
 	{
@@ -585,6 +610,7 @@ export type NewSource = typeof sources.$inferInsert;
 export type ScanJobRow = typeof scanJobs.$inferSelect;
 export type TrackedSourceRow = typeof trackedSources.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
+export type ScanJobEventRow = typeof scanJobEvents.$inferSelect;
 export type EvidenceTriageRow = typeof evidenceTriage.$inferSelect;
 export type EvidenceTriageNoteRow = typeof evidenceTriageNotes.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;

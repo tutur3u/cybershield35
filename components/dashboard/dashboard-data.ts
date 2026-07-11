@@ -10,6 +10,7 @@ import {
 	Layers3,
 	MessageCircle,
 	MessageSquareText,
+	MonitorCog,
 	Radar,
 	UsersRound,
 	type LucideIcon,
@@ -26,6 +27,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
 	{ label: "Tổng quan", href: "/", icon: LayoutDashboard },
 	{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
+	{ label: "Vận hành hệ thống", href: "/operations", icon: MonitorCog },
 	{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
 	{ label: "Chủ đề", href: "/topics", icon: Layers3 },
 	{ label: "Lập luận phản hồi", href: "/counter-arguments", icon: MessageSquareText },

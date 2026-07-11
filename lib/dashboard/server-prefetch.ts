@@ -24,6 +24,7 @@ import {
 	serializeIntelligenceFilters,
 } from "@/lib/dashboard/query-keys";
 import { getTopicDetailPage } from "@/lib/workers/topics";
+import { getOperationsOverview } from "@/lib/operations/server";
 
 type FirstPage<T> = {
 	pages: [T];
@@ -122,6 +123,17 @@ export async function prefetchDashboardRouteData(
 				dashboardQueryKeys.intelligenceActivityInfinite(params, 30),
 				listIntelligenceActivity({ filters, limit: 30 }),
 			),
+		);
+	}
+
+	if (page === "operations") {
+		tasks.push(
+			getOperationsOverview().then((overview) => {
+				queryClient.setQueryData(
+					dashboardQueryKeys.operationsOverview(),
+					overview,
+				);
+			}),
 		);
 	}
 

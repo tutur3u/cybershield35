@@ -113,6 +113,7 @@ export const dashboardQueryKeys = {
 	timelineTriage: (evidenceId: string) =>
 		["dashboard", "timeline", "triage", evidenceId] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
+	operationsOverview: () => ["dashboard", "operations", "overview"] as const,
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,
 	workspaceMembers: () => ["workspace", "members"] as const,
