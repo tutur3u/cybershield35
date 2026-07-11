@@ -11,6 +11,7 @@ import type {
 	DashboardInitialData,
 	DashboardPage,
 	IntelligenceFilters,
+	TimelinePost,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
@@ -30,6 +31,7 @@ import { getWorkspaceMembersInitialData } from "@/lib/workspace-members/server-d
 type DashboardRouteProps = {
 	draftId?: string;
 	evidenceId?: string;
+	evidenceDetail?: TimelinePost;
 	intelligenceFilters?: IntelligenceFilters;
 	page?: DashboardPage;
 	scanId?: string;
@@ -39,6 +41,7 @@ type DashboardRouteProps = {
 export async function DashboardRoute({
 	draftId,
 	evidenceId,
+	evidenceDetail,
 	intelligenceFilters,
 	page = "overview",
 	scanId,
@@ -77,6 +80,12 @@ export async function DashboardRoute({
 		queryClient.setQueryData(
 			dashboardQueryKeys.scanDetail(initialData.selectedScanId),
 			initialData.detail,
+		);
+	}
+	if (evidenceDetail) {
+		queryClient.setQueryData(
+			dashboardQueryKeys.evidenceDetail(evidenceDetail.id),
+			evidenceDetail,
 		);
 	}
 	if (page === "members" && !initialWorkspaceMembers) {

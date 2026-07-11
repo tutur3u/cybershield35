@@ -145,7 +145,11 @@ async function getCachedTopicDetailPage(
 		.innerJoin(scanJobs, eq(evidenceTopics.scanJobId, scanJobs.id))
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
 		.where(eq(evidenceTopics.topicId, topic.id))
-		.orderBy(desc(evidenceTopics.confidence), desc(evidenceItems.createdAt))
+		.orderBy(
+			desc(evidenceTopics.confidence),
+			desc(evidenceItems.createdAt),
+			desc(evidenceItems.id),
+		)
 		.limit(limit + 1)
 		.offset(offset);
 

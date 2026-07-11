@@ -23,6 +23,7 @@ import type {
 	TimelineFilters,
 	TimelineHead,
 	TimelinePage,
+	TimelinePost,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
@@ -289,6 +290,16 @@ export function timelineHeadQueryOptions(filters: TimelineFilters = {}) {
 	});
 }
 
+export function evidenceDetailQueryOptions(evidenceId: string) {
+	return queryOptions({
+		enabled: Boolean(evidenceId),
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: () => fetchEvidenceDetail(evidenceId),
+		queryKey: dashboardQueryKeys.evidenceDetail(evidenceId),
+		staleTime: timelineQueryStaleTimeMs,
+	});
+}
+
 export function workspaceMembersQueryOptions() {
 	return queryOptions({
 		gcTime: dashboardQueryGcTimeMs,
@@ -347,6 +358,14 @@ async function fetchScanDetail(scanId: string): Promise<ScanDetail | null> {
 		`/api/scans/${encodeURIComponent(scanId)}`,
 	);
 	return payload.detail ?? null;
+}
+
+async function fetchEvidenceDetail(evidenceId: string): Promise<TimelinePost> {
+	const payload = await fetchJson<{ evidence?: TimelinePost }>(
+		`/api/evidence/${encodeURIComponent(evidenceId)}`,
+	);
+	if (!payload.evidence) throw new Error("Không tìm thấy bằng chứng này.");
+	return payload.evidence;
 }
 
 export async function fetchDashboardScansPage({

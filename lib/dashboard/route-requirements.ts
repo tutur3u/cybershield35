@@ -13,6 +13,7 @@ export function dashboardSnapshotRequirements(
 		[
 			"audit",
 			"chat",
+			"evidence-detail",
 			"guide-policies",
 			"guide-process",
 			"guide-user",

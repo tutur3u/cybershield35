@@ -1,7 +1,6 @@
 import {
 	ArrowLeft,
 	Clock3,
-	Database,
 	History,
 	MessageSquareText,
 	Radar,
@@ -76,68 +75,6 @@ export function ScanDetailsPage(
 				limit={8}
 				scanId={props.selectedScanId}
 			/>
-		</div>
-	);
-}
-
-export function EvidenceDetailsPage(
-	props: DashboardPageProps & { evidenceId?: string },
-) {
-	const evidence =
-		props.evidence.find((item) => item.id === props.evidenceId) ?? props.evidence[0];
-
-	return (
-		<div className="space-y-5">
-			<PageHeader
-				icon={Database}
-				title="Chi tiết bằng chứng"
-				description={evidence?.sourceLabel ?? "Nguồn công khai đã chuẩn hóa"}
-				actions={
-					<>
-						<BackLink href="/evidence" label="Kho bằng chứng" />
-						<BackLink href={`/scans/${props.selectedScanId}`} label="Scan liên quan" />
-					</>
-				}
-			/>
-			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-				<Panel className="h-full">
-					<PanelHeader
-						title="Trích dẫn"
-						action={<RiskPill risk={evidence?.riskLevel ?? "medium"} />}
-					/>
-					<div className="space-y-4 p-4">
-						<p className="rounded-lg bg-[var(--surface-soft)] p-4 text-[15px] leading-7 text-[var(--foreground)]">
-							"{evidence?.quote ?? "Không tìm thấy trích dẫn."}"
-						</p>
-						<p className="text-[13px] leading-6 text-[var(--muted-strong)]">
-							{evidence?.summary ?? "Bằng chứng này chưa có tóm tắt."}
-						</p>
-						<DetailGrid
-							rows={[
-								["Nguồn", evidence?.sourceLabel ?? "Nguồn công khai"],
-								["Tác giả", evidence?.author ?? "Public"],
-								["Lập trường", evidence?.stance ?? "Chưa phân loại"],
-								["Cảm xúc", evidence?.sentiment ?? "Chưa phân loại"],
-							]}
-						/>
-						{evidence?.sourceUrl ? (
-							<a
-								href={evidence.sourceUrl}
-								target="_blank"
-								rel="noreferrer"
-								className="inline-flex h-10 max-w-full items-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-							>
-								Mở nguồn gốc
-							</a>
-						) : null}
-					</div>
-				</Panel>
-				<div className="grid gap-5">
-					<EvidenceMetaPanel evidence={evidence} />
-					<EvidenceActionsPanel scanId={props.selectedScanId} />
-				</div>
-			</div>
-			<EvidencePanel evidence={props.evidence} limit={5} scanId={props.selectedScanId} />
 		</div>
 	);
 }
@@ -248,54 +185,6 @@ function AuditTimeline({ detail }: Pick<DashboardPageProps, "detail">) {
 						Chưa có nhật ký scan.
 					</p>
 				)}
-			</div>
-		</Panel>
-	);
-}
-
-function EvidenceMetaPanel({ evidence }: { evidence?: DashboardPageProps["evidence"][number] }) {
-	const engagement = evidence?.engagement as Record<string, unknown> | undefined;
-
-	return (
-		<Panel>
-			<PanelHeader title="Metadata" />
-			<div className="space-y-4 p-4">
-				<DetailGrid
-					rows={[
-						["Evidence ID", evidence?.id ?? "unknown"],
-						["Comments", String(engagement?.comments ?? "-")],
-						["Shares", String(engagement?.shares ?? "-")],
-						["Reactions", String(engagement?.reactions ?? "-")],
-					]}
-				/>
-			</div>
-		</Panel>
-	);
-}
-
-function EvidenceActionsPanel({ scanId }: { scanId: string }) {
-	return (
-		<Panel>
-			<PanelHeader title="Liên kết xử lý" />
-			<div className="space-y-3 p-4">
-				<IntentPrefetchLink
-					href={`/scans/${scanId}`}
-					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-				>
-					<span className="truncate">Mở scan liên quan</span>
-					<ArrowLeft className="rotate-180" size={14} />
-				</IntentPrefetchLink>
-				<IntentPrefetchLink
-					href="/counter-arguments"
-					className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-				>
-					<span className="truncate">Soạn phản hồi từ bằng chứng</span>
-					<ArrowLeft className="rotate-180" size={14} />
-				</IntentPrefetchLink>
-				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[11px] leading-5 text-[var(--muted)]">
-					Bằng chứng này chỉ được dùng làm căn cứ nội bộ; mọi phản hồi phải qua
-					trạng thái duyệt thủ công trước khi xuất.
-				</p>
 			</div>
 		</Panel>
 	);

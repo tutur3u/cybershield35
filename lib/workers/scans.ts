@@ -319,7 +319,7 @@ export async function listEvidenceForScanPage(input: {
 		})
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, input.scanId))
-		.orderBy(desc(evidenceItems.createdAt))
+		.orderBy(desc(evidenceItems.createdAt), desc(evidenceItems.id))
 		.limit(limit + 1)
 		.offset(offset);
 

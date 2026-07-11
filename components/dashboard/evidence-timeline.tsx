@@ -9,6 +9,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	CalendarDays,
+	Database,
 	Download,
 	ExternalLink,
 	Filter,
@@ -245,8 +246,8 @@ export function EvidenceTimeline() {
 			)}
 			<div ref={sentinelRef} aria-hidden className="h-px" />
 			{timelineQuery.hasNextPage ? (
-				<div className="flex justify-center py-4"><button type="button" disabled={timelineQuery.isFetchingNextPage} onClick={() => void timelineQuery.fetchNextPage()} className={toolButtonClass}><RefreshCw size={14} className={timelineQuery.isFetchingNextPage ? "animate-spin" : ""} />{timelineQuery.isFetchingNextPage ? "Đang tải…" : "Tải thêm"}</button></div>
-			) : posts.length ? <p className="py-4 text-center text-xs font-semibold text-[var(--muted)]">Đã hiển thị toàn bộ kết quả.</p> : null}
+				<div className="flex flex-col items-center gap-2 py-4"><p className="text-xs font-semibold text-[var(--muted)]">Đã hiển thị {posts.length.toLocaleString("vi-VN")} / {total.toLocaleString("vi-VN")} bài</p><button type="button" disabled={timelineQuery.isFetchingNextPage} onClick={() => void timelineQuery.fetchNextPage()} className={toolButtonClass}><RefreshCw size={14} className={timelineQuery.isFetchingNextPage ? "animate-spin" : ""} />{timelineQuery.isFetchingNextPage ? "Đang tải thêm bài viết…" : "Tải thêm bài viết"}</button></div>
+			) : posts.length ? <p className="py-4 text-center text-xs font-semibold text-[var(--muted)]">Đã hiển thị toàn bộ {posts.length.toLocaleString("vi-VN")} kết quả.</p> : null}
 
 			{selectedPost ? (
 				<EvidenceTriageSheet open post={selectedPost} onOpenChange={(open) => { if (!open) setSelectedId(null); }} onOptimisticUpdate={optimisticUpdate} />
@@ -262,7 +263,7 @@ function TimelineDayGroups({ posts, onTriage, currentTime }: { posts: TimelinePo
 
 function TimelineCard({ post, onTriage, currentTime }: { post: TimelinePost; onTriage: (id: string) => void; currentTime: number }) {
 	return (
-		<article className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]" style={{ contentVisibility: "auto", containIntrinsicSize: "260px" }}>
+		<article data-evidence-id={post.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)] transition hover:border-[var(--border-strong)]" style={{ contentVisibility: "auto", containIntrinsicSize: "260px" }}>
 			<div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0"><p className="truncate text-sm font-extrabold text-[var(--foreground)]">{post.sourceLabel ?? post.author ?? intelligenceProviderLabel(post.provider)}</p><p className="mt-1 text-xs font-semibold text-[var(--muted)]">{post.author ? `${post.author} · ` : ""}{formatPublished(post.publishedAt ?? post.createdAt)}</p></div>
 				<div className="flex flex-wrap items-center gap-2">{post.triage.isPinned ? <Badge icon={Pin} label="Đội ngũ ghim" accent /> : null}<TriageBadge status={post.triage.status} /><RiskPill risk={post.riskLevel} /></div>
@@ -272,7 +273,7 @@ function TimelineCard({ post, onTriage, currentTime }: { post: TimelinePost; onT
 			<div className="mt-4 flex flex-wrap gap-2">{post.topicSlugs.map((slug) => <IntentPrefetchLink key={slug} href={`/topics/${slug}`} className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]">#{slug}</IntentPrefetchLink>)}<Badge label={sentimentLabel(post.sentiment)} /><Badge label={stanceLabel(post.stance)} /></div>
 			<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--muted)]"><span>👍 {post.engagement.reactions.toLocaleString("vi-VN")}</span><span>💬 {post.engagement.comments.toLocaleString("vi-VN")}</span><span>↗ {post.engagement.shares.toLocaleString("vi-VN")}</span>{post.triage.assigneeDisplayName ? <span className="inline-flex items-center gap-1"><Users size={13} /> {post.triage.assigneeDisplayName}</span> : null}{post.triage.dueAt ? <DueBadge dueAt={post.triage.dueAt} status={post.triage.status} currentTime={currentTime} /> : null}</div>
-				<div className="flex flex-wrap gap-3 text-xs font-bold"><button type="button" onClick={() => onTriage(post.id)} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><MessageSquareText size={14} /> Xử lý</button><IntentPrefetchLink href={post.scanHref} className="text-[var(--accent-strong)]">Mở scan</IntentPrefetchLink>{post.originalPostHref ? <a href={post.originalPostHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-strong)]">Bài gốc <ExternalLink size={12} /></a> : null}</div>
+				<div className="flex flex-wrap gap-3 text-xs font-bold"><IntentPrefetchLink href={post.href} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><Database size={14} /> Xem chi tiết</IntentPrefetchLink><button type="button" onClick={() => onTriage(post.id)} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><MessageSquareText size={14} /> Xử lý</button><IntentPrefetchLink href={post.scanHref} className="text-[var(--accent-strong)]">Mở scan</IntentPrefetchLink>{post.originalPostHref ? <a href={post.originalPostHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-strong)]">Bài gốc <ExternalLink size={12} /></a> : null}</div>
 			</div>
 		</article>
 	);
