@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, Edit3, Layers3, Link2, Quote, Trash2 } from "lucide-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
@@ -224,8 +226,9 @@ export function TopicExplorer({
 export function TopicDetailPanel({ slug }: { slug?: string }) {
 	const topicQuery = useInfiniteQuery(topicDetailInfiniteQueryOptions(slug ?? "", 12));
 	const firstPage = topicQuery.data?.pages[0];
-	const evidence =
-		topicQuery.data?.pages.flatMap((page) => page.evidence) ?? [];
+	const evidence = uniqueEvidence(
+		topicQuery.data?.pages.flatMap((page) => page.evidence) ?? [],
+	);
 
 	return (
 		<div className="space-y-5">
@@ -255,13 +258,16 @@ export function TopicDetailPanel({ slug }: { slug?: string }) {
 			<Panel>
 				<PanelHeader
 					title="Bài viết liên quan"
-					description="Mở từng bài để xem trích dẫn, nguồn, tóm tắt và ngữ cảnh xử lý."
+					description={`${evidence.length.toLocaleString("vi-VN")} bài đã tải · mở từng bài để xem nguồn và ngữ cảnh xử lý.`}
 				/>
 				<div className="divide-y divide-[var(--divider)] p-4">
 					{topicQuery.isPending ? (
 						<EmptyPanelText>Đang tải bài viết liên quan.</EmptyPanelText>
 					) : topicQuery.isError ? (
-						<EmptyPanelText>Không thể tải chủ đề này.</EmptyPanelText>
+						<div className="py-8 text-center">
+							<EmptyPanelText>{topicQuery.error.message || "Không thể tải chủ đề này."}</EmptyPanelText>
+							<button type="button" onClick={() => void topicQuery.refetch()} className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]">Thử lại</button>
+						</div>
 					) : evidence.length ? (
 						evidence.map((item) => (
 						<IntentPrefetchLink
@@ -504,7 +510,7 @@ export function EvidencePanel({
 				: undefined,
 	});
 	const loadedEvidence = enableInfinite
-		? (evidenceQuery.data?.pages.flatMap((page) => page.items) ?? evidence)
+		? uniqueEvidence(evidenceQuery.data?.pages.flatMap((page) => page.items) ?? evidence)
 		: evidence;
 	const visible = enableInfinite
 		? loadedEvidence
@@ -514,7 +520,10 @@ export function EvidencePanel({
 
 	return (
 		<Panel className={className}>
-			<PanelHeader title={`Bằng chứng (${loadedEvidence.length})`} />
+			<PanelHeader
+				title={`Bằng chứng cùng scan (${loadedEvidence.length})`}
+				description="Danh sách được tải theo từng trang để giữ màn hình nhanh và dễ theo dõi."
+			/>
 			<div className="divide-y divide-[var(--divider)] p-4">
 				{visible.length ? (
 					visible.map((item, index) => (
@@ -563,6 +572,13 @@ export function EvidencePanel({
 							) : null}
 						</div>
 					))
+				) : evidenceQuery.isPending && enableInfinite ? (
+					<EmptyPanelText>Đang tải bằng chứng liên quan…</EmptyPanelText>
+				) : evidenceQuery.isError && enableInfinite ? (
+					<div className="py-6 text-center">
+						<EmptyPanelText>{evidenceQuery.error.message || "Không thể tải bằng chứng liên quan."}</EmptyPanelText>
+						<button type="button" onClick={() => void evidenceQuery.refetch()} className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]">Thử lại</button>
+					</div>
 				) : (
 					<EmptyPanelText>Chưa có bằng chứng. Tạo hoặc xử lý một scan live.</EmptyPanelText>
 				)}
@@ -577,9 +593,9 @@ export function EvidencePanel({
 					>
 						{evidenceQuery.isFetchingNextPage
 							? "Đang tải thêm..."
-							: evidenceQuery.hasNextPage
-								? "Tải thêm bằng chứng"
-								: "Đã tải hết bằng chứng"}
+						: evidenceQuery.hasNextPage
+							? `Tải thêm · ${loadedEvidence.length} đã hiển thị`
+							: `Đã tải toàn bộ ${loadedEvidence.length} bằng chứng`}
 					</button>
 				</div>
 			) : null}

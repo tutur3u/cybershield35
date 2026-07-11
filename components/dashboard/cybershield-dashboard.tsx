@@ -121,7 +121,9 @@ const ScanDetailsPage = dynamic(() =>
 	loadDetailPages().then((module) => module.ScanDetailsPage),
 );
 const EvidenceDetailsPage = dynamic(() =>
-	loadDetailPages().then((module) => module.EvidenceDetailsPage),
+	import("@/components/dashboard/evidence-details-page").then(
+		(module) => module.EvidenceDetailsPage,
+	),
 );
 const DraftDetailsPage = dynamic(() =>
 	loadDetailPages().then((module) => module.DraftDetailsPage),

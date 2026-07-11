@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
+import { getTimelinePostById } from "@/lib/dashboard/timeline-server";
 import { deleteEvidence, updateEvidence } from "@/lib/workers/scans";
 
 const evidencePatchSchema = z
@@ -19,6 +20,34 @@ const evidencePatchSchema = z
 	})
 	.strict()
 	.refine((value) => Object.keys(value).length > 0);
+
+export async function GET(
+	request: Request,
+	context: { params: Promise<{ id: string }> },
+) {
+	const auth = await requireAdminSession(request);
+	if ("error" in auth) {
+		return Response.json({ error: auth.error }, { status: auth.status });
+	}
+
+	const parsed = z.uuid().safeParse((await context.params).id);
+	if (!parsed.success) {
+		return Response.json({ error: "Evidence ID không hợp lệ" }, { status: 400 });
+	}
+
+	const evidence = await getTimelinePostById(parsed.data);
+	if (!evidence) {
+		return Response.json(
+			{ error: "Evidence not found" },
+			{ status: 404, headers: authHeaders(auth) },
+		);
+	}
+
+	return Response.json(
+		{ evidence, mode: "live" },
+		{ headers: authHeaders(auth) },
+	);
+}
 
 export async function PATCH(
 	request: Request,

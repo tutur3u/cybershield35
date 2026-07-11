@@ -89,6 +89,36 @@ const effectiveTriageStatus = sql<EvidenceTriageStatus>`coalesce(${evidenceTriag
 const effectivePinned = sql<boolean>`coalesce(${evidenceTriage.isPinned}, false)`;
 const publishedMicros = sql<number>`floor(extract(epoch from ${effectivePublishedAt}) * 1000000)`;
 const triageUpdatedMicros = sql<number>`floor(extract(epoch from ${effectiveTriageUpdatedAt}) * 1000000)`;
+const timelinePostSelection = {
+	author: evidenceItems.author,
+	comments: commentsExpr,
+	createdAt: evidenceItems.createdAt,
+	engagementTotal: engagementScore,
+	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
+	id: evidenceItems.id,
+	provider: evidenceItems.provider,
+	publishedAt: evidenceItems.publishedAt,
+	publishedMicros,
+	quote: evidenceItems.quote,
+	reactions: reactionsExpr,
+	riskLevel: evidenceItems.riskLevel,
+	riskScore,
+	scanJobId: evidenceItems.scanJobId,
+	sentiment: evidenceItems.sentiment,
+	shares: sharesExpr,
+	sourceLabel: evidenceItems.sourceLabel,
+	sourceUrl: evidenceItems.sourceUrl,
+	stance: evidenceItems.stance,
+	summary: evidenceItems.summary,
+	triageAssigneeDisplayName: evidenceTriage.assigneeDisplayName,
+	triageAssigneeUserId: evidenceTriage.assigneeUserId,
+	triageDueAt: evidenceTriage.dueAt,
+	triageIsPinned: evidenceTriage.isPinned,
+	triageStatus: effectiveTriageStatus,
+	triageUpdatedAt: evidenceTriage.updatedAt,
+	triageUpdatedMicros,
+	triageUpdatedByDisplayName: evidenceTriage.updatedByDisplayName,
+};
 
 export async function listTimeline({
 	cursor,
@@ -121,36 +151,7 @@ async function getCachedTimeline(
 	const cursorCondition = cursor ? timelineCursorCondition(sort, cursor) : undefined;
 	const where = and(...baseConditions, cursorCondition);
 	const rowsQuery = adminDb
-		.select({
-			author: evidenceItems.author,
-			comments: commentsExpr,
-			createdAt: evidenceItems.createdAt,
-			engagementTotal: engagementScore,
-			facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
-			id: evidenceItems.id,
-			provider: evidenceItems.provider,
-			publishedAt: evidenceItems.publishedAt,
-			publishedMicros,
-			quote: evidenceItems.quote,
-			reactions: reactionsExpr,
-			riskLevel: evidenceItems.riskLevel,
-			riskScore,
-			scanJobId: evidenceItems.scanJobId,
-			sentiment: evidenceItems.sentiment,
-			shares: sharesExpr,
-			sourceLabel: evidenceItems.sourceLabel,
-			sourceUrl: evidenceItems.sourceUrl,
-			stance: evidenceItems.stance,
-			summary: evidenceItems.summary,
-			triageAssigneeDisplayName: evidenceTriage.assigneeDisplayName,
-			triageAssigneeUserId: evidenceTriage.assigneeUserId,
-			triageDueAt: evidenceTriage.dueAt,
-			triageIsPinned: evidenceTriage.isPinned,
-			triageStatus: effectiveTriageStatus,
-			triageUpdatedAt: evidenceTriage.updatedAt,
-			triageUpdatedMicros,
-			triageUpdatedByDisplayName: evidenceTriage.updatedByDisplayName,
-		})
+		.select(timelinePostSelection)
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 		.where(where)
@@ -177,6 +178,31 @@ async function getCachedTimeline(
 		refreshedAt: new Date().toISOString(),
 		total: totalRows[0]?.count ?? 0,
 	};
+}
+
+export async function getTimelinePostById(
+	evidenceId: string,
+): Promise<TimelinePost | null> {
+	return getCachedTimelinePostById(evidenceId);
+}
+
+async function getCachedTimelinePostById(
+	evidenceId: string,
+): Promise<TimelinePost | null> {
+	"use cache";
+	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
+	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("evidence"));
+
+	const rows = await adminDb
+		.select(timelinePostSelection)
+		.from(evidenceItems)
+		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+		.where(eq(evidenceItems.id, evidenceId))
+		.limit(1);
+	const row = rows[0];
+	if (!row) return null;
+	const topicMap = await topicsForEvidence([row.id]);
+	return mapTimelinePost(row, topicMap.get(row.id) ?? []);
 }
 
 export async function getTimelineHead(
