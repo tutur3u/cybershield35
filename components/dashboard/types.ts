@@ -12,6 +12,7 @@ import type {
 
 export type DashboardPage =
 	| "overview"
+	| "operations"
 	| "sources"
 	| "analysis"
 	| "topics"
@@ -30,6 +31,75 @@ export type DashboardPage =
 	| "guide-process"
 	| "guide-user"
 	| "guide-policies";
+
+export type OperationsQueueStatus = {
+	completed: number;
+	failed: number;
+	queued: number;
+	retrying: number;
+	running: number;
+};
+
+export type OperationsServiceView = {
+	ageSeconds: number | null;
+	health: "healthy" | "stale" | "unknown";
+	label: string;
+	lastSeenAt: string | null;
+	serviceName: string;
+};
+
+export type OperationsProviderView = {
+	averageDurationMs: number;
+	completed: number;
+	failed: number;
+	provider: ProviderName;
+	running: number;
+	successRate: number;
+};
+
+export type OperationsPipelineEventView = {
+	eventType: string;
+	id: string;
+	message: string;
+	metadata: Record<string, unknown>;
+	occurredAt: string;
+	scanHref: string;
+	scanJobId: string;
+	stage: string;
+	status: string;
+};
+
+export type OperationsJobView = {
+	attempts: number;
+	createdAt: string;
+	durationMs: number | null;
+	errorMessage: string | null;
+	id: string;
+	latestEvent: OperationsPipelineEventView | null;
+	maxAttempts: number;
+	priority: number;
+	provider: ProviderName;
+	scheduledAt: string;
+	sourceLabel: string;
+	status: ScanStatus;
+};
+
+export type OperationsOverview = {
+	generatedAt: string;
+	oldestQueuedAgeSeconds: number | null;
+	oldestQueuedAt: string | null;
+	pipelineEvents: OperationsPipelineEventView[];
+	providers: OperationsProviderView[];
+	queue: OperationsQueueStatus;
+	recentJobs: OperationsJobView[];
+	services: OperationsServiceView[];
+	throughput24h: {
+		averageDurationMs: number;
+		completed: number;
+		failed: number;
+		successRate: number;
+	};
+};
 
 export type AdminSessionView = {
 	appName: string | null;

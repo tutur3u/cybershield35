@@ -18,6 +18,7 @@ import {
 } from "@/lib/db/schema";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
+import { logOperation } from "@/lib/operations/telemetry";
 
 const VERCEL_SCHEDULER_PROVIDER = "vercel-cron";
 const VERCEL_CRON_SECRET_MISSING = "VERCEL_CRON_SECRET_MISSING";
@@ -323,6 +324,10 @@ async function runVercelSchedulerJob(
 	let status: ManagedSchedulerExecutionStatus["status"] = "success";
 	let statusCode = 200;
 	let error: string | null = null;
+	logOperation("scheduler_job_started", {
+		jobKey: job.jobKey,
+		source,
+	});
 
 	try {
 		payload = await executeVercelCronJob(job);
@@ -334,6 +339,16 @@ async function runVercelSchedulerJob(
 	}
 
 	const endedAt = new Date();
+	logOperation(
+		"scheduler_job_completed",
+		{
+			durationMs: endedAt.getTime() - startedAt.getTime(),
+			jobKey: job.jobKey,
+			source,
+			status,
+		},
+		status === "failed" ? "error" : "info",
+	);
 	const execution: ManagedSchedulerExecutionStatus = {
 		durationMs: endedAt.getTime() - startedAt.getTime(),
 		endedAt: endedAt.toISOString(),

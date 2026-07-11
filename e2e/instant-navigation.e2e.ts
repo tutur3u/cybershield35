@@ -9,6 +9,11 @@ const instantNavigationCases = [
 	},
 	{
 		from: "/sources",
+		heading: "Vận hành hệ thống",
+		to: "/operations",
+	},
+	{
+		from: "/operations",
 		heading: "Chủ đề",
 		to: "/topics",
 	},

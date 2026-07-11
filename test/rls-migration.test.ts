@@ -5,6 +5,7 @@ import { join } from "node:path";
 const appTables = [
 	"sources",
 	"scan_jobs",
+	"scan_job_events",
 	"tracked_sources",
 	"provider_runs",
 	"evidence_items",
