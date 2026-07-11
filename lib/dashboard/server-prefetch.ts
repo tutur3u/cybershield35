@@ -6,6 +6,7 @@ import { io } from "next/cache";
 import type {
 	DashboardPage,
 	IntelligenceFilters,
+	TimelineFilters,
 } from "@/components/dashboard/types";
 import {
 	getIntelligenceOverview,
@@ -16,6 +17,7 @@ import {
 	listIntelligenceSources,
 	listIntelligenceTopics,
 } from "@/lib/dashboard/intelligence-server";
+import { listTimeline } from "@/lib/dashboard/timeline-server";
 import {
 	dashboardQueryKeys,
 	defaultIntelligenceFilters,
@@ -124,6 +126,19 @@ export async function prefetchDashboardRouteData(
 	}
 
 	await Promise.allSettled(tasks);
+}
+
+export async function prefetchTimeline(
+	queryClient: QueryClient,
+	filters: TimelineFilters,
+	limit = 30,
+) {
+	await io();
+	await prefetchFirstPage(
+		queryClient,
+		dashboardQueryKeys.timelineInfinite(filters, limit),
+		listTimeline({ filters, limit }),
+	);
 }
 
 async function prefetchFirstPage<T>(

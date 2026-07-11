@@ -10,6 +10,7 @@ export default defineConfig({
 	dialect: "postgresql",
 	dbCredentials: {
 		url:
+			process.env.CS35_DATABASE_URL ??
 			process.env.DATABASE_URL ??
 			"postgres://cybershield:cybershield@localhost:5432/cybershield35",
 	},

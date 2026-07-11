@@ -14,7 +14,7 @@ const instantNavigationCases = [
 	},
 	{
 		from: "/topics",
-		heading: "Kho bằng chứng",
+		heading: "Dòng thời gian",
 		to: "/evidence",
 	},
 	{

@@ -2,6 +2,7 @@ import type {
 	AnalysisRow,
 	CounterArgumentDraftRow,
 	DraftStatus,
+	EvidenceTriageStatus,
 	EvidenceItemRow,
 	ProviderName,
 	RiskLevel,
@@ -366,6 +367,68 @@ export type IntelligenceEvidenceRow = {
 	stance: string;
 	summary: string;
 	topicSlugs: string[];
+};
+
+export type TimelineSort =
+	| "published-desc"
+	| "published-asc"
+	| "engagement-desc"
+	| "risk-desc"
+	| "triage-updated-desc";
+
+export type TimelineDueFilter = "all" | "overdue" | "today" | "none";
+
+export type TimelineFilters = IntelligenceFilters & {
+	assignee?: string;
+	dateFrom?: string;
+	dateTo?: string;
+	due?: TimelineDueFilter;
+	isPinned?: boolean;
+	sentiment?: string;
+	sort?: TimelineSort;
+	stance?: string;
+	triageStatus?: EvidenceTriageStatus | "all";
+};
+
+export type EvidenceTriageView = {
+	assigneeDisplayName: string | null;
+	assigneeUserId: string | null;
+	dueAt: string | null;
+	isPinned: boolean;
+	status: EvidenceTriageStatus;
+	updatedAt: string | null;
+	updatedByDisplayName: string | null;
+};
+
+export type EvidenceTriageNoteView = {
+	authorDisplayName: string | null;
+	authorUserId: string;
+	body: string;
+	createdAt: string;
+	id: string;
+};
+
+export type TimelinePost = IntelligenceEvidenceRow & {
+	engagement: {
+		comments: number;
+		reactions: number;
+		shares: number;
+		total: number;
+	};
+	triage: EvidenceTriageView;
+};
+
+export type TimelinePage = IntelligencePage<TimelinePost> & {
+	refreshedAt: string;
+	total: number;
+};
+
+export type TimelineHead = {
+	latestTriageUpdatedAt: string | null;
+	newestPostId: string | null;
+	newestPublishedAt: string | null;
+	refreshedAt: string;
+	total: number;
 };
 
 export type IntelligenceFacebookPageOption = {

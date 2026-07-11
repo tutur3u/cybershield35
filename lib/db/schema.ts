@@ -11,6 +11,7 @@ import {
 	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const sourceTypeEnum = pgEnum("source_type", [
 	"url",
@@ -47,6 +48,14 @@ export const draftStatusEnum = pgEnum("draft_status", [
 	"needs_review",
 	"approved",
 	"rejected",
+]);
+
+export const evidenceTriageStatusEnum = pgEnum("evidence_triage_status", [
+	"new",
+	"reviewing",
+	"action_required",
+	"resolved",
+	"dismissed",
 ]);
 
 export const sources = pgTable("sources", {
@@ -175,6 +184,71 @@ export const evidenceItems = pgTable(
 		),
 		index("evidence_items_provider_created_idx").on(
 			table.provider,
+			table.createdAt,
+		),
+		index("evidence_items_published_id_idx").on(table.publishedAt, table.id),
+		index("evidence_items_risk_published_id_idx").on(
+			table.riskLevel,
+			table.publishedAt,
+			table.id,
+		),
+		index("evidence_items_engagement_published_idx").on(
+			sql`(
+				case when coalesce(${table.engagement}->>'reactions', '') ~ '^\\d+$' then (${table.engagement}->>'reactions')::int else 0 end +
+				case when coalesce(${table.engagement}->>'comments', '') ~ '^\\d+$' then (${table.engagement}->>'comments')::int else 0 end +
+				case when coalesce(${table.engagement}->>'shares', '') ~ '^\\d+$' then (${table.engagement}->>'shares')::int else 0 end
+			)`,
+			table.publishedAt,
+			table.id,
+		),
+	],
+);
+
+export const evidenceTriage = pgTable(
+	"evidence_triage",
+	{
+		evidenceItemId: uuid("evidence_item_id")
+			.primaryKey()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		status: evidenceTriageStatusEnum("status").default("new").notNull(),
+		isPinned: boolean("is_pinned").default(false).notNull(),
+		assigneeUserId: text("assignee_user_id"),
+		assigneeDisplayName: text("assignee_display_name"),
+		dueAt: timestamp("due_at", { withTimezone: true }),
+		updatedByUserId: text("updated_by_user_id").notNull(),
+		updatedByDisplayName: text("updated_by_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("evidence_triage_status_due_idx").on(table.status, table.dueAt),
+		index("evidence_triage_assignee_status_idx").on(
+			table.assigneeUserId,
+			table.status,
+		),
+		index("evidence_triage_pinned_updated_idx").on(
+			table.isPinned,
+			table.updatedAt,
+		),
+		index("evidence_triage_updated_idx").on(table.updatedAt),
+	],
+);
+
+export const evidenceTriageNotes = pgTable(
+	"evidence_triage_notes",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		evidenceItemId: uuid("evidence_item_id")
+			.notNull()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		authorUserId: text("author_user_id").notNull(),
+		authorDisplayName: text("author_display_name"),
+		body: text("body").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("evidence_triage_notes_evidence_created_idx").on(
+			table.evidenceItemId,
 			table.createdAt,
 		),
 	],
@@ -503,12 +577,16 @@ export type ProviderName = (typeof providerNameEnum.enumValues)[number];
 export type ScanStatus = (typeof scanStatusEnum.enumValues)[number];
 export type RiskLevel = (typeof riskLevelEnum.enumValues)[number];
 export type DraftStatus = (typeof draftStatusEnum.enumValues)[number];
+export type EvidenceTriageStatus =
+	(typeof evidenceTriageStatusEnum.enumValues)[number];
 
 export type SourceRow = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type ScanJobRow = typeof scanJobs.$inferSelect;
 export type TrackedSourceRow = typeof trackedSources.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
+export type EvidenceTriageRow = typeof evidenceTriage.$inferSelect;
+export type EvidenceTriageNoteRow = typeof evidenceTriageNotes.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;
 export type TopicRow = typeof topics.$inferSelect;
 export type EvidenceTopicRow = typeof evidenceTopics.$inferSelect;

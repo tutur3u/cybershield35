@@ -129,7 +129,7 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(auditPage).toContain("<IntelligenceActivityStream />");
 		expect(auditPage).toContain("intelligence-activity-stream");
 		expect(auditPage).not.toContain("props.detail");
-		expect(evidencePage).toContain("intelligence-evidence-vault");
+		expect(evidencePage).toContain("evidence-timeline");
 		expect(topicsPage).toContain("intelligence-topics-workspace");
 		expect(evidenceRoute).toContain("<EvidenceWorkspace");
 		expect(evidenceRoute).not.toContain(
