@@ -78,6 +78,8 @@ export function Sidebar({
 	const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
 		readSidebarSections,
 	);
+	const [manuallyCollapsedActivePath, setManuallyCollapsedActivePath] =
+		useState<string | null>(null);
 
 	useEffect(() => {
 		window.localStorage.setItem(
@@ -86,13 +88,39 @@ export function Sidebar({
 		);
 	}, [expandedSections]);
 
+	useEffect(() => {
+		if (!mobileOpen) return;
+		const previousOverflow = document.body.style.overflow;
+		const closeOnEscape = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setMobileOpen(false);
+		};
+		document.body.style.overflow = "hidden";
+		window.addEventListener("keydown", closeOnEscape);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			window.removeEventListener("keydown", closeOnEscape);
+		};
+	}, [mobileOpen]);
+
 	return (
-		<aside
-			className={`z-30 border-b border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:overflow-y-auto lg:border-b-0 lg:border-r ${
-				collapsed ? "lg:w-[76px]" : "lg:w-[248px]"
-			}`}
-		>
-			<div className="flex min-h-[72px] flex-col lg:h-full">
+		<>
+			{mobileOpen ? (
+				<button
+					type="button"
+					aria-label="Đóng điều hướng"
+					onClick={() => setMobileOpen(false)}
+					className="fixed inset-0 z-40 cursor-default bg-slate-950/55 backdrop-blur-[1px] lg:hidden"
+				/>
+			) : null}
+			<aside
+				aria-label="Thanh điều hướng"
+				className={`z-50 border-[var(--border)] bg-[var(--surface)] transition-[width,box-shadow] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:overflow-y-auto lg:border-y-0 lg:border-l-0 lg:border-r ${
+					mobileOpen
+						? "fixed inset-y-0 left-0 w-[min(320px,calc(100vw-2rem))] border-r shadow-[20px_0_60px_rgb(0_0_0/0.28)]"
+						: "relative border-x-0 border-t-0 border-b"
+				} ${collapsed ? "lg:w-[76px]" : "lg:w-[248px]"}`}
+			>
+			<div className={`flex flex-col ${mobileOpen ? "h-full" : "min-h-[64px]"} lg:h-full`}>
 				<div
 					className={`flex h-16 items-center gap-3 border-b border-[var(--border)] px-4 ${
 						collapsed ? "lg:justify-center lg:px-2" : ""
@@ -125,7 +153,7 @@ export function Sidebar({
 				</div>
 				<nav
 					aria-label="Điều hướng chính"
-					className={`${mobileOpen ? "block" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-1 lg:overflow-visible lg:py-3`}
+					className={`${mobileOpen ? "block flex-1" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-1 lg:overflow-visible lg:py-3`}
 				>
 					<SidebarNavLink
 						collapsed={collapsed}
@@ -134,7 +162,10 @@ export function Sidebar({
 						pathname={pathname}
 					/>
 					{navSections.map((section, sectionIndex) => {
-						const expanded = collapsed || section.id === activeSection || expandedSections[section.id] !== false;
+						const routeRevealsSection =
+							section.id === activeSection && manuallyCollapsedActivePath !== pathname;
+						const expanded =
+							collapsed || routeRevealsSection || expandedSections[section.id] !== false;
 						return (
 							<div
 								key={section.id}
@@ -144,13 +175,17 @@ export function Sidebar({
 									type="button"
 									aria-expanded={expanded}
 									aria-controls={`sidebar-section-${section.id}`}
-									onClick={() =>
+									onClick={() => {
+										const nextExpanded = !expanded;
 										setExpandedSections((current) => ({
 											...current,
-											[section.id]: current[section.id] === false,
-										}))
-									}
-									className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-bold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
+											[section.id]: nextExpanded,
+										}));
+										setManuallyCollapsedActivePath(
+											!nextExpanded && section.id === activeSection ? pathname : null,
+										);
+									}}
+									className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-semibold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
 								>
 									<span className="min-w-0 truncate whitespace-nowrap">{section.label}</span>
 									<ChevronRight aria-hidden size={11} strokeWidth={2} className={`shrink-0 opacity-70 transition-transform group-hover:opacity-100 ${expanded ? "rotate-90" : ""}`} />
@@ -172,25 +207,23 @@ export function Sidebar({
 						);
 					})}
 				</nav>
-				<div
-					className={`mt-auto p-3 ${collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}
-				>
-					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3">
-						<p className="text-[13px] font-bold text-[var(--foreground)]">
-							Hướng dẫn nhanh
+				<div className={`mt-auto border-t border-[var(--divider)] p-3 ${collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}>
+					<div>
+						<p className="px-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">
+							Trợ giúp
 						</p>
-						<div className="mt-3 space-y-2">
+						<div className="mt-1 space-y-0.5">
 							{quickLinks.map((link) => (
 								<IntentPrefetchLink
 									key={link.href}
 									href={link.href}
-									className={`flex items-center gap-2 rounded-md px-1 py-0.5 text-[11px] transition ${
+									className={`flex h-8 items-center gap-2 rounded-md px-2 text-[11px] font-medium transition ${
 										pathname === link.href
-											? "text-[color:var(--brand)]"
-											: "text-[color:var(--muted-strong)] hover:text-[color:var(--foreground)]"
+											? "bg-[var(--success-soft)] text-[color:var(--brand-strong)]"
+											: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
 									}`}
 								>
-									<CircleHelp size={13} />
+									<CircleHelp aria-hidden size={13} />
 									<span className="truncate">{link.label}</span>
 								</IntentPrefetchLink>
 							))}
@@ -198,7 +231,8 @@ export function Sidebar({
 					</div>
 				</div>
 			</div>
-		</aside>
+			</aside>
+		</>
 	);
 }
 
@@ -218,11 +252,11 @@ function SidebarNavLink({
 		<IntentPrefetchLink
 			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-10 lg:w-full lg:text-[12px] ${
+			className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:w-full lg:text-[12px] ${
 				collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
 			} ${
 				active
-					? "bg-[var(--success-soft)] text-[color:var(--brand-strong)] ring-1 ring-inset ring-[var(--success-border)]"
+					? "bg-[var(--surface-soft)] text-[color:var(--brand-strong)] before:bg-[var(--brand)]"
 					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
 			}`}
 			href={item.href}
