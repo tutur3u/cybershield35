@@ -24,19 +24,57 @@ export type NavItem = {
 	icon: LucideIcon;
 };
 
+export type NavSection = {
+	id: string;
+	label: string;
+	items: NavItem[];
+};
+
+export const overviewNavItem: NavItem = {
+	href: "/",
+	icon: LayoutDashboard,
+	label: "Tổng quan",
+};
+
+export const navSections: NavSection[] = [
+	{
+		id: "monitoring",
+		label: "Giám sát",
+		items: [
+			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
+			{ label: "Chủ đề", href: "/topics", icon: Layers3 },
+			{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
+			{ label: "Cảnh báo", href: "/alerts", icon: AlertTriangle },
+		],
+	},
+	{
+		id: "operations",
+		label: "Thu thập & vận hành",
+		items: [
+			{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
+			{ label: "Vận hành hệ thống", href: "/operations", icon: MonitorCog },
+			{ label: "Nhật ký", href: "/audit", icon: History },
+		],
+	},
+	{
+		id: "response",
+		label: "Phản hồi",
+		items: [
+			{ label: "Chat", href: "/chat", icon: MessageCircle },
+			{ label: "Bản nháp", href: "/drafts", icon: MessageSquareText },
+			{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
+		],
+	},
+	{
+		id: "organization",
+		label: "Tổ chức",
+		items: [{ label: "Thành viên", href: "/members", icon: UsersRound }],
+	},
+];
+
 export const navItems: NavItem[] = [
-	{ label: "Tổng quan", href: "/", icon: LayoutDashboard },
-	{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
-	{ label: "Vận hành hệ thống", href: "/operations", icon: MonitorCog },
-	{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
-	{ label: "Chủ đề", href: "/topics", icon: Layers3 },
-	{ label: "Lập luận phản hồi", href: "/counter-arguments", icon: MessageSquareText },
-	{ label: "Chat LLM", href: "/chat", icon: MessageCircle },
-	{ label: "Thành viên", href: "/members", icon: UsersRound },
-	{ label: "Dòng thời gian", href: "/evidence", icon: Database },
-	{ label: "Cảnh báo & Rủi ro", href: "/alerts", icon: AlertTriangle },
-	{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
-	{ label: "Nhật ký hoạt động", href: "/audit", icon: History },
+	overviewNavItem,
+	...navSections.flatMap((section) => section.items),
 ];
 
 export const quickLinks = [

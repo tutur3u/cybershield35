@@ -34,7 +34,7 @@ const instantNavigationCases = [
 	},
 	{
 		from: "/settings",
-		heading: "Chat LLM",
+		heading: "Chat",
 		to: "/chat",
 	},
 ] as const;
@@ -53,7 +53,7 @@ for (const navigation of instantNavigationCases) {
 		await instant(page, async () => {
 			await destination.click();
 			await expect(
-				page.getByRole("heading", { name: navigation.heading }),
+				page.getByRole("heading", { exact: true, name: navigation.heading }),
 			).toBeVisible();
 		});
 

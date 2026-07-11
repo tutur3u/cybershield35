@@ -19,21 +19,29 @@ import {
 	Check,
 	CheckCircle2,
 	ChevronDown,
+	ChevronRight,
 	CircleHelp,
 	Laptop,
 	LogOut,
 	Moon,
+	Menu,
 	Palette,
 	PanelLeftClose,
 	PanelLeftOpen,
 	Settings,
 	Sun,
 	UserRound,
+	X,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { navItems, quickLinks } from "@/components/dashboard/dashboard-data";
+import {
+	navSections,
+	overviewNavItem,
+	quickLinks,
+	type NavItem,
+} from "@/components/dashboard/dashboard-data";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	themeLabel,
@@ -63,6 +71,20 @@ export function Sidebar({
 	onToggle: () => void;
 }) {
 	const pathname = usePathname();
+	const [mobileOpen, setMobileOpen] = useState(false);
+	const activeSection = navSections.find((section) =>
+		section.items.some((item) => isNavActive(pathname, item.href)),
+	)?.id;
+	const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
+		readSidebarSections,
+	);
+
+	useEffect(() => {
+		window.localStorage.setItem(
+			"cybershield35:sidebar-sections:v1",
+			JSON.stringify(expandedSections),
+		);
+	}, [expandedSections]);
 
 	return (
 		<aside
@@ -82,6 +104,15 @@ export function Sidebar({
 					/>
 					<button
 						type="button"
+						aria-expanded={mobileOpen}
+						aria-label={mobileOpen ? "Đóng điều hướng" : "Mở điều hướng"}
+						onClick={() => setMobileOpen((current) => !current)}
+						className="ml-auto grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] lg:hidden"
+					>
+						{mobileOpen ? <X size={17} /> : <Menu size={17} />}
+					</button>
+					<button
+						type="button"
 						aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
 						title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
 						onClick={onToggle}
@@ -92,37 +123,53 @@ export function Sidebar({
 						{collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
 					</button>
 				</div>
-				<nav className="flex gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-4">
-					{navItems.map((item) => {
-						const active =
-							item.href === "/"
-								? pathname === "/"
-								: pathname.startsWith(item.href);
-
+				<nav
+					aria-label="Điều hướng chính"
+					className={`${mobileOpen ? "block" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-2 lg:overflow-visible lg:py-4`}
+				>
+					<SidebarNavLink
+						collapsed={collapsed}
+						item={overviewNavItem}
+						onNavigate={() => setMobileOpen(false)}
+						pathname={pathname}
+					/>
+					{navSections.map((section) => {
+						const expanded = collapsed || section.id === activeSection || expandedSections[section.id] !== false;
 						return (
-							<IntentPrefetchLink
-								key={item.label}
-								href={item.href}
-								aria-label={collapsed ? item.label : undefined}
-								title={collapsed ? item.label : undefined}
-								className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
-									collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
-								} ${
-									active
-										? "bg-[var(--brand)] text-white shadow-sm"
-										: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
-								}`}
-							>
-								<item.icon size={17} strokeWidth={2.1} />
-								<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
-									{item.label}
-								</span>
-							</IntentPrefetchLink>
+							<div key={section.id} className="pt-1">
+								<button
+									type="button"
+									aria-expanded={expanded}
+									onClick={() =>
+										setExpandedSections((current) => ({
+											...current,
+											[section.id]: current[section.id] === false,
+										}))
+									}
+									className={`flex h-8 w-full items-center justify-between px-3 text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)] ${collapsed ? "lg:hidden" : ""}`}
+								>
+									<span>{section.label}</span>
+									<ChevronRight size={13} className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
+								</button>
+								{expanded ? (
+									<div className="space-y-1">
+										{section.items.map((item) => (
+											<SidebarNavLink
+												collapsed={collapsed}
+												item={item}
+												key={item.href}
+												onNavigate={() => setMobileOpen(false)}
+												pathname={pathname}
+											/>
+										))}
+									</div>
+								) : null}
+							</div>
 						);
 					})}
 				</nav>
 				<div
-					className={`mt-auto hidden p-3 lg:block ${collapsed ? "lg:hidden" : ""}`}
+					className={`mt-auto p-3 ${collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}
 				>
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3">
 						<p className="text-[13px] font-bold text-[var(--foreground)]">
@@ -151,6 +198,53 @@ export function Sidebar({
 	);
 }
 
+function SidebarNavLink({
+	collapsed,
+	item,
+	onNavigate,
+	pathname,
+}: {
+	collapsed: boolean;
+	item: NavItem;
+	onNavigate: () => void;
+	pathname: string;
+}) {
+	const active = isNavActive(pathname, item.href);
+	return (
+		<IntentPrefetchLink
+			aria-label={collapsed ? item.label : undefined}
+			className={`flex h-10 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition lg:h-11 lg:w-full lg:text-[13px] ${
+				collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
+			} ${
+				active
+					? "bg-[var(--brand)] text-white shadow-sm"
+					: "text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+			}`}
+			href={item.href}
+			onClick={onNavigate}
+			title={collapsed ? item.label : undefined}
+		>
+			<item.icon size={17} strokeWidth={2.1} />
+			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+		</IntentPrefetchLink>
+	);
+}
+
+function isNavActive(pathname: string, href: string) {
+	return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+function readSidebarSections() {
+	if (typeof window === "undefined") return {};
+	try {
+		return JSON.parse(
+			window.localStorage.getItem("cybershield35:sidebar-sections:v1") ?? "{}",
+		) as Record<string, boolean>;
+	} catch {
+		return {};
+	}
+}
+
 function BrandmarkLink({
 	collapsed,
 }: {
@@ -161,7 +255,7 @@ function BrandmarkLink({
 			href="/"
 			aria-label="CyberShield35"
 			className={`inline-flex h-10 min-w-0 items-center text-[18px] font-bold leading-[1.35] transition-colors duration-200 ${
-				collapsed ? "hidden lg:hidden" : "inline-flex"
+				collapsed ? "inline-flex lg:hidden" : "inline-flex"
 			} text-[var(--foreground)] hover:text-[var(--brand)] focus-visible:text-[var(--brand)]`}
 		>
 			<span>CyberShield35</span>

@@ -175,6 +175,8 @@ describe("workspace members proxy routes", () => {
 						"workspace:roles:write",
 						"workspace:cron:read",
 						"workspace:cron:write",
+						"workspace:drive:read",
+						"workspace:drive:write",
 						"users:profile:read",
 						"users:profile:write",
 					],

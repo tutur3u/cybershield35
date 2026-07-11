@@ -56,6 +56,10 @@ const EvidenceTriageSheet = dynamic(
 	() => import("@/components/dashboard/evidence-triage-sheet"),
 	{ loading: () => null, ssr: false },
 );
+const EvidenceDraftSheet = dynamic(
+	() => import("@/components/dashboard/evidence-draft-sheet"),
+	{ loading: () => null, ssr: false },
+);
 
 const triageLabels: Record<EvidenceTriageView["status"], string> = {
 	action_required: "Cần hành động",
@@ -72,6 +76,7 @@ export function EvidenceTimeline() {
 	const [isPending, startTransition] = useTransition();
 	const [advancedOpen, setAdvancedOpen] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [draftId, setDraftId] = useState<string | null>(null);
 	const [acknowledgedHead, setAcknowledgedHead] = useState<string | null>(null);
 	const [currentTime] = useState(() => Date.now());
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +92,7 @@ export function EvidenceTimeline() {
 		return [...map.values()];
 	}, [timelineQuery.data]);
 	const selectedPost = posts.find((post) => post.id === selectedId) ?? null;
+	const draftPost = posts.find((post) => post.id === draftId) ?? null;
 	const total = timelineQuery.data?.pages[0]?.total ?? 0;
 
 	const updatesAvailable = useMemo(() => {
@@ -242,7 +248,7 @@ export function EvidenceTimeline() {
 			{view === "list" ? (
 				<TimelineDenseList posts={posts} onTriage={setSelectedId} />
 			) : (
-				<TimelineDayGroups posts={posts} onTriage={setSelectedId} currentTime={currentTime} />
+				<TimelineDayGroups posts={posts} onDraft={setDraftId} onTriage={setSelectedId} currentTime={currentTime} />
 			)}
 			<div ref={sentinelRef} aria-hidden className="h-px" />
 			{timelineQuery.hasNextPage ? (
@@ -252,16 +258,17 @@ export function EvidenceTimeline() {
 			{selectedPost ? (
 				<EvidenceTriageSheet open post={selectedPost} onOpenChange={(open) => { if (!open) setSelectedId(null); }} onOptimisticUpdate={optimisticUpdate} />
 			) : null}
+			{draftPost ? <EvidenceDraftSheet open post={draftPost} onOpenChange={(open) => { if (!open) setDraftId(null); }} /> : null}
 		</div>
 	);
 }
 
-function TimelineDayGroups({ posts, onTriage, currentTime }: { posts: TimelinePost[]; onTriage: (id: string) => void; currentTime: number }) {
+function TimelineDayGroups({ posts, onDraft, onTriage, currentTime }: { posts: TimelinePost[]; onDraft: (id: string) => void; onTriage: (id: string) => void; currentTime: number }) {
 	const groups = groupByVietnamDay(posts);
-	return <div className="space-y-6">{groups.map(([day, items]) => <section key={day} aria-labelledby={`day-${day}`}><div className="sticky top-[168px] z-[5] mb-2 flex items-center gap-3 bg-[var(--background)]/90 py-2 backdrop-blur"><h2 id={`day-${day}`} className="text-sm font-extrabold text-[var(--foreground)]">{formatDay(day)}</h2><span className="h-px flex-1 bg-[var(--border)]" /><span className="text-xs font-semibold text-[var(--muted)]">{items.length} bài</span></div><div className="space-y-3">{items.map((post) => <TimelineCard key={post.id} post={post} onTriage={onTriage} currentTime={currentTime} />)}</div></section>)}</div>;
+	return <div className="space-y-6">{groups.map(([day, items]) => <section key={day} aria-labelledby={`day-${day}`}><div className="sticky top-[168px] z-[5] mb-2 flex items-center gap-3 bg-[var(--background)]/90 py-2 backdrop-blur"><h2 id={`day-${day}`} className="text-sm font-extrabold text-[var(--foreground)]">{formatDay(day)}</h2><span className="h-px flex-1 bg-[var(--border)]" /><span className="text-xs font-semibold text-[var(--muted)]">{items.length} bài</span></div><div className="space-y-3">{items.map((post) => <TimelineCard key={post.id} post={post} onDraft={onDraft} onTriage={onTriage} currentTime={currentTime} />)}</div></section>)}</div>;
 }
 
-function TimelineCard({ post, onTriage, currentTime }: { post: TimelinePost; onTriage: (id: string) => void; currentTime: number }) {
+function TimelineCard({ post, onDraft, onTriage, currentTime }: { post: TimelinePost; onDraft: (id: string) => void; onTriage: (id: string) => void; currentTime: number }) {
 	return (
 		<article data-evidence-id={post.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)] transition hover:border-[var(--border-strong)]" style={{ contentVisibility: "auto", containIntrinsicSize: "260px" }}>
 			<div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -273,7 +280,7 @@ function TimelineCard({ post, onTriage, currentTime }: { post: TimelinePost; onT
 			<div className="mt-4 flex flex-wrap gap-2">{post.topicSlugs.map((slug) => <IntentPrefetchLink key={slug} href={`/topics/${slug}`} className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]">#{slug}</IntentPrefetchLink>)}<Badge label={sentimentLabel(post.sentiment)} /><Badge label={stanceLabel(post.stance)} /></div>
 			<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--muted)]"><span>👍 {post.engagement.reactions.toLocaleString("vi-VN")}</span><span>💬 {post.engagement.comments.toLocaleString("vi-VN")}</span><span>↗ {post.engagement.shares.toLocaleString("vi-VN")}</span>{post.triage.assigneeDisplayName ? <span className="inline-flex items-center gap-1"><Users size={13} /> {post.triage.assigneeDisplayName}</span> : null}{post.triage.dueAt ? <DueBadge dueAt={post.triage.dueAt} status={post.triage.status} currentTime={currentTime} /> : null}</div>
-				<div className="flex flex-wrap gap-3 text-xs font-bold"><IntentPrefetchLink href={post.href} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><Database size={14} /> Xem chi tiết</IntentPrefetchLink><button type="button" onClick={() => onTriage(post.id)} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><MessageSquareText size={14} /> Xử lý</button><IntentPrefetchLink href={post.scanHref} className="text-[var(--accent-strong)]">Mở scan</IntentPrefetchLink>{post.originalPostHref ? <a href={post.originalPostHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-strong)]">Bài gốc <ExternalLink size={12} /></a> : null}</div>
+				<div className="flex flex-wrap gap-3 text-xs font-bold"><IntentPrefetchLink href={post.href} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><Database size={14} /> Xem chi tiết</IntentPrefetchLink><button type="button" onClick={() => onDraft(post.id)} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><Sparkles size={14} /> Soạn phản hồi</button><button type="button" onClick={() => onTriage(post.id)} className="inline-flex items-center gap-1 text-[var(--accent-strong)]"><MessageSquareText size={14} /> Xử lý</button><IntentPrefetchLink href={post.scanHref} className="text-[var(--accent-strong)]">Mở scan</IntentPrefetchLink>{post.originalPostHref ? <a href={post.originalPostHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-strong)]">Bài gốc <ExternalLink size={12} /></a> : null}</div>
 			</div>
 		</article>
 	);

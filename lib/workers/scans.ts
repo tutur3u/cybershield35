@@ -6,6 +6,7 @@ import {
 	analyses,
 	auditEvents,
 	counterArgumentDrafts,
+	counterArgumentDraftVersions,
 	cronHeartbeats,
 	evidenceItems,
 	providerRuns,
@@ -731,44 +732,83 @@ export async function generateDraftForScan(
 		language: string;
 		length: string;
 		operatorNotes?: string | null;
+		draftKind?: "response" | "comment" | "counter_argument" | "internal_brief";
+		evidenceId?: string;
+		includeRelatedEvidence?: boolean;
+		originatingChatId?: string;
+		actor?: { displayName: string | null; id: string };
 	},
 ) {
 	const evidence = await adminDb
 		.select()
 		.from(evidenceItems)
-		.where(eq(evidenceItems.scanJobId, scanId))
+		.where(
+			and(
+				eq(evidenceItems.scanJobId, scanId),
+				options.evidenceId && !options.includeRelatedEvidence
+					? eq(evidenceItems.id, options.evidenceId)
+					: undefined,
+			),
+		)
 		.orderBy(desc(evidenceItems.createdAt))
 		.limit(8);
 
 	const output = await generateCounterArgument({
+		audience: options.audience,
+		draftKind: options.draftKind,
 		evidence: evidence.map((item) => ({
 			id: item.id,
 			quote: item.quote,
 			summary: item.summary,
 		})),
-		...options,
+		language: options.language,
+		length: options.length,
+		operatorNotes: options.operatorNotes,
+		tone: options.tone,
 	});
 
-	const [draft] = await adminDb
-		.insert(counterArgumentDrafts)
-		.values({
-			scanJobId: scanId,
-			status: "needs_review",
-			tone: options.tone,
-			audience: options.audience,
-			language: options.language,
-			length: options.length,
-			operatorNotes: options.operatorNotes,
+	const actor = options.actor ?? { displayName: "Hệ thống", id: "system" };
+	const draft = await adminDb.transaction(async (tx) => {
+		const [created] = await tx
+			.insert(counterArgumentDrafts)
+			.values({
+				audience: options.audience,
+				body: output.body,
+				citations: output.citations,
+				createdByDisplayName: actor.displayName,
+				createdByUserId: actor.id,
+				draftKind: options.draftKind ?? "counter_argument",
+				evidenceItemId: options.evidenceId,
+				language: options.language,
+				length: options.length,
+				operatorNotes: options.operatorNotes,
+				originatingChatId: options.originatingChatId,
+				safetyNotes: output.safetyNotes,
+				scanJobId: scanId,
+				status: "needs_review",
+				tone: options.tone,
+				updatedByDisplayName: actor.displayName,
+				updatedByUserId: actor.id,
+			})
+			.returning();
+		if (!created) return null;
+		await tx.insert(counterArgumentDraftVersions).values({
+			actorDisplayName: actor.displayName,
+			actorUserId: actor.id,
 			body: output.body,
 			citations: output.citations,
+			draftId: created.id,
 			safetyNotes: output.safetyNotes,
-		})
-		.returning();
+			version: 1,
+		});
+		return created;
+	});
 
 	if (!draft) throw new Error("Failed to generate draft");
 
-	await writeAudit("scan_job", scanId, "counter_argument_generated", {
+	await writeAudit("scan_job", scanId, "draft_generated", {
 		draftId: draft.id,
+		draftKind: draft.draftKind,
 		runtimeMode: runtimeMode(),
 		clientKeys: runtimeKeySummary(),
 	});

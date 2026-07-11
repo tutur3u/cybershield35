@@ -87,6 +87,10 @@ function getModelRuntime() {
 	return { model: provider(resolved.model), resolved };
 }
 
+export function getChatModelRuntime() {
+	return getModelRuntime();
+}
+
 function getModel() {
 	return getModelRuntime()?.model ?? null;
 }
@@ -118,6 +122,7 @@ export async function generateCounterArgument(options: {
 	language: string;
 	length: string;
 	operatorNotes?: string | null;
+	draftKind?: "response" | "comment" | "counter_argument" | "internal_brief";
 }): Promise<CounterArgumentOutput> {
 	const model = getModel();
 	if (!model || options.evidence.length === 0) {
@@ -132,9 +137,9 @@ export async function generateCounterArgument(options: {
 		model,
 		output: Output.object({ schema: counterArgumentOutputSchema }),
 		system:
-			"You draft counter-arguments for human review. Use only supplied evidence, avoid unsupported claims, avoid demographic targeting, do not produce posting automation, and write in Vietnamese unless another language is requested.",
+			"You create internal communication drafts for human review. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested.",
 		prompt: JSON.stringify({
-			task: "Prepare an evidence-only counter-argument draft.",
+			task: `Prepare an evidence-only ${options.draftKind ?? "counter_argument"} draft.`,
 			...options,
 		}),
 	});

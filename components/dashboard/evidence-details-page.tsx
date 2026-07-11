@@ -10,6 +10,7 @@ import {
 	Gauge,
 	MessageSquareText,
 	Radar,
+	Sparkles,
 	UserRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -37,6 +38,10 @@ const EvidenceTriageSheet = dynamic(
 	() => import("@/components/dashboard/evidence-triage-sheet"),
 	{ loading: () => null, ssr: false },
 );
+const EvidenceDraftSheet = dynamic(
+	() => import("@/components/dashboard/evidence-draft-sheet"),
+	{ loading: () => null, ssr: false },
+);
 
 const triageLabels: Record<EvidenceTriageView["status"], string> = {
 	action_required: "Cần hành động",
@@ -49,6 +54,7 @@ const triageLabels: Record<EvidenceTriageView["status"], string> = {
 export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 	const queryClient = useQueryClient();
 	const [triageOpen, setTriageOpen] = useState(false);
+	const [draftOpen, setDraftOpen] = useState(false);
 	const evidenceQuery = useQuery(evidenceDetailQueryOptions(evidenceId ?? ""));
 	const evidence = evidenceQuery.data;
 
@@ -162,6 +168,9 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 							<Detail label="Tương tác" value={`${evidence.engagement.reactions} phản ứng · ${evidence.engagement.comments} bình luận · ${evidence.engagement.shares} chia sẻ`} />
 						</dl>
 						<div className="grid gap-2 border-t border-[var(--border)] p-4 sm:grid-cols-2 xl:grid-cols-1">
+							<button type="button" onClick={() => setDraftOpen(true)} className={primaryActionClass}>
+								<Sparkles size={14} /> Soạn phản hồi
+							</button>
 							<button type="button" onClick={() => setTriageOpen(true)} className={primaryActionClass}>
 								<MessageSquareText size={14} /> Mở bảng xử lý
 							</button>
@@ -190,6 +199,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 					post={evidence}
 				/>
 			) : null}
+			{draftOpen ? <EvidenceDraftSheet open post={evidence} onOpenChange={setDraftOpen} /> : null}
 		</div>
 	);
 }
