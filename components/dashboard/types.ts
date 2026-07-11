@@ -85,6 +85,14 @@ export type OperationsJobView = {
 };
 
 export type OperationsOverview = {
+	chat: {
+		attachmentsDeleting: number;
+		attachmentsFailed: number;
+		attachmentsProcessing: number;
+		averageLatencyMs24h: number;
+		failedRuns24h: number;
+		runningRuns: number;
+	};
 	generatedAt: string;
 	oldestQueuedAgeSeconds: number | null;
 	oldestQueuedAt: string | null;

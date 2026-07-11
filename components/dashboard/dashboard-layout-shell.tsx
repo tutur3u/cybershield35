@@ -51,7 +51,7 @@ export function DashboardLayoutShell({
 	initialProviderAvailability?: ProviderAvailabilityView | null;
 }) {
 	const [auth, setAuth] = useState<AuthViewState>(initialAuth);
-	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [schedulerAutoRetryToken] = useState(readSchedulerAutoRetryToken);
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(() =>
@@ -73,6 +73,13 @@ export function DashboardLayoutShell({
 			`${url.pathname}${url.search}${url.hash}`
 		);
 	}, [schedulerAutoRetryToken]);
+
+	useEffect(() => {
+		window.localStorage.setItem(
+			"cybershield35:sidebar-collapsed:v1",
+			sidebarCollapsed ? "1" : "0",
+		);
+	}, [sidebarCollapsed]);
 
 	return (
 		<DashboardAuthProvider initialAuth={auth}>
@@ -171,4 +178,9 @@ function readSchedulerAutoRetryToken() {
 
 	const url = new URL(window.location.href);
 	return url.searchParams.get("cronSetup") === "retry" ? Date.now() : undefined;
+}
+
+function readSidebarCollapsed() {
+	if (typeof window === "undefined") return false;
+	return window.localStorage.getItem("cybershield35:sidebar-collapsed:v1") === "1";
 }

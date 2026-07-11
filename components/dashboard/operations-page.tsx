@@ -16,6 +16,7 @@ import {
 	Play,
 	RefreshCw,
 	RotateCcw,
+	Trash2,
 	TriangleAlert,
 	Workflow,
 	type LucideIcon,
@@ -72,6 +73,19 @@ export function OperationsPage() {
 			]);
 		},
 	});
+	const cleanupMutation = useMutation({
+		mutationFn: async () => {
+			const response = await fetch("/api/operations/chat-cleanup", { method: "POST" });
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) throw new Error(payload?.error ?? "Không thể dọn tệp Drive.");
+			return payload as { attempted: number; completed: number };
+		},
+		onError: (error) => setNotice(error.message),
+		onSuccess: async (result) => {
+			setNotice(`Đã kiểm tra ${result.attempted} Chat và hoàn tất ${result.completed} tác vụ dọn Drive.`);
+			await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.operationsOverview() });
+		},
+	});
 	const overview = overviewQuery.data;
 	const health = useMemo(() => operationsHealth(overview), [overview]);
 
@@ -81,8 +95,11 @@ export function OperationsPage() {
 				icon={MonitorCog}
 				title="Vận hành hệ thống"
 				description="Quan sát hàng đợi, worker, provider và từng bước xử lý trong thời gian gần thực."
-				actions={
+					actions={
 					<>
+						<button type="button" disabled={cleanupMutation.isPending} onClick={() => cleanupMutation.mutate()} className={secondaryButtonClass}>
+							<Trash2 size={14} /> Dọn Drive
+						</button>
 						<button type="button" onClick={() => void overviewQuery.refetch()} className={secondaryButtonClass}>
 							<RefreshCw size={14} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Làm mới
 						</button>
@@ -101,6 +118,12 @@ export function OperationsPage() {
 						<MetricCard icon={Activity} label="Đang xử lý" value={overview.queue.running.toLocaleString("vi-VN")} help="Scan đã được worker khóa và đang chạy" tone={overview.queue.running ? "accent" : "neutral"} />
 						<MetricCard icon={Gauge} label="Hoàn tất 24 giờ" value={overview.throughput24h.completed.toLocaleString("vi-VN")} help={`Thời gian trung bình ${formatDuration(overview.throughput24h.averageDurationMs)}`} tone="success" />
 						<MetricCard icon={CheckCircle2} label="Tỷ lệ thành công" value={`${overview.throughput24h.successRate}%`} help={`${overview.throughput24h.failed} lỗi trong 24 giờ`} tone={overview.throughput24h.successRate < 90 ? "warning" : "success"} />
+					</div>
+					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+						<MetricCard icon={Bot} label="Model runs" value={overview.chat.runningRuns.toLocaleString("vi-VN")} help={`${overview.chat.failedRuns24h} lỗi trong 24 giờ · TB ${formatDuration(overview.chat.averageLatencyMs24h)}`} tone={overview.chat.failedRuns24h ? "warning" : "accent"} />
+						<MetricCard icon={FileSearch} label="Tệp đang xử lý" value={overview.chat.attachmentsProcessing.toLocaleString("vi-VN")} help="Tệp đang được trích xuất và chia đoạn" tone={overview.chat.attachmentsProcessing ? "accent" : "neutral"} />
+						<MetricCard icon={TriangleAlert} label="Tệp xử lý lỗi" value={overview.chat.attachmentsFailed.toLocaleString("vi-VN")} help="Có thể thử lại trong ngữ cảnh Chat" tone={overview.chat.attachmentsFailed ? "warning" : "success"} />
+						<MetricCard icon={Trash2} label="Drive chờ dọn" value={overview.chat.attachmentsDeleting.toLocaleString("vi-VN")} help="Tệp được xóa trước khi dữ liệu Chat bị xóa cứng" tone={overview.chat.attachmentsDeleting ? "warning" : "success"} />
 					</div>
 
 					<Panel>

@@ -50,6 +50,35 @@ export const draftStatusEnum = pgEnum("draft_status", [
 	"rejected",
 ]);
 
+export const draftKindEnum = pgEnum("draft_kind", [
+	"response",
+	"comment",
+	"counter_argument",
+	"internal_brief",
+]);
+
+export const chatVisibilityEnum = pgEnum("chat_visibility", [
+	"private",
+	"workspace",
+]);
+
+export const chatAttachmentStatusEnum = pgEnum("chat_attachment_status", [
+	"pending_upload",
+	"uploading",
+	"processing",
+	"ready",
+	"failed",
+	"deleting",
+	"deleted",
+]);
+
+export const chatRunStatusEnum = pgEnum("chat_run_status", [
+	"running",
+	"completed",
+	"failed",
+	"aborted",
+]);
+
 export const evidenceTriageStatusEnum = pgEnum("evidence_triage_status", [
 	"new",
 	"reviewing",
@@ -354,6 +383,202 @@ export const evidenceTopics = pgTable(
 	],
 );
 
+export const chatConversations = pgTable(
+	"chat_conversations",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		ownerUserId: text("owner_user_id").notNull(),
+		ownerDisplayName: text("owner_display_name"),
+		title: text("title").default("Cuộc trò chuyện mới").notNull(),
+		visibility: chatVisibilityEnum("visibility").default("private").notNull(),
+		forkedFromId: uuid("forked_from_id"),
+		sharedAt: timestamp("shared_at", { withTimezone: true }),
+		archivedAt: timestamp("archived_at", { withTimezone: true }),
+		deletedAt: timestamp("deleted_at", { withTimezone: true }),
+		lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("chat_conversations_owner_recency_idx").on(
+			table.ownerUserId,
+			table.archivedAt,
+			table.updatedAt,
+		),
+		index("chat_conversations_visibility_recency_idx").on(
+			table.visibility,
+			table.deletedAt,
+			table.updatedAt,
+		),
+		index("chat_conversations_fork_idx").on(table.forkedFromId),
+	],
+);
+
+export const chatMessages = pgTable(
+	"chat_messages",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		conversationId: uuid("conversation_id")
+			.notNull()
+			.references(() => chatConversations.id, { onDelete: "cascade" }),
+		role: text("role").notNull(),
+		parts: jsonb("parts").$type<unknown[]>().default([]).notNull(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		actorUserId: text("actor_user_id"),
+		actorDisplayName: text("actor_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("chat_messages_conversation_created_idx").on(
+			table.conversationId,
+			table.createdAt,
+			table.id,
+		),
+	],
+);
+
+export const chatAttachments = pgTable(
+	"chat_attachments",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		conversationId: uuid("conversation_id")
+			.notNull()
+			.references(() => chatConversations.id, { onDelete: "cascade" }),
+		messageId: uuid("message_id").references(() => chatMessages.id, {
+			onDelete: "set null",
+		}),
+		drivePath: text("drive_path"),
+		driveFullPath: text("drive_full_path"),
+		storageProvider: text("storage_provider"),
+		fileName: text("file_name").notNull(),
+		contentType: text("content_type").notNull(),
+		sizeBytes: integer("size_bytes").notNull(),
+		status: chatAttachmentStatusEnum("status").default("pending_upload").notNull(),
+		attempts: integer("attempts").default(0).notNull(),
+		maxAttempts: integer("max_attempts").default(3).notNull(),
+		scheduledAt: timestamp("scheduled_at", { withTimezone: true }).defaultNow().notNull(),
+		lockedAt: timestamp("locked_at", { withTimezone: true }),
+		processedAt: timestamp("processed_at", { withTimezone: true }),
+		deleteRequestedAt: timestamp("delete_requested_at", { withTimezone: true }),
+		deletedAt: timestamp("deleted_at", { withTimezone: true }),
+		errorMessage: text("error_message"),
+		extractionMetadata: jsonb("extraction_metadata")
+			.$type<Record<string, unknown>>()
+			.default({})
+			.notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("chat_attachments_conversation_created_idx").on(
+			table.conversationId,
+			table.createdAt,
+		),
+		index("chat_attachments_queue_claim_idx").on(
+			table.status,
+			table.scheduledAt,
+			table.lockedAt,
+		),
+		index("chat_attachments_cleanup_idx").on(
+			table.status,
+			table.deleteRequestedAt,
+		),
+	],
+);
+
+export const chatAttachmentChunks = pgTable(
+	"chat_attachment_chunks",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		attachmentId: uuid("attachment_id")
+			.notNull()
+			.references(() => chatAttachments.id, { onDelete: "cascade" }),
+		ordinal: integer("ordinal").notNull(),
+		content: text("content").notNull(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("chat_attachment_chunks_attachment_ordinal_idx").on(
+			table.attachmentId,
+			table.ordinal,
+		),
+		index("chat_attachment_chunks_search_idx").using(
+			"gin",
+			sql`to_tsvector('simple', ${table.content})`,
+		),
+	],
+);
+
+export const chatModelRuns = pgTable(
+	"chat_model_runs",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		conversationId: uuid("conversation_id")
+			.notNull()
+			.references(() => chatConversations.id, { onDelete: "cascade" }),
+		userMessageId: uuid("user_message_id").references(() => chatMessages.id, {
+			onDelete: "set null",
+		}),
+		assistantMessageId: uuid("assistant_message_id").references(
+			() => chatMessages.id,
+			{ onDelete: "set null" },
+		),
+		actorUserId: text("actor_user_id").notNull(),
+		provider: text("provider").notNull(),
+		model: text("model").notNull(),
+		status: chatRunStatusEnum("status").default("running").notNull(),
+		inputTokens: integer("input_tokens"),
+		outputTokens: integer("output_tokens"),
+		totalTokens: integer("total_tokens"),
+		timeToFirstTokenMs: integer("time_to_first_token_ms"),
+		latencyMs: integer("latency_ms"),
+		stepCount: integer("step_count").default(0).notNull(),
+		errorCode: text("error_code"),
+		errorMessage: text("error_message"),
+		startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+		completedAt: timestamp("completed_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("chat_model_runs_conversation_started_idx").on(
+			table.conversationId,
+			table.startedAt,
+		),
+		index("chat_model_runs_status_started_idx").on(table.status, table.startedAt),
+		index("chat_model_runs_provider_model_started_idx").on(
+			table.provider,
+			table.model,
+			table.startedAt,
+		),
+	],
+);
+
+export const chatToolRuns = pgTable(
+	"chat_tool_runs",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		modelRunId: uuid("model_run_id")
+			.notNull()
+			.references(() => chatModelRuns.id, { onDelete: "cascade" }),
+		toolCallId: text("tool_call_id").notNull(),
+		toolName: text("tool_name").notNull(),
+		status: text("status").notNull(),
+		inputSummary: jsonb("input_summary").$type<Record<string, unknown>>().default({}).notNull(),
+		outputSummary: jsonb("output_summary").$type<Record<string, unknown>>().default({}).notNull(),
+		errorMessage: text("error_message"),
+		startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+		completedAt: timestamp("completed_at", { withTimezone: true }),
+	},
+	(table) => [
+		index("chat_tool_runs_model_started_idx").on(table.modelRunId, table.startedAt),
+		index("chat_tool_runs_tool_status_started_idx").on(
+			table.toolName,
+			table.status,
+			table.startedAt,
+		),
+	],
+);
+
 export const counterArgumentDrafts = pgTable(
 	"counter_argument_drafts",
 	{
@@ -362,6 +587,18 @@ export const counterArgumentDrafts = pgTable(
 			.notNull()
 			.references(() => scanJobs.id, { onDelete: "cascade" }),
 		status: draftStatusEnum("status").default("draft").notNull(),
+		draftKind: draftKindEnum("draft_kind").default("counter_argument").notNull(),
+		evidenceItemId: uuid("evidence_item_id").references(() => evidenceItems.id, {
+			onDelete: "set null",
+		}),
+		originatingChatId: uuid("originating_chat_id").references(
+			() => chatConversations.id,
+			{ onDelete: "set null" },
+		),
+		createdByUserId: text("created_by_user_id"),
+		createdByDisplayName: text("created_by_display_name"),
+		updatedByUserId: text("updated_by_user_id"),
+		updatedByDisplayName: text("updated_by_display_name"),
 		tone: text("tone").notNull(),
 		audience: text("audience").notNull(),
 		language: text("language").default("vi").notNull(),
@@ -377,6 +614,46 @@ export const counterArgumentDrafts = pgTable(
 		index("counter_argument_drafts_job_idx").on(table.scanJobId),
 		index("counter_argument_drafts_job_created_idx").on(
 			table.scanJobId,
+			table.createdAt,
+		),
+		index("counter_argument_drafts_status_kind_created_idx").on(
+			table.status,
+			table.draftKind,
+			table.createdAt,
+		),
+		index("counter_argument_drafts_evidence_created_idx").on(
+			table.evidenceItemId,
+			table.createdAt,
+		),
+		index("counter_argument_drafts_chat_created_idx").on(
+			table.originatingChatId,
+			table.createdAt,
+		),
+	],
+);
+
+export const counterArgumentDraftVersions = pgTable(
+	"counter_argument_draft_versions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		draftId: uuid("draft_id")
+			.notNull()
+			.references(() => counterArgumentDrafts.id, { onDelete: "cascade" }),
+		version: integer("version").notNull(),
+		body: text("body").notNull(),
+		citations: jsonb("citations").$type<unknown[]>().default([]).notNull(),
+		safetyNotes: jsonb("safety_notes").$type<unknown[]>().default([]).notNull(),
+		actorUserId: text("actor_user_id").notNull(),
+		actorDisplayName: text("actor_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("counter_argument_draft_versions_draft_version_idx").on(
+			table.draftId,
+			table.version,
+		),
+		index("counter_argument_draft_versions_draft_created_idx").on(
+			table.draftId,
 			table.createdAt,
 		),
 	],

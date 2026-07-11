@@ -25,7 +25,13 @@ export async function POST(
 	const body = bodySchema.parse(await request.json());
 
 	try {
-		const draft = await generateDraftForScan(id, body);
+		const draft = await generateDraftForScan(id, {
+			...body,
+			actor: {
+				displayName: auth.session.user.displayName ?? null,
+				id: auth.session.user.id,
+			},
+		});
 		revalidateDashboardScan(id);
 		return Response.json(
 			{ draft, mode: "live" },

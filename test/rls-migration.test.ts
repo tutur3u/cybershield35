@@ -16,6 +16,13 @@ const appTables = [
 	"audit_events",
 	"cron_heartbeats",
 	"managed_scheduler_integrations",
+	"chat_conversations",
+	"chat_messages",
+	"chat_attachments",
+	"chat_attachment_chunks",
+	"chat_model_runs",
+	"chat_tool_runs",
+	"counter_argument_draft_versions",
 ] as const;
 
 describe("RLS migration", () => {

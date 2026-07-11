@@ -34,6 +34,14 @@ type ProviderRow = {
 	provider: ProviderName;
 	running: number;
 };
+type ChatOperationsRow = {
+	attachments_deleting: number;
+	attachments_failed: number;
+	attachments_processing: number;
+	average_latency_ms_24h: number;
+	failed_runs_24h: number;
+	running_runs: number;
+};
 
 export async function getOperationsOverview(): Promise<OperationsOverview> {
 	"use cache";
@@ -48,6 +56,7 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 		recentJobs,
 		oldestQueuedRows,
 		recentEvents,
+		chatRows,
 	] = await Promise.all([
 		adminSqlClient<CountRow[]>`
 			select status, count(*)::int as count
@@ -108,6 +117,15 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 			.from(scanJobEvents)
 			.orderBy(desc(scanJobEvents.occurredAt))
 			.limit(80),
+		adminSqlClient<ChatOperationsRow[]>`
+			select
+				(select count(*)::int from chat_attachments where status = 'processing') as attachments_processing,
+				(select count(*)::int from chat_attachments where status = 'failed') as attachments_failed,
+				(select count(*)::int from chat_attachments where status = 'deleting') as attachments_deleting,
+				(select count(*)::int from chat_model_runs where status = 'running') as running_runs,
+				(select count(*)::int from chat_model_runs where status = 'failed' and started_at >= now() - interval '24 hours') as failed_runs_24h,
+				(select coalesce(avg(latency_ms), 0)::int from chat_model_runs where status = 'completed' and started_at >= now() - interval '24 hours') as average_latency_ms_24h
+		`,
 	]);
 
 	const jobIds = recentJobs.map((job) => job.id);
@@ -137,6 +155,14 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 	const now = new Date();
 
 	return {
+		chat: {
+			attachmentsDeleting: Number(chatRows[0]?.attachments_deleting ?? 0),
+			attachmentsFailed: Number(chatRows[0]?.attachments_failed ?? 0),
+			attachmentsProcessing: Number(chatRows[0]?.attachments_processing ?? 0),
+			averageLatencyMs24h: Number(chatRows[0]?.average_latency_ms_24h ?? 0),
+			failedRuns24h: Number(chatRows[0]?.failed_runs_24h ?? 0),
+			runningRuns: Number(chatRows[0]?.running_runs ?? 0),
+		},
 		generatedAt: now.toISOString(),
 		oldestQueuedAgeSeconds: oldestQueuedAt
 			? Math.max(0, Math.round((now.getTime() - new Date(oldestQueuedAt).getTime()) / 1000))
