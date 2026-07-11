@@ -38,7 +38,7 @@ export async function prefetchDashboardRouteData(
 	const filters = context.filters ?? defaultIntelligenceFilters;
 	const params = serializeIntelligenceFilters(filters);
 
-	if (["overview", "reports", "sources"].includes(page)) {
+	if (["overview", "reports"].includes(page)) {
 		tasks.push(
 			getIntelligenceOverview(filters).then((overview) => {
 				queryClient.setQueryData(

@@ -1,48 +1,27 @@
 "use client";
 
-import {
-	Activity,
-	ArrowRight,
-	BarChart3,
-	ChevronDown,
-	Database,
-	FileBarChart,
-	Filter,
-	Info,
-	Play,
-	Radar,
-	RefreshCw,
-	Search,
-	ShieldAlert,
-} from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
-import {
-	type ComponentType,
-	useEffect,
-	useMemo,
-	useRef,
-	useTransition,
-} from "react";
+import { ArrowRight, BarChart3, FileBarChart, Info, Play } from "lucide-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
-	intelligenceActivityInfiniteQueryOptions,
 	intelligenceClaimsInfiniteQueryOptions,
-	intelligenceEvidenceInfiniteQueryOptions,
-	intelligenceFacebookPagesQueryOptions,
 	intelligenceOverviewQueryOptions,
 	intelligenceSourcesInfiniteQueryOptions,
-	intelligenceTopicsInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
-import { defaultIntelligenceFilters } from "@/lib/dashboard/query-keys";
+import { IntelligenceEvidenceRowView } from "@/components/dashboard/intelligence-evidence-row";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import { IntelligenceTopicRowView } from "@/components/dashboard/intelligence-topic-row";
+import {
+	EmptyRow,
+	formatIntelligenceDate as formatDate,
+	IntelligenceFilterBar,
+	intelligenceProviderLabel as providerLabel,
+	LoadMoreRow,
+	useIntelligenceFiltersFromUrl,
+} from "@/components/dashboard/intelligence-workspace-shared";
 import type {
-	IntelligenceActivityRow,
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
-	IntelligenceFacebookPageOption,
-	IntelligenceFilters,
 	IntelligenceHealthState,
 	IntelligenceKpi,
 	IntelligenceOverviewView,
@@ -105,111 +84,6 @@ export function ExecutiveIntelligenceDashboard({
 					className="xl:col-span-2"
 				/>
 			</div>
-		</div>
-	);
-}
-
-export function IntelligenceTopicsWorkspace() {
-	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
-	const topicsQuery = useInfiniteQuery(
-		intelligenceTopicsInfiniteQueryOptions(filters, 24),
-	);
-	const topics = topicsQuery.data?.pages.flatMap((page) => page.items) ?? [];
-
-	return (
-		<div className="space-y-5">
-			<IntelligenceFilterBar
-				filters={filters}
-				setFilter={setFilter}
-				showStatus={false}
-			/>
-			<Panel>
-				<PanelHeader
-					title="Chủ đề intelligence"
-					description="Mỗi chủ đề là một đối tượng vận hành: xu hướng, rủi ro, bằng chứng, claim và tác động báo cáo."
-				/>
-				<div className="divide-y divide-[var(--divider)]">
-					{topics.map((topic) => (
-						<TopicRow key={topic.id} topic={topic} />
-					))}
-					{topicsQuery.hasNextPage ? (
-						<LoadMoreRow
-							isFetching={topicsQuery.isFetchingNextPage}
-							onClick={() => void topicsQuery.fetchNextPage()}
-						/>
-					) : null}
-					{!topics.length && !topicsQuery.isPending ? (
-						<EmptyRow text="Chưa có chủ đề intelligence phù hợp bộ lọc." />
-					) : null}
-				</div>
-			</Panel>
-		</div>
-	);
-}
-
-export function IntelligenceEvidenceVault() {
-	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
-	const evidenceQuery = useInfiniteQuery(
-		intelligenceEvidenceInfiniteQueryOptions(filters, 40),
-	);
-	const evidence = evidenceQuery.data?.pages.flatMap((page) => page.items) ?? [];
-	const parentRef = useRef<HTMLDivElement | null>(null);
-	// eslint-disable-next-line react-hooks/incompatible-library
-	const rowVirtualizer = useVirtualizer({
-		count: evidence.length,
-		estimateSize: () => 118,
-		getScrollElement: () => parentRef.current,
-		overscan: 8,
-	});
-
-	return (
-		<div className="space-y-5">
-			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
-			<Panel>
-				<PanelHeader
-					title="Kho bằng chứng intelligence"
-					description="Danh sách lớn được tải vô hạn và ảo hóa để giữ thao tác nhanh khi dữ liệu tăng."
-					action={
-						<DashboardTooltip content="Bằng chứng được lấy từ bảng đã chuẩn hóa, không hiển thị raw provider payload hoặc khóa bí mật.">
-							<span className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-bold text-[var(--muted-strong)]">
-								<Database size={13} /> Có dữ liệu gốc
-							</span>
-						</DashboardTooltip>
-					}
-				/>
-				<div ref={parentRef} className="max-h-[720px] overflow-auto">
-					<div
-						className="relative min-w-0"
-						style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-					>
-						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const item = evidence[virtualRow.index];
-							if (!item) return null;
-							return (
-								<div
-									key={item.id}
-									className="absolute left-0 top-0 w-full"
-									style={{
-										height: `${virtualRow.size}px`,
-										transform: `translateY(${virtualRow.start}px)`,
-									}}
-								>
-									<EvidenceRow evidence={item} />
-								</div>
-							);
-						})}
-					</div>
-				</div>
-				{evidenceQuery.hasNextPage ? (
-					<LoadMoreRow
-						isFetching={evidenceQuery.isFetchingNextPage}
-						onClick={() => void evidenceQuery.fetchNextPage()}
-					/>
-				) : null}
-				{!evidence.length && !evidenceQuery.isPending ? (
-					<EmptyRow text="Không có bằng chứng phù hợp bộ lọc hiện tại." />
-				) : null}
-			</Panel>
 		</div>
 	);
 }
@@ -297,44 +171,6 @@ export function IntelligenceSourcesWorkspace({
 	);
 }
 
-export function IntelligenceActivityStream() {
-	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
-	const activityQuery = useInfiniteQuery(
-		intelligenceActivityInfiniteQueryOptions(filters, 30),
-	);
-	const events = activityQuery.data?.pages.flatMap((page) => page.items) ?? [];
-
-	return (
-		<div className="space-y-5">
-			<IntelligenceFilterBar
-				filters={filters}
-				setFilter={setFilter}
-				showProvider={false}
-			/>
-			<Panel>
-				<PanelHeader
-					title="Nhật ký intelligence"
-					description="Hoạt động vận hành có liên kết đến scan, evidence và draft liên quan."
-				/>
-				<div className="divide-y divide-[var(--divider)]">
-					{events.map((event) => (
-						<ActivityRow key={event.id} event={event} />
-					))}
-					{activityQuery.hasNextPage ? (
-						<LoadMoreRow
-							isFetching={activityQuery.isFetchingNextPage}
-							onClick={() => void activityQuery.fetchNextPage()}
-						/>
-					) : null}
-					{!events.length && !activityQuery.isPending ? (
-						<EmptyRow text="Chưa có hoạt động phù hợp bộ lọc." />
-					) : null}
-				</div>
-			</Panel>
-		</div>
-	);
-}
-
 export function IntelligenceReportsWorkbench({
 	onCreateReport,
 }: {
@@ -356,189 +192,6 @@ export function IntelligenceReportsWorkbench({
 			<TopicMomentumPanel topics={overview?.topTopics} />
 		</div>
 	);
-}
-
-function IntelligenceFilterBar({
-	filters,
-	setFilter,
-	showProvider = true,
-	showStatus = true,
-}: {
-	filters: IntelligenceFilters;
-	setFilter: (key: keyof IntelligenceFilters, value: string) => void;
-	showProvider?: boolean;
-	showStatus?: boolean;
-}) {
-	const [, startTransition] = useTransition();
-	const queryDebounceRef = useRef<number | null>(null);
-	const facebookPagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
-	const facebookPageOptions = facebookPageSelectOptions(
-		facebookPagesQuery.data ?? [],
-	);
-
-	useEffect(
-		() => () => {
-			if (queryDebounceRef.current !== null) {
-				window.clearTimeout(queryDebounceRef.current);
-			}
-		},
-		[],
-	);
-
-	return (
-		<div className="grid min-w-0 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] md:grid-cols-2 xl:grid-cols-[minmax(180px,1.2fr)_repeat(5,minmax(126px,0.75fr))]">
-			<label className="relative min-w-0">
-				<Search
-					aria-hidden
-					size={15}
-					className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-				/>
-				<input
-					defaultValue={filters.query ?? ""}
-					onChange={(event) => {
-						const value = event.target.value;
-						if (queryDebounceRef.current !== null) {
-							window.clearTimeout(queryDebounceRef.current);
-						}
-						queryDebounceRef.current = window.setTimeout(() => {
-							startTransition(() => setFilter("query", value));
-						}, 250);
-					}}
-					placeholder="Tìm claim, bằng chứng, nguồn..."
-					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-				/>
-			</label>
-			<FilterSelect
-				icon={Radar}
-				label="Fanpage"
-				value={filters.facebookPage ?? ""}
-				onChange={(value) => setFilter("facebookPage", value)}
-				options={[["", "Tất cả fanpage"], ...facebookPageOptions]}
-				help="Lọc theo fanpage Facebook đã theo dõi. Nhãn hiển thị tên trang, username và Facebook ID nếu hệ thống đã thu thập được."
-			/>
-			<FilterSelect
-				icon={Filter}
-				label="Thời gian"
-				value={filters.timeRange ?? "30d"}
-				onChange={(value) => setFilter("timeRange", value)}
-				options={[
-					["7d", "7 ngày"],
-					["30d", "30 ngày"],
-					["90d", "90 ngày"],
-					["all", "Tất cả"],
-				]}
-				help="Giới hạn rollup và lịch sử hiển thị theo ngày tạo hoặc thời điểm hoạt động."
-			/>
-			<FilterSelect
-				icon={ShieldAlert}
-				label="Rủi ro"
-				value={filters.risk ?? "all"}
-				onChange={(value) => setFilter("risk", value)}
-				options={[
-					["all", "Mọi mức"],
-					["high", "Cao"],
-					["medium", "Trung bình"],
-					["low", "Thấp"],
-				]}
-				help="Lọc theo mức rủi ro đã lưu trong evidence, claim hoặc activity."
-			/>
-			{showProvider ? (
-				<FilterSelect
-					icon={Radar}
-					label="Provider"
-					value={filters.provider ?? ""}
-					onChange={(value) => setFilter("provider", value)}
-					options={[
-						["", "Tất cả"],
-						["apify_facebook_posts", "Apify bài viết"],
-						["apify_facebook_comments", "Apify bình luận"],
-						["apify_facebook_groups", "Apify nhóm"],
-						["firecrawl", "Firecrawl"],
-						["browser_use", "Browser Use"],
-						["local_text", "Văn bản nội bộ"],
-					]}
-					help="Provider là adapter thu thập dữ liệu cho scan."
-				/>
-			) : null}
-			{showStatus ? (
-				<FilterSelect
-					icon={Activity}
-					label="Sức khỏe"
-					value={filters.status ?? ""}
-					onChange={(value) => setFilter("status", value)}
-					options={[
-						["", "Tất cả"],
-						["healthy", "Ổn định"],
-						["attention", "Cần chú ý"],
-						["blocked", "Bị chặn"],
-						["stale", "Cũ"],
-					]}
-					help="Trạng thái sức khỏe được tính từ lần quét gần nhất và lỗi provider."
-				/>
-			) : null}
-		</div>
-	);
-}
-
-function FilterSelect({
-	help,
-	icon: Icon,
-	label,
-	onChange,
-	options,
-	value,
-}: {
-	help: string;
-	icon: ComponentType<{ size?: number; className?: string }>;
-	label: string;
-	onChange: (value: string) => void;
-	options: [string, string][];
-	value: string;
-}) {
-	return (
-		<DashboardTooltip content={help}>
-			<label className="relative min-w-0">
-				<span className="sr-only">{label}</span>
-				<Icon
-					aria-hidden
-					size={15}
-					className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-				/>
-				<select
-					value={value}
-					onChange={(event) => onChange(event.target.value)}
-					className="h-10 w-full min-w-0 appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-8 text-[12px] font-bold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-				>
-					{options.map(([optionValue, text]) => (
-						<option key={optionValue || "all"} value={optionValue}>
-							{text}
-						</option>
-					))}
-				</select>
-				<ChevronDown
-					aria-hidden
-					size={14}
-					className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-				/>
-			</label>
-		</DashboardTooltip>
-	);
-}
-
-function facebookPageSelectOptions(
-	pages: IntelligenceFacebookPageOption[],
-): [string, string][] {
-	return pages.map((page) => {
-		const details = [
-			page.username ? `@${page.username}` : null,
-			page.facebookId ? `ID ${page.facebookId}` : null,
-			page.evidenceCount ? `${page.evidenceCount} bằng chứng` : null,
-		].filter(Boolean);
-		return [
-			page.value,
-			details.length ? `${page.label} - ${details.join(" - ")}` : page.label,
-		];
-	});
 }
 
 function ExecutiveKpiGrid({
@@ -760,7 +413,7 @@ function TopicMomentumPanel({ topics }: { topics?: IntelligenceTopicRow[] }) {
 			/>
 			<div className="divide-y divide-[var(--divider)]">
 				{topics?.map((topic) => (
-					<TopicRow key={topic.id} topic={topic} compact />
+					<IntelligenceTopicRowView key={topic.id} topic={topic} compact />
 				))}
 				{!topics?.length ? <EmptyRow text="Chưa có topic rollup." /> : null}
 			</div>
@@ -826,7 +479,7 @@ function CriticalEvidencePanel({
 			/>
 			<div className="divide-y divide-[var(--divider)]">
 				{evidence?.map((item) => (
-					<EvidenceRow key={item.id} evidence={item} compact />
+					<IntelligenceEvidenceRowView key={item.id} evidence={item} compact />
 				))}
 				{!evidence?.length ? <EmptyRow text="Chưa có bằng chứng nổi bật." /> : null}
 			</div>
@@ -884,119 +537,6 @@ function ReportReadinessPanel({
 				/>
 			</div>
 		</Panel>
-	);
-}
-
-function TopicRow({
-	compact = false,
-	topic,
-}: {
-	compact?: boolean;
-	topic: IntelligenceTopicRow;
-}) {
-	return (
-		<IntentPrefetchLink
-			href={topic.href}
-			className={`grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] ${
-				compact
-					? "sm:grid-cols-[minmax(0,1fr)_90px_80px]"
-					: "sm:grid-cols-[minmax(0,1fr)_110px_110px_80px]"
-			} sm:items-center`}
-		>
-			<div className="min-w-0">
-				<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-					{topic.name}
-				</p>
-				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{topic.evidenceCount} bằng chứng - {topic.claimCount} claim - {topic.scanCount} scan
-				</p>
-			</div>
-			<DashboardTooltip content="Động lượng kết hợp khối lượng bằng chứng, độ phủ scan và bằng chứng rủi ro cao.">
-				<span className="min-w-0 rounded-md bg-[var(--surface-soft)] px-2 py-1 text-center text-[11px] font-bold text-[var(--foreground)]">
-					{topic.momentumScore}/100
-				</span>
-			</DashboardTooltip>
-			{compact ? null : (
-				<span className="min-w-0 truncate text-[11px] font-bold text-[var(--muted-strong)]">
-					{topic.trend}
-				</span>
-			)}
-			<RiskPill risk={topic.riskLevel} />
-		</IntentPrefetchLink>
-	);
-}
-
-function EvidenceRow({
-	compact = false,
-	evidence,
-}: {
-	compact?: boolean;
-	evidence: IntelligenceEvidenceRow;
-}) {
-	return (
-		<div
-			className={`grid min-w-0 gap-3 px-4 py-3 ${
-				compact ? "" : "sm:grid-cols-[minmax(0,1fr)_120px_90px]"
-			} sm:items-center`}
-		>
-				<div className="min-w-0">
-					<IntentPrefetchLink
-						href={evidence.href}
-						className="line-clamp-2 text-[13px] font-bold leading-5 text-[var(--foreground)] hover:text-[var(--accent-strong)]"
-					>
-						{evidence.quote}
-					</IntentPrefetchLink>
-				<p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
-					{evidence.summary}
-				</p>
-				<p className="mt-2 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{evidence.facebookUsername
-						? `Fanpage @${evidence.facebookUsername}`
-						: evidence.sourceLabel ?? providerLabel(evidence.provider)}
-					{evidence.facebookPageId ? ` - Facebook ID ${evidence.facebookPageId}` : ""}
-				</p>
-				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-						{evidence.topicSlugs.slice(0, 3).map((slug) => (
-							<IntentPrefetchLink
-								key={slug}
-							href={`/topics/${slug}`}
-							className="max-w-full truncate rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
-						>
-							{slug}
-							</IntentPrefetchLink>
-						))}
-						<IntentPrefetchLink
-							href={evidence.scanHref}
-						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
-					>
-						Mở scan
-						</IntentPrefetchLink>
-					{evidence.originalPostHref ? (
-						<a
-							href={evidence.originalPostHref}
-							target="_blank"
-							rel="noreferrer"
-							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
-						>
-							Bài gốc
-						</a>
-					) : null}
-				</div>
-			</div>
-			{compact ? null : (
-				<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)]">
-					<p className="truncate">{evidence.sourceLabel ?? providerLabel(evidence.provider)}</p>
-					<p className="mt-1 truncate">{formatDate(evidence.createdAt)}</p>
-						<IntentPrefetchLink
-							href={evidence.scanHref}
-							className="mt-1 inline-flex text-[var(--accent-strong)]"
-						>
-							Chi tiết scan <ArrowRight size={12} />
-						</IntentPrefetchLink>
-				</div>
-			)}
-			<RiskPill risk={evidence.riskLevel} />
-		</div>
 	);
 }
 
@@ -1116,28 +656,6 @@ function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) 
 	);
 }
 
-function ActivityRow({ event }: { event: IntelligenceActivityRow }) {
-	return (
-		<IntentPrefetchLink
-			href={event.href}
-			className="grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[160px_minmax(0,1fr)_90px] sm:items-center"
-		>
-			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-				{formatDate(event.occurredAt)}
-			</p>
-			<div className="min-w-0">
-				<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-					{event.title}
-				</p>
-				<p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
-					{event.description}
-				</p>
-			</div>
-			<RiskPill risk={event.severity} />
-		</IntentPrefetchLink>
-	);
-}
-
 function ReadinessMetric({
 	help,
 	label,
@@ -1196,36 +714,6 @@ function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 	);
 }
 
-function LoadMoreRow({
-	isFetching,
-	onClick,
-}: {
-	isFetching: boolean;
-	onClick: () => void;
-}) {
-	return (
-		<div className="flex justify-center p-4">
-			<button
-				type="button"
-				disabled={isFetching}
-				onClick={onClick}
-				className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] disabled:opacity-60"
-			>
-				<RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
-				{isFetching ? "Đang tải..." : "Tải thêm"}
-			</button>
-		</div>
-	);
-}
-
-function EmptyRow({ text }: { text: string }) {
-	return (
-		<div className="px-4 py-6 text-[12px] font-semibold text-[var(--muted)]">
-			{text}
-		</div>
-	);
-}
-
 function IntelligenceError({ body, title }: { body: string; title: string }) {
 	return (
 		<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3">
@@ -1250,49 +738,6 @@ function Legend({ color, label }: { color: string; label: string }) {
 	);
 }
 
-function useIntelligenceFiltersFromUrl(): [
-	IntelligenceFilters,
-	(key: keyof IntelligenceFilters, value: string) => void,
-] {
-	const pathname = usePathname();
-	const searchParams = useSearchParams();
-	const filters = useMemo<IntelligenceFilters>(
-		() => ({
-			facebookPage: searchParams.get("facebookPage") ?? undefined,
-			provider: searchParams.get("provider") ?? undefined,
-			query: searchParams.get("q") ?? undefined,
-			risk:
-				(searchParams.get("risk") as IntelligenceFilters["risk"]) ??
-				defaultIntelligenceFilters.risk,
-			source: searchParams.get("source") ?? undefined,
-			status: searchParams.get("status") ?? undefined,
-			timeRange:
-				(searchParams.get("timeRange") as IntelligenceFilters["timeRange"]) ??
-				defaultIntelligenceFilters.timeRange,
-			topic: searchParams.get("topic") ?? undefined,
-		}),
-		[searchParams],
-	);
-
-	function setFilter(key: keyof IntelligenceFilters, value: string) {
-		const next = new URLSearchParams(searchParams);
-		const paramKey = key === "query" ? "q" : key;
-		if (!value || value === "all") {
-			next.delete(paramKey);
-		} else {
-			next.set(paramKey, value);
-		}
-		const query = next.toString();
-		window.history.replaceState(
-			null,
-			"",
-			query ? `${pathname}?${query}` : pathname,
-		);
-	}
-
-	return [filters, setFilter];
-}
-
 function toneText(tone: IntelligenceKpi["tone"]) {
 	const map: Record<IntelligenceKpi["tone"], string> = {
 		accent: "text-[var(--accent-strong)]",
@@ -1302,30 +747,6 @@ function toneText(tone: IntelligenceKpi["tone"]) {
 		warning: "text-[var(--warning-strong)]",
 	};
 	return map[tone];
-}
-
-function providerLabel(provider?: string | null) {
-	const labels: Record<string, string> = {
-		apify_facebook_comments: "Apify bình luận",
-		apify_facebook_groups: "Apify nhóm",
-		apify_facebook_posts: "Apify bài viết",
-		browser_use: "Browser Use",
-		firecrawl: "Firecrawl",
-		firecrawl_parse: "Firecrawl parse",
-		local_text: "Văn bản nội bộ",
-	};
-	return provider ? (labels[provider] ?? provider) : "Chưa có provider";
-}
-
-function formatDate(value?: string | null) {
-	if (!value) return "Chưa có";
-	return new Intl.DateTimeFormat("vi-VN", {
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-	}).format(new Date(value));
 }
 
 const skeletonKpis: IntelligenceKpi[] = [

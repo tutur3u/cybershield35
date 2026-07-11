@@ -49,7 +49,7 @@ export function CentralizedLoginScreen({
 		<main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6">
 			<div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-xl place-items-center">
 				<section className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
-					<h2 className="text-[24px] font-extrabold leading-8 text-[var(--foreground)]">
+					<h2 className="text-[24px] font-bold leading-8 text-[var(--foreground)]">
 						{copy.title}
 					</h2>
 					<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">

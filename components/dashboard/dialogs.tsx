@@ -260,7 +260,7 @@ export function ScanDialog(props: {
 function StepHint({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="flex min-w-0 items-center gap-2">
-			<span className="grid size-6 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[11px] font-black text-[var(--accent-strong)]">
+			<span className="grid size-6 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[11px] font-bold text-[var(--accent-strong)]">
 				{value}
 			</span>
 			<span className="min-w-0 text-[11px] leading-4">{label}</span>

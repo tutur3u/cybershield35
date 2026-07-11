@@ -10,7 +10,7 @@ export const prefetch = "allow-runtime";
 
 export default function AnalysisPage() {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="analysis" />}>
 			<DashboardRoute page="analysis" />
 		</Suspense>
 	);

@@ -16,7 +16,7 @@ export default function DraftDetailPage({
 	searchParams: Promise<{ scanId?: string }>;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="draft-detail" />}>
 			<DraftDetailRoute params={params} searchParams={searchParams} />
 		</Suspense>
 	);

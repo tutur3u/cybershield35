@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { logout } from "@/components/dashboard/client-actions";
+import { logout } from "@/components/dashboard/auth-client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
 import { LoginRedirect } from "@/components/auth/login-redirect";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";

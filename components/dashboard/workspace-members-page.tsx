@@ -2,12 +2,6 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-} from "@tuturuuu/ui/avatar";
-
-import {
 	AlertTriangle,
 	RefreshCw,
 	ShieldCheck,
@@ -189,7 +183,7 @@ export function WorkspaceMembersPage({
 				throw new Error(errorMessage(payload, "Không thể cập nhật thành viên"));
 			}
 			setNotice(success);
-			await queryClient.invalidateQueries({
+			void queryClient.invalidateQueries({
 				queryKey: dashboardQueryKeys.workspaceMembers(),
 				refetchType: "active",
 			});
@@ -382,7 +376,7 @@ function MemberList({
 			{members.map((member) => (
 				<div
 					key={member.id}
-					className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_140px_220px] lg:items-center"
+					className="grid gap-3 px-4 py-3 [contain-intrinsic-size:auto_72px] [content-visibility:auto] lg:grid-cols-[minmax(0,1fr)_140px_220px] lg:items-center"
 				>
 					<MemberIdentity member={member} />
 					<RoleBadge member={member} />
@@ -434,7 +428,7 @@ function MemberList({
 			{invitations.map((invitation) => (
 				<div
 					key={invitation.email}
-					className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_140px_220px] lg:items-center"
+					className="grid gap-3 px-4 py-3 [contain-intrinsic-size:auto_72px] [content-visibility:auto] lg:grid-cols-[minmax(0,1fr)_140px_220px] lg:items-center"
 				>
 					<div className="min-w-0">
 						<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
@@ -468,12 +462,22 @@ function MemberList({
 function MemberIdentity({ member }: { member: WorkspaceMemberView }) {
 	return (
 		<div className="flex min-w-0 items-center gap-3">
-			<Avatar className="size-10 rounded-md border border-[var(--border)] bg-[var(--surface-soft)]">
-				{member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt="" /> : null}
-				<AvatarFallback className="rounded-md bg-[var(--surface-soft)] text-[13px] font-bold text-[var(--muted-strong)]">
-					{initials(member)}
-				</AvatarFallback>
-			</Avatar>
+			<div className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface-soft)] text-[13px] font-bold text-[var(--muted-strong)]">
+				<span aria-hidden="true">{initials(member)}</span>
+				{member.avatarUrl ? (
+					// Tuturuuu avatar hosts are user-defined; native lazy loading avoids
+					// eagerly preloading every member image during hydration.
+					// eslint-disable-next-line @next/next/no-img-element
+					<img
+						alt=""
+						className="absolute inset-0 size-full object-cover"
+						decoding="async"
+						loading="lazy"
+						referrerPolicy="no-referrer"
+						src={member.avatarUrl}
+					/>
+				) : null}
+			</div>
 			<div className="min-w-0">
 				<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 					{member.displayName || member.email || "Thành viên"}

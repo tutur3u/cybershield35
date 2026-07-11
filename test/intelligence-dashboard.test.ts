@@ -58,21 +58,28 @@ describe("executive intelligence dashboard architecture", () => {
 
 	test("uses TanStack Query, infinite loading, URL filters, and virtualization", () => {
 		const widgets = read("components/dashboard/intelligence-widgets.tsx");
+		const evidenceVault = read(
+			"components/dashboard/intelligence-evidence-vault.tsx",
+		);
+		const shared = read(
+			"components/dashboard/intelligence-workspace-shared.tsx",
+		);
 		const queries = read("lib/dashboard/client-queries.ts");
 		const keys = read("lib/dashboard/query-keys.ts");
 
 		expect(widgets).toContain("useInfiniteQuery");
-		expect(widgets).toContain("useVirtualizer");
-		expect(widgets).toContain("useSearchParams");
-		expect(widgets).toContain("window.history.replaceState");
-		expect(widgets).toContain("DashboardTooltip");
+		expect(evidenceVault).toContain("useVirtualizer");
+		expect(evidenceVault).toContain("ref={rowVirtualizer.measureElement}");
+		expect(shared).toContain("useSearchParams");
+		expect(shared).toContain("window.history.replaceState");
+		expect(shared).toContain("DashboardTooltip");
 		expect(queries).toContain("intelligenceOverviewQueryOptions");
 		expect(queries).toContain("intelligenceEvidenceInfiniteQueryOptions");
 		expect(queries).toContain("intelligenceFacebookPagesQueryOptions");
 		expect(keys).toContain("intelligenceEvidenceInfinite");
 		expect(keys).toContain("intelligenceFacebookPages");
-		expect(widgets).toContain("facebookPage");
-		expect(widgets).toContain("Tất cả fanpage");
+		expect(shared).toContain("facebookPage");
+		expect(shared).toContain("Tất cả fanpage");
 	});
 
 	test("exposes Facebook page context for evidence and filters", () => {
@@ -94,8 +101,55 @@ describe("executive intelligence dashboard architecture", () => {
 		for (const page of ["overview", "evidence", "alerts", "audit"] as const) {
 			expect(dashboardSnapshotRequirements(page).includeDetail).toBe(false);
 		}
+		expect(dashboardSnapshotRequirements("audit")).toEqual({
+			includeDetail: false,
+			includeScans: false,
+			includeTrackedSources: false,
+		});
 		expect(dashboardSnapshotRequirements("analysis").includeDetail).toBe(true);
 		expect(dashboardSnapshotRequirements("reports").includeDetail).toBe(true);
+	});
+
+	test("isolates intelligence routes from the dashboard controller", () => {
+		const dashboard = read("components/dashboard/cybershield-dashboard.tsx");
+		const dashboardPages = read("components/dashboard/dashboard-pages.tsx");
+		const auditPage = read("components/dashboard/audit-page.tsx");
+		const evidencePage = read("components/dashboard/evidence-page.tsx");
+		const topicsPage = read("components/dashboard/topics-page.tsx");
+		const auditRoute = read("app/audit/page.tsx");
+		const evidenceRoute = read("app/evidence/page.tsx");
+		const topicsRoute = read("app/topics/page.tsx");
+		const topicDetailRoute = read("app/topics/[slug]/page.tsx");
+
+		expect(auditRoute).toContain("<AuditContent />");
+		expect(auditRoute).toContain("HydrationBoundary");
+		expect(auditRoute).not.toContain(
+			'from "@/components/dashboard/dashboard-route"',
+		);
+		expect(auditPage).toContain("<IntelligenceActivityStream />");
+		expect(auditPage).toContain("intelligence-activity-stream");
+		expect(auditPage).not.toContain("props.detail");
+		expect(evidencePage).toContain("intelligence-evidence-vault");
+		expect(topicsPage).toContain("intelligence-topics-workspace");
+		expect(evidenceRoute).toContain("<EvidenceWorkspace");
+		expect(evidenceRoute).not.toContain(
+			'from "@/components/dashboard/dashboard-route"',
+		);
+		expect(topicsRoute).toContain("<TopicsWorkspace");
+		expect(topicsRoute).not.toContain(
+			'from "@/components/dashboard/dashboard-route"',
+		);
+		expect(topicDetailRoute).toContain("<TopicDetailsContent");
+		expect(topicDetailRoute).not.toContain(
+			'from "@/components/dashboard/dashboard-route"',
+		);
+		expect(dashboard).toContain('import("@/components/dashboard/topics-page")');
+		expect(dashboard).toContain('import("@/components/dashboard/evidence-page")');
+		expect(dashboard).toContain('import("@/components/dashboard/audit-page")');
+		expect(dashboard).not.toContain("const AlertsPage = dynamic");
+		expect(dashboardPages).not.toContain("export function TopicsPage");
+		expect(dashboardPages).not.toContain("export function EvidencePage");
+		expect(dashboardPages).not.toContain("export function AuditPage");
 	});
 
 	test("refreshes projections from mutation paths and cache invalidation", () => {

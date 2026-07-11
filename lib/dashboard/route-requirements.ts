@@ -11,6 +11,7 @@ export function dashboardSnapshotRequirements(
 ): DashboardSnapshotRequirements {
 	if (
 		[
+			"audit",
 			"chat",
 			"guide-policies",
 			"guide-process",

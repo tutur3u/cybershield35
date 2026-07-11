@@ -10,7 +10,7 @@ export const prefetch = "allow-runtime";
 
 export default function CounterArgumentsPage() {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="counter-arguments" />}>
 			<DashboardRoute page="counter-arguments" />
 		</Suspense>
 	);

@@ -67,28 +67,35 @@ const loadDetailPages = () => import("@/components/dashboard/detail-pages");
 const loadDialogs = () => import("@/components/dashboard/dialogs");
 
 const OverviewPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.OverviewPage),
+	import("@/components/dashboard/overview-page").then(
+		(module) => module.OverviewPage,
+	),
 );
 const SourcesPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.SourcesPage),
+	import("@/components/dashboard/sources-page").then(
+		(module) => module.SourcesPage,
+	),
 );
 const AnalysisPage = dynamic(() =>
 	loadDashboardPages().then((module) => module.AnalysisPage),
 );
 const TopicsPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.TopicsPage),
+	import("@/components/dashboard/topics-page").then(
+		(module) => module.TopicsPage,
+	),
 );
 const TopicDetailsPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.TopicDetailsPage),
+	import("@/components/dashboard/topic-details-page").then(
+		(module) => module.TopicDetailsPage,
+	),
 );
 const CounterArgumentsPage = dynamic(() =>
 	loadDashboardPages().then((module) => module.CounterArgumentsPage),
 );
 const EvidencePage = dynamic(() =>
-	loadDashboardPages().then((module) => module.EvidencePage),
-);
-const AlertsPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.AlertsPage),
+	import("@/components/dashboard/evidence-page").then(
+		(module) => module.EvidencePage,
+	),
 );
 const ReportsPage = dynamic(() =>
 	loadDashboardPages().then((module) => module.ReportsPage),
@@ -97,7 +104,9 @@ const SettingsPage = dynamic(() =>
 	loadDashboardPages().then((module) => module.SettingsPage),
 );
 const AuditPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.AuditPage),
+	import("@/components/dashboard/audit-page").then(
+		(module) => module.AuditPage,
+	),
 );
 const GuidePage = dynamic(() =>
 	loadDashboardPages().then((module) => module.GuidePage),
@@ -166,6 +175,13 @@ export type CyberShieldDashboardProps = {
 
 const emptyScans: DashboardScan[] = [];
 const emptyTrackedSources: TrackedSourceView[] = [];
+const scanStatuses = new Set<DashboardScan["status"]>([
+	"queued",
+	"running",
+	"completed",
+	"failed",
+	"retrying",
+]);
 
 export function CyberShieldDashboard({
 	draftId,
@@ -295,11 +311,19 @@ export function CyberShieldDashboard({
 		[detailQuery.data, hydratedInitialData?.detail],
 	);
 
-	const selectedScan = useMemo(
-		() => scans.find((scan) => scan.id === activeScanId) ?? scans[0],
-		[activeScanId, scans],
-	);
 	const activeDetail = detailOverride ?? detailQuery.data ?? null;
+	const selectedScan = useMemo(() => {
+		const scan = scans.find((item) => item.id === activeScanId) ?? scans[0];
+		const detailStatus = activeDetail?.job?.status;
+		if (!scan || !isDashboardScanStatus(detailStatus)) return scan;
+		if (scan.status === detailStatus) return scan;
+
+		return {
+			...scan,
+			progress: scanProgressForStatus(detailStatus),
+			status: detailStatus,
+		};
+	}, [activeDetail?.job?.status, activeScanId, scans]);
 	const activeDraft =
 		draft ?? (activeDetail?.drafts?.[0] as DraftShape | undefined) ?? null;
 	const analysis = toAnalysisView(activeDetail?.analysis);
@@ -715,6 +739,20 @@ export function CyberShieldDashboard({
 	);
 }
 
+function isDashboardScanStatus(value: unknown): value is DashboardScan["status"] {
+	return (
+		typeof value === "string" &&
+		scanStatuses.has(value as DashboardScan["status"])
+	);
+}
+
+function scanProgressForStatus(status: DashboardScan["status"]) {
+	if (status === "completed") return 100;
+	if (status === "running") return 45;
+	if (status === "retrying") return 25;
+	return 0;
+}
+
 function shouldLoadScanDetail(page: DashboardPage) {
 	return ![
 		"chat",
@@ -749,9 +787,9 @@ function renderPage(
 		case "analysis":
 			return <AnalysisPage {...props} />;
 		case "topics":
-			return <TopicsPage {...props} />;
+			return <TopicsPage onOpenDraft={props.onOpenDraft} />;
 		case "topic-detail":
-			return <TopicDetailsPage {...props} topicSlug={routeIds.topicSlug} />;
+			return <TopicDetailsPage topicSlug={routeIds.topicSlug} />;
 		case "counter-arguments":
 			return <CounterArgumentsPage {...props} />;
 		case "chat":
@@ -772,14 +810,12 @@ function renderPage(
 			return <EvidenceDetailsPage {...props} evidenceId={routeIds.evidenceId} />;
 		case "draft-detail":
 			return <DraftDetailsPage {...props} draftId={routeIds.draftId} />;
-		case "alerts":
-			return <AlertsPage />;
 		case "reports":
 			return <ReportsPage {...props} />;
 		case "settings":
 			return <SettingsPage />;
 		case "audit":
-			return <AuditPage {...props} />;
+			return <AuditPage />;
 		case "guide-process":
 			return <GuidePage kind="process" />;
 		case "guide-user":
@@ -787,7 +823,19 @@ function renderPage(
 		case "guide-policies":
 			return <GuidePage kind="policies" />;
 		default:
-			return <OverviewPage {...props} />;
+			return (
+				<OverviewPage
+					onCreateReport={props.onCreateReport}
+					onDeleteScan={props.onDeleteScan}
+					onEditScan={props.onEditScan}
+					onOpenDraft={props.onOpenDraft}
+					onOpenScan={props.onOpenScan}
+					onRunScan={props.onRunScan}
+					onSelectScan={props.onSelectScan}
+					scans={props.scans}
+					selectedScanId={props.selectedScanId}
+				/>
+			);
 	}
 }
 

@@ -15,7 +15,7 @@ export default function Home({
 	searchParams: DashboardSearchParams;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="overview" />}>
 			<DashboardRouteFromSearchParams
 				page="overview"
 				searchParams={searchParams}

@@ -15,7 +15,7 @@ export default function ReportsPage({
 	searchParams: DashboardSearchParams;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="reports" />}>
 			<DashboardRouteFromSearchParams
 				page="reports"
 				searchParams={searchParams}
