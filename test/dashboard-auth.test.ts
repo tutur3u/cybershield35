@@ -1270,6 +1270,18 @@ describe("dashboard auth gate", () => {
 		expect(layoutShell).toContain("<TopBar");
 	});
 
+	test("mobile sidebar behaves as a dismissible drawer", () => {
+		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+
+		expect(shell).toContain('aria-label="Thanh điều hướng"');
+		expect(shell).toContain('aria-label="Đóng điều hướng"');
+		expect(shell).toContain('event.key === "Escape"');
+		expect(shell).toContain('document.body.style.overflow = "hidden"');
+		expect(shell).toContain("manuallyCollapsedActivePath");
+		expect(shell).toContain("routeRevealsSection");
+		expect(shell).not.toContain("section.id === activeSection ||");
+	});
+
 	test("sidebar uses the CyberShield35 wordmark as the home link", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 

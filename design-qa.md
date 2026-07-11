@@ -1,49 +1,55 @@
-# Sidebar navigation design QA
+# Sidebar navigation upgrade design QA
 
 ## Evidence
 
-- Reference: `/Users/skora/.codex/attachments/63db6275-6ecb-4d2d-9ab8-ed179cf8dfa2/codex-clipboard-831cf423-fcc2-4c64-84a7-f9ce81bacb3f.png`
-- Implementation: `artifacts/sidebar-after.png`
+- Source visual truth: `artifacts/sidebar-upgrade-audit/01-current-desktop.png`
+- Desktop implementation: `artifacts/sidebar-upgrade-audit/03-upgraded-desktop.png`
+- Mobile implementation: `artifacts/sidebar-upgrade-audit/04-upgraded-mobile-drawer.png`
+- Active-section interaction: `artifacts/sidebar-upgrade-audit/05-active-section-collapsed.png`
 - Desktop viewport: 1440 x 913
 - Mobile viewport: 390 x 844
-- State: dashboard overview, expanded navigation groups; mobile drawer open for responsive checks
+- Theme and state: dark theme, authenticated dashboard, expanded desktop sidebar, open mobile drawer
 
-The reference is issue evidence rather than a target to reproduce. The acceptance target was to restore a compact sidebar hierarchy, prevent group labels from wrapping, and preserve the existing CyberShield35 design system.
+The source is the current product state captured immediately before this upgrade. The target is an intentional refinement of that system rather than a visual clone.
 
-## Comparison
+## Full-view comparison
 
-### Full view
+- Overall dashboard proportions, navigation width, typography, icons, colors, borders, and page density remain stable.
+- The active route changed from a large green surface and border to a quieter neutral surface with a narrow green position marker.
+- The large help card was replaced with a compact secondary navigation region, preserving all links while reducing visual weight.
+- No dashboard content shifted or disappeared at the desktop breakpoint.
 
-- The oversized, widely tracked section labels were reduced to a restrained 10px label style.
-- Group density now matches the dashboard's information-dense internal-tool character.
-- The active overview item uses a quiet semantic surface and inset border instead of a dominant solid-green block.
-- Existing typography, icons, colors, radii, Vietnamese copy, and layout structure were preserved.
+## Focused-region comparison
 
-### Focused sidebar region
+- Section labels remain 10px and single-line, with a lighter 600 weight.
+- The active indicator remains visible in expanded and collapsed sidebar states.
+- The mobile drawer is 320px wide at a 390px viewport, has a dismissing scrim, and creates no horizontal overflow.
+- The active section can be collapsed and remains collapsed (`aria-expanded=false`) until route context changes.
+- Drawer controls expose useful accessible names; sections retain `aria-controls` and `aria-expanded`; active links retain `aria-current`.
 
-- All four section headings render at 10px with a 28px control height.
-- `Thu thập & vận hành` remains on one line at the desktop and mobile test widths.
-- Navigation items render at 12px with 36-40px target heights and consistent 16px icons.
-- Subtle dividers clarify the groups without adding visual noise.
-- Collapsible controls expose `aria-expanded` and `aria-controls`; the active route exposes `aria-current`.
-- The 390px mobile drawer has no horizontal overflow.
+## Interaction and responsive checks
 
-## Iteration history
-
-1. The first compact styling pass still computed section labels at 16px even though the component requested 10px.
-2. Inspection found an unlayered `font: inherit` shorthand in the global stylesheet overriding Tailwind font-size and font-weight utilities on buttons.
-3. The global rule was narrowed to `font-family: inherit`, restoring component-level typography utilities throughout the UI.
-4. A 9px section-label pass was legible but too compressed, so the final style was tuned to 10px with 0.05em tracking.
-5. Desktop and mobile measurements were repeated after the fix; all labels remained single-line and the responsive drawer remained overflow-free.
+- Desktop sidebar expand/collapse: passed.
+- Active-section manual collapse: passed.
+- Active section expansion on route change: passed.
+- Mobile drawer open and backdrop presentation: passed.
+- Escape dismissal: passed.
+- Background scroll lock and restoration: passed.
+- Mobile horizontal overflow: passed (390px document width at 390px viewport).
+- Console errors: none.
 
 ## Fidelity surfaces
 
-- Typography: passed
-- Spacing and alignment: passed
-- Color and contrast hierarchy: passed
-- Icons and assets: passed; existing Lucide icons retained
-- Copy and information architecture: passed; unchanged
-- Responsive behavior: passed
-- Accessibility semantics: passed
+- Fonts and typography: passed; Be Vietnam Pro and the compact hierarchy are preserved.
+- Spacing and layout rhythm: passed; primary navigation is unchanged while secondary help links consume less space.
+- Colors and visual tokens: passed; all refinements use existing surface, border, muted, and brand tokens.
+- Image quality and assets: passed; no new image assets or substitute icons were introduced.
+- Copy and content: passed; all navigation and help copy remains intact.
+
+## Comparison history
+
+- P1: Mobile navigation expanded the document instead of behaving as a drawer. Fixed with a fixed-width overlay, scrim, Escape dismissal, and scroll locking. Post-fix evidence: `04-upgraded-mobile-drawer.png`.
+- P2: The active section was forced open by render logic and could not be collapsed. Fixed by expanding on route changes through an effect while respecting later user toggles. Post-fix evidence: `05-active-section-collapsed.png`.
+- P2: Active-route and help treatments competed with primary content. Fixed with a narrow route marker and compact secondary help region. Post-fix evidence: `03-upgraded-desktop.png`.
 
 final result: passed
