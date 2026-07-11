@@ -35,12 +35,14 @@ export async function refreshIntelligenceForScan(scanId: string) {
 
 export async function refreshIntelligenceRollups(reason = "refresh") {
 	await clearRollups();
-	await refreshDailyRollups();
-	await refreshTopicRollups();
-	await refreshSourceRollups();
-	await refreshProviderRollups();
-	await refreshClaimIndex();
-	await refreshActivityRollups(reason);
+	await Promise.all([
+		refreshDailyRollups(),
+		refreshTopicRollups(),
+		refreshSourceRollups(),
+		refreshProviderRollups(),
+		refreshClaimIndex(),
+		refreshActivityRollups(reason),
+	]);
 }
 
 export async function refreshIntelligenceRollupsBestEffort(
@@ -55,12 +57,14 @@ export async function refreshIntelligenceRollupsBestEffort(
 }
 
 async function clearRollups() {
-	await adminSqlClient`delete from intelligence_activity_rollups`;
-	await adminSqlClient`delete from intelligence_claim_index`;
-	await adminSqlClient`delete from intelligence_provider_rollups`;
-	await adminSqlClient`delete from intelligence_source_rollups`;
-	await adminSqlClient`delete from intelligence_topic_rollups`;
-	await adminSqlClient`delete from intelligence_daily_rollups`;
+	await Promise.all([
+		adminSqlClient`delete from intelligence_activity_rollups`,
+		adminSqlClient`delete from intelligence_claim_index`,
+		adminSqlClient`delete from intelligence_provider_rollups`,
+		adminSqlClient`delete from intelligence_source_rollups`,
+		adminSqlClient`delete from intelligence_topic_rollups`,
+		adminSqlClient`delete from intelligence_daily_rollups`,
+	]);
 }
 
 async function refreshDailyRollups() {
@@ -341,22 +345,21 @@ async function refreshProviderRollups() {
 }
 
 async function refreshClaimIndex() {
-	const analysesRows = await adminDb
-		.select()
-		.from(analyses)
-		.orderBy(desc(analyses.createdAt));
-	const contextRows = await adminSqlClient<ScanContextRow[]>`
-		select
-			sj.id as scan_job_id,
-			coalesce(array_agg(distinct ei.id::text) filter (where ei.id is not null), '{}') as evidence_ids,
-			coalesce(array_agg(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '{}') as source_labels,
-			coalesce(array_agg(distinct t.slug) filter (where t.slug is not null), '{}') as topic_slugs
-		from scan_jobs sj
-		left join evidence_items ei on ei.scan_job_id = sj.id
-		left join evidence_topics et on et.evidence_item_id = ei.id
-		left join topics t on t.id = et.topic_id
-		group by sj.id;
-	`;
+	const [analysesRows, contextRows] = await Promise.all([
+		adminDb.select().from(analyses).orderBy(desc(analyses.createdAt)),
+		adminSqlClient<ScanContextRow[]>`
+			select
+				sj.id as scan_job_id,
+				coalesce(array_agg(distinct ei.id::text) filter (where ei.id is not null), '{}') as evidence_ids,
+				coalesce(array_agg(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '{}') as source_labels,
+				coalesce(array_agg(distinct t.slug) filter (where t.slug is not null), '{}') as topic_slugs
+			from scan_jobs sj
+			left join evidence_items ei on ei.scan_job_id = sj.id
+			left join evidence_topics et on et.evidence_item_id = ei.id
+			left join topics t on t.id = et.topic_id
+			group by sj.id;
+		`,
+	]);
 	const contextByScan = new Map(
 		contextRows.map((row) => [
 			row.scan_job_id,

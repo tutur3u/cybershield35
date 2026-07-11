@@ -27,7 +27,7 @@ export const getDashboardInitialData = cache(
 
 			if (scanId && includeDetail) {
 				const [detail, scans, trackedSources] = await Promise.all([
-					getCachedScanDetail(scanId),
+					getCachedDashboardScanDetail(scanId),
 					scansPromise,
 					trackedSourcesPromise,
 				]);
@@ -47,7 +47,7 @@ export const getDashboardInitialData = cache(
 			const selectedScanId = scanId || scans[0]?.id || "";
 			const detail =
 				includeDetail && selectedScanId
-					? await getCachedScanDetail(selectedScanId)
+					? await getCachedDashboardScanDetail(selectedScanId)
 					: null;
 
 			return serializeForClient({
@@ -85,7 +85,7 @@ async function getCachedTrackedSources() {
 	return listTrackedSources();
 }
 
-async function getCachedScanDetail(scanId: string) {
+export async function getCachedDashboardScanDetail(scanId: string) {
 	"use cache";
 	const detail = await getScanDetail(scanId);
 	const isActive =
@@ -95,7 +95,7 @@ async function getCachedScanDetail(scanId: string) {
 		detail.job.status === "retrying";
 	cacheLife(
 		isActive
-			? { stale: 30, revalidate: 30, expire: 300 }
+			? { stale: 30, revalidate: 15, expire: 60 }
 			: { stale: 300, revalidate: 300, expire: 3600 },
 	);
 	cacheTag(dashboardScanDetailTag(scanId));

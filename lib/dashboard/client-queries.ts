@@ -43,10 +43,12 @@ export function dashboardInitialDataQueryOptions(
 		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchDashboardInitialData(normalized),
 		queryKey: dashboardQueryKeys.initial(normalized),
-		refetchInterval: (query) =>
-			query.state.data?.scans.some((scan) => isActiveScanStatus(scan.status))
-				? 15_000
-				: false,
+		refetchInterval: normalized.includeDetail
+			? false
+			: (query) =>
+					query.state.data?.scans.some((scan) => isActiveScanStatus(scan.status))
+						? 15_000
+						: false,
 		refetchIntervalInBackground: false,
 		staleTime: dashboardQueryStaleTimeMs,
 	});

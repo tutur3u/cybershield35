@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { AlertsPage as AlertsContent } from "@/components/dashboard/alerts-page";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { prefetchDashboardRouteData } from "@/lib/dashboard/server-prefetch";
 import {
 	intelligenceFiltersFromSearchParams,
@@ -19,7 +20,14 @@ export default function AlertsPage({
 	searchParams: DashboardSearchParams;
 }) {
 	return (
-		<Suspense fallback={<DashboardPageSkeleton />}>
+		<Suspense
+			fallback={
+				<DashboardPageSkeleton
+					description="Đồ thị claim, bằng chứng hỗ trợ và luồng xử lý rủi ro."
+					title="Cảnh báo & Rủi ro"
+				/>
+			}
+		>
 			<AlertsData searchParams={searchParams} />
 		</Suspense>
 	);
@@ -35,8 +43,10 @@ async function AlertsData({
 	await prefetchDashboardRouteData(queryClient, "alerts", { filters });
 
 	return (
-		<HydrationBoundary state={dehydrate(queryClient)}>
-			<AlertsContent />
-		</HydrationBoundary>
+		<QueryProvider>
+			<HydrationBoundary state={dehydrate(queryClient)}>
+				<AlertsContent />
+			</HydrationBoundary>
+		</QueryProvider>
 	);
 }

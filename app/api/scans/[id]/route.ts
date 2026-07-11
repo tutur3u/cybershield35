@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
-import { toClientScanDetail } from "@/lib/dashboard/detail-projection";
-import { deleteScan, getScanDetail, updateScan } from "@/lib/workers/scans";
+import { getCachedDashboardScanDetail } from "@/lib/dashboard/server-data";
+import { deleteScan, updateScan } from "@/lib/workers/scans";
 
 const patchSchema = z
 	.object({
@@ -27,10 +27,10 @@ export async function GET(
 	const { id } = await context.params;
 
 	try {
-		const detail = await getScanDetail(id);
+		const detail = await getCachedDashboardScanDetail(id);
 		if (!detail) return Response.json({ error: "Scan not found" }, { status: 404 });
 		return Response.json(
-			{ detail: toClientScanDetail(detail), mode: "live" },
+			{ detail, mode: "live" },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {

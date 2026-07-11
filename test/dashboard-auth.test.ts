@@ -1253,18 +1253,18 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("aria-label={collapsed ? \"Mở rộng sidebar\" : \"Thu gọn sidebar\"}");
 	});
 
-	test("collapsed sidebar navigation uses tooltips from the layout shell", () => {
+	test("collapsed sidebar navigation uses native accessible labels", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const layoutShell = readFileSync(
 			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
 		);
 
-		expect(shell).toContain("@tuturuuu/ui/tooltip");
-		expect(shell).toContain("TooltipProvider");
-		expect(shell).toContain("TooltipTrigger");
-		expect(shell).toContain("TooltipContent");
-		expect(shell).toContain("side=\"right\"");
+		expect(shell).not.toContain("@tuturuuu/ui/tooltip");
+		expect(shell).not.toContain("TooltipProvider");
+		expect(shell).not.toContain("TooltipTrigger");
+		expect(shell).not.toContain("TooltipContent");
+		expect(shell).toContain("aria-label={collapsed ? item.label : undefined}");
 		expect(shell).toContain("collapsed ? item.label : undefined");
 		expect(layoutShell).toContain("<Sidebar");
 		expect(layoutShell).toContain("<TopBar");
@@ -1274,21 +1274,14 @@ describe("dashboard auth gate", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 
 		expect(shell).toContain("CyberShield35");
-		expect(shell).toContain("CS35");
 		expect(shell).toContain("BrandmarkLink");
-		expect(shell).toContain("BRANDMARK_IDLE_COLLAPSE_MS");
-		expect(shell).toContain("BRANDMARK_RECOLLAPSE_DELAY_MS");
-		expect(shell).toContain('import "slot-text/style.css"');
-		expect(shell).toContain('import { SlotText } from "slot-text/react"');
-		expect(shell).toContain('<SlotText');
-		expect(shell).toContain('text={brandmarkText}');
-		expect(shell).toContain("stagger: 28");
+		expect(shell).toContain("<span>CyberShield35</span>");
+		expect(shell).not.toContain('import "slot-text/style.css"');
+		expect(shell).not.toContain('import { SlotText } from "slot-text/react"');
+		expect(shell).not.toContain("<SlotText");
 		expect(shell).toContain("leading-[1.35]");
-		expect(shell).toContain("min-h-[1.35em]");
-		expect(shell).toContain("[&_.char-slot]:leading-[1.45]");
-		expect(shell).toContain("onPointerEnter");
-		expect(shell).toContain("onPointerLeave");
 		expect(shell).toContain('href="/"');
+		expect(shell).toContain('aria-label="CyberShield35"');
 		expect(shell).not.toContain('active={pathname === "/"}');
 		expect(shell).toContain("collapsed ? \"hidden lg:hidden\" :");
 		expect(shell).not.toContain("transition-[max-width,opacity]");
@@ -1406,6 +1399,10 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/dashboard-pages.tsx",
 			"utf8",
 		);
+		const sourcesPage = readFileSync(
+			"components/dashboard/sources-page.tsx",
+			"utf8",
+		);
 		const actions = readFileSync(
 			"components/dashboard/client-actions.ts",
 			"utf8",
@@ -1430,22 +1427,24 @@ describe("dashboard auth gate", () => {
 		expect(dashboard).toContain("onCreateReport");
 		expect(dashboard).toContain("onUpdateReport");
 		expect(dashboard).toContain("onDeleteReport");
-		expect(pages).toContain("onEditScan");
-		expect(pages).toContain("onDeleteScan");
+		expect(sourcesPage).toContain("onEditScan");
+		expect(sourcesPage).toContain("onDeleteScan");
 		expect(pages).toContain("onCreateEvidence");
 		expect(pages).toContain("onEditEvidence");
 		expect(pages).toContain("onDeleteEvidence");
-		expect(pages).toContain("Đang theo dõi");
-		expect(pages).toContain("Đã tắt");
-		expect(pages).toContain("Tắt tự động quét hằng ngày");
-		expect(pages).toContain("Bật tự động quét hằng ngày");
-		expect(pages).toContain("SourceTabs");
-		expect(pages).toContain("Tự động tái quét");
-		expect(pages).toContain("Xếp hàng ngay");
-		expect(pages).toContain("Xử lý ngay");
-		expect(pages).toContain("Nguồn đến hạn");
-		expect(pages).toContain("Quy tắc tự động");
-		expect(pages).toContain("Tìm theo tên trang, username, Facebook ID hoặc URL");
+		expect(sourcesPage).toContain("Đang theo dõi");
+		expect(sourcesPage).toContain("Đã tắt");
+		expect(sourcesPage).toContain("Tắt tự động quét hằng ngày");
+		expect(sourcesPage).toContain("Bật tự động quét hằng ngày");
+		expect(sourcesPage).toContain("SourceTabs");
+		expect(sourcesPage).toContain("Tự động tái quét");
+		expect(sourcesPage).toContain("Xếp hàng ngay");
+		expect(sourcesPage).toContain("Xử lý ngay");
+		expect(sourcesPage).toContain("Nguồn đến hạn");
+		expect(sourcesPage).toContain("Quy tắc tự động");
+		expect(sourcesPage).toContain(
+			"Tìm theo tên trang, username, Facebook ID hoặc URL",
+		);
 		expect(scansRoute).toContain("export async function PATCH");
 		expect(scansRoute).toContain("export async function DELETE");
 		expect(evidenceRoute).toContain("export async function POST");
@@ -1502,7 +1501,8 @@ describe("dashboard auth gate", () => {
 
 		expect(config).toContain("staleTimes");
 		expect(config).toContain("dynamic: 120");
-		expect(layout).toContain("QueryProvider");
+		expect(layout).not.toContain("QueryProvider");
+		expect(route).toContain("QueryProvider");
 		expect(route).toContain("HydrationBoundary");
 		expect(route).toContain("dehydrate(queryClient)");
 		expect(dashboard).toContain("useQuery");
@@ -1519,8 +1519,12 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/cybershield-dashboard.tsx",
 			"utf8",
 		);
-		const pages = readFileSync(
-			"components/dashboard/dashboard-pages.tsx",
+		const topicsPage = readFileSync(
+			"components/dashboard/topics-page.tsx",
+			"utf8",
+		);
+		const topicDetailsPage = readFileSync(
+			"components/dashboard/topic-details-page.tsx",
 			"utf8",
 		);
 		const appPage = readFileSync("app/topics/page.tsx", "utf8");
@@ -1535,11 +1539,12 @@ describe("dashboard auth gate", () => {
 		expect(types).toContain('| "topics"');
 		expect(dashboard).toContain('case "topics"');
 		expect(dashboard).toContain('case "topic-detail"');
-		expect(appPage).toContain('page="topics"');
-		expect(topicDetailPage).toContain('page="topic-detail"');
+		expect(appPage).toContain("<TopicsWorkspace");
+		expect(appPage).toContain("HydrationBoundary");
+		expect(topicDetailPage).toContain("<TopicDetailsContent");
 		expect(topicDetailPage).toContain("topicSlug={slug}");
-		expect(pages).toContain("export function TopicsPage");
-		expect(pages).toContain("export function TopicDetailsPage");
+		expect(topicsPage).toContain("export function TopicsPage");
+		expect(topicDetailsPage).toContain("export function TopicDetailsPage");
 		expect(widgets).toContain("TopicExplorer");
 		expect(widgets).toContain("TopicDetailPanel");
 		expect(widgets).toContain("buildTopicInsights");
@@ -1565,6 +1570,10 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/dashboard-pages.tsx",
 			"utf8",
 		);
+		const sourcesPage = readFileSync(
+			"components/dashboard/sources-page.tsx",
+			"utf8",
+		);
 
 		expect(queryKeys).toContain("scansInfinite");
 		expect(queryKeys).toContain("scanEvidenceInfinite");
@@ -1576,6 +1585,7 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("useInfiniteQuery");
 		expect(analysisWidgets).toContain("useInfiniteQuery");
 		expect(pages).toContain("enableInfinite");
+		expect(sourcesPage).toContain("enableInfinite");
 	});
 
 	test("dashboard persists topics and exposes dedicated related-post APIs", () => {
@@ -1607,15 +1617,23 @@ describe("dashboard auth gate", () => {
 		expect(packageJson).toContain("db:backfill-topics");
 	});
 
-		test("dashboard adds operator analytics and overflow-safe prose", () => {
-			const layout = readFileSync("app/layout.tsx", "utf8");
-			const telemetry = readFileSync("components/providers/telemetry.tsx", "utf8");
-		const pages = readFileSync(
-			"components/dashboard/dashboard-pages.tsx",
+	test("dashboard adds operator analytics and overflow-safe prose", () => {
+		const layout = readFileSync("app/layout.tsx", "utf8");
+		const telemetry = readFileSync("components/providers/telemetry.tsx", "utf8");
+		const overviewPage = readFileSync(
+			"components/dashboard/overview-page.tsx",
 			"utf8",
 		);
 		const intelligenceWidgets = readFileSync(
 			"components/dashboard/intelligence-widgets.tsx",
+			"utf8",
+		);
+		const intelligenceShared = readFileSync(
+			"components/dashboard/intelligence-workspace-shared.tsx",
+			"utf8",
+		);
+		const intelligenceEvidenceRow = readFileSync(
+			"components/dashboard/intelligence-evidence-row.tsx",
 			"utf8",
 		);
 		const widgets = readFileSync(
@@ -1627,19 +1645,20 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 
-			expect(layout).toContain("<Telemetry />");
-			expect(telemetry).toContain("@vercel/analytics/next");
-			expect(telemetry).toContain("@vercel/speed-insights/next");
-		expect(pages).toContain("<ExecutiveIntelligenceDashboard");
-		expect(pages).toContain("Tổng quan tình báo điều hành");
+		expect(layout).toContain("<Telemetry />");
+		expect(telemetry).toContain("@vercel/analytics/next");
+		expect(telemetry).toContain("@vercel/speed-insights/next");
+		expect(overviewPage).toContain("<ExecutiveIntelligenceDashboard");
+		expect(overviewPage).toContain("Tổng quan tình báo điều hành");
 		expect(intelligenceWidgets).toContain("Xu hướng rủi ro và bằng chứng");
 		expect(intelligenceWidgets).toContain("Động lượng chủ đề");
 		expect(intelligenceWidgets).toContain("Sẵn sàng báo cáo");
-		expect(intelligenceWidgets).toContain("Tất cả fanpage");
-		expect(intelligenceWidgets).toContain("Facebook ID");
-		expect(intelligenceWidgets).toContain("Bài gốc");
-		expect(intelligenceWidgets).toContain("Mở scan");
-		expect(intelligenceWidgets).toContain("line-clamp-2");
+		expect(intelligenceShared).toContain("Tất cả fanpage");
+		expect(intelligenceShared).toContain("Facebook ID");
+		expect(intelligenceEvidenceRow).toContain("Facebook ID");
+		expect(intelligenceEvidenceRow).toContain("Bài gốc");
+		expect(intelligenceEvidenceRow).toContain("Mở scan");
+		expect(intelligenceEvidenceRow).toContain("line-clamp-2");
 		expect(widgets).toContain("break-words");
 		expect(widgets).toContain("[-webkit-line-clamp:6]");
 		expect(analysisWidgets).toContain("[-webkit-line-clamp:3]");
@@ -1655,8 +1674,8 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/page-widgets.tsx",
 			"utf8",
 		);
-		const pages = readFileSync(
-			"components/dashboard/dashboard-pages.tsx",
+		const sourcesPage = readFileSync(
+			"components/dashboard/sources-page.tsx",
 			"utf8",
 		);
 		const dashboard = readFileSync(
@@ -1670,11 +1689,34 @@ describe("dashboard auth gate", () => {
 		expect(actions).toContain("/api/workspace/cron/jobs");
 		expect(widgets).toContain("onRunScan");
 		expect(widgets).toContain("aria-label=\"Chạy scan ngay\"");
-		expect(pages).toContain("onRunScan");
-		expect(pages).toContain("onRunSchedulerJob");
-		expect(pages).toContain("managedSchedulerQueryOptions");
+		expect(sourcesPage).toContain("onRunScan");
+		expect(sourcesPage).toContain("onRunSchedulerJob");
+		expect(sourcesPage).toContain("managedSchedulerQueryOptions");
 		expect(dashboard).toContain("runScanRecord");
 		expect(dashboard).toContain("runManagedSchedulerJobNow");
+	});
+
+	test("loads the sources workspace from its own client module", () => {
+		const dashboard = readFileSync(
+			"components/dashboard/cybershield-dashboard.tsx",
+			"utf8",
+		);
+		const pages = readFileSync(
+			"components/dashboard/dashboard-pages.tsx",
+			"utf8",
+		);
+		const sourcesPage = readFileSync(
+			"components/dashboard/sources-page.tsx",
+			"utf8",
+		);
+
+		expect(dashboard).toContain('import("@/components/dashboard/sources-page")');
+		expect(sourcesPage).toContain("export function SourcesPage");
+		expect(sourcesPage).toContain("function SourceAutomationPanel");
+		expect(sourcesPage).toContain("function TrackedSourcesPanel");
+		expect(sourcesPage).toContain("function sourceAutomationState");
+		expect(pages).not.toContain("export function SourcesPage");
+		expect(pages).not.toContain("function SourceAutomationPanel");
 	});
 
 	test("managed scheduler uses Vercel Cron instead of Tuturuuu managed-cron", () => {
@@ -1806,8 +1848,8 @@ describe("dashboard auth gate", () => {
 			"components/dashboard/analysis-widgets.tsx",
 			"utf8",
 		);
-		const pages = readFileSync(
-			"components/dashboard/dashboard-pages.tsx",
+		const alertsPage = readFileSync(
+			"components/dashboard/alerts-page.tsx",
 			"utf8",
 		);
 		const primitives = readFileSync(
@@ -1835,7 +1877,7 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("export function ClaimEvidencePanel");
 		expect(widgets).toContain("claim.evidenceIds");
 		expect(widgets).toContain("stanceTooltip");
-		expect(pages).toContain("<IntelligenceClaimsWorkspace");
+		expect(alertsPage).toContain("<IntelligenceClaimsWorkspace");
 		expect(intelligenceWidgets).toContain("evidenceHrefs");
 		expect(intelligenceWidgets).toContain("Đồ thị claim");
 		expect(intelligenceWidgets).toContain("href={claim.deepLink}");
@@ -1925,7 +1967,14 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("logout routes back to the empty centralized login state", () => {
-		const actions = readFileSync("components/dashboard/client-actions.ts", "utf8");
+		const actions = readFileSync(
+			"components/dashboard/auth-client-actions.ts",
+			"utf8",
+		);
+		const dashboardActions = readFileSync(
+			"components/dashboard/client-actions.ts",
+			"utf8",
+		);
 		const shell = readFileSync(
 			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
@@ -1938,6 +1987,10 @@ describe("dashboard auth gate", () => {
 		expect(actions).toContain("window.location.assign");
 		expect(actions).toContain('loginHref ?? "/login"');
 		expect(actions).not.toContain("/login?reason=logged-out");
+		expect(dashboardActions).not.toContain("export async function logout");
+		expect(shell).toContain(
+			'import { logout } from "@/components/dashboard/auth-client-actions"',
+		);
 		expect(shell).toContain("auth.loginHref ?? currentLoginHref()");
 		expect(shell).not.toContain('currentLoginHref("logged-out")');
 		expect(shell).toContain("<LoginRedirect");

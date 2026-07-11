@@ -7,6 +7,7 @@ import { ManagedSchedulerPanel } from "@/components/dashboard/managed-scheduler-
 import { ProviderStatus } from "@/components/dashboard/page-widgets";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import type { ProviderAvailabilityView } from "@/components/dashboard/types";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 export function OperationalSettingsDialog({
 	autoRetryToken,
@@ -71,7 +72,9 @@ export function OperationalSettingsDialog({
 			size="wide"
 		>
 			<div className="space-y-4">
-				<ManagedSchedulerPanel autoRetryToken={autoRetryToken} />
+				<QueryProvider>
+					<ManagedSchedulerPanel autoRetryToken={autoRetryToken} />
+				</QueryProvider>
 				{providerStatusPending && !providerAvailability ? (
 					<ProviderStatusSkeleton />
 				) : (

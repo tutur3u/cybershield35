@@ -34,15 +34,37 @@ export function DashboardAppSkeleton() {
 	);
 }
 
-export function DashboardPageSkeleton() {
+export function DashboardPageSkeleton({
+	description,
+	title,
+}: {
+	description?: string;
+	title?: string;
+} = {}) {
 	return (
-		<div className="animate-pulse space-y-5" aria-label="Đang tải bảng điều khiển">
+		<div
+			aria-busy="true"
+			aria-label="Đang tải bảng điều khiển"
+			className="animate-pulse space-y-5"
+		>
 			<div className="flex min-w-0 flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex min-w-0 items-start gap-3">
 					<div className="size-11 shrink-0 rounded-md bg-[var(--surface-soft)]" />
 					<div className="min-w-0 space-y-2">
-						<div className="h-6 w-48 max-w-full rounded-md bg-[var(--surface-soft)]" />
-						<div className="h-4 w-[min(520px,72vw)] rounded-md bg-[var(--surface-soft)]" />
+						{title ? (
+							<h1 className="text-[20px] font-bold leading-7 text-[var(--foreground)]">
+								{title}
+							</h1>
+						) : (
+							<div className="h-6 w-48 max-w-full rounded-md bg-[var(--surface-soft)]" />
+						)}
+						{description ? (
+							<p className="max-w-3xl text-[12px] leading-5 text-[var(--muted)]">
+								{description}
+							</p>
+						) : (
+							<div className="h-4 w-[min(520px,72vw)] rounded-md bg-[var(--surface-soft)]" />
+						)}
 					</div>
 				</div>
 				<div className="flex gap-2">

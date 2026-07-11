@@ -6,6 +6,7 @@ import { io } from "next/cache";
 
 import { CyberShieldDashboard } from "@/components/dashboard/cybershield-dashboard";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { QueryProvider } from "@/components/providers/query-provider";
 import type {
 	DashboardInitialData,
 	DashboardPage,
@@ -86,23 +87,25 @@ export async function DashboardRoute({
 	}
 
 	return (
-		<HydrationBoundary state={dehydrate(queryClient)}>
-			<CyberShieldDashboard
-				key={[
-					page,
-					scanId ?? "",
-					topicSlug ?? "",
-					draftId ?? "",
-					evidenceId ?? "",
-					initialData.selectedScanId,
-				].join(":")}
-				draftId={draftId}
-				evidenceId={evidenceId}
-				page={page}
-				scanId={scanId}
-				topicSlug={topicSlug}
-			/>
-		</HydrationBoundary>
+		<QueryProvider>
+			<HydrationBoundary state={dehydrate(queryClient)}>
+				<CyberShieldDashboard
+					key={[
+						page,
+						scanId ?? "",
+						topicSlug ?? "",
+						draftId ?? "",
+						evidenceId ?? "",
+						initialData.selectedScanId,
+					].join(":")}
+					draftId={draftId}
+					evidenceId={evidenceId}
+					page={page}
+					scanId={scanId}
+					topicSlug={topicSlug}
+				/>
+			</HydrationBoundary>
+		</QueryProvider>
 	);
 }
 
@@ -123,9 +126,52 @@ export async function DashboardRouteFromSearchParams({
 
 export type { DashboardSearchParams };
 
-export function DashboardRouteSkeleton() {
-	return <DashboardPageSkeleton />;
+export function DashboardRouteSkeleton({
+	page = "overview",
+}: {
+	page?: DashboardPage;
+}) {
+	return <DashboardPageSkeleton {...(dashboardSkeletonCopy[page] ?? {})} />;
 }
+
+const dashboardSkeletonCopy: Partial<
+	Record<DashboardPage, { description: string; title: string }>
+> = {
+	analysis: {
+		description: "Chủ đề, lập trường, cảm xúc, rủi ro và bằng chứng chuẩn hóa.",
+		title: "Phân tích thảo luận",
+	},
+	"counter-arguments": {
+		description: "Soạn bản nháp có trích dẫn bằng chứng, chờ người vận hành duyệt.",
+		title: "Lập luận phản hồi",
+	},
+	"draft-detail": {
+		description: "Nội dung phản hồi, citation và trạng thái duyệt.",
+		title: "Chi tiết bản nháp",
+	},
+	"evidence-detail": {
+		description: "Nguồn, trích dẫn và ngữ cảnh của bằng chứng đã lưu.",
+		title: "Chi tiết bằng chứng",
+	},
+	overview: {
+		description:
+			"Tư thế rủi ro, động lượng chủ đề, độ mạnh bằng chứng, sức khỏe nguồn và độ sẵn sàng báo cáo.",
+		title: "Tổng quan tình báo điều hành",
+	},
+	reports: {
+		description: "Các chế độ xuất báo cáo phục vụ trao đổi nội bộ và điều phối.",
+		title: "Báo cáo",
+	},
+	"scan-detail": {
+		description: "Phân tích, bằng chứng và tiến trình của scan đang chọn.",
+		title: "Chi tiết scan",
+	},
+	sources: {
+		description:
+			"Theo dõi nguồn, lịch tự động, hàng đợi scan và trạng thái provider trong một nơi.",
+		title: "Nguồn & Quét",
+	},
+};
 
 function emptyDashboardInitialData(scanId?: string): DashboardInitialData {
 	return {

@@ -7,7 +7,6 @@ import {
 } from "@/components/dashboard/dashboard-route";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function SourcesPage({
 	searchParams,
@@ -15,7 +14,7 @@ export default function SourcesPage({
 	searchParams: DashboardSearchParams;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="sources" />}>
 			<DashboardRouteFromSearchParams
 				page="sources"
 				searchParams={searchParams}

@@ -4,6 +4,21 @@ import { expect, test } from "@playwright/test";
 const instantNavigationCases = [
 	{
 		from: "/",
+		heading: "Nguồn & Quét",
+		to: "/sources",
+	},
+	{
+		from: "/sources",
+		heading: "Chủ đề",
+		to: "/topics",
+	},
+	{
+		from: "/topics",
+		heading: "Kho bằng chứng",
+		to: "/evidence",
+	},
+	{
+		from: "/",
 		heading: "Hướng dẫn sử dụng",
 		to: "/guides/user-guide",
 	},
@@ -36,6 +51,11 @@ for (const navigation of instantNavigationCases) {
 				page.getByRole("heading", { name: navigation.heading }),
 			).toBeVisible();
 		});
+
+		await expect(page).toHaveURL(navigation.to);
+		await expect(
+			page.getByLabel("Đang tải bảng điều khiển"),
+		).toHaveCount(0, { timeout: 15_000 });
 	});
 }
 

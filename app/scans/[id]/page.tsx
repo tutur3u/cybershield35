@@ -14,7 +14,7 @@ export default function ScanDetailPage({
 	params: Promise<{ id: string }>;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="scan-detail" />}>
 			<ScanDetailRoute params={params} />
 		</Suspense>
 	);

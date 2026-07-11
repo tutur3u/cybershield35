@@ -4,9 +4,7 @@ import { redirect } from "next/navigation";
 import Script from "next/script";
 import { Suspense } from "react";
 
-import { DashboardLayoutShell } from "@/components/dashboard/dashboard-layout-shell";
 import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
-import { QueryProvider } from "@/components/providers/query-provider";
 import { Telemetry } from "@/components/providers/telemetry";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
 
@@ -29,7 +27,7 @@ const themeBootScript = `
 
 const beVietnam = Be_Vietnam_Pro({
 	subsets: ["latin", "vietnamese"],
-	weight: ["400", "600", "700", "800", "900"],
+	weight: ["400", "600", "700"],
 	variable: "--font-be-vietnam",
 	display: "swap",
 });
@@ -83,17 +81,19 @@ async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 
 	if (!auth.authenticated) return children;
 
+	const { DashboardLayoutShell } = await import(
+		"@/components/dashboard/dashboard-layout-shell"
+	);
+
 	return (
-		<QueryProvider>
-			<DashboardLayoutShell
-				initialAuth={{
-					authenticated: true,
-					configured: true,
-					session: auth.session,
-				}}
-			>
-				{children}
-			</DashboardLayoutShell>
-		</QueryProvider>
+		<DashboardLayoutShell
+			initialAuth={{
+				authenticated: true,
+				configured: true,
+				session: auth.session,
+			}}
+		>
+			{children}
+		</DashboardLayoutShell>
 	);
 }

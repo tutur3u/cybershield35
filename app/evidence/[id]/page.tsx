@@ -16,7 +16,7 @@ export default function EvidenceDetailPage({
 	searchParams: Promise<{ scanId?: string }>;
 }) {
 	return (
-		<Suspense fallback={<DashboardRouteSkeleton />}>
+		<Suspense fallback={<DashboardRouteSkeleton page="evidence-detail" />}>
 			<EvidenceDetailRoute params={params} searchParams={searchParams} />
 		</Suspense>
 	);

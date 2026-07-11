@@ -2,7 +2,6 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { SourceTab } from "@/components/dashboard/dashboard-data";
 import type {
-	AuthViewState,
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
@@ -13,19 +12,6 @@ import type {
 import type { ProviderName, ScanStatus, SourceType } from "@/lib/db/schema";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
-
-export async function logout(
-	setAuth: (auth: AuthViewState) => void,
-	setNotice: (notice: string) => void,
-	loginHref?: string,
-) {
-	await fetch("/api/auth/logout", { method: "POST" });
-	setAuth({ authenticated: false, configured: true, loginHref });
-	setNotice("");
-	if (typeof window !== "undefined") {
-		window.location.assign(loginHref ?? "/login");
-	}
-}
 
 export async function createScan(options: {
 	inputMode: SourceTab;
