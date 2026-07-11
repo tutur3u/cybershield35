@@ -4,11 +4,9 @@ import { Suspense } from "react";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { EvidenceWorkspace } from "@/components/dashboard/evidence-workspace";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { prefetchDashboardRouteData } from "@/lib/dashboard/server-prefetch";
-import {
-	intelligenceFiltersFromSearchParams,
-	type DashboardSearchParams,
-} from "@/lib/dashboard/query-keys";
+import { prefetchTimeline } from "@/lib/dashboard/server-prefetch";
+import { type DashboardSearchParams } from "@/lib/dashboard/query-keys";
+import { timelineFiltersFromRecord } from "@/lib/dashboard/timeline-query";
 import { getQueryClient } from "@/lib/query-client";
 
 export const instant = true;
@@ -22,8 +20,8 @@ export default function EvidencePage({
 		<Suspense
 			fallback={
 				<DashboardPageSkeleton
-					description="Các trích dẫn đã chuẩn hóa dùng cho phân tích và phản hồi nội bộ."
-					title="Kho bằng chứng"
+					description="Theo dõi mọi bài viết đã chuẩn hóa và phối hợp xử lý nội bộ."
+					title="Dòng thời gian"
 				/>
 			}
 		>
@@ -38,8 +36,8 @@ async function EvidenceData({
 	searchParams: DashboardSearchParams;
 }) {
 	const queryClient = getQueryClient();
-	const filters = intelligenceFiltersFromSearchParams(await searchParams);
-	await prefetchDashboardRouteData(queryClient, "evidence", { filters });
+	const filters = timelineFiltersFromRecord(await searchParams);
+	await prefetchTimeline(queryClient, filters);
 
 	return (
 		<QueryProvider>

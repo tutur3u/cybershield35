@@ -1,9 +1,11 @@
-import type { IntelligenceFilters } from "@/components/dashboard/types";
+import type { IntelligenceFilters, TimelineFilters } from "@/components/dashboard/types";
+import { serializeTimelineFilters } from "@/lib/dashboard/timeline-query";
 import type { DashboardSnapshotRequirements } from "@/lib/dashboard/route-requirements";
 
 export const dashboardQueryGcTimeMs = 30 * 60_000;
 export const dashboardQueryStaleTimeMs = 5 * 60_000;
 export const intelligenceQueryStaleTimeMs = 5 * 60_000;
+export const timelineQueryStaleTimeMs = 30_000;
 export const workspaceMembersQueryStaleTimeMs = 5 * 60_000;
 export const managedSchedulerQueryStaleTimeMs = 60_000;
 
@@ -104,6 +106,12 @@ export const dashboardQueryKeys = {
 		["dashboard", "intelligence", "activity", "infinite", params, limit] as const,
 	intelligenceFacebookPages: () =>
 		["dashboard", "intelligence", "facebook-pages"] as const,
+	timelineInfinite: (filters: TimelineFilters, limit: number) =>
+		["dashboard", "timeline", "infinite", serializeTimelineFilters(filters), limit] as const,
+	timelineHead: (filters: TimelineFilters) =>
+		["dashboard", "timeline", "head", serializeTimelineFilters(filters)] as const,
+	timelineTriage: (evidenceId: string) =>
+		["dashboard", "timeline", "triage", evidenceId] as const,
 	managedScheduler: () => ["workspace", "managed-scheduler"] as const,
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,

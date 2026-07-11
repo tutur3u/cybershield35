@@ -19,6 +19,9 @@ import type {
 	ScanDetail,
 	TopicDetailView,
 	TopicsPage,
+	TimelineFilters,
+	TimelineHead,
+	TimelinePage,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
@@ -29,9 +32,11 @@ import {
 	managedSchedulerQueryStaleTimeMs,
 	normalizeDashboardInitialQueryParams,
 	serializeIntelligenceFilters,
+	timelineQueryStaleTimeMs,
 	type DashboardInitialQueryParams,
 	workspaceMembersQueryStaleTimeMs,
 } from "@/lib/dashboard/query-keys";
+import { serializeTimelineFilters } from "@/lib/dashboard/timeline-query";
 import { parseManagedSchedulerStatusResponse } from "@/lib/managed-scheduler/client";
 
 export function dashboardInitialDataQueryOptions(
@@ -254,6 +259,35 @@ export function intelligenceFacebookPagesQueryOptions() {
 	});
 }
 
+export function timelineInfiniteQueryOptions(
+	filters: TimelineFilters = {},
+	limit = 30,
+) {
+	const params = serializeTimelineFilters(filters);
+	return {
+		gcTime: dashboardQueryGcTimeMs,
+		getNextPageParam: (lastPage: TimelinePage) =>
+			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam }: { pageParam: string | null }) =>
+			fetchTimelinePage({ cursor: pageParam, limit, params }),
+		queryKey: dashboardQueryKeys.timelineInfinite(filters, limit),
+		staleTime: timelineQueryStaleTimeMs,
+	};
+}
+
+export function timelineHeadQueryOptions(filters: TimelineFilters = {}) {
+	const params = serializeTimelineFilters(filters);
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: () => fetchTimelineHead(params),
+		queryKey: dashboardQueryKeys.timelineHead(filters),
+		refetchInterval: 60_000,
+		refetchIntervalInBackground: false,
+		staleTime: timelineQueryStaleTimeMs,
+	});
+}
+
 export function workspaceMembersQueryOptions() {
 	return queryOptions({
 		gcTime: dashboardQueryGcTimeMs,
@@ -434,6 +468,28 @@ async function fetchIntelligenceFacebookPages(): Promise<
 		pages?: IntelligenceFacebookPageOption[];
 	}>("/api/intelligence/facebook-pages");
 	return Array.isArray(payload.pages) ? payload.pages : [];
+}
+
+async function fetchTimelinePage({
+	cursor,
+	limit,
+	params,
+}: {
+	cursor: string | null;
+	limit: number;
+	params: Record<string, string>;
+}): Promise<TimelinePage> {
+	const searchParams = new URLSearchParams({ ...params, limit: String(limit) });
+	if (cursor) searchParams.set("cursor", cursor);
+	return fetchJson(`/api/intelligence/timeline?${searchParams.toString()}`);
+}
+
+async function fetchTimelineHead(
+	params: Record<string, string>,
+): Promise<TimelineHead> {
+	return fetchJson(
+		`/api/intelligence/timeline/head?${new URLSearchParams(params).toString()}`,
+	);
 }
 
 async function fetchIntelligencePage<T>(

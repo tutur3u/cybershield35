@@ -12,6 +12,7 @@ export type DashboardIntelligenceCacheKind =
 	| "facebook-pages"
 	| "overview"
 	| "sources"
+	| "timeline"
 	| "topics";
 
 export function dashboardScanDetailTag(scanId: string) {
