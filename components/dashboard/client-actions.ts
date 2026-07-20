@@ -491,14 +491,18 @@ export async function reviewDraft(options: {
 	try {
 		const response = await fetch(`/api/drafts/${options.draft.id}/review`, {
 			method: "POST",
+			cache: "no-store",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ status: options.status }),
 		});
-		const payload = await response.json();
+		const payload = await response.json().catch(() => null);
 		if (!response.ok) {
-			throw new Error(payload.error ?? "Không thể cập nhật trạng thái duyệt");
+			throw new Error(
+				payload?.error ??
+					`Không thể cập nhật trạng thái duyệt (${response.status})`,
+			);
 		}
-		options.setDraft(payload.draft ?? { ...options.draft, status: options.status });
+		options.setDraft(payload?.draft ?? { ...options.draft, status: options.status });
 		options.setNotice(
 			options.status === "approved"
 				? "Đã ghi nhận phê duyệt của người vận hành."

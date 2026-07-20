@@ -95,7 +95,7 @@ export type DashboardPageProps = {
 	onRunSchedulerJob: (
 		jobKey: "enqueue-tracked-sources" | "process-queue",
 	) => Promise<void>;
-	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
+	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<boolean>;
 	reports: ReportSpec[];
 };
 

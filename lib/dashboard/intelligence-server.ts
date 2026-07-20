@@ -22,6 +22,8 @@ import { adminDb } from "@/lib/db/client";
 import {
 	evidenceItems,
 	evidenceTopics,
+	draftAutomationJobs,
+	facebookPageProfiles,
 	intelligenceActivityRollups,
 	intelligenceClaimIndex,
 	intelligenceDailyRollups,
@@ -34,6 +36,7 @@ import {
 	type ProviderName,
 	type RiskLevel,
 } from "@/lib/db/schema";
+import { facebookPageIdentity } from "@/lib/domain/facebook-page-policy";
 import {
 	DASHBOARD_INTELLIGENCE_TAG,
 	dashboardIntelligenceTag,
@@ -455,7 +458,7 @@ export async function listIntelligenceFacebookPages(): Promise<
 	);
 
 	const facebookIdExpr = sql<string | null>`${evidenceItems.metadata}->>'facebookId'`;
-	const [evidenceRows, trackedRows] = await Promise.all([
+	const [evidenceRows, trackedRows, profiles, automationRows] = await Promise.all([
 		adminDb
 			.select({
 				evidenceCount: sql<number>`count(*)::int`,
@@ -478,19 +481,61 @@ export async function listIntelligenceFacebookPages(): Promise<
 			.from(trackedSources)
 			.where(eq(trackedSources.provider, "apify_facebook_posts"))
 			.orderBy(desc(trackedSources.updatedAt)),
+		adminDb.select().from(facebookPageProfiles),
+		adminDb
+			.select({
+				completed: sql<number>`count(*) filter (where ${draftAutomationJobs.status} = 'completed')::int`,
+				failed: sql<number>`count(*) filter (where ${draftAutomationJobs.status} = 'failed')::int`,
+				pageKey: draftAutomationJobs.pageKey,
+				pending: sql<number>`count(*) filter (where ${draftAutomationJobs.status} in ('queued', 'running', 'retrying'))::int`,
+			})
+			.from(draftAutomationJobs)
+			.groupBy(draftAutomationJobs.pageKey),
 	]);
-	const byUsername = new Map<string, IntelligenceFacebookPageOption>();
+	const profileByKey = new Map(profiles.map((profile) => [profile.pageKey, profile]));
+	const profileByFacebookId = new Map(
+		profiles.flatMap((profile) =>
+			profile.facebookPageId ? [[profile.facebookPageId, profile] as const] : [],
+		),
+	);
+	const profileByUsername = new Map(
+		profiles.flatMap((profile) =>
+			profile.username ? [[profile.username, profile] as const] : [],
+		),
+	);
+	const automationByKey = new Map(automationRows.map((row) => [row.pageKey, row]));
+	const pagesByKey = new Map<string, IntelligenceFacebookPageOption>();
 
 	for (const row of evidenceRows) {
 		const username = cleanFacebookUsername(row.username);
-		const value = username ?? cleanText(row.facebookId);
-		if (!value) continue;
-		byUsername.set(value, {
+		const identity = facebookPageIdentity({
+			author: username,
+			facebookPageId: row.facebookId,
+		});
+		if (!identity.pageKey) continue;
+		const profile =
+			profileByKey.get(identity.pageKey) ??
+			(identity.facebookPageId
+				? profileByFacebookId.get(identity.facebookPageId)
+				: undefined) ??
+			(identity.username ? profileByUsername.get(identity.username) : undefined);
+		const pageKey = profile?.pageKey ?? identity.pageKey;
+		const automation = automationByKey.get(pageKey);
+		const value = username ?? cleanText(row.facebookId) ?? identity.pageKey;
+		pagesByKey.set(pageKey, {
+			autoDraftEnabled: profile?.autoDraftEnabled ?? false,
+			automation: {
+				completed: automation?.completed ?? 0,
+				failed: automation?.failed ?? 0,
+				pending: automation?.pending ?? 0,
+			},
+			classification: profile?.classification ?? "uncategorized",
 			evidenceCount: Number(row.evidenceCount) || 0,
 			facebookId: cleanText(row.facebookId),
 			href: `/evidence?facebookPage=${encodeURIComponent(value)}`,
 			label: username ?? `Facebook ID ${row.facebookId}`,
 			lastSeenAt: toIsoOrNull(row.lastSeenAt),
+			pageKey,
 			sourceUrl: username ? `https://www.facebook.com/${username}` : null,
 			trackedSourceId: null,
 			username,
@@ -504,14 +549,39 @@ export async function listIntelligenceFacebookPages(): Promise<
 		const username =
 			cleanFacebookUsername(metadataLabel) ??
 			usernameFromFacebookUrl(row.normalizedUrl);
+		const identity = facebookPageIdentity({
+			author: username,
+			sourceUrl: row.normalizedUrl,
+		});
+		const matchingEvidencePage = [...pagesByKey.values()].find(
+			(page) => username && page.username === username,
+		);
+		const matchingProfile =
+			(identity.pageKey ? profileByKey.get(identity.pageKey) : undefined) ??
+			(username ? profileByUsername.get(username) : undefined);
+		const pageKey =
+			matchingEvidencePage?.pageKey ??
+			matchingProfile?.pageKey ??
+			identity.pageKey ??
+			`tracked:${row.id}`;
 		const value = username ?? row.id;
-		const current = byUsername.get(value);
-		byUsername.set(value, {
+		const current = pagesByKey.get(pageKey) ?? matchingEvidencePage;
+		const profile = matchingProfile ?? profileByKey.get(pageKey);
+		const automation = automationByKey.get(pageKey);
+		pagesByKey.set(pageKey, {
+			autoDraftEnabled: profile?.autoDraftEnabled ?? false,
+			automation: {
+				completed: automation?.completed ?? 0,
+				failed: automation?.failed ?? 0,
+				pending: automation?.pending ?? 0,
+			},
+			classification: profile?.classification ?? "uncategorized",
 			evidenceCount: current?.evidenceCount ?? 0,
 			facebookId: current?.facebookId ?? null,
 			href: `/evidence?facebookPage=${encodeURIComponent(value)}`,
 			label: row.displayName,
 			lastSeenAt: current?.lastSeenAt ?? toIsoOrNull(row.lastScannedAt),
+			pageKey,
 			sourceUrl: row.normalizedUrl,
 			trackedSourceId: row.id,
 			username,
@@ -519,7 +589,7 @@ export async function listIntelligenceFacebookPages(): Promise<
 		});
 	}
 
-	return [...byUsername.values()].sort(
+	return [...pagesByKey.values()].sort(
 		(left, right) =>
 			right.evidenceCount - left.evidenceCount ||
 			left.label.localeCompare(right.label, "vi"),

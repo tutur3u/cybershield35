@@ -6,12 +6,16 @@ import {
 	ChevronRight,
 	Edit3,
 	ExternalLink,
+	LoaderCircle,
 	Play,
 	Plus,
 	Radar,
 	RefreshCw,
+	Search,
 	ScrollText,
+	ShieldAlert,
 	ShieldCheck,
+	Sparkles,
 	Trash2,
 	type LucideIcon,
 } from "lucide-react";
@@ -24,6 +28,8 @@ import { PageHeader, QueueCard } from "@/components/dashboard/page-widgets";
 import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 import type {
 	DashboardScan,
+	FacebookPageClassification,
+	IntelligenceFacebookPageOption,
 	ManagedSchedulerJobView,
 	TrackedSourceView,
 } from "@/components/dashboard/types";
@@ -33,14 +39,17 @@ import {
 	PanelHeader,
 	SecondaryButton,
 } from "@/components/dashboard/ui-primitives";
-import { managedSchedulerQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	intelligenceFacebookPagesQueryOptions,
+	managedSchedulerQueryOptions,
+} from "@/lib/dashboard/client-queries";
 import {
 	classifyTrackedSourceAutomation,
 	type TrackedSourceAutomationDecision,
 } from "@/lib/domain/tracked-source-automation";
 
 export function SourcesPage(props: DashboardPageProps) {
-	const [activeTab, setActiveTab] = useState<SourceTabKey>("automation");
+	const [activeTab, setActiveTab] = useState<SourceTabKey>("pages");
 	const activeSourceCount = props.trackedSources.filter(
 		(source) => source.isActive,
 	).length;
@@ -67,6 +76,7 @@ export function SourcesPage(props: DashboardPageProps) {
 				sourceCount={activeSourceCount}
 			/>
 			<div className="space-y-5">
+				{activeTab === "pages" ? <FacebookPageTrustPanel /> : null}
 				{activeTab === "automation" ? (
 					<>
 						<SourceAutomationPanel
@@ -105,7 +115,7 @@ export function SourcesPage(props: DashboardPageProps) {
 		</div>
 	);
 }
-type SourceTabKey = "automation" | "queue" | "tracked";
+type SourceTabKey = "automation" | "pages" | "queue" | "tracked";
 
 function SourceTabs({
 	activeTab,
@@ -125,6 +135,13 @@ function SourceTabs({
 		label: string;
 		value: string;
 	}> = [
+		{
+			help: "Phân loại fanpage là Đáng tin cậy hoặc Có rủi ro và kiểm soát bản nháp tự động.",
+			icon: ShieldCheck,
+			key: "pages",
+			label: "Phân loại fanpage",
+			value: "Tin cậy & rủi ro",
+		},
 		{
 			help: "Xem lịch Vercel Cron, nguồn đến hạn và chạy xếp hàng/xử lý thủ công.",
 			icon: CalendarClock,
@@ -149,7 +166,7 @@ function SourceTabs({
 	];
 
 	return (
-		<div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-soft)] md:grid-cols-3">
+		<div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-soft)] sm:grid-cols-2 xl:grid-cols-4">
 			{tabs.map((tab) => {
 				const Icon = tab.icon;
 				const active = activeTab === tab.key;
@@ -189,6 +206,194 @@ function SourceTabs({
 			})}
 		</div>
 	);
+}
+
+function FacebookPageTrustPanel() {
+	const pagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
+	const [query, setQuery] = useState("");
+	const [filter, setFilter] = useState<FacebookPageClassification | "all">("all");
+	const [savingKey, setSavingKey] = useState<string | null>(null);
+	const [notice, setNotice] = useState("");
+	const pages = pagesQuery.data ?? [];
+	const filteredPages = pages.filter((page) => {
+		if (filter !== "all" && page.classification !== filter) return false;
+		const value = query.trim().toLowerCase();
+		return (
+			!value ||
+			page.label.toLowerCase().includes(value) ||
+			page.username?.toLowerCase().includes(value) ||
+			page.facebookId?.toLowerCase().includes(value)
+		);
+	});
+	const counts = pages.reduce(
+		(result, page) => {
+			result[page.classification] += 1;
+			return result;
+		},
+		{ at_risk: 0, trusted: 0, uncategorized: 0 },
+	);
+
+	async function savePolicy(
+		page: IntelligenceFacebookPageOption,
+		patch: Partial<
+			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
+		>,
+	) {
+		setSavingKey(page.pageKey);
+		setNotice("");
+		try {
+			const response = await fetch(
+				"/api/intelligence/facebook-pages/classification",
+				{
+					body: JSON.stringify({
+						autoDraftEnabled:
+							patch.autoDraftEnabled ?? page.autoDraftEnabled,
+						classification: patch.classification ?? page.classification,
+						displayName: page.label,
+						facebookPageId: page.facebookId,
+						pageKey: page.pageKey,
+						username: page.username,
+					}),
+					cache: "no-store",
+					headers: { "Content-Type": "application/json" },
+					method: "PATCH",
+				},
+			);
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) {
+				throw new Error(payload?.error ?? "Không thể lưu phân loại fanpage.");
+			}
+			setNotice(
+				payload.enqueued
+					? `Đã lưu và xếp hàng ${payload.enqueued} bản nháp cần duyệt.`
+					: "Đã lưu quy tắc fanpage.",
+			);
+			await pagesQuery.refetch();
+		} catch (error) {
+			setNotice(
+				error instanceof Error
+					? error.message
+					: "Không thể lưu phân loại fanpage.",
+			);
+		} finally {
+			setSavingKey(null);
+		}
+	}
+
+	return (
+		<Panel>
+			<PanelHeader
+				title="Phân loại fanpage"
+				description="Một quy tắc rõ ràng cho mỗi trang: hỗ trợ nội dung hữu ích từ nguồn đáng tin cậy, hoặc chuẩn bị phản biện có căn cứ cho nguồn có rủi ro. Mọi bản nháp đều chờ con người duyệt."
+				action={
+					<span className="inline-flex h-8 items-center gap-2 rounded-md bg-[var(--accent-soft)] px-3 text-[11px] font-bold text-[var(--accent-strong)]">
+						<Sparkles size={14} /> {pages.reduce((sum, page) => sum + page.automation.pending, 0)} đang chờ
+					</span>
+				}
+			/>
+			<div className="grid gap-3 border-b border-[var(--border)] p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+				<label className="relative min-w-0">
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={15} />
+					<input
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+						placeholder="Tìm tên trang, username hoặc Facebook ID…"
+						className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold outline-none focus:border-[var(--accent)]"
+					/>
+				</label>
+				<div className="flex flex-wrap gap-2">
+					<PagePolicyFilter active={filter === "all"} label="Tất cả" value={pages.length} onClick={() => setFilter("all")} />
+					<PagePolicyFilter active={filter === "trusted"} label="Đáng tin" value={counts.trusted} onClick={() => setFilter("trusted")} />
+					<PagePolicyFilter active={filter === "at_risk"} label="Có rủi ro" value={counts.at_risk} onClick={() => setFilter("at_risk")} />
+					<PagePolicyFilter active={filter === "uncategorized"} label="Chưa phân loại" value={counts.uncategorized} onClick={() => setFilter("uncategorized")} />
+				</div>
+			</div>
+			{notice ? (
+				<p aria-live="polite" className="border-b border-[var(--border)] bg-[var(--surface-soft)] px-4 py-2 text-[12px] font-semibold text-[var(--muted-strong)]">
+					{notice}
+				</p>
+			) : null}
+			{pagesQuery.isPending ? (
+				<div className="grid min-h-48 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div>
+			) : pagesQuery.isError ? (
+				<div className="p-8 text-center"><p className="text-sm font-bold text-[var(--danger-strong)]">Không thể tải danh sách fanpage.</p><button type="button" onClick={() => void pagesQuery.refetch()} className="mt-3 text-xs font-bold text-[var(--accent-strong)]">Thử lại</button></div>
+			) : filteredPages.length ? (
+				<div className="divide-y divide-[var(--divider)]">
+					{filteredPages.map((page) => (
+						<FacebookPagePolicyRow
+							key={page.pageKey}
+							page={page}
+							saving={savingKey === page.pageKey}
+							onSave={(patch) => savePolicy(page, patch)}
+						/>
+					))}
+				</div>
+			) : (
+				<div className="p-10 text-center text-sm font-semibold text-[var(--muted)]">Không có fanpage phù hợp với bộ lọc.</div>
+			)}
+		</Panel>
+	);
+}
+
+function FacebookPagePolicyRow({
+	onSave,
+	page,
+	saving,
+}: {
+	onSave: (
+		patch: Partial<
+			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
+		>,
+	) => Promise<void>;
+	page: IntelligenceFacebookPageOption;
+	saving: boolean;
+}) {
+	return (
+		<div className="grid gap-4 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)] xl:items-center">
+			<div className="min-w-0">
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<p className="truncate text-[13px] font-extrabold text-[var(--foreground)]">{page.label}</p>
+					<PageClassificationBadge classification={page.classification} />
+				</div>
+				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
+					{page.username ? `@${page.username}` : page.facebookId ? `Facebook ID ${page.facebookId}` : "Chưa có định danh Facebook"}
+				</p>
+				<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-[var(--muted)]">
+					<span>{page.evidenceCount} bằng chứng</span>
+					<span>{page.automation.pending} đang chờ</span>
+					<span>{page.automation.completed} đã tạo</span>
+					{page.automation.failed ? <span className="text-[var(--danger-strong)]">{page.automation.failed} lỗi</span> : null}
+				</div>
+			</div>
+			<div className="space-y-2">
+				<div className="grid grid-cols-3 gap-2" aria-label={`Phân loại ${page.label}`}>
+					<PagePolicyButton active={page.classification === "trusted"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
+					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
+					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
+				</div>
+				<label className="flex min-h-9 items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">
+					<span>Tự động tạo bản nháp cần duyệt</span>
+					<input type="checkbox" checked={page.autoDraftEnabled} disabled={saving || page.classification === "uncategorized"} onChange={(event) => void onSave({ autoDraftEnabled: event.target.checked })} />
+				</label>
+				{saving ? <p className="flex items-center justify-end gap-2 text-[10px] font-bold text-[var(--muted)]"><LoaderCircle className="animate-spin" size={12} /> Đang lưu và xếp hàng…</p> : null}
+			</div>
+		</div>
+	);
+}
+
+function PageClassificationBadge({ classification }: { classification: FacebookPageClassification }) {
+	const styles = classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--neutral-soft)] text-[var(--muted-strong)]";
+	const label = classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : "Chưa phân loại";
+	return <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${styles}`}>{label}</span>;
+}
+
+function PagePolicyButton({ active, disabled, icon: Icon, label, onClick, tone }: { active: boolean; disabled: boolean; icon: LucideIcon; label: string; onClick: () => void; tone: "danger" | "neutral" | "success" }) {
+	const activeClass = tone === "success" ? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]" : tone === "danger" ? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "border-[var(--border-strong)] bg-[var(--surface-soft)] text-[var(--foreground)]";
+	return <button type="button" aria-pressed={active} disabled={disabled} onClick={onClick} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border px-2 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-55 ${active ? activeClass : "border-[var(--border)] text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"}`}><Icon size={14} />{label}</button>;
+}
+
+function PagePolicyFilter({ active, label, onClick, value }: { active: boolean; label: string; onClick: () => void; value: number }) {
+	return <button type="button" aria-pressed={active} onClick={onClick} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] font-bold ${active ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--border)] text-[var(--muted-strong)]"}`}><span>{label}</span><span className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px]">{value}</span></button>;
 }
 
 function SourceAutomationPanel({

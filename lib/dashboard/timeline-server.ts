@@ -38,6 +38,7 @@ import {
 	evidenceTopics,
 	evidenceTriage,
 	evidenceTriageNotes,
+	facebookPageProfiles,
 	intelligenceActivityRollups,
 	topics,
 	type EvidenceTriageStatus,
@@ -87,6 +88,24 @@ const effectiveTriageUpdatedAt = sql<Date>`coalesce(${evidenceTriage.updatedAt},
 );
 const effectiveTriageStatus = sql<EvidenceTriageStatus>`coalesce(${evidenceTriage.status}, 'new'::evidence_triage_status)`;
 const effectivePinned = sql<boolean>`coalesce(${evidenceTriage.isPinned}, false)`;
+const facebookPageKeyExpr = sql<string | null>`case
+	when nullif(trim(${evidenceItems.metadata}->>'facebookId'), '') is not null
+		then 'id:' || trim(${evidenceItems.metadata}->>'facebookId')
+	when nullif(trim(${evidenceItems.author}), '') is not null
+		then 'username:' || lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g'))
+	else null
+end`;
+const facebookPageProfileJoin = or(
+	eq(facebookPageProfiles.pageKey, facebookPageKeyExpr),
+	eq(
+		facebookPageProfiles.facebookPageId,
+		sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
+	),
+	eq(
+		facebookPageProfiles.username,
+		sql<string | null>`nullif(lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g')), '')`,
+	),
+);
 const publishedMicros = sql<number>`floor(extract(epoch from ${effectivePublishedAt}) * 1000000)`;
 const triageUpdatedMicros = sql<number>`floor(extract(epoch from ${effectiveTriageUpdatedAt}) * 1000000)`;
 const timelinePostSelection = {
@@ -95,6 +114,7 @@ const timelinePostSelection = {
 	createdAt: evidenceItems.createdAt,
 	engagementTotal: engagementScore,
 	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
+	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
 	id: evidenceItems.id,
 	provider: evidenceItems.provider,
 	publishedAt: evidenceItems.publishedAt,
@@ -154,6 +174,7 @@ async function getCachedTimeline(
 		.select(timelinePostSelection)
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
 		.where(where)
 		.orderBy(...timelineOrderBy(sort))
 		.limit(limit + 1);
@@ -161,6 +182,7 @@ async function getCachedTimeline(
 		.select({ count: sql<number>`count(*)::int` })
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
 		.where(and(...baseConditions));
 	const [rows, totalRows] = await Promise.all([rowsQuery, totalQuery]);
 	const pageRows = rows.slice(0, limit);
@@ -197,6 +219,7 @@ async function getCachedTimelinePostById(
 		.select(timelinePostSelection)
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
 		.where(eq(evidenceItems.id, evidenceId))
 		.limit(1);
 	const row = rows[0];
@@ -613,6 +636,7 @@ function mapTimelinePost(
 		comments: number;
 		createdAt: Date;
 		facebookPageId: string | null;
+		pageClassification: TimelinePost["pageClassification"];
 		provider: TimelinePost["provider"];
 		publishedAt: Date | null;
 		quote: string;
@@ -649,6 +673,7 @@ function mapTimelinePost(
 		href: `/evidence/${row.id}`,
 		id: row.id,
 		originalPostHref: row.sourceUrl,
+		pageClassification: row.pageClassification,
 		provider: row.provider,
 		publishedAt: row.publishedAt?.toISOString() ?? null,
 		quote: row.quote,

@@ -10,6 +10,8 @@ import {
 	Gauge,
 	MessageSquareText,
 	Radar,
+	ShieldAlert,
+	ShieldCheck,
 	Sparkles,
 	UserRound,
 } from "lucide-react";
@@ -158,18 +160,19 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 
 				<div className="space-y-5">
 					<Panel>
-						<PanelHeader title="Ngữ cảnh & nguồn" />
+						<PanelHeader title="Ngữ cảnh & nguồn" action={<PageTrustBadge classification={evidence.pageClassification} />} />
 						<dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-4 p-4 text-xs">
 							<Detail label="Evidence ID" value={evidence.id} mono />
 							<Detail label="Tác giả" value={evidence.author ?? "Không rõ"} />
 							<Detail label="Provider" value={intelligenceProviderLabel(evidence.provider)} />
 							<Detail label="Cảm xúc" value={sentimentLabel(evidence.sentiment)} />
 							<Detail label="Lập trường" value={stanceLabel(evidence.stance)} />
+							<Detail label="Phân loại trang" value={pageClassificationLabel(evidence.pageClassification)} />
 							<Detail label="Tương tác" value={`${evidence.engagement.reactions} phản ứng · ${evidence.engagement.comments} bình luận · ${evidence.engagement.shares} chia sẻ`} />
 						</dl>
 						<div className="grid gap-2 border-t border-[var(--border)] p-4 sm:grid-cols-2 xl:grid-cols-1">
 							<button type="button" onClick={() => setDraftOpen(true)} className={primaryActionClass}>
-								<Sparkles size={14} /> Soạn phản hồi
+								<Sparkles size={14} /> {evidence.pageClassification === "trusted" ? "Soạn bài tích cực" : evidence.pageClassification === "at_risk" ? "Soạn phản biện" : "Soạn phản hồi"}
 							</button>
 							<button type="button" onClick={() => setTriageOpen(true)} className={primaryActionClass}>
 								<MessageSquareText size={14} /> Mở bảng xử lý
@@ -210,6 +213,16 @@ function Metric({ icon: Icon, label, value }: { icon: typeof Gauge; label: strin
 
 function Detail({ label, mono = false, value }: { label: string; mono?: boolean; value: string }) {
 	return <><dt className="font-bold text-[var(--muted)]">{label}</dt><dd className={`min-w-0 break-words font-semibold text-[var(--foreground)] ${mono ? "font-mono text-[11px]" : ""}`}>{value}</dd></>;
+}
+
+function PageTrustBadge({ classification }: { classification: TimelinePost["pageClassification"] }) {
+	if (classification === "uncategorized") return null;
+	const Icon = classification === "trusted" ? ShieldCheck : ShieldAlert;
+	return <span className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-extrabold ${classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : "bg-[var(--danger-soft)] text-[var(--danger-strong)]"}`}><Icon size={13} />{pageClassificationLabel(classification)}</span>;
+}
+
+function pageClassificationLabel(classification: TimelinePost["pageClassification"]) {
+	return classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : "Chưa phân loại";
 }
 
 function EvidenceDetailLoading() {

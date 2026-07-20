@@ -178,16 +178,19 @@ export function PrimaryButton({
 
 export function SecondaryButton({
 	children,
+	disabled,
 	onClick,
 }: {
 	children: ReactNode;
+	disabled?: boolean;
 	onClick?: () => void | Promise<void>;
 }) {
 	return (
 		<button
-			type="button"
+			 type="button"
+			disabled={disabled}
 			onClick={onClick}
-			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-55"
 		>
 			{children}
 		</button>
