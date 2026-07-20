@@ -35,6 +35,7 @@ import {
 	syncExistingAnalysisTopicsForScan,
 	syncTopicsForScan,
 } from "@/lib/workers/topics";
+import { enqueueEvidenceDraftJobs } from "@/lib/workers/facebook-page-jobs";
 
 type ClaimedJob = {
 	id: string;
@@ -570,10 +571,14 @@ async function processClaimedJob(claimed: ClaimedJob) {
 						)
 						.returning()
 				: [];
+		const queuedAutomatedDrafts = await enqueueEvidenceDraftJobs(insertedEvidence);
 		await recordScanEvent({
 			eventType: "evidence_persisted",
 			message: "Bằng chứng chuẩn hóa đã được lưu.",
-			metadata: { evidenceCount: insertedEvidence.length },
+			metadata: {
+				automatedDraftCount: queuedAutomatedDrafts,
+				evidenceCount: insertedEvidence.length,
+			},
 			scanJobId: claimed.id,
 			stage: "evidence",
 			status: "completed",
@@ -737,8 +742,18 @@ export async function generateDraftForScan(
 		includeRelatedEvidence?: boolean;
 		originatingChatId?: string;
 		actor?: { displayName: string | null; id: string };
+		automationKey?: string;
+		generationReason?: string;
 	},
 ) {
+	if (options.automationKey) {
+		const [existing] = await adminDb
+			.select()
+			.from(counterArgumentDrafts)
+			.where(eq(counterArgumentDrafts.automationKey, options.automationKey))
+			.limit(1);
+		if (existing) return existing;
+	}
 	const evidence = await adminDb
 		.select()
 		.from(evidenceItems)
@@ -789,6 +804,8 @@ export async function generateDraftForScan(
 				tone: options.tone,
 				updatedByDisplayName: actor.displayName,
 				updatedByUserId: actor.id,
+				automationKey: options.automationKey,
+				generationReason: options.generationReason,
 			})
 			.returning();
 		if (!created) return null;
@@ -817,16 +834,30 @@ export async function generateDraftForScan(
 	return draft;
 }
 
-export async function reviewDraft(id: string, status: DraftStatus) {
+export async function reviewDraft(
+	id: string,
+	status: DraftStatus,
+	actor?: { displayName: string | null; id: string },
+) {
 	const [draft] = await adminDb
 		.update(counterArgumentDrafts)
-		.set({ status, updatedAt: new Date() })
+		.set({
+			status,
+			updatedAt: new Date(),
+			...(actor
+				? {
+						updatedByDisplayName: actor.displayName,
+						updatedByUserId: actor.id,
+					}
+				: {}),
+		})
 		.where(eq(counterArgumentDrafts.id, id))
 		.returning();
 
 	if (!draft) return null;
 	await writeAudit("counter_argument_draft", id, "review_status_updated", {
 		status,
+		reviewerUserId: actor?.id,
 	});
 	await refreshIntelligenceRollupsBestEffort(`draft-reviewed:${id}`);
 	return draft;

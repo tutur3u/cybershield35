@@ -4,7 +4,9 @@ import {
 	ExternalLink,
 	FileText,
 	Globe2,
+	LoaderCircle,
 } from "lucide-react";
+import { useState } from "react";
 
 import type {
 	AnalysisView,
@@ -81,9 +83,31 @@ export function DraftReview({
 	scanId,
 }: {
 	draft: DraftShape | null;
-	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<void>;
+	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<boolean>;
 	scanId?: string;
 }) {
+	const [pendingStatus, setPendingStatus] = useState<
+		"needs_review" | "approved" | "rejected" | null
+	>(null);
+	const [feedback, setFeedback] = useState("");
+
+	async function submitReview(status: "needs_review" | "approved" | "rejected") {
+		if (!draft || pendingStatus) return;
+		setPendingStatus(status);
+		setFeedback("");
+		const success = await onReview(status);
+		setFeedback(
+			success
+				? status === "approved"
+					? "Đã phê duyệt và lưu người duyệt."
+					: status === "rejected"
+						? "Đã từ chối bản nháp."
+						: "Đã chuyển về hàng đợi cần duyệt."
+				: "Không thể cập nhật. Vui lòng thử lại.",
+		);
+		setPendingStatus(null);
+	}
+
 	return (
 		<Panel>
 			<PanelHeader
@@ -107,20 +131,22 @@ export function DraftReview({
 							>
 								<FileText size={14} /> Chi tiết
 								</IntentPrefetchLink>
-							<SecondaryButton onClick={() => onReview("needs_review")}>
-								<FileText size={14} /> Cần duyệt
+							<SecondaryButton disabled={pendingStatus !== null || draft.status === "needs_review"} onClick={() => submitReview("needs_review")}>
+								{pendingStatus === "needs_review" ? <LoaderCircle className="animate-spin" size={14} /> : <FileText size={14} />} Cần duyệt
 							</SecondaryButton>
-							<SecondaryButton onClick={() => onReview("rejected")}>
-								<AlertTriangle size={14} /> Từ chối
+							<SecondaryButton disabled={pendingStatus !== null || draft.status === "rejected"} onClick={() => submitReview("rejected")}>
+								{pendingStatus === "rejected" ? <LoaderCircle className="animate-spin" size={14} /> : <AlertTriangle size={14} />} Từ chối
 							</SecondaryButton>
 							<button
 								type="button"
-								onClick={() => onReview("approved")}
-								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--brand-strong)]"
+								disabled={pendingStatus !== null || draft.status === "approved"}
+								onClick={() => void submitReview("approved")}
+								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-55"
 							>
-								<CheckCircle2 size={14} /> Phê duyệt
+								{pendingStatus === "approved" ? <LoaderCircle className="animate-spin" size={14} /> : <CheckCircle2 size={14} />} Phê duyệt
 							</button>
 						</div>
+						{feedback ? <p aria-live="polite" className={`rounded-md px-3 py-2 text-[11px] font-bold ${feedback.startsWith("Không") ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--success-soft)] text-[var(--success-strong)]"}`}>{feedback}</p> : null}
 					</>
 				) : (
 					<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
@@ -137,9 +163,10 @@ export function DraftReview({
 }
 
 function draftStatusLabel(status?: string) {
-	if (status === "approved") return "Approved";
-	if (status === "rejected") return "Rejected";
-	return "Human review";
+	if (status === "approved") return "Đã duyệt";
+	if (status === "rejected") return "Đã từ chối";
+	if (status === "needs_review") return "Cần duyệt";
+	return "Bản nháp";
 }
 
 function formatTime(value?: string | Date) {

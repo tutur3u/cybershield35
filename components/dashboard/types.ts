@@ -493,6 +493,7 @@ export type TimelinePost = IntelligenceEvidenceRow & {
 		shares: number;
 		total: number;
 	};
+	pageClassification: FacebookPageClassification;
 	triage: EvidenceTriageView;
 };
 
@@ -510,16 +511,29 @@ export type TimelineHead = {
 };
 
 export type IntelligenceFacebookPageOption = {
+	autoDraftEnabled: boolean;
+	automation: {
+		completed: number;
+		failed: number;
+		pending: number;
+	};
+	classification: FacebookPageClassification;
 	evidenceCount: number;
 	facebookId: string | null;
 	href: string;
 	label: string;
 	lastSeenAt: string | null;
+	pageKey: string;
 	sourceUrl: string | null;
 	trackedSourceId: string | null;
 	username: string | null;
 	value: string;
 };
+
+export type FacebookPageClassification =
+	| "uncategorized"
+	| "trusted"
+	| "at_risk";
 
 export type IntelligenceClaimRow = {
 	claim: string;

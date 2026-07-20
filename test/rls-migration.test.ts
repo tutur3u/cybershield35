@@ -23,6 +23,8 @@ const appTables = [
 	"chat_model_runs",
 	"chat_tool_runs",
 	"counter_argument_draft_versions",
+	"facebook_page_profiles",
+	"draft_automation_jobs",
 ] as const;
 
 describe("RLS migration", () => {

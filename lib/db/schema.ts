@@ -57,6 +57,20 @@ export const draftKindEnum = pgEnum("draft_kind", [
 	"internal_brief",
 ]);
 
+export const facebookPageClassificationEnum = pgEnum(
+	"facebook_page_classification",
+	["uncategorized", "trusted", "at_risk"],
+);
+
+export const draftAutomationStatusEnum = pgEnum("draft_automation_status", [
+	"queued",
+	"running",
+	"completed",
+	"failed",
+	"retrying",
+	"skipped",
+]);
+
 export const chatVisibilityEnum = pgEnum("chat_visibility", [
 	"private",
 	"workspace",
@@ -152,6 +166,40 @@ export const trackedSources = pgTable(
 		uniqueIndex("tracked_sources_url_unique").on(table.normalizedUrl),
 		index("tracked_sources_active_idx").on(table.isActive, table.updatedAt),
 		index("tracked_sources_last_scan_idx").on(table.lastScanJobId),
+	],
+);
+
+export const facebookPageProfiles = pgTable(
+	"facebook_page_profiles",
+	{
+		pageKey: text("page_key").primaryKey(),
+		facebookPageId: text("facebook_page_id"),
+		username: text("username"),
+		displayName: text("display_name").notNull(),
+		classification: facebookPageClassificationEnum("classification")
+			.default("uncategorized")
+			.notNull(),
+		autoDraftEnabled: boolean("auto_draft_enabled").default(true).notNull(),
+		updatedByUserId: text("updated_by_user_id").notNull(),
+		updatedByDisplayName: text("updated_by_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("facebook_page_profiles_facebook_id_unique")
+			.on(table.facebookPageId)
+			.where(sql`${table.facebookPageId} is not null`),
+		uniqueIndex("facebook_page_profiles_username_unique")
+			.on(table.username)
+			.where(sql`${table.username} is not null`),
+		index("facebook_page_profiles_classification_updated_idx").on(
+			table.classification,
+			table.updatedAt,
+		),
+		index("facebook_page_profiles_automation_idx").on(
+			table.autoDraftEnabled,
+			table.classification,
+		),
 	],
 );
 
@@ -599,6 +647,8 @@ export const counterArgumentDrafts = pgTable(
 		createdByDisplayName: text("created_by_display_name"),
 		updatedByUserId: text("updated_by_user_id"),
 		updatedByDisplayName: text("updated_by_display_name"),
+		automationKey: text("automation_key"),
+		generationReason: text("generation_reason"),
 		tone: text("tone").notNull(),
 		audience: text("audience").notNull(),
 		language: text("language").default("vi").notNull(),
@@ -629,6 +679,55 @@ export const counterArgumentDrafts = pgTable(
 			table.originatingChatId,
 			table.createdAt,
 		),
+		uniqueIndex("counter_argument_drafts_automation_key_unique")
+			.on(table.automationKey)
+			.where(sql`${table.automationKey} is not null`),
+	],
+);
+
+export const draftAutomationJobs = pgTable(
+	"draft_automation_jobs",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		evidenceItemId: uuid("evidence_item_id")
+			.notNull()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		pageKey: text("page_key")
+			.notNull()
+			.references(() => facebookPageProfiles.pageKey, { onDelete: "cascade" }),
+		classification: facebookPageClassificationEnum("classification").notNull(),
+		draftKind: draftKindEnum("draft_kind").notNull(),
+		status: draftAutomationStatusEnum("status").default("queued").notNull(),
+		attempts: integer("attempts").default(0).notNull(),
+		maxAttempts: integer("max_attempts").default(3).notNull(),
+		scheduledAt: timestamp("scheduled_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		lockedAt: timestamp("locked_at", { withTimezone: true }),
+		draftId: uuid("draft_id").references(() => counterArgumentDrafts.id, {
+			onDelete: "set null",
+		}),
+		errorMessage: text("error_message"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+		completedAt: timestamp("completed_at", { withTimezone: true }),
+	},
+	(table) => [
+		uniqueIndex("draft_automation_jobs_evidence_classification_unique").on(
+			table.evidenceItemId,
+			table.classification,
+		),
+		index("draft_automation_jobs_queue_idx").on(
+			table.status,
+			table.scheduledAt,
+			table.lockedAt,
+		),
+		index("draft_automation_jobs_page_status_idx").on(
+			table.pageKey,
+			table.status,
+			table.updatedAt,
+		),
+		index("draft_automation_jobs_draft_idx").on(table.draftId),
 	],
 );
 
@@ -886,6 +985,7 @@ export type SourceRow = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type ScanJobRow = typeof scanJobs.$inferSelect;
 export type TrackedSourceRow = typeof trackedSources.$inferSelect;
+export type FacebookPageProfileRow = typeof facebookPageProfiles.$inferSelect;
 export type EvidenceItemRow = typeof evidenceItems.$inferSelect;
 export type ScanJobEventRow = typeof scanJobEvents.$inferSelect;
 export type EvidenceTriageRow = typeof evidenceTriage.$inferSelect;
@@ -894,6 +994,7 @@ export type AnalysisRow = typeof analyses.$inferSelect;
 export type TopicRow = typeof topics.$inferSelect;
 export type EvidenceTopicRow = typeof evidenceTopics.$inferSelect;
 export type CounterArgumentDraftRow = typeof counterArgumentDrafts.$inferSelect;
+export type DraftAutomationJobRow = typeof draftAutomationJobs.$inferSelect;
 export type ManagedSchedulerIntegrationRow =
 	typeof managedSchedulerIntegrations.$inferSelect;
 export type IntelligenceDailyRollupRow =

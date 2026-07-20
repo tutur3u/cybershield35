@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireAdminSession } from "@/lib/auth/require-admin";
 import {
 	revalidateDashboardHealth,
+	revalidateDashboardIntelligence,
 	revalidateDashboardScan,
 	revalidateDashboardTrackedSources,
 } from "@/lib/dashboard/cache-invalidation";
@@ -17,6 +18,7 @@ import {
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
+import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
 import { logOperation } from "@/lib/operations/telemetry";
 
@@ -301,6 +303,7 @@ function revalidateSchedulerDashboardCaches(jobKey: string, scanIds: string[]) {
 		) {
 			revalidateDashboardTrackedSources();
 		}
+		if (jobKey === "process-queue") revalidateDashboardIntelligence();
 		revalidateDashboardHealth();
 	} catch (error) {
 		// Direct worker/unit-test execution has no Next.js static-generation store.
@@ -412,6 +415,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	}
 
 	const scanIds: string[] = [];
+	const automatedDraftIds: string[] = [];
 	let failed = 0;
 	let processed = 0;
 
@@ -424,7 +428,20 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		if ("error" in result && result.error) failed += 1;
 	}
 
+	let automatedDraftsProcessed = 0;
+	for (let index = 0; index < BATCH_LIMIT; index += 1) {
+		const result = await processNextAutomatedDraftJob();
+		if (!result.processed) break;
+		automatedDraftsProcessed += 1;
+		if ("draftId" in result && result.draftId) {
+			automatedDraftIds.push(result.draftId);
+		}
+		if ("error" in result && result.error) failed += 1;
+	}
+
 	return {
+		automatedDraftIds,
+		automatedDraftsProcessed,
 		failed,
 		processed,
 		scanIds,

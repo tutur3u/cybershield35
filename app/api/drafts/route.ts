@@ -30,6 +30,7 @@ export async function GET(request: Request) {
 				draftKind: counterArgumentDrafts.draftKind,
 				evidenceItemId: counterArgumentDrafts.evidenceItemId,
 				id: counterArgumentDrafts.id,
+				generationReason: counterArgumentDrafts.generationReason,
 				language: counterArgumentDrafts.language,
 				scanJobId: counterArgumentDrafts.scanJobId,
 				status: counterArgumentDrafts.status,

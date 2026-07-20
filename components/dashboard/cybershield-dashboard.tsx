@@ -540,14 +540,20 @@ export function CyberShieldDashboard({
 			}).then((success) => {
 				if (success) invalidateDashboardQueries();
 			}),
-		onReview: (status) =>
-			activeDraft
-				? reviewDraft({ draft: activeDraft, status, setDraft, setNotice }).then(
-						(success) => {
-							if (success) invalidateDashboardQueries(activeDraft.scanJobId);
-						},
-					)
-				: Promise.resolve(setNotice("Chưa có bản nháp live để duyệt.")),
+		onReview: async (status) => {
+			if (!activeDraft) {
+				setNotice("Chưa có bản nháp live để duyệt.");
+				return false;
+			}
+			const success = await reviewDraft({
+				draft: activeDraft,
+				setDraft,
+				setNotice,
+				status,
+			});
+			if (success) invalidateDashboardQueries(activeDraft.scanJobId);
+			return success;
+		},
 		reports,
 	};
 

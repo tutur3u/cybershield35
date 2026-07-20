@@ -37,6 +37,7 @@ const processNextJob = mock(async () => {
 	if (!scanId) return { processed: false };
 	return { processed: true, scanId };
 });
+const processNextAutomatedDraftJob = mock(async () => ({ processed: false as const }));
 
 mock.module("server-only", () => ({}));
 
@@ -50,6 +51,10 @@ mock.module("@/lib/workers/scans", () => ({
 		metadata: Record<string, unknown> = {},
 	) => upsertHeartbeat(serviceName, metadata),
 	processNextJob,
+}));
+
+mock.module("@/lib/workers/draft-automation", () => ({
+	processNextAutomatedDraftJob,
 }));
 
 mock.module("@/lib/db/client", () => ({
@@ -82,6 +87,7 @@ beforeEach(() => {
 	queuedScanIds.length = 0;
 	enqueueDueTrackedSources.mockClear();
 	processNextJob.mockClear();
+	processNextAutomatedDraftJob.mockClear();
 	globalThis.fetch = mock(() => {
 		throw new Error("cron pipeline e2e must not call external fetch");
 	}) as unknown as typeof fetch;
@@ -171,6 +177,7 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		);
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
 		expect(processNextJob).toHaveBeenCalledTimes(3);
+		expect(processNextAutomatedDraftJob).toHaveBeenCalledTimes(1);
 		expect(globalThis.fetch).not.toHaveBeenCalled();
 	});
 });

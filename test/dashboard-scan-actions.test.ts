@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { runScanRecord } from "@/components/dashboard/client-actions";
+import { reviewDraft, runScanRecord } from "@/components/dashboard/client-actions";
 import type { DashboardScan, ScanDetail } from "@/components/dashboard/types";
 
 const originalFetch = globalThis.fetch;
@@ -11,6 +11,40 @@ afterEach(() => {
 });
 
 describe("dashboard scan actions", () => {
+	test("persists draft approval and returns visible success state", async () => {
+		const draft = {
+			body: "Bản nháp kiểm thử",
+			id: "9f829684-0182-4824-aa8f-446448076d97",
+			scanJobId: "367f0107-77e5-448e-9aec-97b442000001",
+			status: "needs_review" as const,
+		};
+		let updatedStatus: string | undefined = draft.status;
+		let notice = "";
+		const fetchMock = mock(() =>
+			Promise.resolve(Response.json({ draft: { ...draft, status: "approved" } })),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await reviewDraft({
+			draft,
+			setDraft: (value) => {
+				updatedStatus = value.status;
+			},
+			setNotice: (value) => {
+				notice = value;
+			},
+			status: "approved",
+		});
+
+		expect(result).toBe(true);
+		expect(updatedStatus).toBe("approved");
+		expect(notice).toContain("phê duyệt");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97/review",
+			expect.objectContaining({ method: "POST" }),
+		);
+	});
+
 	test("manually runs a scan and refreshes the in-memory row/detail", async () => {
 		const scan: DashboardScan = {
 			createdAt: "2026-06-27T00:00:00.000Z",
