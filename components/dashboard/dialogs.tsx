@@ -5,12 +5,14 @@ import {
 	Link2,
 	Play,
 	Save,
+	ShieldCheck,
 	Sparkles,
 	UploadCloud,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
+import { DraftStylePicker } from "@/components/dashboard/draft-style-picker";
 import {
 	composerOptions,
 	sourceTabs,
@@ -24,6 +26,12 @@ import type {
 	ReportSpec,
 } from "@/components/dashboard/types";
 import type { ScanProviderOverride } from "@/lib/domain/provider-override";
+import {
+	DEFAULT_DRAFT_TONE,
+	DEFAULT_DRAFT_VOICE,
+	DRAFT_TONE_OPTIONS,
+	DRAFT_VOICE_OPTIONS,
+} from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
 
 export { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
@@ -372,19 +380,44 @@ export function CounterArgumentDialog(props: {
 			description="Bản nháp chỉ dùng bằng chứng đã lưu và luôn cần người vận hành duyệt."
 			size="wide"
 		>
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Select
-					label="Tone / Giọng điệu"
-					value={props.tone}
+			<div className="rounded-lg border border-[var(--success-border)] bg-[var(--success-soft)] p-3">
+				<div className="flex items-start gap-2.5">
+					<ShieldCheck
+						size={17}
+						className="mt-0.5 shrink-0 text-[var(--success-strong)]"
+					/>
+					<div>
+						<p className="text-[12px] font-extrabold text-[var(--success-strong)]">
+							Mặc định đã tối ưu cho tiếng Việt tự nhiên
+						</p>
+						<p className="mt-1 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">
+							AI đi thẳng vào vấn đề, viết thành đoạn ngắn mạch lạc và tránh
+							giọng văn dịch máy hoặc hành chính khuôn mẫu.
+						</p>
+					</div>
+				</div>
+			</div>
+			<div className="mt-4 grid gap-5 xl:grid-cols-2">
+				<DraftStylePicker
+					defaultValue={DEFAULT_DRAFT_TONE}
+					helper="Cách thể hiện lập trường"
+					label="Giọng điệu"
+					name="counter-argument-tone"
 					onChange={props.setTone}
-					options={composerOptions.tones}
+					options={DRAFT_TONE_OPTIONS}
+					value={props.tone}
 				/>
-				<Select
-					label="Voice / Giọng văn"
-					value={props.voice}
+				<DraftStylePicker
+					defaultValue={DEFAULT_DRAFT_VOICE}
+					helper="Cảm giác khi đọc"
+					label="Giọng văn"
+					name="counter-argument-voice"
 					onChange={props.setVoice}
-					options={composerOptions.voices}
+					options={DRAFT_VOICE_OPTIONS}
+					value={props.voice}
 				/>
+			</div>
+			<div className="mt-5 grid gap-4 sm:grid-cols-3">
 				<Select
 					label="Đối tượng"
 					value={props.audience}
@@ -404,23 +437,28 @@ export function CounterArgumentDialog(props: {
 					options={composerOptions.lengths}
 				/>
 			</div>
-			<label className="mt-4 flex items-center gap-2 rounded-md bg-[var(--success-soft)] p-3 text-[12px] font-semibold text-[var(--success-strong)]">
-				<input type="checkbox" defaultChecked className="size-4 accent-[var(--brand)]" />
-				Chỉ sử dụng bằng chứng đã xác minh (Evidence only)
-			</label>
 			<label className="mt-4 block">
-				<FieldLabel>Ghi chú người vận hành</FieldLabel>
+				<span className="flex items-center justify-between gap-3">
+					<FieldLabel>Ghi chú thêm (không bắt buộc)</FieldLabel>
+					<span className="text-[10px] font-semibold text-[var(--muted)]">
+						{props.operatorNotes.length.toLocaleString("vi-VN")} / 2.000
+					</span>
+				</span>
 				<textarea
 					value={props.operatorNotes}
 					onChange={(event) => props.setOperatorNotes(event.target.value)}
-					placeholder="Yêu cầu bổ sung về bối cảnh, giới hạn diễn đạt hoặc điểm cần tránh..."
+					maxLength={2_000}
+					placeholder="Chỉ cần nhập khi có bối cảnh, cách xưng hô hoặc điểm cần tránh riêng..."
 					className="mt-2 min-h-28 w-full resize-none rounded-md border border-[var(--border)] p-3 text-[13px] leading-6 outline-none focus:border-[var(--accent)]"
 				/>
 			</label>
-			<div className="mt-4">
+			<div className="sticky -bottom-5 -mx-5 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-4 shadow-[0_-10px_24px_rgb(0_0_0/0.08)]">
+				<p className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--muted)]">
+					<ShieldCheck size={13} /> Chỉ dùng bằng chứng đã lưu · luôn cần duyệt
+				</p>
 				<PrimaryButton disabled={props.isDrafting} onClick={generateAndClose}>
 					<Sparkles size={15} />
-					{props.isDrafting ? "Đang tạo bản nháp" : "Generate counter-argument"}
+					{props.isDrafting ? "Đang tạo bản nháp…" : "Tạo bản nháp"}
 				</PrimaryButton>
 			</div>
 		</Dialog>

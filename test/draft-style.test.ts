@@ -2,8 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	DEFAULT_DRAFT_VOICE,
+	DEFAULT_DRAFT_WRITING_BRIEF,
 	DRAFT_TONES,
+	DRAFT_TONE_OPTIONS,
 	DRAFT_VOICES,
+	DRAFT_VOICE_OPTIONS,
 	NATURAL_VIETNAMESE_WRITING_GUIDANCE,
 } from "@/lib/domain/draft-style";
 
@@ -12,6 +15,8 @@ describe("AI draft style", () => {
 		expect(DRAFT_TONES.length).toBeGreaterThan(2);
 		expect(DRAFT_VOICES.length).toBeGreaterThan(2);
 		expect(DRAFT_VOICES).toContain(DEFAULT_DRAFT_VOICE);
+		expect(DRAFT_TONE_OPTIONS.every((option) => option.description)).toBe(true);
+		expect(DRAFT_VOICE_OPTIONS.every((option) => option.description)).toBe(true);
 	});
 
 	test("requires native, fluent Vietnamese instead of translated AI prose", () => {
@@ -21,5 +26,12 @@ describe("AI draft style", () => {
 		expect(NATURAL_VIETNAMESE_WRITING_GUIDANCE).toContain("idiomatic wording");
 		expect(NATURAL_VIETNAMESE_WRITING_GUIDANCE).toContain("literal translation");
 		expect(NATURAL_VIETNAMESE_WRITING_GUIDANCE).toContain("formulaic AI phrases");
+		expect(NATURAL_VIETNAMESE_WRITING_GUIDANCE).toContain("Dưới đây là");
+		expect(DEFAULT_DRAFT_WRITING_BRIEF.format).toContain(
+			"two to four short paragraphs",
+		);
+		expect(DEFAULT_DRAFT_WRITING_BRIEF.flow).toContain(
+			"Open directly with the central point instead of announcing the response.",
+		);
 	});
 });

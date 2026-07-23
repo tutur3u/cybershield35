@@ -18,6 +18,7 @@ import type {
 	DraftShape,
 	ScanDetail,
 } from "@/components/dashboard/types";
+import { DraftStylePicker } from "@/components/dashboard/draft-style-picker";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	Panel,
@@ -29,8 +30,8 @@ import {
 import {
 	DEFAULT_DRAFT_TONE,
 	DEFAULT_DRAFT_VOICE,
-	DRAFT_TONES,
-	DRAFT_VOICES,
+	DRAFT_TONE_OPTIONS,
+	DRAFT_VOICE_OPTIONS,
 } from "@/lib/domain/draft-style";
 
 export function SourceDetail({
@@ -260,19 +261,23 @@ export function DraftReview({
 									placeholder="Ví dụ: Viết ngắn gọn hơn, giữ giọng điềm tĩnh và làm rõ các luận điểm có bằng chứng."
 									className="w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
 								/>
-								<div className="grid gap-3 sm:grid-cols-2">
-									<DraftStyleSelect
-										id={`draft-ai-tone-${draft.id}`}
+								<div className="grid gap-5 xl:grid-cols-2">
+									<DraftStylePicker
+										defaultValue={DEFAULT_DRAFT_TONE}
+										helper="Cách thể hiện"
 										label="Giọng điệu"
+										name={`draft-ai-tone-${draft.id}`}
 										value={selectedTone}
-										options={DRAFT_TONES}
+										options={DRAFT_TONE_OPTIONS}
 										onChange={setSelectedTone}
 									/>
-									<DraftStyleSelect
-										id={`draft-ai-voice-${draft.id}`}
+									<DraftStylePicker
+										defaultValue={DEFAULT_DRAFT_VOICE}
+										helper="Cảm giác khi đọc"
 										label="Giọng văn"
+										name={`draft-ai-voice-${draft.id}`}
 										value={selectedVoice}
-										options={DRAFT_VOICES}
+										options={DRAFT_VOICE_OPTIONS}
 										onChange={setSelectedVoice}
 									/>
 								</div>
@@ -357,33 +362,6 @@ export function DraftReview({
 				</p>
 			</div>
 		</Panel>
-	);
-}
-
-function DraftStyleSelect(props: {
-	id: string;
-	label: string;
-	onChange: (value: string) => void;
-	options: readonly string[];
-	value: string;
-}) {
-	return (
-		<label
-			htmlFor={props.id}
-			className="text-[11px] font-bold text-[var(--muted-strong)]"
-		>
-			{props.label}
-			<select
-				id={props.id}
-				value={props.value}
-				onChange={(event) => props.onChange(event.target.value)}
-				className="mt-2 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-[12px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
-			>
-				{props.options.map((option) => (
-					<option key={option}>{option}</option>
-				))}
-			</select>
-		</label>
 	);
 }
 

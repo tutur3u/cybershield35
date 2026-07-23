@@ -4,12 +4,13 @@ import { FileText, LoaderCircle, ShieldAlert, ShieldCheck, Sparkles, X } from "l
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { DraftStylePicker } from "@/components/dashboard/draft-style-picker";
 import type { TimelinePost } from "@/components/dashboard/types";
 import {
 	DEFAULT_DRAFT_TONE,
 	DEFAULT_DRAFT_VOICE,
-	DRAFT_TONES,
-	DRAFT_VOICES,
+	DRAFT_TONE_OPTIONS,
+	DRAFT_VOICE_OPTIONS,
 } from "@/lib/domain/draft-style";
 
 const kinds = [
@@ -93,9 +94,32 @@ export function EvidenceDraftSheet({
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3"><p className="line-clamp-4 text-xs font-semibold leading-5 text-[var(--foreground)]">{post.quote}</p><p className="mt-2 font-mono text-[9px] text-[var(--muted)]">{post.id}</p></div>
 					{post.pageClassification !== "uncategorized" ? <div className={`flex items-start gap-3 rounded-lg border p-3 ${post.pageClassification === "trusted" ? "border-[var(--success-border)] bg-[var(--success-soft)]" : "border-[var(--danger-border)] bg-[var(--danger-soft)]"}`}>{post.pageClassification === "trusted" ? <ShieldCheck className="mt-0.5 shrink-0 text-[var(--success-strong)]" size={17} /> : <ShieldAlert className="mt-0.5 shrink-0 text-[var(--danger-strong)]" size={17} />}<div><p className={`text-xs font-extrabold ${post.pageClassification === "trusted" ? "text-[var(--success-strong)]" : "text-[var(--danger-strong)]"}`}>{post.pageClassification === "trusted" ? "Gợi ý: bài chia sẻ tích cực" : "Gợi ý: phản biện có căn cứ"}</p><p className="mt-1 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">{post.pageClassification === "trusted" ? "Trang được đánh dấu đáng tin cậy. Hệ thống ưu tiên tóm lược giá trị thông tin và không thêm tuyên bố mới." : "Trang được đánh dấu có rủi ro. Bản nháp phải kiểm tra từng tuyên bố và vẫn cần con người duyệt."}</p></div></div> : null}
 					<fieldset><legend className={labelClass}>Loại bản nháp</legend><div className="mt-2 grid grid-cols-2 gap-2">{kinds.map(([value, label]) => <button key={value} type="button" onClick={() => setDraftKind(value)} className={`min-h-10 rounded-md border px-3 text-xs font-bold ${draftKind === value ? "border-[var(--brand)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--border)] text-[var(--muted-strong)]"}`}>{label}</button>)}</div></fieldset>
-					<div className="grid gap-3 sm:grid-cols-2">
-						<DraftStyleSelect label="Giọng điệu" options={DRAFT_TONES} value={tone} onChange={setTone} />
-						<DraftStyleSelect label="Giọng văn" options={DRAFT_VOICES} value={voice} onChange={setVoice} />
+					<div className="space-y-5 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
+						<div className="flex items-start gap-2.5">
+							<Sparkles className="mt-0.5 shrink-0 text-[var(--accent-strong)]" size={15} />
+							<p className="text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">
+								Mặc định viết thành các đoạn ngắn, đi thẳng vào vấn đề và tránh
+								giọng dịch máy. Chọn phong cách khác nếu nội dung cần sắc thái riêng.
+							</p>
+						</div>
+						<DraftStylePicker
+							defaultValue={DEFAULT_DRAFT_TONE}
+							helper="Cách thể hiện"
+							label="Giọng điệu"
+							name="evidence-draft-tone"
+							onChange={setTone}
+							options={DRAFT_TONE_OPTIONS}
+							value={tone}
+						/>
+						<DraftStylePicker
+							defaultValue={DEFAULT_DRAFT_VOICE}
+							helper="Cảm giác khi đọc"
+							label="Giọng văn"
+							name="evidence-draft-voice"
+							onChange={setVoice}
+							options={DRAFT_VOICE_OPTIONS}
+							value={voice}
+						/>
 					</div>
 					<label className="flex items-start gap-3 rounded-lg border border-[var(--border)] p-3"><input type="checkbox" checked={includeRelatedEvidence} onChange={(event) => setIncludeRelatedEvidence(event.target.checked)} className="mt-0.5" /><span><span className="block text-xs font-bold text-[var(--foreground)]">Kèm bằng chứng liên quan trong scan</span><span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">Mặc định chỉ dùng đúng bài viết hiện tại để giảm nhiễu.</span></span></label>
 					<label><span className={labelClass}>Ghi chú cho AI</span><textarea value={operatorNotes} onChange={(event) => setOperatorNotes(event.target.value)} maxLength={2000} rows={5} placeholder="Mục tiêu, đối tượng, điểm cần tránh…" className="mt-2 w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--brand)]" /></label>
@@ -104,28 +128,6 @@ export function EvidenceDraftSheet({
 				<footer className="sticky bottom-0 z-20 border-t border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_28px_rgb(0_0_0/0.12)] sm:p-5"><button type="button" disabled={isGenerating} onClick={() => void generateDraft()} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white transition hover:bg-[var(--brand-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] disabled:cursor-wait disabled:opacity-60">{isGenerating ? <LoaderCircle className="animate-spin" size={16} /> : <FileText size={16} />}{isGenerating ? "Đang tạo và lưu bản nháp…" : "Tạo bản nháp cần duyệt"}</button><p className="mt-2 text-center text-[10px] font-semibold text-[var(--muted)]">Chỉ lưu nội bộ · không tự động đăng lên Facebook</p></footer>
 			</section>
 		</div>
-	);
-}
-
-function DraftStyleSelect(props: {
-	label: string;
-	onChange: (value: string) => void;
-	options: readonly string[];
-	value: string;
-}) {
-	return (
-		<label>
-			<span className={labelClass}>{props.label}</span>
-			<select
-				value={props.value}
-				onChange={(event) => props.onChange(event.target.value)}
-				className="mt-2 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-xs font-semibold text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-			>
-				{props.options.map((option) => (
-					<option key={option}>{option}</option>
-				))}
-			</select>
-		</label>
 	);
 }
 
