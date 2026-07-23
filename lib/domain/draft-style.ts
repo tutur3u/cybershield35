@@ -56,3 +56,38 @@ export const DEFAULT_DRAFT_WRITING_BRIEF = {
 	naturalness:
 		"Prefer concrete, familiar Vietnamese over Sino-Vietnamese abstraction, officialese, or word-for-word translation. Remove any sentence that merely repeats the previous one.",
 } as const;
+
+export const AUTOMATIC_DRAFT_WRITING_BRIEF = {
+	...DEFAULT_DRAFT_WRITING_BRIEF,
+	automation: [
+		"Write as finished Vietnamese prose for a human reviewer, not as a report about the generation process.",
+		"Never mention automation, source classification, evidence IDs, prompts, policies, or that evidence was supplied.",
+		"Vary the opening and transitions based on the actual content so repeated automatic drafts do not sound templated.",
+	],
+} as const;
+
+export type DraftGenerationMode = "automatic" | "operator";
+
+export function draftWritingBriefForMode(mode: DraftGenerationMode) {
+	return mode === "automatic"
+		? AUTOMATIC_DRAFT_WRITING_BRIEF
+		: DEFAULT_DRAFT_WRITING_BRIEF;
+}
+
+export function resolveDraftGenerationStyle(input: {
+	language: string;
+	mode: DraftGenerationMode;
+	voice?: string;
+}) {
+	if (input.mode === "automatic") {
+		return {
+			language: "vi",
+			voice: DEFAULT_DRAFT_VOICE,
+		} as const;
+	}
+
+	return {
+		language: input.language,
+		voice: input.voice ?? DEFAULT_DRAFT_VOICE,
+	};
+}

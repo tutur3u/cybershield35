@@ -5,6 +5,7 @@ import {
 	automatedDraftPolicy,
 	facebookPageIdentity,
 } from "@/lib/domain/facebook-page-policy";
+import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
 
 describe("Facebook page policy", () => {
 	test("uses a stable Facebook ID before the mutable username", () => {
@@ -32,6 +33,7 @@ describe("Facebook page policy", () => {
 		).toMatchObject({
 			draftKind: "response",
 			generationReason: "trusted_constructive_content",
+			voice: DEFAULT_DRAFT_VOICE,
 		});
 		expect(
 			automatedDraftPolicy({
@@ -41,6 +43,7 @@ describe("Facebook page policy", () => {
 		).toMatchObject({
 			draftKind: "counter_argument",
 			generationReason: "at_risk_page",
+			voice: DEFAULT_DRAFT_VOICE,
 		});
 	});
 

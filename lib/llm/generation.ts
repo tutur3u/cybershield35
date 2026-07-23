@@ -4,7 +4,8 @@ import { generateText, Output } from "ai";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import {
-	DEFAULT_DRAFT_WRITING_BRIEF,
+	draftWritingBriefForMode,
+	type DraftGenerationMode,
 	NATURAL_VIETNAMESE_WRITING_GUIDANCE,
 } from "@/lib/domain/draft-style";
 import {
@@ -128,6 +129,7 @@ export async function generateCounterArgument(options: {
 	length: string;
 	operatorNotes?: string | null;
 	draftKind?: "response" | "comment" | "counter_argument" | "internal_brief";
+	generationMode?: DraftGenerationMode;
 }): Promise<CounterArgumentOutput> {
 	const model = getModel();
 	if (!model || options.evidence.length === 0) {
@@ -145,7 +147,9 @@ export async function generateCounterArgument(options: {
 			`You create internal communication drafts for human review. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
 		prompt: JSON.stringify({
 			task: `Prepare an evidence-only ${options.draftKind ?? "counter_argument"} draft.`,
-			defaultWritingBrief: DEFAULT_DRAFT_WRITING_BRIEF,
+			writingBrief: draftWritingBriefForMode(
+				options.generationMode ?? "operator",
+			),
 			...options,
 		}),
 	});
@@ -178,7 +182,7 @@ export async function reviseCounterArgument(options: {
 			`You revise internal communication drafts for human review. Follow the operator's editing instruction while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
 		prompt: JSON.stringify({
 			task: "Revise the existing draft without introducing unsupported claims.",
-			defaultWritingBrief: DEFAULT_DRAFT_WRITING_BRIEF,
+			writingBrief: draftWritingBriefForMode("operator"),
 			...options,
 		}),
 	});

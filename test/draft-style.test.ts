@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	AUTOMATIC_DRAFT_WRITING_BRIEF,
 	DEFAULT_DRAFT_VOICE,
 	DEFAULT_DRAFT_WRITING_BRIEF,
 	DRAFT_TONES,
@@ -8,6 +9,8 @@ import {
 	DRAFT_VOICES,
 	DRAFT_VOICE_OPTIONS,
 	NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+	draftWritingBriefForMode,
+	resolveDraftGenerationStyle,
 } from "@/lib/domain/draft-style";
 
 describe("AI draft style", () => {
@@ -17,6 +20,28 @@ describe("AI draft style", () => {
 		expect(DRAFT_VOICES).toContain(DEFAULT_DRAFT_VOICE);
 		expect(DRAFT_TONE_OPTIONS.every((option) => option.description)).toBe(true);
 		expect(DRAFT_VOICE_OPTIONS.every((option) => option.description)).toBe(true);
+	});
+
+	test("forces automatic drafts to natural Vietnamese defaults", () => {
+		expect(
+			resolveDraftGenerationStyle({
+				language: "English",
+				mode: "automatic",
+				voice: "Chuyên nghiệp, chuẩn mực",
+			}),
+		).toEqual({
+			language: "vi",
+			voice: DEFAULT_DRAFT_VOICE,
+		});
+		expect(draftWritingBriefForMode("automatic")).toBe(
+			AUTOMATIC_DRAFT_WRITING_BRIEF,
+		);
+		expect(AUTOMATIC_DRAFT_WRITING_BRIEF.automation.join(" ")).toContain(
+			"do not sound templated",
+		);
+		expect(AUTOMATIC_DRAFT_WRITING_BRIEF.automation.join(" ")).toContain(
+			"Never mention automation",
+		);
 	});
 
 	test("requires native, fluent Vietnamese instead of translated AI prose", () => {

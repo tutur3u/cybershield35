@@ -23,7 +23,7 @@ import {
 	resolveScanProvider,
 	type ScanProviderOverride,
 } from "@/lib/domain/provider-override";
-import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
+import { resolveDraftGenerationStyle } from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
 import {
 	analyzeEvidence,
@@ -760,6 +760,12 @@ export async function generateDraftForScan(
 			.limit(1);
 		if (existing) return existing;
 	}
+	const generationMode = options.automationKey ? "automatic" : "operator";
+	const generationStyle = resolveDraftGenerationStyle({
+		language: options.language,
+		mode: generationMode,
+		voice: options.voice,
+	});
 	const evidence = await adminDb
 		.select()
 		.from(evidenceItems)
@@ -782,11 +788,12 @@ export async function generateDraftForScan(
 			quote: item.quote,
 			summary: item.summary,
 		})),
-		language: options.language,
+		generationMode,
+		language: generationStyle.language,
 		length: options.length,
 		operatorNotes: options.operatorNotes,
 		tone: options.tone,
-		voice: options.voice ?? DEFAULT_DRAFT_VOICE,
+		voice: generationStyle.voice,
 	});
 
 	const actor = options.actor ?? { displayName: "Hệ thống", id: "system" };
@@ -801,7 +808,7 @@ export async function generateDraftForScan(
 				createdByUserId: actor.id,
 				draftKind: options.draftKind ?? "counter_argument",
 				evidenceItemId: options.evidenceId,
-				language: options.language,
+				language: generationStyle.language,
 				length: options.length,
 				operatorNotes: options.operatorNotes,
 				originatingChatId: options.originatingChatId,
@@ -809,7 +816,7 @@ export async function generateDraftForScan(
 				scanJobId: scanId,
 				status: "needs_review",
 				tone: options.tone,
-				voice: options.voice ?? DEFAULT_DRAFT_VOICE,
+				voice: generationStyle.voice,
 				updatedByDisplayName: actor.displayName,
 				updatedByUserId: actor.id,
 				automationKey: options.automationKey,

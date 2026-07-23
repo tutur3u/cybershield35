@@ -1,3 +1,5 @@
+import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
+
 export type FacebookPageClassification =
 	| "uncategorized"
 	| "trusted"
@@ -51,7 +53,7 @@ export function automatedDraftPolicy(input: {
 			operatorNotes:
 				"Kiểm tra từng tuyên bố, phản biện bằng đúng bằng chứng được cung cấp và nêu rõ điều chưa thể xác minh. Không suy diễn chỉ dựa trên phân loại nguồn.",
 			tone: "Bình tĩnh, chính xác, tôn trọng",
-			voice: "Tự nhiên, gần gũi",
+			voice: DEFAULT_DRAFT_VOICE,
 		};
 	}
 
@@ -68,7 +70,7 @@ export function automatedDraftPolicy(input: {
 		operatorNotes:
 			"Soạn nội dung chia sẻ tích cực, tóm lược giá trị thông tin và giữ nguyên các giới hạn của bằng chứng. Không thêm tuyên bố mới.",
 		tone: "Tích cực, rõ ràng, hữu ích",
-		voice: "Ấm áp, đồng cảm",
+		voice: DEFAULT_DRAFT_VOICE,
 	};
 }
 
