@@ -650,6 +650,7 @@ export const counterArgumentDrafts = pgTable(
 		automationKey: text("automation_key"),
 		generationReason: text("generation_reason"),
 		tone: text("tone").notNull(),
+		voice: text("voice").default("Tự nhiên, gần gũi").notNull(),
 		audience: text("audience").notNull(),
 		language: text("language").default("vi").notNull(),
 		length: text("length").default("medium").notNull(),

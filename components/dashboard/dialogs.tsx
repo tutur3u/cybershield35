@@ -346,6 +346,8 @@ export function CounterArgumentDialog(props: {
 	onClose: () => void;
 	tone: string;
 	setTone: (value: string) => void;
+	voice: string;
+	setVoice: (value: string) => void;
 	audience: string;
 	setAudience: (value: string) => void;
 	language: string;
@@ -376,6 +378,12 @@ export function CounterArgumentDialog(props: {
 					value={props.tone}
 					onChange={props.setTone}
 					options={composerOptions.tones}
+				/>
+				<Select
+					label="Voice / Giọng văn"
+					value={props.voice}
+					onChange={props.setVoice}
+					options={composerOptions.voices}
 				/>
 				<Select
 					label="Đối tượng"

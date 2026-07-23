@@ -445,6 +445,7 @@ export async function deleteEvidenceRecord(options: {
 export async function generateDraft(options: {
 	selectedScanId: string;
 	tone: string;
+	voice: string;
 	audience: string;
 	language: string;
 	length: string;
@@ -462,6 +463,7 @@ export async function generateDraft(options: {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					tone: options.tone,
+					voice: options.voice,
 					audience: options.audience,
 					language: options.language,
 					length: options.length,
@@ -554,6 +556,8 @@ export async function updateDraftBody(options: {
 export async function rewriteDraftWithAi(options: {
 	draft: DraftShape;
 	instruction: string;
+	tone: string;
+	voice: string;
 	setDraft: (draft: DraftShape) => void;
 	setNotice: (notice: string) => void;
 }) {
@@ -562,7 +566,11 @@ export async function rewriteDraftWithAi(options: {
 			method: "POST",
 			cache: "no-store",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ instruction: options.instruction }),
+			body: JSON.stringify({
+				instruction: options.instruction,
+				tone: options.tone,
+				voice: options.voice,
+			}),
 		});
 		const payload = await response.json().catch(() => null);
 		if (!response.ok) {

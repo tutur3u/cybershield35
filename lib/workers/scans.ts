@@ -23,6 +23,7 @@ import {
 	resolveScanProvider,
 	type ScanProviderOverride,
 } from "@/lib/domain/provider-override";
+import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
 import {
 	analyzeEvidence,
@@ -737,6 +738,7 @@ export async function generateDraftForScan(
 	scanId: string,
 	options: {
 		tone: string;
+		voice?: string;
 		audience: string;
 		language: string;
 		length: string;
@@ -784,6 +786,7 @@ export async function generateDraftForScan(
 		length: options.length,
 		operatorNotes: options.operatorNotes,
 		tone: options.tone,
+		voice: options.voice ?? DEFAULT_DRAFT_VOICE,
 	});
 
 	const actor = options.actor ?? { displayName: "Hệ thống", id: "system" };
@@ -806,6 +809,7 @@ export async function generateDraftForScan(
 				scanJobId: scanId,
 				status: "needs_review",
 				tone: options.tone,
+				voice: options.voice ?? DEFAULT_DRAFT_VOICE,
 				updatedByDisplayName: actor.displayName,
 				updatedByUserId: actor.id,
 				automationKey: options.automationKey,
@@ -876,6 +880,8 @@ export async function updateDraftContent(
 		mode: "ai" | "manual";
 		operatorNotes?: string | null;
 		safetyNotes?: unknown[];
+		tone?: string;
+		voice?: string;
 	},
 ) {
 	const draft = await adminDb.transaction(async (tx) => {
@@ -902,9 +908,11 @@ export async function updateDraftContent(
 				operatorNotes: options.operatorNotes ?? existing.operatorNotes,
 				safetyNotes,
 				status: "needs_review",
+				tone: options.tone ?? existing.tone,
 				updatedAt: new Date(),
 				updatedByDisplayName: options.actor.displayName,
 				updatedByUserId: options.actor.id,
+				voice: options.voice ?? existing.voice,
 			})
 			.where(eq(counterArgumentDrafts.id, id))
 			.returning();
@@ -936,6 +944,8 @@ export async function reviseDraftWithAi(
 	options: {
 		actor: { displayName: string | null; id: string };
 		instruction: string;
+		tone: string;
+		voice: string;
 	},
 ) {
 	const [draft] = await adminDb
@@ -962,7 +972,8 @@ export async function reviseDraftWithAi(
 		instruction: options.instruction,
 		language: draft.language,
 		length: draft.length,
-		tone: draft.tone,
+		tone: options.tone,
+		voice: options.voice,
 	});
 
 	return updateDraftContent(id, {
@@ -972,6 +983,8 @@ export async function reviseDraftWithAi(
 		mode: "ai",
 		operatorNotes: options.instruction,
 		safetyNotes: output.safetyNotes,
+		tone: options.tone,
+		voice: options.voice,
 	});
 }
 

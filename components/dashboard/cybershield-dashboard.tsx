@@ -259,8 +259,11 @@ export function CyberShieldDashboard({
 			(hydratedInitialData?.detail?.drafts?.[0] as DraftShape | undefined) ??
 			null,
 	);
-	const [tone, setTone] = useState(
+	const [tone, setTone] = useState<string>(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
+	);
+	const [voice, setVoice] = useState<string>(
+		composerOptions.voices[0] ?? "Tự nhiên, gần gũi",
 	);
 	const [audience, setAudience] = useState(
 		composerOptions.audiences[0] ?? "Công chúng chung",
@@ -552,10 +555,10 @@ export function CyberShieldDashboard({
 			if (success) invalidateDashboardQueries(draftToReview.scanJobId);
 			return success;
 		},
-		onRewriteDraft: async (draftToRewrite, instruction) => {
+		onRewriteDraft: async (draftToRewrite, options) => {
 			const updated = await rewriteDraftWithAi({
 				draft: draftToRewrite,
-				instruction,
+				...options,
 				setDraft,
 				setNotice,
 			});
@@ -647,6 +650,8 @@ export function CyberShieldDashboard({
 				onClose={() => setDraftDialogOpen(false)}
 				tone={tone}
 				setTone={setTone}
+				voice={voice}
+				setVoice={setVoice}
 				audience={audience}
 				setAudience={setAudience}
 				language={language}
@@ -660,6 +665,7 @@ export function CyberShieldDashboard({
 					generateDraft({
 						selectedScanId: activeScanId,
 						tone,
+						voice,
 						audience,
 						language,
 						length,

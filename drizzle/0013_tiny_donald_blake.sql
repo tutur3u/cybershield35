@@ -1,0 +1,1 @@
+ALTER TABLE "counter_argument_drafts" ADD COLUMN "voice" text DEFAULT 'Tự nhiên, gần gũi' NOT NULL;

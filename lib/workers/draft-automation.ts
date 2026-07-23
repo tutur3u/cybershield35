@@ -60,6 +60,7 @@ export async function processNextAutomatedDraftJob() {
 			length: "medium",
 			operatorNotes: policy.operatorNotes,
 			tone: policy.tone,
+			voice: policy.voice,
 		});
 
 		await adminDb

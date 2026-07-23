@@ -15,6 +15,10 @@ import {
 	UsersRound,
 	type LucideIcon,
 } from "lucide-react";
+import {
+	DRAFT_TONES,
+	DRAFT_VOICES,
+} from "@/lib/domain/draft-style";
 
 import type { ReportSpec } from "@/components/dashboard/types";
 
@@ -174,7 +178,8 @@ export const sourceModeIcons = {
 };
 
 export const composerOptions = {
-	tones: ["Điềm tĩnh, khách quan", "Ngắn gọn, trực diện", "Giải thích thân thiện"],
+	tones: [...DRAFT_TONES],
+	voices: [...DRAFT_VOICES],
 	audiences: ["Công chúng chung", "Cán bộ truyền thông", "Nhóm chuyên môn"],
 	languages: ["Tiếng Việt", "English"],
 	lengths: ["Ngắn", "Trung bình", "Dài"],

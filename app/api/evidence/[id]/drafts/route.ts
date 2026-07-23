@@ -5,6 +5,10 @@ import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardIntelligence, revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { adminDb } from "@/lib/db/client";
 import { evidenceItems } from "@/lib/db/schema";
+import {
+	DEFAULT_DRAFT_TONE,
+	DEFAULT_DRAFT_VOICE,
+} from "@/lib/domain/draft-style";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
@@ -16,7 +20,8 @@ const bodySchema = z
 		language: z.string().trim().min(2).max(40).default("vi"),
 		length: z.string().trim().min(1).max(40).default("medium"),
 		operatorNotes: z.string().trim().max(2000).optional(),
-		tone: z.string().trim().min(1).max(120).default("Điềm tĩnh, khách quan"),
+		tone: z.string().trim().min(1).max(120).default(DEFAULT_DRAFT_TONE),
+		voice: z.string().trim().min(1).max(120).default(DEFAULT_DRAFT_VOICE),
 	})
 	.strict();
 

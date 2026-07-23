@@ -2,10 +2,15 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
+import {
+	DEFAULT_DRAFT_TONE,
+	DEFAULT_DRAFT_VOICE,
+} from "@/lib/domain/draft-style";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 const bodySchema = z.object({
-	tone: z.string().min(1).default("Điềm tĩnh, khách quan"),
+	tone: z.string().min(1).default(DEFAULT_DRAFT_TONE),
+	voice: z.string().min(1).default(DEFAULT_DRAFT_VOICE),
 	audience: z.string().min(1).default("Công chúng chung"),
 	language: z.string().min(2).default("vi"),
 	length: z.string().min(1).default("medium"),

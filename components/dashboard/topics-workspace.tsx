@@ -32,8 +32,11 @@ export function TopicsWorkspace() {
 	const [isDrafting, setIsDrafting] = useState(false);
 	const [, setDraft] = useState<DraftShape | null>(null);
 	const [notice, setNotice] = useState("");
-	const [tone, setTone] = useState(
+	const [tone, setTone] = useState<string>(
 		composerOptions.tones[0] ?? "Điềm tĩnh, khách quan",
+	);
+	const [voice, setVoice] = useState<string>(
+		composerOptions.voices[0] ?? "Tự nhiên, gần gũi",
 	);
 	const [audience, setAudience] = useState(
 		composerOptions.audiences[0] ?? "Công chúng chung",
@@ -79,6 +82,8 @@ export function TopicsWorkspace() {
 					onClose={() => setDialogOpen(false)}
 					tone={tone}
 					setTone={setTone}
+					voice={voice}
+					setVoice={setVoice}
 					audience={audience}
 					setAudience={setAudience}
 					language={language}
@@ -102,6 +107,7 @@ export function TopicsWorkspace() {
 							setIsDrafting,
 							setNotice,
 							tone,
+							voice,
 						});
 						if (success) {
 							void queryClient.invalidateQueries({

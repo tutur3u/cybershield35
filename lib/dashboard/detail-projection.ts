@@ -47,6 +47,7 @@ export function toClientScanDetail(
 			scanJobId: draft.scanJobId,
 			status: draft.status,
 			tone: draft.tone,
+			voice: draft.voice,
 			updatedAt: draft.updatedAt,
 		})),
 		providerRuns: detail.providerRuns?.map((run) => ({

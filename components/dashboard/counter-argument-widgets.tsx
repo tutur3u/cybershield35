@@ -26,6 +26,12 @@ import {
 	SecondaryButton,
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
+import {
+	DEFAULT_DRAFT_TONE,
+	DEFAULT_DRAFT_VOICE,
+	DRAFT_TONES,
+	DRAFT_VOICES,
+} from "@/lib/domain/draft-style";
 
 export function SourceDetail({
 	analysis,
@@ -95,7 +101,7 @@ export function DraftReview({
 	) => Promise<boolean>;
 	onRewrite: (
 		draft: DraftShape,
-		instruction: string,
+		options: { instruction: string; tone: string; voice: string },
 	) => Promise<DraftShape | null>;
 	onSave: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	scanId?: string;
@@ -106,6 +112,9 @@ export function DraftReview({
 	const [editMode, setEditMode] = useState<"ai" | "manual" | null>(null);
 	const [editedBody, setEditedBody] = useState("");
 	const [instruction, setInstruction] = useState("");
+	const [selectedTone, setSelectedTone] = useState<string>(DEFAULT_DRAFT_TONE);
+	const [selectedVoice, setSelectedVoice] =
+		useState<string>(DEFAULT_DRAFT_VOICE);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState("");
 
@@ -147,7 +156,11 @@ export function DraftReview({
 		if (!draft || isSaving || prompt.length < 3) return;
 		setIsSaving(true);
 		setFeedback("");
-		const updated = await onRewrite(draft, prompt);
+		const updated = await onRewrite(draft, {
+			instruction: prompt,
+			tone: selectedTone,
+			voice: selectedVoice,
+		});
 		if (updated) {
 			setEditedBody(updated.body);
 			setInstruction("");
@@ -247,9 +260,26 @@ export function DraftReview({
 									placeholder="Ví dụ: Viết ngắn gọn hơn, giữ giọng điềm tĩnh và làm rõ các luận điểm có bằng chứng."
 									className="w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
 								/>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<DraftStyleSelect
+										id={`draft-ai-tone-${draft.id}`}
+										label="Giọng điệu"
+										value={selectedTone}
+										options={DRAFT_TONES}
+										onChange={setSelectedTone}
+									/>
+									<DraftStyleSelect
+										id={`draft-ai-voice-${draft.id}`}
+										label="Giọng văn"
+										value={selectedVoice}
+										options={DRAFT_VOICES}
+										onChange={setSelectedVoice}
+									/>
+								</div>
 								<p className="text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">
-									AI chỉ được dùng bằng chứng của scan này. Nội dung sau khi sửa sẽ
-									quay lại trạng thái cần duyệt.
+									AI viết tiếng Việt tự nhiên theo giọng đã chọn và chỉ dùng bằng
+									chứng của scan này. Nội dung sau khi sửa sẽ quay lại trạng thái
+									cần duyệt.
 								</p>
 								<div className="flex flex-wrap justify-end gap-2">
 									<SecondaryButton disabled={isSaving} onClick={cancelEdit}>
@@ -292,6 +322,8 @@ export function DraftReview({
 								disabled={isSaving || editMode !== null}
 								onClick={() => {
 									setFeedback("");
+									setSelectedTone(draft.tone ?? DEFAULT_DRAFT_TONE);
+									setSelectedVoice(draft.voice ?? DEFAULT_DRAFT_VOICE);
 									setEditMode("ai");
 								}}
 							>
@@ -325,6 +357,33 @@ export function DraftReview({
 				</p>
 			</div>
 		</Panel>
+	);
+}
+
+function DraftStyleSelect(props: {
+	id: string;
+	label: string;
+	onChange: (value: string) => void;
+	options: readonly string[];
+	value: string;
+}) {
+	return (
+		<label
+			htmlFor={props.id}
+			className="text-[11px] font-bold text-[var(--muted-strong)]"
+		>
+			{props.label}
+			<select
+				id={props.id}
+				value={props.value}
+				onChange={(event) => props.onChange(event.target.value)}
+				className="mt-2 h-10 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-[12px] text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
+			>
+				{props.options.map((option) => (
+					<option key={option}>{option}</option>
+				))}
+			</select>
+		</label>
 	);
 }
 

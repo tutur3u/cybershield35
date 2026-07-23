@@ -8,6 +8,8 @@ const paramsSchema = z.object({ id: z.uuid() }).strict();
 const bodySchema = z
 	.object({
 		instruction: z.string().trim().min(3).max(2_000),
+		tone: z.string().trim().min(1).max(120),
+		voice: z.string().trim().min(1).max(120),
 	})
 	.strict();
 
@@ -29,6 +31,8 @@ export async function POST(
 				id: auth.session.user.id,
 			},
 			instruction: input.instruction,
+			tone: input.tone,
+			voice: input.voice,
 		});
 		if (!draft) {
 			return Response.json(

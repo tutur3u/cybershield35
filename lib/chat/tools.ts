@@ -20,6 +20,10 @@ import {
 	evidenceItems,
 	type EvidenceTriageStatus,
 } from "@/lib/db/schema";
+import {
+	DEFAULT_DRAFT_TONE,
+	DEFAULT_DRAFT_VOICE,
+} from "@/lib/domain/draft-style";
 import { fetchWorkspaceMembersForRequest } from "@/lib/workspace-members/proxy";
 import { createScan, getScanDetail, listScansPage } from "@/lib/workers/scans";
 
@@ -135,7 +139,8 @@ export function createChatTools(context: ToolContext) {
 				language: z.string().trim().min(1).max(40).default("vi"),
 				length: z.string().trim().min(1).max(40).default("medium"),
 				scanId: z.string().uuid().optional(),
-				tone: z.string().trim().min(1).max(120).default("Điềm tĩnh, khách quan"),
+				tone: z.string().trim().min(1).max(120).default(DEFAULT_DRAFT_TONE),
+				voice: z.string().trim().min(1).max(120).default(DEFAULT_DRAFT_VOICE),
 			}).refine((value) => Boolean(value.evidenceId || value.scanId), "Cần evidenceId hoặc scanId."),
 			needsApproval: true,
 			execute: async (input, options) =>
@@ -167,6 +172,7 @@ export function createChatTools(context: ToolContext) {
 								scanJobId,
 								status: "needs_review",
 								tone: input.tone,
+								voice: input.voice,
 								updatedByDisplayName: context.actor.displayName,
 								updatedByUserId: context.actor.id,
 							})

@@ -206,7 +206,8 @@ function DraftMetaPanel({ draft }: { draft: DashboardPageProps["draft"] }) {
 				<DetailGrid
 					rows={[
 						["Draft ID", draft?.id ?? "Chưa có"],
-						["Tone", draft?.tone ?? "Chưa đặt"],
+						["Giọng điệu", draft?.tone ?? "Chưa đặt"],
+						["Giọng văn", draft?.voice ?? "Chưa đặt"],
 						["Audience", draft?.audience ?? "Chưa đặt"],
 						["Language", draft?.language ?? "vi"],
 						["Length", draft?.length ?? "medium"],

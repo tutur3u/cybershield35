@@ -35,6 +35,7 @@ export async function GET(request: Request) {
 				scanJobId: counterArgumentDrafts.scanJobId,
 				status: counterArgumentDrafts.status,
 				tone: counterArgumentDrafts.tone,
+				voice: counterArgumentDrafts.voice,
 				updatedAt: counterArgumentDrafts.updatedAt,
 				evidenceQuote: evidenceItems.quote,
 			})

@@ -343,6 +343,7 @@ export type DraftShape = {
 	scanJobId?: string;
 	status?: DraftStatus;
 	tone?: string;
+	voice?: string;
 	audience?: string;
 	language?: string;
 	length?: string;

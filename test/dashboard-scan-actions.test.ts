@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import {
+	generateDraft,
 	reviewDraft,
 	rewriteDraftWithAi,
 	runScanRecord,
@@ -115,6 +116,8 @@ describe("dashboard scan actions", () => {
 		const result = await rewriteDraftWithAi({
 			draft,
 			instruction: "Viết ngắn gọn hơn",
+			tone: "Giải thích thân thiện",
+			voice: "Tự nhiên, gần gũi",
 			setDraft: (value) => {
 				updatedBody = value.body;
 			},
@@ -126,7 +129,58 @@ describe("dashboard scan actions", () => {
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97/rewrite",
 			expect.objectContaining({
-				body: JSON.stringify({ instruction: "Viết ngắn gọn hơn" }),
+				body: JSON.stringify({
+					instruction: "Viết ngắn gọn hơn",
+					tone: "Giải thích thân thiện",
+					voice: "Tự nhiên, gần gũi",
+				}),
+				method: "POST",
+			}),
+		);
+	});
+
+	test("sends the selected tone and voice when generating a draft", async () => {
+		let savedDraft = "";
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json({
+					draft: {
+						body: "Bản nháp tự nhiên",
+						id: "9f829684-0182-4824-aa8f-446448076d97",
+					},
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await generateDraft({
+			audience: "Công chúng chung",
+			language: "Tiếng Việt",
+			length: "Trung bình",
+			operatorNotes: "",
+			selectedScanId: "367f0107-77e5-448e-9aec-97b442000001",
+			setDraft: (value) => {
+				savedDraft = value.body;
+			},
+			setIsDrafting: () => {},
+			setNotice: () => {},
+			tone: "Thuyết phục, tôn trọng",
+			voice: "Đối thoại, giàu tính thuyết phục",
+		});
+
+		expect(result).toBe(true);
+		expect(savedDraft).toBe("Bản nháp tự nhiên");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/scans/367f0107-77e5-448e-9aec-97b442000001/counter-arguments",
+			expect.objectContaining({
+				body: JSON.stringify({
+					tone: "Thuyết phục, tôn trọng",
+					voice: "Đối thoại, giàu tính thuyết phục",
+					audience: "Công chúng chung",
+					language: "Tiếng Việt",
+					length: "Trung bình",
+					operatorNotes: "",
+				}),
 				method: "POST",
 			}),
 		);

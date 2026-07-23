@@ -101,7 +101,7 @@ export type DashboardPageProps = {
 	) => Promise<boolean>;
 	onRewriteDraft: (
 		draft: DraftShape,
-		instruction: string,
+		options: { instruction: string; tone: string; voice: string },
 	) => Promise<DraftShape | null>;
 	onSaveDraft: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	reports: ReportSpec[];
