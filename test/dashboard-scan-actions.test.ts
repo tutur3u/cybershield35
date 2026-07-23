@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { reviewDraft, runScanRecord } from "@/components/dashboard/client-actions";
+import {
+	reviewDraft,
+	rewriteDraftWithAi,
+	runScanRecord,
+	updateDraftBody,
+} from "@/components/dashboard/client-actions";
 import type { DashboardScan, ScanDetail } from "@/components/dashboard/types";
 
 const originalFetch = globalThis.fetch;
@@ -42,6 +47,88 @@ describe("dashboard scan actions", () => {
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97/review",
 			expect.objectContaining({ method: "POST" }),
+		);
+	});
+
+	test("saves a manual draft edit and updates the visible draft", async () => {
+		const draft = {
+			body: "Nội dung ban đầu",
+			id: "9f829684-0182-4824-aa8f-446448076d97",
+			scanJobId: "367f0107-77e5-448e-9aec-97b442000001",
+			status: "approved" as const,
+		};
+		let updatedBody = draft.body;
+		let notice = "";
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json({
+					draft: {
+						...draft,
+						body: "Nội dung đã sửa",
+						status: "needs_review",
+					},
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await updateDraftBody({
+			body: "Nội dung đã sửa",
+			draft,
+			setDraft: (value) => {
+				updatedBody = value.body;
+			},
+			setNotice: (value) => {
+				notice = value;
+			},
+		});
+
+		expect(result?.status).toBe("needs_review");
+		expect(updatedBody).toBe("Nội dung đã sửa");
+		expect(notice).toContain("cần duyệt");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97",
+			expect.objectContaining({
+				body: JSON.stringify({ body: "Nội dung đã sửa" }),
+				method: "PATCH",
+			}),
+		);
+	});
+
+	test("applies an AI draft edit through the dedicated rewrite endpoint", async () => {
+		const draft = {
+			body: "Nội dung ban đầu",
+			id: "9f829684-0182-4824-aa8f-446448076d97",
+			scanJobId: "367f0107-77e5-448e-9aec-97b442000001",
+			status: "needs_review" as const,
+		};
+		let updatedBody = draft.body;
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				Response.json({
+					draft: { ...draft, body: "Nội dung ngắn gọn hơn" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const result = await rewriteDraftWithAi({
+			draft,
+			instruction: "Viết ngắn gọn hơn",
+			setDraft: (value) => {
+				updatedBody = value.body;
+			},
+			setNotice: () => {},
+		});
+
+		expect(result?.body).toBe("Nội dung ngắn gọn hơn");
+		expect(updatedBody).toBe("Nội dung ngắn gọn hơn");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97/rewrite",
+			expect.objectContaining({
+				body: JSON.stringify({ instruction: "Viết ngắn gọn hơn" }),
+				method: "POST",
+			}),
 		);
 	});
 

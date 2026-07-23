@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const useWebpackBuild = process.env.NEXT_WEBPACK_BUILD === "1";
+
 const securityHeaders = [
 	{ key: "X-Content-Type-Options", value: "nosniff" },
 	{ key: "X-Frame-Options", value: "DENY" },
@@ -28,7 +30,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
 	cacheComponents: true,
 	partialPrefetching: true,
-	reactCompiler: true,
+	reactCompiler: !useWebpackBuild,
 	experimental: {
 		instantInsights: {
 			validationLevel: "warning",
@@ -37,8 +39,12 @@ const nextConfig: NextConfig = {
 			dynamic: 120,
 			static: 300,
 		},
-		turbopackFileSystemCacheForBuild: true,
-		turbopackRustReactCompiler: true,
+		...(useWebpackBuild
+			? {}
+			: {
+					turbopackFileSystemCacheForBuild: true,
+					turbopackRustReactCompiler: true,
+				}),
 	},
 	transpilePackages: ["@tuturuuu/ui", "@tuturuuu/icons", "@tuturuuu/utils"],
 	async headers() {

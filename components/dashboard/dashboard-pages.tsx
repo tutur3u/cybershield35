@@ -95,7 +95,15 @@ export type DashboardPageProps = {
 	onRunSchedulerJob: (
 		jobKey: "enqueue-tracked-sources" | "process-queue",
 	) => Promise<void>;
-	onReview: (status: "needs_review" | "approved" | "rejected") => Promise<boolean>;
+	onReview: (
+		draft: DraftShape,
+		status: "needs_review" | "approved" | "rejected",
+	) => Promise<boolean>;
+	onRewriteDraft: (
+		draft: DraftShape,
+		instruction: string,
+	) => Promise<DraftShape | null>;
+	onSaveDraft: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	reports: ReportSpec[];
 };
 
@@ -175,8 +183,11 @@ export function CounterArgumentsPage(props: DashboardPageProps) {
 					analysis={props.analysis}
 				/>
 				<DraftReview
+					key={props.draft?.id ?? "counter-argument-empty"}
 					draft={props.draft}
 					onReview={props.onReview}
+					onRewrite={props.onRewriteDraft}
+					onSave={props.onSaveDraft}
 					scanId={props.selectedScanId}
 				/>
 				<div className="xl:col-span-2">

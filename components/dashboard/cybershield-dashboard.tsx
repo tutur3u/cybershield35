@@ -22,10 +22,12 @@ import {
 	deleteTrackedSourceRecord,
 	generateDraft,
 	reviewDraft,
+	rewriteDraftWithAi,
 	runScanRecord,
 	runManagedSchedulerJobNow,
 	sendChatMessage,
 	scanTrackedSource,
+	updateDraftBody,
 	updateEvidenceRecord,
 	updateScanRecord,
 	updateTrackedSourceRecord,
@@ -540,19 +542,35 @@ export function CyberShieldDashboard({
 			}).then((success) => {
 				if (success) invalidateDashboardQueries();
 			}),
-		onReview: async (status) => {
-			if (!activeDraft) {
-				setNotice("Chưa có bản nháp live để duyệt.");
-				return false;
-			}
+		onReview: async (draftToReview, status) => {
 			const success = await reviewDraft({
-				draft: activeDraft,
+				draft: draftToReview,
 				setDraft,
 				setNotice,
 				status,
 			});
-			if (success) invalidateDashboardQueries(activeDraft.scanJobId);
+			if (success) invalidateDashboardQueries(draftToReview.scanJobId);
 			return success;
+		},
+		onRewriteDraft: async (draftToRewrite, instruction) => {
+			const updated = await rewriteDraftWithAi({
+				draft: draftToRewrite,
+				instruction,
+				setDraft,
+				setNotice,
+			});
+			if (updated) invalidateDashboardQueries(updated.scanJobId);
+			return updated;
+		},
+		onSaveDraft: async (draftToSave, body) => {
+			const updated = await updateDraftBody({
+				body,
+				draft: draftToSave,
+				setDraft,
+				setNotice,
+			});
+			if (updated) invalidateDashboardQueries(updated.scanJobId);
+			return updated;
 		},
 		reports,
 	};

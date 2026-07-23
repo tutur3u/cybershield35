@@ -63,8 +63,11 @@ export function ScanDetailsPage(
 					<AnalysisSummary analysis={props.analysis} />
 					<TopicPanel evidence={props.evidence} topics={props.topics} />
 					<DraftReview
+						key={props.draft?.id ?? "scan-draft-empty"}
 						draft={props.draft}
 						onReview={props.onReview}
+						onRewrite={props.onRewriteDraft}
+						onSave={props.onSaveDraft}
 						scanId={props.selectedScanId}
 					/>
 				</div>
@@ -99,8 +102,11 @@ export function DraftDetailsPage(props: DashboardPageProps & { draftId?: string 
 			/>
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<DraftReview
+					key={draftShape?.id ?? "draft-detail-empty"}
 					draft={draftShape}
 					onReview={props.onReview}
+					onRewrite={props.onRewriteDraft}
+					onSave={props.onSaveDraft}
 					scanId={props.selectedScanId}
 				/>
 				<DraftMetaPanel draft={draftShape} />
@@ -114,10 +120,12 @@ function toDraftShape(
 	draft: Partial<DraftShape> | null | undefined,
 	fallback: DraftShape | null,
 ): DraftShape | null {
+	const matchingFallback = fallback?.id === draft?.id ? fallback : null;
 	const id = draft?.id ?? fallback?.id;
-	const body = draft?.body ?? fallback?.body;
+	const body = matchingFallback?.body ?? draft?.body ?? fallback?.body;
 	if (!id || !body) return null;
-	return { ...fallback, ...draft, id, body };
+	if (draft) return { ...draft, ...matchingFallback, id, body };
+	return { ...fallback, id, body };
 }
 
 function ScanStatusStrip(props: DashboardPageProps) {

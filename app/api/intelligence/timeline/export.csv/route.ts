@@ -53,6 +53,6 @@ export async function GET(request: Request) {
 	}
 }
 
-export function csvRow(values: Array<number | string>) {
+function csvRow(values: Array<number | string>) {
 	return values.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",");
 }

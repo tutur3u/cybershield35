@@ -146,6 +146,37 @@ export async function generateCounterArgument(options: {
 	return output;
 }
 
+export async function reviseCounterArgument(options: {
+	audience: string;
+	currentBody: string;
+	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary">>;
+	instruction: string;
+	language: string;
+	length: string;
+	tone: string;
+}): Promise<CounterArgumentOutput> {
+	const model = getModel();
+	if (!model || options.evidence.length === 0) {
+		throw new Error(
+			!model
+				? "LLM provider is not configured"
+				: "Cannot revise a response without evidence",
+		);
+	}
+
+	const { output } = await generateText({
+		model,
+		output: Output.object({ schema: counterArgumentOutputSchema }),
+		system:
+			"You revise internal communication drafts for human review. Follow the operator's editing instruction while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language.",
+		prompt: JSON.stringify({
+			task: "Revise the existing draft without introducing unsupported claims.",
+			...options,
+		}),
+	});
+	return output;
+}
+
 export async function generateChatReply(
 	messages: ChatInputMessage[],
 ): Promise<ChatReplyOutput> {

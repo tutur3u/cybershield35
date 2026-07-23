@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, max } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -24,7 +24,11 @@ import {
 	type ScanProviderOverride,
 } from "@/lib/domain/provider-override";
 import { detectSource } from "@/lib/domain/source-detection";
-import { analyzeEvidence, generateCounterArgument } from "@/lib/llm/generation";
+import {
+	analyzeEvidence,
+	generateCounterArgument,
+	reviseCounterArgument,
+} from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
 import {
 	runtimeKeySummary,
@@ -861,6 +865,114 @@ export async function reviewDraft(
 	});
 	await refreshIntelligenceRollupsBestEffort(`draft-reviewed:${id}`);
 	return draft;
+}
+
+export async function updateDraftContent(
+	id: string,
+	options: {
+		actor: { displayName: string | null; id: string };
+		body: string;
+		citations?: unknown[];
+		mode: "ai" | "manual";
+		operatorNotes?: string | null;
+		safetyNotes?: unknown[];
+	},
+) {
+	const draft = await adminDb.transaction(async (tx) => {
+		const [existing] = await tx
+			.select()
+			.from(counterArgumentDrafts)
+			.where(eq(counterArgumentDrafts.id, id))
+			.limit(1)
+			.for("update");
+		if (!existing) return null;
+
+		const [versionRow] = await tx
+			.select({ version: max(counterArgumentDraftVersions.version) })
+			.from(counterArgumentDraftVersions)
+			.where(eq(counterArgumentDraftVersions.draftId, id));
+		const citations = options.citations ?? existing.citations;
+		const safetyNotes = options.safetyNotes ?? existing.safetyNotes;
+
+		const [updated] = await tx
+			.update(counterArgumentDrafts)
+			.set({
+				body: options.body,
+				citations,
+				operatorNotes: options.operatorNotes ?? existing.operatorNotes,
+				safetyNotes,
+				status: "needs_review",
+				updatedAt: new Date(),
+				updatedByDisplayName: options.actor.displayName,
+				updatedByUserId: options.actor.id,
+			})
+			.where(eq(counterArgumentDrafts.id, id))
+			.returning();
+		if (!updated) return null;
+
+		await tx.insert(counterArgumentDraftVersions).values({
+			actorDisplayName: options.actor.displayName,
+			actorUserId: options.actor.id,
+			body: updated.body,
+			citations: updated.citations,
+			draftId: updated.id,
+			safetyNotes: updated.safetyNotes,
+			version: (versionRow?.version ?? 0) + 1,
+		});
+		return updated;
+	});
+
+	if (!draft) return null;
+	await writeAudit("counter_argument_draft", id, "draft_content_updated", {
+		editorUserId: options.actor.id,
+		mode: options.mode,
+	});
+	await refreshIntelligenceRollupsBestEffort(`draft-updated:${id}`);
+	return draft;
+}
+
+export async function reviseDraftWithAi(
+	id: string,
+	options: {
+		actor: { displayName: string | null; id: string };
+		instruction: string;
+	},
+) {
+	const [draft] = await adminDb
+		.select()
+		.from(counterArgumentDrafts)
+		.where(eq(counterArgumentDrafts.id, id))
+		.limit(1);
+	if (!draft) return null;
+
+	const evidence = await adminDb
+		.select()
+		.from(evidenceItems)
+		.where(eq(evidenceItems.scanJobId, draft.scanJobId))
+		.orderBy(desc(evidenceItems.createdAt))
+		.limit(8);
+	const output = await reviseCounterArgument({
+		audience: draft.audience,
+		currentBody: draft.body,
+		evidence: evidence.map((item) => ({
+			id: item.id,
+			quote: item.quote,
+			summary: item.summary,
+		})),
+		instruction: options.instruction,
+		language: draft.language,
+		length: draft.length,
+		tone: draft.tone,
+	});
+
+	return updateDraftContent(id, {
+		actor: options.actor,
+		body: output.body,
+		citations: output.citations,
+		mode: "ai",
+		operatorNotes: options.instruction,
+		safetyNotes: output.safetyNotes,
+	});
 }
 
 export async function heartbeat(

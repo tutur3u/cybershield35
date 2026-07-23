@@ -519,6 +519,75 @@ export async function reviewDraft(options: {
 	}
 }
 
+export async function updateDraftBody(options: {
+	body: string;
+	draft: DraftShape;
+	setDraft: (draft: DraftShape) => void;
+	setNotice: (notice: string) => void;
+}) {
+	try {
+		const response = await fetch(`/api/drafts/${options.draft.id}`, {
+			method: "PATCH",
+			cache: "no-store",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ body: options.body }),
+		});
+		const payload = await response.json().catch(() => null);
+		if (!response.ok) {
+			throw new Error(
+				payload?.error ?? `Không thể lưu bản nháp (${response.status})`,
+			);
+		}
+		const updated = payload?.draft as DraftShape | undefined;
+		if (!updated) throw new Error("Phản hồi lưu bản nháp không hợp lệ.");
+		options.setDraft(updated);
+		options.setNotice("Đã lưu nội dung và chuyển bản nháp về trạng thái cần duyệt.");
+		return updated;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error ? error.message : "Không thể lưu bản nháp",
+		);
+		return null;
+	}
+}
+
+export async function rewriteDraftWithAi(options: {
+	draft: DraftShape;
+	instruction: string;
+	setDraft: (draft: DraftShape) => void;
+	setNotice: (notice: string) => void;
+}) {
+	try {
+		const response = await fetch(`/api/drafts/${options.draft.id}/rewrite`, {
+			method: "POST",
+			cache: "no-store",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ instruction: options.instruction }),
+		});
+		const payload = await response.json().catch(() => null);
+		if (!response.ok) {
+			throw new Error(
+				payload?.error ??
+					`Không thể chỉnh sửa bản nháp bằng AI (${response.status})`,
+			);
+		}
+		const updated = payload?.draft as DraftShape | undefined;
+		if (!updated) throw new Error("Phản hồi chỉnh sửa bằng AI không hợp lệ.");
+		options.setDraft(updated);
+		options.setNotice(
+			"AI đã cập nhật nội dung. Bản nháp cần được người vận hành duyệt lại.",
+		);
+		return updated;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error
+				? error.message
+				: "Không thể chỉnh sửa bản nháp bằng AI",
+		);
+		return null;
+	}
+}
+
 export async function sendChatMessage(options: {
 	messages: ChatMessage[];
 	content: string;
