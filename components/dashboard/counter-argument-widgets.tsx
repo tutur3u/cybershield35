@@ -19,6 +19,7 @@ import type {
 	ScanDetail,
 } from "@/components/dashboard/types";
 import { DraftStylePicker } from "@/components/dashboard/draft-style-picker";
+import { ExportActions } from "@/components/dashboard/export-actions";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	Panel,
@@ -348,6 +349,21 @@ export function DraftReview({
 							>
 								{pendingStatus === "approved" ? <LoaderCircle className="animate-spin" size={14} /> : <CheckCircle2 size={14} />} Phê duyệt
 							</button>
+						</div>
+						<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+							<div className="mb-2">
+								<p className="text-[11px] font-bold text-[var(--foreground)]">
+									Xuất bản nháp
+								</p>
+								<p className="mt-0.5 text-[10px] leading-4 text-[var(--muted)]">
+									Tải Word, PDF hoặc bản đọc tiếng Việt bằng Google Gemini.
+								</p>
+							</div>
+							<ExportActions
+								content={draft.body}
+								fileName={`ban-nhap-${draft.id}`}
+								title="Bản nháp phản hồi CyberShield35"
+							/>
 						</div>
 						{feedback ? <p aria-live="polite" className={`rounded-md px-3 py-2 text-[11px] font-bold ${feedback.startsWith("Không") ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--success-soft)] text-[var(--success-strong)]"}`}>{feedback}</p> : null}
 					</>

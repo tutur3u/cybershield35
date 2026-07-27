@@ -1,9 +1,10 @@
 "use client";
 
-import { ClipboardCopy, Download, FileBarChart } from "lucide-react";
+import { ClipboardCopy, FileBarChart } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
+import { ExportActions } from "@/components/dashboard/export-actions";
 import type {
 	AnalysisView,
 	DashboardScan,
@@ -11,7 +12,7 @@ import type {
 	EvidenceView,
 	ReportSpec,
 } from "@/components/dashboard/types";
-import { PrimaryButton, SecondaryButton } from "@/components/dashboard/ui-primitives";
+import { PrimaryButton } from "@/components/dashboard/ui-primitives";
 
 export function ReportDialog({
 	analysis,
@@ -50,20 +51,6 @@ export function ReportDialog({
 		}
 	}
 
-	function downloadReport() {
-		if (!report) return;
-		const blob = new Blob([reportText], { type: "text/plain;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		const anchor = document.createElement("a");
-		anchor.href = url;
-		anchor.download = `${report.kind}-cybershield35-report.txt`;
-		document.body.append(anchor);
-		anchor.click();
-		anchor.remove();
-		URL.revokeObjectURL(url);
-		setStatus("Đã tạo tệp báo cáo .txt trong trình duyệt.");
-	}
-
 	return (
 		<Dialog
 			open={open}
@@ -89,9 +76,12 @@ export function ReportDialog({
 					<PrimaryButton onClick={copyReport}>
 						<ClipboardCopy size={15} /> Sao chép
 					</PrimaryButton>
-					<SecondaryButton onClick={downloadReport}>
-						<Download size={14} /> Tải .txt
-					</SecondaryButton>
+					<ExportActions
+						compact
+						content={reportText}
+						fileName={`${report.kind}-cybershield35-report`}
+						title={`CyberShield35 - ${report.title}`}
+					/>
 					{status ? (
 						<p className="rounded-md bg-[var(--success-soft)] p-3 text-[12px] font-semibold text-[var(--success-strong)]">
 							{status}
