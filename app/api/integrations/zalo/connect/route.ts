@@ -1,6 +1,7 @@
 import { actorFromAuth } from "@/lib/chat/http";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { logOperation } from "@/lib/operations/telemetry";
 import {
 	buildZaloAuthorizationUrl,
 	getZaloConfig,
@@ -44,6 +45,14 @@ export async function GET(request: Request) {
 		if (auth.setCookie) response.headers.append("Set-Cookie", auth.setCookie);
 		return response;
 	} catch (error) {
+		logOperation(
+			"zalo_oauth_start_failed",
+			{
+				errorType: error instanceof Error ? error.name : "UnknownError",
+				reason: safeOauthStartFailureReason(error),
+			},
+			"error",
+		);
 		return Response.json(
 			{
 				error: publicErrorMessage(
@@ -54,4 +63,20 @@ export async function GET(request: Request) {
 			{ status: 500, headers: authHeaders(auth) },
 		);
 	}
+}
+
+function safeOauthStartFailureReason(error: unknown) {
+	if (!(error instanceof Error)) return "unknown";
+	for (const key of [
+		"ZALO_APP_ID",
+		"ZALO_APP_SECRET",
+		"ZALO_REDIRECT_URI",
+		"ZALO_TOKEN_ENCRYPTION_KEY",
+	] as const) {
+		if (error.message.includes(key)) return `${key.toLowerCase()}_invalid`;
+	}
+	if (/key length|invalid key/iu.test(error.message)) {
+		return "zalo_token_encryption_key_invalid";
+	}
+	return "unknown";
 }
