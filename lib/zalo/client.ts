@@ -255,10 +255,10 @@ async function exchangeToken(input: {
 		method: "POST",
 	});
 	const body = await response.json().catch(() => null);
-	if (!response.ok) {
+	if (!response.ok || hasZaloError(body)) {
 		throw new ZaloApiError(
 			zaloErrorMessage(body, "Không thể đổi mã ủy quyền Zalo."),
-			response.status,
+			response.ok ? 502 : response.status,
 			body,
 		);
 	}

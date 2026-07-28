@@ -162,6 +162,29 @@ describe("Zalo OA security and article contract", () => {
 		expect(result.refreshToken).toBe("rotating-refresh-token");
 	});
 
+	test("treats a Zalo OAuth error body as a provider failure even with HTTP 200", async () => {
+		globalThis.fetch = mock(async () =>
+			Response.json({
+				error: -14068,
+				message: "OA permission was not granted.",
+			}),
+		) as unknown as typeof fetch;
+		const { exchangeZaloAuthorizationCode } = await import("@/lib/zalo/client");
+
+		await expect(
+			exchangeZaloAuthorizationCode({
+				code: "rejected-code",
+				codeVerifier: "pkce-verifier",
+			}),
+		).rejects.toMatchObject({
+			details: {
+				error: -14068,
+			},
+			name: "ZaloApiError",
+			status: 502,
+		});
+	});
+
 	test("loads the OA profile through the current v2 contract", async () => {
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		globalThis.fetch = mock(
