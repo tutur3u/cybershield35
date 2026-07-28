@@ -110,7 +110,7 @@ export function getAllowedAiModels() {
 		.filter(Boolean);
 	return configured?.length
 		? [...new Set(configured)]
-		: ["google/gemini-3.6-flash", "google/gemini-3.1-flash-lite"];
+		: ["google/gemini-3.1-flash-lite", "google/gemini-3.6-flash"];
 }
 
 export function getInteractiveModelRuntime(
