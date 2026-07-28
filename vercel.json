@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/scans/enqueue-tracked-sources",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/articles/process-publication-queue",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

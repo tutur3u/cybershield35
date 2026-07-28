@@ -27,7 +27,7 @@ import {
 	chatAttachments,
 	chatModelRuns,
 } from "@/lib/db/schema";
-import { getChatModelRuntime } from "@/lib/llm/generation";
+import { getInteractiveModelRuntime } from "@/lib/llm/generation";
 
 export const maxDuration = 60;
 
@@ -52,7 +52,10 @@ export async function POST(
 			);
 		}
 
-		const runtime = getChatModelRuntime();
+		const runtime = getInteractiveModelRuntime(
+			auth.session,
+			conversation.model,
+		);
 		if (!runtime) {
 			return Response.json({ error: "LLM provider is not configured" }, { status: 503 });
 		}
@@ -111,14 +114,24 @@ export async function POST(
 				"Mọi nguồn phải trỏ tới ID và liên kết nội bộ chuẩn. Không tiết lộ bí mật hay nội dung tệp ngoài Chat hiện tại.",
 				"Không bao giờ xuất bản, bình luận hoặc gửi nội dung ra hệ thống bên ngoài. Bản nháp luôn cần con người duyệt.",
 				"Các công cụ ghi yêu cầu phê duyệt rõ ràng trước khi thực thi.",
+				conversation.pinnedContext.length
+					? `Ngữ cảnh được ghim: ${JSON.stringify(conversation.pinnedContext)}`
+					: "Không có ngữ cảnh được ghim.",
 			].join("\n"),
+			temperature: conversation.temperature / 100,
 			model: runtime.model,
 			stopWhen: stepCountIs(8),
 			tools,
 		});
 		type AgentUIMessage = InferAgentUIMessage<typeof agent>;
 		const messages = await validateUIMessages<AgentUIMessage>({
-			messages: [...chat.messages.filter((message) => message.id !== incoming.id), incoming],
+			messages: trimMessagesToBudget(
+				[
+					...chat.messages.filter((message) => message.id !== incoming.id),
+					incoming,
+				],
+				conversation.contextBudget,
+			),
 			tools,
 		});
 
@@ -200,6 +213,22 @@ export async function POST(
 			{ status: 500, headers: authHeaders(auth) },
 		);
 	}
+}
+
+function trimMessagesToBudget(
+	messages: ChatUIMessage[],
+	contextBudget: number,
+) {
+	const characterBudget = contextBudget * 3;
+	const kept: ChatUIMessage[] = [];
+	let used = 0;
+	for (const message of messages.toReversed()) {
+		const size = JSON.stringify(message).length;
+		if (kept.length > 0 && used + size > characterBudget) break;
+		kept.push(message);
+		used += size;
+	}
+	return kept.reverse();
 }
 
 function attachmentIdsFromMessage(message: ChatUIMessage) {

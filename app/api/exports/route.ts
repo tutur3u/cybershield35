@@ -43,7 +43,9 @@ export async function POST(request: Request) {
 				: input.format === "pdf"
 					? await createPdfExport(input)
 					: await generateVietnameseSpeech(input.content, {
+							accessToken: auth.session.accessToken,
 							signal: request.signal,
+							workspaceId: auth.session.workspaceId,
 						});
 		const format = formats[input.format];
 		const fileName = safeFileName(input.fileName);

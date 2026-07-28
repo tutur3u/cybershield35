@@ -3,6 +3,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
+import type { ArticleContent } from "@/lib/articles/schemas";
+import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import {
 	draftWritingBriefForMode,
 	type DraftGenerationMode,
@@ -17,8 +19,10 @@ import {
 
 import {
 	analysisOutputSchema,
+	articleAiOutputSchema,
 	counterArgumentOutputSchema,
 	type AnalysisOutput,
+	type ArticleAiOutput,
 	type CounterArgumentOutput,
 } from "./schemas";
 
@@ -94,6 +98,53 @@ function getModelRuntime() {
 
 export function getChatModelRuntime() {
 	return getModelRuntime();
+}
+
+export function getAllowedAiModels() {
+	const configured = process.env.AI_MODEL_ALLOWLIST?.split(",")
+		.map((value) => value.trim())
+		.filter(Boolean);
+	return configured?.length
+		? [...new Set(configured)]
+		: ["gemini-2.5-flash", "gemini-2.5-pro"];
+}
+
+export function getInteractiveModelRuntime(
+	session: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">,
+	requestedModel?: string | null,
+) {
+	const allowed = getAllowedAiModels();
+	const model =
+		requestedModel && allowed.includes(requestedModel)
+			? requestedModel
+			: process.env.TUTURUUU_AI_MODEL?.trim() || allowed[0]!;
+	if (
+		session.accessToken !== "local-dev-bypass" &&
+		session.workspaceId &&
+		session.accessToken.startsWith("ttr_app_")
+	) {
+		const provider = createOpenAI({
+			apiKey: session.accessToken,
+			baseURL:
+				process.env.TUTURUUU_AI_BASE_URL?.trim() ??
+				"https://ai.tuturuuu.com/v1",
+			headers: {
+				"X-Tuturuuu-Workspace-Id": session.workspaceId,
+			},
+			name: "tuturuuu-ai",
+		});
+		return {
+			model: provider(model),
+			resolved: {
+				model,
+				provider: "tuturuuu" as const,
+				source: "external-app-session" as const,
+			},
+		};
+	}
+	const fallback = getModelRuntime();
+	if (!fallback) return null;
+	return fallback;
 }
 
 function getModel() {
@@ -208,6 +259,54 @@ export async function generateChatReply(
 		provider: resolvedModel.resolved.provider,
 		credentialSource: resolvedModel.resolved.source,
 	};
+}
+
+export async function generateArticleRevision(options: {
+	action:
+		| "draft"
+		| "outline"
+		| "rewrite"
+		| "shorten"
+		| "expand"
+		| "title_description"
+		| "claim_check";
+	content: ArticleContent;
+	context?: string;
+	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary">>;
+	instruction?: string;
+	session: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
+	tone: string;
+	voice: string;
+}): Promise<ArticleAiOutput> {
+	const runtime = getInteractiveModelRuntime(options.session);
+	if (!runtime) throw new Error("LLM provider is not configured");
+	const { output } = await generateText({
+		model: runtime.model,
+		output: Output.object({ schema: articleAiOutputSchema }),
+		system: [
+			"Bạn là biên tập viên tiếng Việt cho CyberShield35.",
+			"Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
+			"Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
+			"Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+			NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+		].join(" "),
+		prompt: JSON.stringify({
+			action: options.action,
+			currentArticle: options.content,
+			evidence: options.evidence,
+			extraContext: options.context,
+			instruction: options.instruction,
+			outputRequirements: {
+				keepImageBlocksUnlessAsked: true,
+				returnCompleteArticle: true,
+				reviewNotes:
+					"Liệt kê ngắn các điểm cần kiểm tra; claim_check không tự sửa dữ kiện chưa đủ căn cứ.",
+			},
+			tone: options.tone,
+			voice: options.voice,
+		}),
+	});
+	return output;
 }
 
 function buildChatPrompt(messages: ChatInputMessage[]) {

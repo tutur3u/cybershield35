@@ -93,6 +93,41 @@ export const chatRunStatusEnum = pgEnum("chat_run_status", [
 	"aborted",
 ]);
 
+export const articleReviewStatusEnum = pgEnum("article_review_status", [
+	"draft",
+	"needs_review",
+	"approved",
+	"rejected",
+]);
+
+export const articlePublicationStatusEnum = pgEnum(
+	"article_publication_status",
+	[
+		"not_synced",
+		"syncing",
+		"hidden",
+		"scheduled",
+		"publishing",
+		"published",
+		"failed",
+	],
+);
+
+export const articlePublicationOperationEnum = pgEnum(
+	"article_publication_operation",
+	["sync_hidden", "publish", "hide", "update_visible"],
+);
+
+export const articlePublicationJobStatusEnum = pgEnum(
+	"article_publication_job_status",
+	["queued", "running", "completed", "retrying", "failed", "cancelled"],
+);
+
+export const promptPresetVisibilityEnum = pgEnum("prompt_preset_visibility", [
+	"private",
+	"workspace",
+]);
+
 export const evidenceTriageStatusEnum = pgEnum("evidence_triage_status", [
 	"new",
 	"reviewing",
@@ -133,12 +168,21 @@ export const scanJobs = pgTable(
 		completedAt: timestamp("completed_at", { withTimezone: true }),
 		lockedAt: timestamp("locked_at", { withTimezone: true }),
 		errorMessage: text("error_message"),
+		clientRequestId: text("client_request_id"),
+		parentScanJobId: uuid("parent_scan_job_id"),
+		requestedByUserId: text("requested_by_user_id"),
+		requestedByDisplayName: text("requested_by_display_name"),
+		trigger: text("trigger").default("manual").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		index("scan_jobs_queue_idx").on(table.status, table.scheduledAt, table.priority),
 		index("scan_jobs_source_idx").on(table.sourceId),
+		index("scan_jobs_parent_idx").on(table.parentScanJobId),
+		uniqueIndex("scan_jobs_client_request_unique")
+			.on(table.clientRequestId)
+			.where(sql`${table.clientRequestId} is not null`),
 		index("scan_jobs_status_created_idx").on(table.status, table.createdAt),
 		index("scan_jobs_created_at_idx").on(table.createdAt),
 	],
@@ -444,6 +488,20 @@ export const chatConversations = pgTable(
 		archivedAt: timestamp("archived_at", { withTimezone: true }),
 		deletedAt: timestamp("deleted_at", { withTimezone: true }),
 		lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+		model: text("model"),
+		temperature: integer("temperature").default(70).notNull(),
+		contextBudget: integer("context_budget").default(32000).notNull(),
+		pinnedContext: jsonb("pinned_context")
+			.$type<
+				Array<{
+					href?: string;
+					id: string;
+					label: string;
+					type: "scan" | "evidence" | "topic" | "draft" | "article";
+				}>
+			>()
+			.default([])
+			.notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
@@ -459,6 +517,33 @@ export const chatConversations = pgTable(
 			table.updatedAt,
 		),
 		index("chat_conversations_fork_idx").on(table.forkedFromId),
+	],
+);
+
+export const aiPromptPresets = pgTable(
+	"ai_prompt_presets",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		ownerUserId: text("owner_user_id").notNull(),
+		ownerDisplayName: text("owner_display_name"),
+		name: text("name").notNull(),
+		description: text("description"),
+		instructions: text("instructions").notNull(),
+		tone: text("tone"),
+		voice: text("voice"),
+		visibility: promptPresetVisibilityEnum("visibility").default("private").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("ai_prompt_presets_owner_updated_idx").on(
+			table.ownerUserId,
+			table.updatedAt,
+		),
+		index("ai_prompt_presets_visibility_updated_idx").on(
+			table.visibility,
+			table.updatedAt,
+		),
 	],
 );
 
@@ -755,6 +840,231 @@ export const counterArgumentDraftVersions = pgTable(
 		index("counter_argument_draft_versions_draft_created_idx").on(
 			table.draftId,
 			table.createdAt,
+		),
+	],
+);
+
+export const zaloOaConnections = pgTable(
+	"zalo_oa_connections",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		oaId: text("oa_id").notNull(),
+		displayName: text("display_name").notNull(),
+		avatarUrl: text("avatar_url"),
+		accessTokenEncrypted: text("access_token_encrypted").notNull(),
+		refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+		accessTokenExpiresAt: timestamp("access_token_expires_at", {
+			withTimezone: true,
+		}).notNull(),
+		refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+			withTimezone: true,
+		}).notNull(),
+		scopes: jsonb("scopes").$type<string[]>().default([]).notNull(),
+		isDefault: boolean("is_default").default(false).notNull(),
+		status: text("status").default("connected").notNull(),
+		lastError: text("last_error"),
+		connectedByUserId: text("connected_by_user_id").notNull(),
+		connectedByDisplayName: text("connected_by_display_name"),
+		updatedByUserId: text("updated_by_user_id").notNull(),
+		updatedByDisplayName: text("updated_by_display_name"),
+		lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("zalo_oa_connections_oa_unique").on(table.oaId),
+		uniqueIndex("zalo_oa_connections_default_unique")
+			.on(table.isDefault)
+			.where(sql`${table.isDefault} = true`),
+		index("zalo_oa_connections_status_updated_idx").on(
+			table.status,
+			table.updatedAt,
+		),
+	],
+);
+
+export const articles = pgTable(
+	"articles",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		title: text("title").default("").notNull(),
+		author: text("author").default("").notNull(),
+		description: text("description").default("").notNull(),
+		coverUrl: text("cover_url"),
+		coverStoragePath: text("cover_storage_path"),
+		blocks: jsonb("blocks")
+			.$type<
+				Array<
+					| { id: string; type: "text"; content: string }
+					| { id: string; type: "image"; url: string; caption?: string }
+				>
+			>()
+			.default([])
+			.notNull(),
+		commentsEnabled: boolean("comments_enabled").default(true).notNull(),
+		reviewStatus: articleReviewStatusEnum("review_status")
+			.default("draft")
+			.notNull(),
+		publicationStatus: articlePublicationStatusEnum("publication_status")
+			.default("not_synced")
+			.notNull(),
+		targetOaConnectionId: uuid("target_oa_connection_id").references(
+			() => zaloOaConnections.id,
+			{ onDelete: "set null" },
+		),
+		originScanJobId: uuid("origin_scan_job_id").references(() => scanJobs.id, {
+			onDelete: "set null",
+		}),
+		originEvidenceItemId: uuid("origin_evidence_item_id").references(
+			() => evidenceItems.id,
+			{ onDelete: "set null" },
+		),
+		originDraftId: uuid("origin_draft_id").references(
+			() => counterArgumentDrafts.id,
+			{ onDelete: "set null" },
+		),
+		originatingChatId: uuid("originating_chat_id").references(
+			() => chatConversations.id,
+			{ onDelete: "set null" },
+		),
+		remoteArticleId: text("remote_article_id"),
+		remoteOperationToken: text("remote_operation_token"),
+		contentHash: text("content_hash").notNull(),
+		syncedContentHash: text("synced_content_hash"),
+		scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+		lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+		publishedAt: timestamp("published_at", { withTimezone: true }),
+		remoteSnapshot: jsonb("remote_snapshot")
+			.$type<Record<string, unknown>>()
+			.default({})
+			.notNull(),
+		lastError: text("last_error"),
+		createdByUserId: text("created_by_user_id").notNull(),
+		createdByDisplayName: text("created_by_display_name"),
+		updatedByUserId: text("updated_by_user_id").notNull(),
+		updatedByDisplayName: text("updated_by_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("articles_status_updated_idx").on(
+			table.publicationStatus,
+			table.updatedAt,
+		),
+		index("articles_review_updated_idx").on(table.reviewStatus, table.updatedAt),
+		index("articles_oa_updated_idx").on(
+			table.targetOaConnectionId,
+			table.updatedAt,
+		),
+		index("articles_schedule_idx").on(table.publicationStatus, table.scheduledAt),
+		index("articles_remote_idx").on(table.remoteArticleId),
+	],
+);
+
+export const articleVersions = pgTable(
+	"article_versions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		articleId: uuid("article_id")
+			.notNull()
+			.references(() => articles.id, { onDelete: "cascade" }),
+		version: integer("version").notNull(),
+		origin: text("origin").default("manual").notNull(),
+		instruction: text("instruction"),
+		snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+		actorUserId: text("actor_user_id").notNull(),
+		actorDisplayName: text("actor_display_name"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("article_versions_article_version_unique").on(
+			table.articleId,
+			table.version,
+		),
+		index("article_versions_article_created_idx").on(
+			table.articleId,
+			table.createdAt,
+		),
+	],
+);
+
+export const articleMedia = pgTable(
+	"article_media",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		articleId: uuid("article_id")
+			.notNull()
+			.references(() => articles.id, { onDelete: "cascade" }),
+		kind: text("kind").notNull(),
+		fileName: text("file_name").notNull(),
+		contentType: text("content_type").notNull(),
+		sizeBytes: integer("size_bytes").notNull(),
+		drivePath: text("drive_path"),
+		storageProvider: text("storage_provider"),
+		sourceUrl: text("source_url"),
+		createdByUserId: text("created_by_user_id").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("article_media_article_created_idx").on(table.articleId, table.createdAt)],
+);
+
+export const articleEvidence = pgTable(
+	"article_evidence",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		articleId: uuid("article_id")
+			.notNull()
+			.references(() => articles.id, { onDelete: "cascade" }),
+		evidenceItemId: uuid("evidence_item_id")
+			.notNull()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("article_evidence_unique").on(
+			table.articleId,
+			table.evidenceItemId,
+		),
+		index("article_evidence_evidence_idx").on(table.evidenceItemId),
+	],
+);
+
+export const articlePublicationJobs = pgTable(
+	"article_publication_jobs",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		articleId: uuid("article_id")
+			.notNull()
+			.references(() => articles.id, { onDelete: "cascade" }),
+		operation: articlePublicationOperationEnum("operation").notNull(),
+		status: articlePublicationJobStatusEnum("status").default("queued").notNull(),
+		scheduledAt: timestamp("scheduled_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		attempts: integer("attempts").default(0).notNull(),
+		maxAttempts: integer("max_attempts").default(4).notNull(),
+		lockedAt: timestamp("locked_at", { withTimezone: true }),
+		remoteOperationToken: text("remote_operation_token"),
+		requestFingerprint: text("request_fingerprint").notNull(),
+		errorMessage: text("error_message"),
+		requestedByUserId: text("requested_by_user_id").notNull(),
+		requestedByDisplayName: text("requested_by_display_name"),
+		completedAt: timestamp("completed_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("article_publication_jobs_queue_idx").on(
+			table.status,
+			table.scheduledAt,
+			table.lockedAt,
+		),
+		index("article_publication_jobs_article_idx").on(
+			table.articleId,
+			table.createdAt,
+		),
+		uniqueIndex("article_publication_jobs_fingerprint_unique").on(
+			table.requestFingerprint,
 		),
 	],
 );

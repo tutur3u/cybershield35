@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
 	type Dispatch,
 	type SetStateAction,
@@ -25,7 +26,6 @@ import {
 	rewriteDraftWithAi,
 	runScanRecord,
 	runManagedSchedulerJobNow,
-	sendChatMessage,
 	scanTrackedSource,
 	updateDraftBody,
 	updateEvidenceRecord,
@@ -154,10 +154,6 @@ const ReportPresetDialog = dynamic(
 	() => loadDialogs().then((module) => module.ReportPresetDialog),
 	{ loading: () => <DeferredDialogLoading />, ssr: false },
 );
-const ChatDialog = dynamic(
-	() => import("@/components/dashboard/chat-dialog").then((mod) => mod.ChatDialog),
-	{ loading: () => <DeferredDialogLoading label="Đang tải cửa sổ chat" />, ssr: false },
-);
 const ReportDialog = dynamic(
 	() =>
 		import("@/components/dashboard/report-dialog").then(
@@ -197,6 +193,7 @@ export function CyberShieldDashboard({
 	scanId,
 	topicSlug,
 }: CyberShieldDashboardProps) {
+	const router = useRouter();
 	const layoutAuth = useDashboardAuthState();
 	const auth: AuthViewState = initialAuth ?? layoutAuth ?? { authenticated: false };
 	const requirements = dashboardSnapshotRequirements(page);
@@ -281,10 +278,8 @@ export function CyberShieldDashboard({
 		useState<ReportSpec | null>(null);
 	const [customReports, setCustomReports] = useState<ReportSpec[]>([]);
 	const [hiddenReportKinds, setHiddenReportKinds] = useState<string[]>([]);
-	const [chatDialogOpen, setChatDialogOpen] = useState(false);
-	const [chatDraft, setChatDraft] = useState("");
-	const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
-	const [isChatting, setIsChatting] = useState(false);
+	const chatMessages: ChatMessage[] = initialChatMessages;
+	const isChatting = false;
 	const [scanEditDialogOpen, setScanEditDialogOpen] = useState(false);
 	const [scanBeingEdited, setScanBeingEdited] = useState<DashboardScan | null>(
 		null,
@@ -430,8 +425,10 @@ export function CyberShieldDashboard({
 		onOpenScan: () => setScanDialogOpen(true),
 		onOpenDraft: () => setDraftDialogOpen(true),
 		onOpenChatComposer: (preset) => {
-			setChatDraft(preset ?? "");
-			setChatDialogOpen(true);
+			const query = preset?.trim()
+				? `?prompt=${encodeURIComponent(preset.trim())}`
+				: "";
+			router.push(`/chat${query}`);
 		},
 		onPrepareReport: (report) => {
 			setSelectedReport(report);
@@ -626,7 +623,7 @@ export function CyberShieldDashboard({
 				providerOverride={scanProviderOverride}
 				setProviderOverride={setScanProviderOverride}
 				isCreating={isCreating}
-				onCreate={() =>
+				onCreate={(runMode) =>
 					createScan({
 						inputMode,
 						urlInput,
@@ -637,6 +634,7 @@ export function CyberShieldDashboard({
 						setScans,
 						setSelectedScanId,
 						setNotice,
+						runMode,
 					}).then((success) => {
 						if (success) invalidateDashboardQueries();
 						return success;
@@ -747,24 +745,6 @@ export function CyberShieldDashboard({
 				analysis={analysis}
 				evidence={evidence}
 				draft={activeDraft}
-					/>
-				) : null}
-				{chatDialogOpen ? (
-					<ChatDialog
-					open
-				onClose={() => setChatDialogOpen(false)}
-				draft={chatDraft}
-				setDraft={setChatDraft}
-				isSending={isChatting}
-				onSend={(content) =>
-					sendChatMessage({
-						messages: chatMessages,
-						content,
-						setIsChatting,
-						setMessages: setChatMessages,
-						setNotice,
-					})
-				}
 					/>
 				) : null}
 			</>

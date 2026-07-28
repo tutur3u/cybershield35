@@ -38,7 +38,9 @@ describe("first-class Chat platform", () => {
 		const route = read("app/api/chat/conversations/[id]/messages/route.ts");
 		const tools = read("lib/chat/tools.ts");
 		expect(route).toContain("stepCountIs(8)");
-		expect(tools.match(/needsApproval: true/g)?.length).toBe(3);
+		expect(tools.match(/needsApproval: true/g)?.length).toBe(6);
+		expect(tools).not.toContain("publishArticle");
+		expect(tools).not.toContain("scheduleArticle");
 		expect(tools).toContain("createDraft");
 		expect(tools).toContain("createScanFromAttachment");
 		expect(tools).toContain("updateEvidenceTriage");

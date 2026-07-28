@@ -10,6 +10,17 @@ const ChatWorkspace = dynamic(
 	},
 );
 
-export function ChatWorkspaceLoader({ conversationId }: { conversationId?: string }) {
-	return <ChatWorkspace conversationId={conversationId} />;
+export function ChatWorkspaceLoader({
+	conversationId,
+	initialPrompt,
+}: {
+	conversationId?: string;
+	initialPrompt?: string;
+}) {
+	return (
+		<ChatWorkspace
+			conversationId={conversationId}
+			initialPrompt={initialPrompt}
+		/>
+	);
 }

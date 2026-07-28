@@ -11,6 +11,7 @@ import {
 	MessageCircle,
 	MessageSquareText,
 	MonitorCog,
+	Newspaper,
 	Radar,
 	UsersRound,
 	type LucideIcon,
@@ -66,6 +67,7 @@ export const navSections: NavSection[] = [
 		items: [
 			{ label: "Chat", href: "/chat", icon: MessageCircle },
 			{ label: "Bản nháp", href: "/drafts", icon: MessageSquareText },
+			{ label: "Bài viết", href: "/articles", icon: Newspaper },
 			{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
 		],
 	},

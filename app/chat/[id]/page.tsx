@@ -10,8 +10,10 @@ export const prefetch = "allow-runtime";
 
 export default function ChatConversationPage({
 	params,
+	searchParams,
 }: {
 	params: Promise<{ id: string }>;
+	searchParams: Promise<{ prompt?: string }>;
 }) {
 	return (
 		<div className="space-y-5">
@@ -22,14 +24,20 @@ export default function ChatConversationPage({
 			/>
 			<QueryProvider>
 				<Suspense fallback={<div className="h-[70vh] animate-pulse rounded-xl bg-[var(--surface)]" />}>
-					<ConversationRoute params={params} />
+					<ConversationRoute params={params} searchParams={searchParams} />
 				</Suspense>
 			</QueryProvider>
 		</div>
 	);
 }
 
-async function ConversationRoute({ params }: { params: Promise<{ id: string }> }) {
-	const { id } = await params;
-	return <ChatWorkspaceLoader conversationId={id} />;
+async function ConversationRoute({
+	params,
+	searchParams,
+}: {
+	params: Promise<{ id: string }>;
+	searchParams: Promise<{ prompt?: string }>;
+}) {
+	const [{ id }, { prompt }] = await Promise.all([params, searchParams]);
+	return <ChatWorkspaceLoader conversationId={id} initialPrompt={prompt} />;
 }

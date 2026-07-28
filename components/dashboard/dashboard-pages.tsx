@@ -93,7 +93,10 @@ export type DashboardPageProps = {
 	onDeleteTrackedSource: (source: TrackedSourceView) => Promise<boolean>;
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onRunSchedulerJob: (
-		jobKey: "enqueue-tracked-sources" | "process-queue",
+		jobKey:
+			| "enqueue-tracked-sources"
+			| "process-article-publications"
+			| "process-queue",
 	) => Promise<void>;
 	onReview: (
 		draft: DraftShape,

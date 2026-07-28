@@ -68,6 +68,14 @@ mock.module("@/lib/workers/tracked-sources", () => ({
 	enqueueDueTrackedSources,
 }));
 
+mock.module("@/lib/workers/article-publications", () => ({
+	processDueArticlePublications: async () => ({ processed: 0 }),
+}));
+
+mock.module("@/lib/workers/draft-automation", () => ({
+	processNextAutomatedDraftJob: async () => ({ processed: false }),
+}));
+
 function upsertHeartbeat(
 	serviceName: string,
 	metadata: Record<string, unknown>,
@@ -157,7 +165,7 @@ describe("managed scheduler Vercel Cron routes", () => {
 			schedulerProvider: "vercel-cron",
 			setupDisabled: true,
 		});
-		expect(jobs).toHaveLength(2);
+		expect(jobs).toHaveLength(3);
 		expect(jobs[0]).toMatchObject({
 			jobKey: "process-queue",
 			lockedByDeployment: true,
@@ -168,6 +176,12 @@ describe("managed scheduler Vercel Cron routes", () => {
 			jobKey: "enqueue-tracked-sources",
 			lockedByDeployment: true,
 			schedule: "0 0 * * *",
+			scheduleTimezone: "UTC",
+		});
+		expect(jobs[2]).toMatchObject({
+			jobKey: "process-article-publications",
+			lockedByDeployment: true,
+			schedule: "*/5 * * * *",
 			scheduleTimezone: "UTC",
 		});
 		expect(globalThis.fetch).not.toHaveBeenCalled();

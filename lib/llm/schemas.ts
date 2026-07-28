@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { articleBlockSchema } from "@/lib/articles/schemas";
 
 export const analysisOutputSchema = z.object({
 	riskLevel: z.enum(["low", "medium", "high"]),
@@ -45,6 +46,18 @@ export const counterArgumentOutputSchema = z.object({
 	),
 	safetyNotes: z.array(z.string()),
 });
+
+export const articleAiOutputSchema = z.object({
+	author: z.string().trim().max(50),
+	blocks: z.array(articleBlockSchema).min(1).max(100),
+	commentsEnabled: z.boolean(),
+	coverUrl: z.string().url().nullable(),
+	description: z.string().trim().max(300),
+	reviewNotes: z.array(z.string().trim().min(1).max(500)).max(12).default([]),
+	title: z.string().trim().min(1).max(150),
+});
+
+export type ArticleAiOutput = z.infer<typeof articleAiOutputSchema>;
 
 export type AnalysisOutput = z.infer<typeof analysisOutputSchema>;
 export type CounterArgumentOutput = z.infer<typeof counterArgumentOutputSchema>;

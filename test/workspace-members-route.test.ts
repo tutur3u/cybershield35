@@ -169,6 +169,8 @@ describe("workspace members proxy routes", () => {
 					refreshToken: "refresh-token",
 					requestedScopes: [
 						"workspace:session",
+						"ai:use",
+						"tts:use",
 						"workspace:members:read",
 						"workspace:members:write",
 						"workspace:roles:read",

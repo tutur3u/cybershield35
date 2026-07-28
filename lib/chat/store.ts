@@ -120,6 +120,15 @@ export async function updateChatConversation(
 	actorId: string,
 	patch: {
 		archived?: boolean;
+		contextBudget?: number;
+		model?: string | null;
+		pinnedContext?: Array<{
+			href?: string;
+			id: string;
+			label: string;
+			type: "scan" | "evidence" | "topic" | "draft" | "article";
+		}>;
+		temperature?: number;
 		title?: string;
 		visibility?: "private" | "workspace";
 	},
@@ -132,6 +141,16 @@ export async function updateChatConversation(
 				? { archivedAt: patch.archived ? now : null }
 				: {}),
 			...(patch.title ? { title: patch.title } : {}),
+			...(patch.model !== undefined ? { model: patch.model } : {}),
+			...(patch.temperature !== undefined
+				? { temperature: Math.round(patch.temperature * 100) }
+				: {}),
+			...(patch.contextBudget !== undefined
+				? { contextBudget: patch.contextBudget }
+				: {}),
+			...(patch.pinnedContext !== undefined
+				? { pinnedContext: patch.pinnedContext }
+				: {}),
 			...(patch.visibility
 				? {
 						sharedAt: patch.visibility === "workspace" ? now : null,

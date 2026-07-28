@@ -25,6 +25,13 @@ const appTables = [
 	"counter_argument_draft_versions",
 	"facebook_page_profiles",
 	"draft_automation_jobs",
+	"ai_prompt_presets",
+	"article_evidence",
+	"article_media",
+	"article_publication_jobs",
+	"article_versions",
+	"articles",
+	"zalo_oa_connections",
 ] as const;
 
 describe("RLS migration", () => {

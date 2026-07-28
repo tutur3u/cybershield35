@@ -19,6 +19,22 @@ export const createConversationSchema = z
 export const updateConversationSchema = z
 	.object({
 		archived: z.boolean().optional(),
+		contextBudget: z.number().int().min(4_000).max(128_000).optional(),
+		model: z.string().trim().min(1).max(120).nullable().optional(),
+		pinnedContext: z
+			.array(
+				z
+					.object({
+						href: z.string().max(500).optional(),
+						id: z.string().min(1).max(120),
+						label: z.string().trim().min(1).max(200),
+						type: z.enum(["scan", "evidence", "topic", "draft", "article"]),
+					})
+					.strict(),
+			)
+			.max(20)
+			.optional(),
+		temperature: z.number().min(0).max(2).optional(),
 		title: z.string().trim().min(1).max(120).optional(),
 		visibility: chatVisibilitySchema.optional(),
 	})

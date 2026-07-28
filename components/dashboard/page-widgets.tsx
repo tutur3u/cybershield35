@@ -376,7 +376,7 @@ function countScans(scans: DashboardScan[], status: DashboardScan["status"]) {
 }
 
 function canRunScan(scan: DashboardScan) {
-	return scan.status === "queued" || scan.status === "retrying";
+	return scan.status !== "running";
 }
 
 function statColor(tone: string) {

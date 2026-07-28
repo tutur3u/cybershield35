@@ -118,7 +118,6 @@ describe("browser key entry removal", () => {
 	test("API routes reject browser runtime keys instead of parsing them", () => {
 		for (const file of [
 			"app/api/scans/route.ts",
-			"app/api/chat/route.ts",
 			"app/api/scans/[id]/counter-arguments/route.ts",
 			"app/api/tracked-sources/[id]/scan/route.ts",
 		]) {

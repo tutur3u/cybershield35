@@ -50,7 +50,7 @@ export function ScanDialog(props: {
 	providerOverride?: ScanProviderOverride;
 	setProviderOverride: (provider?: ScanProviderOverride) => void;
 	isCreating: boolean;
-	onCreate: () => Promise<boolean>;
+	onCreate: (runMode: "now" | "queue") => Promise<boolean>;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const hasInput =
@@ -86,8 +86,8 @@ export function ScanDialog(props: {
 		if (mode !== "url") props.setProviderOverride(undefined);
 	}
 
-	async function createAndClose() {
-		const created = await props.onCreate();
+	async function createAndClose(runMode: "now" | "queue") {
+		const created = await props.onCreate(runMode);
 		if (created) props.onClose();
 	}
 
@@ -96,7 +96,7 @@ export function ScanDialog(props: {
 			open={props.open}
 			onClose={props.onClose}
 			title="Tạo lượt quét mới"
-			description="Chọn loại nguồn, kiểm tra adapter được đề xuất rồi đưa scan vào hàng đợi xử lý."
+			description="Chọn nguồn và bắt đầu phân tích ngay, hoặc chủ động xếp vào hàng đợi."
 			size="wide"
 		>
 			<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -249,14 +249,23 @@ export function ScanDialog(props: {
 					<div className="grid gap-2">
 						<PrimaryButton
 							disabled={props.isCreating || !hasInput}
-							onClick={createAndClose}
+							onClick={() => createAndClose("now")}
 						>
 							<Play size={16} />
-							{props.isCreating ? "Đang đưa vào hàng đợi..." : "Tạo scan"}
+							{props.isCreating ? "Đang phân tích..." : "Quét ngay"}
 						</PrimaryButton>
+						<button
+							type="button"
+							disabled={props.isCreating || !hasInput}
+							onClick={() => createAndClose("queue")}
+							className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-55"
+						>
+							<Save size={15} />
+							Chỉ xếp hàng
+						</button>
 						<p className="text-[11px] font-semibold leading-4 text-[var(--muted)]">
-							Scan mới sẽ ở trạng thái “Đang chờ” và được job xử lý hàng đợi chạy
-							mỗi 30 phút, hoặc bạn có thể bấm xử lý ngay trong phần Tự động.
+							“Quét ngay” tạo và xử lý lượt quét trong cùng thao tác. Nếu kết nối
+							bị gián đoạn, lượt quét vẫn được lưu để bạn theo dõi mà không tạo trùng.
 						</p>
 					</div>
 				</div>

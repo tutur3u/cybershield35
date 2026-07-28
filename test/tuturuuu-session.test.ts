@@ -124,6 +124,8 @@ describe("Tuturuuu encrypted admin session", () => {
 
 		expect(getRequestedScopes()).toEqual([
 			"workspace:session",
+			"ai:use",
+			"tts:use",
 			"workspace:members:read",
 			"workspace:members:write",
 			"workspace:roles:read",
@@ -156,6 +158,8 @@ describe("Tuturuuu encrypted admin session", () => {
 		expect(approvalUrl.searchParams.get("appId")).toBe("cybershield35");
 		expect(approvalUrl.searchParams.getAll("scope")).toEqual([
 			"workspace:session",
+			"ai:use",
+			"tts:use",
 			"workspace:members:read",
 			"workspace:members:write",
 			"workspace:roles:read",

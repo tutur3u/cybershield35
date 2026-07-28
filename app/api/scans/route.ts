@@ -1,14 +1,25 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { actorFromAuth } from "@/lib/chat/http";
 import { revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
-import { createScan, listScansPage } from "@/lib/workers/scans";
+import { publicErrorMessage } from "@/lib/http/public-error";
+import {
+	createScan,
+	findScanByClientRequestId,
+	listScansPage,
+	processScanJobNow,
+} from "@/lib/workers/scans";
 
 const scanBodySchema = z.object({
 	input: z.string().min(1),
 	title: z.string().optional(),
 	providerOverride: z.literal("browser_use").optional(),
+	clientRequestId: z.string().uuid().optional(),
+	runMode: z.enum(["now", "queue"]).default("now"),
 }).strict();
+
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
 	const auth = await requireAdminSession(request);
@@ -18,6 +29,13 @@ export async function GET(request: Request) {
 
 	try {
 		const searchParams = new URL(request.url).searchParams;
+		const requestId = searchParams.get("requestId");
+		if (requestId) {
+			const scan = await findScanByClientRequestId(
+				z.string().uuid().parse(requestId),
+			);
+			return Response.json({ scan }, { headers: authHeaders(auth) });
+		}
 		const cursor = searchParams.get("cursor");
 		const limit = Number(searchParams.get("limit") ?? "25");
 		const page = await listScansPage({ cursor, limit });
@@ -35,7 +53,7 @@ export async function GET(request: Request) {
 	} catch (error) {
 		return Response.json(
 			{
-				error: error instanceof Error ? error.message : "Database unavailable",
+				error: publicErrorMessage(error, "Không thể tải danh sách scan."),
 			},
 			{ status: 503, headers: authHeaders(auth) },
 		);
@@ -50,12 +68,15 @@ export async function POST(request: Request) {
 
 	try {
 		const contentType = request.headers.get("content-type") ?? "";
+		const actor = actorFromAuth(auth);
 
 		if (contentType.includes("multipart/form-data")) {
 			const formData = await request.formData();
 			const file = formData.get("file");
 			const input = String(formData.get("input") ?? "");
 			const title = String(formData.get("title") ?? "");
+			const runMode = formData.get("runMode") === "queue" ? "queue" : "now";
+			const clientRequestId = String(formData.get("clientRequestId") ?? "");
 
 			if (!(file instanceof File)) {
 				return Response.json({ error: "Missing file upload" }, { status: 400 });
@@ -74,18 +95,33 @@ export async function POST(request: Request) {
 				fileName: file.name,
 				mimeType: file.type || "application/octet-stream",
 				fileText,
+				clientRequestId: clientRequestId || undefined,
+				requestedByDisplayName: actor.displayName,
+				requestedByUserId: actor.id,
 			});
+			const processing =
+				runMode === "now" ? await processScanJobNow(result.scanId) : null;
 			revalidateDashboardScan(result.scanId);
-			return Response.json(result, {
+			return Response.json({ ...result, processing }, {
 				status: 201,
 				headers: authHeaders(auth),
 			});
 		}
 
 		const body = scanBodySchema.parse(await request.json());
-		const result = await createScan(body);
+		const { runMode, ...scanInput } = body;
+		const result = await createScan({
+			...scanInput,
+			requestedByDisplayName: actor.displayName,
+			requestedByUserId: actor.id,
+		});
+		const processing =
+			runMode === "now" ? await processScanJobNow(result.scanId) : null;
 		revalidateDashboardScan(result.scanId);
-		return Response.json(result, { status: 201, headers: authHeaders(auth) });
+		return Response.json(
+			{ ...result, processing },
+			{ status: 201, headers: authHeaders(auth) },
+		);
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			return Response.json({ error: z.treeifyError(error) }, { status: 400 });
@@ -93,12 +129,9 @@ export async function POST(request: Request) {
 
 		return Response.json(
 			{
-				error:
-					error instanceof Error
-						? error.message
-						: "Failed to create scan",
+				error: publicErrorMessage(error, "Không thể tạo lượt quét."),
 			},
-			{ status: 500 },
+			{ status: 500, headers: authHeaders(auth) },
 		);
 	}
 }

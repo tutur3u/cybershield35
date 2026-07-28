@@ -70,6 +70,38 @@ describe("content exports", () => {
 		expect(wav.length).toBe(44 + pcm.length);
 	});
 
+	test("routes authenticated external-app TTS through Tuturuuu AI", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const wav = Buffer.from("RIFFmock-wave");
+		const fetchImpl = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+			calls.push({ input, init });
+			return new Response(wav, {
+				headers: { "Content-Type": "audio/wav" },
+			});
+		}) as typeof fetch;
+		const { generateVietnameseSpeech } = await import(
+			"@/lib/exports/google-tts"
+		);
+
+		const result = await generateVietnameseSpeech("Nội dung tiếng Việt.", {
+			accessToken: "ttr_app_session-token",
+			fetchImpl,
+			workspaceId: "workspace-1",
+		});
+		const headers = new Headers(calls[0]?.init?.headers);
+		const body = JSON.parse(String(calls[0]?.init?.body));
+
+		expect(String(calls[0]?.input)).toBe(
+			"https://ai.tuturuuu.com/v1/audio/speech",
+		);
+		expect(headers.get("Authorization")).toBe(
+			"Bearer ttr_app_session-token",
+		);
+		expect(headers.get("X-Tuturuuu-Workspace-Id")).toBe("workspace-1");
+		expect(body.model).toBe("gemini-2.5-flash-preview-tts");
+		expect(result).toEqual(wav);
+	});
+
 	test("requires authentication before producing an export", async () => {
 		delete process.env.AUTH_LOCAL_BYPASS;
 		const { POST } = await import("@/app/api/exports/route");

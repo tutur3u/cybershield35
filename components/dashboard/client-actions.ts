@@ -23,17 +23,48 @@ export async function createScan(options: {
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
 	setSelectedScanId: (id: string) => void;
 	setNotice: (notice: string) => void;
+	runMode?: "now" | "queue";
 }) {
 	options.setIsCreating(true);
+	const clientRequestId = crypto.randomUUID();
 	try {
-		const response = await postScan(options);
+		const controller = new AbortController();
+		const timeout = window.setTimeout(() => controller.abort(), 45_000);
+		let response: Response;
+		try {
+			response = await postScan(options, clientRequestId, controller.signal);
+		} catch (error) {
+			if (!(error instanceof DOMException && error.name === "AbortError")) {
+				throw error;
+			}
+			const recovered = await pollScanByRequestId(clientRequestId);
+			if (!recovered) {
+				throw new Error(
+					"Lượt quét vẫn đang được tạo. Mở lại danh sách scan sau ít phút để theo dõi.",
+				);
+			}
+			const pending = recovered;
+			options.setScans((current) => [
+				pending,
+				...current.filter((scan) => scan.id !== pending.id),
+			]);
+			options.setSelectedScanId(pending.id);
+			options.setNotice("Đã tìm lại lượt quét đang xử lý mà không tạo trùng.");
+			return true;
+		} finally {
+			window.clearTimeout(timeout);
+		}
 		const payload = await response.json();
 		if (!response.ok) throw new Error(payload.error ?? "Không thể tạo scan");
 
 		const pending = buildPendingScan(options, payload.scanId, payload.status);
 		options.setScans((current) => [pending, ...current]);
 		options.setSelectedScanId(pending.id);
-		options.setNotice("Đã tạo scan mới. Worker sẽ xử lý theo lịch mỗi phút.");
+		options.setNotice(
+			options.runMode === "queue"
+				? "Đã xếp scan vào hàng đợi."
+				: "Đã tạo và xử lý scan. Mở chi tiết để theo dõi kết quả.",
+		);
 		return true;
 	} catch (error) {
 		options.setNotice(error instanceof Error ? error.message : "Không thể tạo scan");
@@ -89,7 +120,10 @@ export async function scanTrackedSource(options: {
 }
 
 export async function runManagedSchedulerJobNow(options: {
-	jobKey: "enqueue-tracked-sources" | "process-queue";
+	jobKey:
+		| "enqueue-tracked-sources"
+		| "process-article-publications"
+		| "process-queue";
 	setNotice: (notice: string) => void;
 }) {
 	try {
@@ -113,7 +147,9 @@ export async function runManagedSchedulerJobNow(options: {
 		const label =
 			options.jobKey === "enqueue-tracked-sources"
 				? "Đã xếp hàng các nguồn đến hạn."
-				: "Đã xử lý hàng đợi scan.";
+				: options.jobKey === "process-article-publications"
+					? "Đã xử lý hàng đợi xuất bản bài viết."
+					: "Đã xử lý hàng đợi scan.";
 		options.setNotice(label);
 		return true;
 	} catch (error) {
@@ -300,9 +336,21 @@ export async function runScanRecord(options: {
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
 }) {
 	try {
-		const response = await fetch(`/api/scans/${options.scan.id}/run`, {
+		const isRescan = !["queued", "retrying"].includes(options.scan.status);
+		const response = await fetch(
+			isRescan
+				? `/api/scans/${options.scan.id}/rescan`
+				: `/api/scans/${options.scan.id}/run`,
+			{
 			method: "POST",
-		});
+				...(isRescan
+					? {
+							body: JSON.stringify({ runMode: "now" }),
+							headers: { "Content-Type": "application/json" },
+						}
+					: {}),
+			},
+		);
 		const payload = await response.json();
 		if (!response.ok) {
 			throw new Error(payload.error ?? "Không thể chạy scan thủ công");
@@ -318,7 +366,7 @@ export async function runScanRecord(options: {
 			options.setDetail(payload.detail as ScanDetail);
 		}
 
-		options.setNotice("Đã chạy scan thủ công.");
+		options.setNotice(isRescan ? "Đã tạo và chạy lượt quét lại." : "Đã chạy scan thủ công.");
 		return true;
 	} catch (error) {
 		options.setNotice(
@@ -657,12 +705,15 @@ async function postScan(options: {
 	manualText: string;
 	selectedFile: File | null;
 	providerOverride?: ScanProviderOverride;
-}) {
+	runMode?: "now" | "queue";
+}, clientRequestId: string, signal: AbortSignal) {
 	if (options.inputMode === "file" && options.selectedFile) {
 		const form = new FormData();
 		form.set("file", options.selectedFile);
 		form.set("title", options.selectedFile.name);
-		return fetch("/api/scans", { method: "POST", body: form });
+		form.set("runMode", options.runMode ?? "now");
+		form.set("clientRequestId", clientRequestId);
+		return fetch("/api/scans", { method: "POST", body: form, signal });
 	}
 
 	const input = options.inputMode === "text" ? options.manualText : options.urlInput;
@@ -671,11 +722,31 @@ async function postScan(options: {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			input,
+			clientRequestId,
 			title: options.inputMode === "text" ? "Văn bản nhập thủ công" : undefined,
 			providerOverride:
 				options.inputMode === "url" ? options.providerOverride : undefined,
+			runMode: options.runMode ?? "now",
 		}),
+		signal,
 	});
+}
+
+async function pollScanByRequestId(clientRequestId: string) {
+	for (let attempt = 0; attempt < 12; attempt += 1) {
+		try {
+			const response = await fetch(
+				`/api/scans?requestId=${encodeURIComponent(clientRequestId)}`,
+				{ cache: "no-store" },
+			);
+			const body = await response.json().catch(() => null);
+			if (response.ok && body?.scan) return body.scan as DashboardScan;
+		} catch {
+			// The browser may still be reconnecting; retry within the bounded window.
+		}
+		await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+	}
+	return null;
 }
 
 function buildPendingScan(

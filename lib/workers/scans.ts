@@ -1,4 +1,4 @@
-import { and, desc, eq, max } from "drizzle-orm";
+import { and, desc, eq, inArray, max } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -51,12 +51,16 @@ type ClaimedJob = {
 };
 
 export type CreateScanInput = {
+	clientRequestId?: string;
 	input: string;
 	fileName?: string;
 	mimeType?: string;
 	fileText?: string;
 	title?: string;
 	providerOverride?: ScanProviderOverride;
+	requestedByDisplayName?: string | null;
+	requestedByUserId?: string;
+	trigger?: string;
 };
 
 export type UpdateScanInput = {
@@ -91,6 +95,10 @@ const DEFAULT_PAGE_LIMIT = 25;
 const MAX_PAGE_LIMIT = 50;
 
 export async function createScan(input: CreateScanInput) {
+	if (input.clientRequestId) {
+		const existing = await findScanByClientRequestId(input.clientRequestId);
+		if (existing) return { scanId: existing.id, status: existing.status };
+	}
 	const detection = detectSource(input.input, {
 		fileName: input.fileName,
 		mimeType: input.mimeType,
@@ -119,10 +127,14 @@ export async function createScan(input: CreateScanInput) {
 	const [job] = await adminDb
 		.insert(scanJobs)
 		.values({
+			clientRequestId: input.clientRequestId,
 			sourceId: source.id,
 			provider,
 			status: "queued",
 			priority: detection.type.startsWith("facebook") ? 5 : 1,
+			requestedByDisplayName: input.requestedByDisplayName,
+			requestedByUserId: input.requestedByUserId,
+			trigger: input.trigger ?? "manual",
 		})
 		.returning();
 
@@ -145,6 +157,81 @@ export async function createScan(input: CreateScanInput) {
 	await refreshIntelligenceRollupsBestEffort(`scan-created:${job.id}`);
 
 	return { scanId: job.id, status: job.status };
+}
+
+export async function findScanByClientRequestId(clientRequestId: string) {
+	const [row] = await adminDb
+		.select({
+			createdAt: scanJobs.createdAt,
+			fileName: sources.fileName,
+			id: scanJobs.id,
+			normalizedUrl: sources.normalizedUrl,
+			provider: scanJobs.provider,
+			riskLevel: analyses.riskLevel,
+			sourceType: sources.type,
+			status: scanJobs.status,
+			title: sources.title,
+		})
+		.from(scanJobs)
+		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
+		.leftJoin(analyses, eq(analyses.scanJobId, scanJobs.id))
+		.where(eq(scanJobs.clientRequestId, clientRequestId))
+		.limit(1);
+	return row ? toDashboardScan(row) : null;
+}
+
+export async function createRescan(
+	parentScanJobId: string,
+	actor: { displayName: string | null; id: string },
+) {
+	const [parent] = await adminDb
+		.select()
+		.from(scanJobs)
+		.where(eq(scanJobs.id, parentScanJobId))
+		.limit(1);
+	if (!parent) return null;
+
+	const [active] = await adminDb
+		.select()
+		.from(scanJobs)
+		.where(
+			and(
+				eq(scanJobs.parentScanJobId, parentScanJobId),
+				inArray(scanJobs.status, ["queued", "running", "retrying"]),
+			),
+		)
+		.limit(1);
+	if (active) {
+		return { deduplicated: true, scanId: active.id, status: active.status };
+	}
+
+	const [job] = await adminDb
+		.insert(scanJobs)
+		.values({
+			parentScanJobId,
+			priority: parent.priority,
+			provider: parent.provider,
+			requestedByDisplayName: actor.displayName,
+			requestedByUserId: actor.id,
+			sourceId: parent.sourceId,
+			status: "queued",
+			trigger: "manual_rescan",
+		})
+		.returning();
+	if (!job) throw new Error("Không thể tạo lượt quét lại.");
+	await writeAudit("scan_job", job.id, "rescan_created", {
+		actorId: actor.id,
+		parentScanJobId,
+	});
+	await recordScanEvent({
+		eventType: "scan_queued",
+		message: "Đã tạo lượt quét lại và đưa vào hàng đợi.",
+		metadata: { parentScanJobId, provider: job.provider },
+		scanJobId: job.id,
+		stage: "queue",
+		status: "waiting",
+	});
+	return { deduplicated: false, scanId: job.id, status: job.status };
 }
 
 export async function listScans() {

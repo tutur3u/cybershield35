@@ -13,6 +13,8 @@ const PENDING_INVITATION_COOKIE_NAME =
 const PENDING_INVITATION_MAX_AGE_SECONDS = 15 * 60;
 const REQUESTED_SCOPES = [
 	"workspace:session",
+	"ai:use",
+	"tts:use",
 	"workspace:members:read",
 	"workspace:members:write",
 	"workspace:roles:read",

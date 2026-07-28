@@ -5,6 +5,13 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { searchAttachmentChunks } from "@/lib/chat/attachments";
+import { articleBlockSchema } from "@/lib/articles/schemas";
+import {
+	createArticle as createArticleRecord,
+	getArticleDetail,
+	listArticles,
+	updateArticle,
+} from "@/lib/articles/store";
 import type { ChatActor } from "@/lib/chat/types";
 import { revalidateDashboardIntelligence, revalidateDashboardScan } from "@/lib/dashboard/cache-invalidation";
 import { getIntelligenceOverview, listIntelligenceTopics } from "@/lib/dashboard/intelligence-server";
@@ -26,6 +33,8 @@ import {
 } from "@/lib/domain/draft-style";
 import { fetchWorkspaceMembersForRequest } from "@/lib/workspace-members/proxy";
 import { createScan, getScanDetail, listScansPage } from "@/lib/workers/scans";
+import { createRescan, processScanJobNow } from "@/lib/workers/scans";
+import { listSafeZaloConnections } from "@/lib/zalo/connections";
 
 type ToolContext = {
 	actor: ChatActor;
@@ -121,6 +130,48 @@ export function createChatTools(context: ToolContext) {
 			execute: async (_input, options) =>
 				recordTool(context, "getInsights", options.toolCallId, {}, () => getIntelligenceOverview()),
 		}),
+		listArticles: tool({
+			description:
+				"Liệt kê bài viết nội bộ, trạng thái duyệt và trạng thái Zalo. Không xuất bản.",
+			inputSchema: z.object({ limit: z.number().int().min(1).max(20).default(8) }),
+			execute: async ({ limit }, options) =>
+				recordTool(context, "listArticles", options.toolCallId, { limit }, async () =>
+					(await listArticles()).slice(0, limit).map((row) => ({
+						href: `/articles/${row.article.id}`,
+						id: row.article.id,
+						publicationStatus: row.article.publicationStatus,
+						reviewStatus: row.article.reviewStatus,
+						title: row.article.title,
+						zaloOa: row.oaDisplayName,
+					})),
+				),
+		}),
+		getArticle: tool({
+			description:
+				"Đọc bài viết nội bộ, bằng chứng, phiên bản và trạng thái đồng bộ. Không xuất bản.",
+			inputSchema: z.object({ articleId: z.string().uuid() }),
+			execute: async ({ articleId }, options) =>
+				recordTool(context, "getArticle", options.toolCallId, { articleId }, async () => {
+					const detail = await getArticleDetail(articleId);
+					return detail
+						? {
+								article: detail.article,
+								evidence: detail.evidence,
+								href: `/articles/${articleId}`,
+								zaloOa: detail.oaDisplayName,
+							}
+						: { found: false };
+				}),
+		}),
+		listZaloAccounts: tool({
+			description:
+				"Liệt kê metadata và tình trạng các Zalo OA đã kết nối. Không trả về token.",
+			inputSchema: z.object({}),
+			execute: async (_input, options) =>
+				recordTool(context, "listZaloAccounts", options.toolCallId, {}, () =>
+					listSafeZaloConnections(),
+				),
+		}),
 		searchAttachments: tool({
 			description: "Tìm trong các đoạn văn bản đã trích xuất từ tệp của Chat hiện tại.",
 			inputSchema: z.object({ query: z.string().trim().min(2).max(200), limit: z.number().int().min(1).max(12).default(8) }),
@@ -197,6 +248,117 @@ export function createChatTools(context: ToolContext) {
 					});
 					revalidateDashboardIntelligence("activity");
 					return { draftId: draft.id, href: `/drafts/${draft.id}`, status: draft.status };
+				}),
+		}),
+		createArticle: tool({
+			description:
+				"Lưu một bài viết nội bộ cần con người duyệt. Công cụ này không đồng bộ hoặc xuất bản lên Zalo.",
+			inputSchema: z
+				.object({
+					author: z.string().trim().max(50).default(""),
+					blocks: z.array(articleBlockSchema).min(1).max(100),
+					commentsEnabled: z.boolean().default(true),
+					coverUrl: z.string().url().max(2_000).nullable().optional(),
+					description: z.string().trim().max(300).default(""),
+					evidenceId: z.string().uuid().optional(),
+					scanId: z.string().uuid().optional(),
+					targetOaConnectionId: z.string().uuid().nullable().optional(),
+					title: z.string().trim().max(150).default(""),
+				})
+				.refine(
+					(value) => Boolean(value.evidenceId || value.scanId),
+					"Cần evidenceId hoặc scanId.",
+				),
+			needsApproval: true,
+			execute: async (input, options) =>
+				recordTool(context, "createArticle", options.toolCallId, safeKeys(input), async () => {
+					const article = await createArticleRecord(
+						{
+							author: input.author,
+							blocks: input.blocks,
+							commentsEnabled: input.commentsEnabled,
+							coverUrl: input.coverUrl,
+							description: input.description,
+							originEvidenceItemId: input.evidenceId,
+							originScanJobId: input.scanId,
+							originatingChatId: context.conversationId,
+							targetOaConnectionId: input.targetOaConnectionId,
+							title: input.title,
+						},
+						context.actor,
+					);
+					return {
+						articleId: article.id,
+						href: `/articles/${article.id}`,
+						publicationStatus: article.publicationStatus,
+						reviewStatus: article.reviewStatus,
+					};
+				}),
+		}),
+		updateArticleDraft: tool({
+			description:
+				"Cập nhật bản nháp bài viết nội bộ. Không đồng bộ, lên lịch hoặc xuất bản lên Zalo.",
+			inputSchema: z.object({
+				articleId: z.string().uuid(),
+				author: z.string().trim().max(50).optional(),
+				blocks: z.array(articleBlockSchema).max(100).optional(),
+				commentsEnabled: z.boolean().optional(),
+				coverUrl: z.string().url().max(2_000).nullable().optional(),
+				description: z.string().trim().max(300).optional(),
+				title: z.string().trim().max(150).optional(),
+			}),
+			needsApproval: true,
+			execute: async ({ articleId, ...patch }, options) =>
+				recordTool(
+					context,
+					"updateArticleDraft",
+					options.toolCallId,
+					{ articleId, fields: Object.keys(patch) },
+					async () => {
+						const article = await updateArticle(
+							articleId,
+							patch,
+							context.actor,
+							{
+								instruction: "Cập nhật từ Chat sau khi người dùng phê duyệt",
+								origin: "ai",
+							},
+						);
+						if (!article) throw new Error("Bài viết không tồn tại");
+						return {
+							articleId: article.id,
+							href: `/articles/${article.id}`,
+							publicationStatus: article.publicationStatus,
+						};
+					},
+				),
+		}),
+		runScanNow: tool({
+			description:
+				"Chạy ngay scan đang chờ, hoặc tạo một lượt quét lại có liên kết. Cần người dùng phê duyệt.",
+			inputSchema: z.object({ scanId: z.string().uuid() }),
+			needsApproval: true,
+			execute: async ({ scanId }, options) =>
+				recordTool(context, "runScanNow", options.toolCallId, { scanId }, async () => {
+					const detail = await getScanDetail(scanId);
+					if (!detail) throw new Error("Scan không tồn tại");
+					let targetId = scanId;
+					if (!["queued", "retrying"].includes(detail.job.status)) {
+						const rescan = await createRescan(scanId, context.actor);
+						if (!rescan) throw new Error("Không thể tạo lượt quét lại");
+						targetId = rescan.scanId;
+						if (rescan.deduplicated) {
+							return {
+								deduplicated: true,
+								href: `/scans/${targetId}`,
+								scanId: targetId,
+								status: rescan.status,
+							};
+						}
+					}
+					const result = await processScanJobNow(targetId);
+					revalidateDashboardScan(targetId);
+					return { ...result, href: `/scans/${targetId}`, scanId: targetId };
 				}),
 		}),
 		createScanFromAttachment: tool({

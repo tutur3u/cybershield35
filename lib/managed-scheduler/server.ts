@@ -17,6 +17,7 @@ import {
 	cronHeartbeats,
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
+import { processDueArticlePublications } from "@/lib/workers/article-publications";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
@@ -109,7 +110,10 @@ type ManagedSchedulerStatus = {
 };
 
 type CronJobDefinition = {
-	jobKey: "enqueue-tracked-sources" | "process-queue";
+	jobKey:
+		| "enqueue-tracked-sources"
+		| "process-article-publications"
+		| "process-queue";
 	legacyServiceName: string;
 	name: string;
 	schedule: string;
@@ -139,6 +143,14 @@ const VERCEL_CRON_JOBS: CronJobDefinition[] = [
 		schedule: "0 0 * * *",
 		scheduleDescription: "Hằng ngày lúc 00:00 UTC",
 		serviceName: "vercel-cron:enqueue-tracked-sources",
+	},
+	{
+		jobKey: "process-article-publications",
+		legacyServiceName: "managed-scheduler:process-article-publications",
+		name: "Xuất bản bài viết Zalo OA",
+		schedule: "*/5 * * * *",
+		scheduleDescription: "Mỗi 5 phút",
+		serviceName: "vercel-cron:process-article-publications",
 	},
 ];
 
@@ -404,6 +416,10 @@ async function writeSchedulerHeartbeat(
 }
 
 async function executeVercelCronJob(job: CronJobDefinition) {
+	if (job.jobKey === "process-article-publications") {
+		return processDueArticlePublications(5);
+	}
+
 	if (job.jobKey === "enqueue-tracked-sources") {
 		const result = await enqueueDueTrackedSources();
 		return {
