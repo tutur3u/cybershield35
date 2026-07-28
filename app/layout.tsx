@@ -44,6 +44,10 @@ export const metadata: Metadata = {
 	creator: "AI For Life",
 	publisher: "Dak Lak AI",
 	metadataBase: new URL("https://ai.daklak.gov.vn"),
+	other: {
+		"zalo-platform-site-verification":
+			"KuA_2BQz2XGqc8OsrROIC36ZlIpTrMTsCp4p",
+	},
 };
 
 export default function RootLayout({

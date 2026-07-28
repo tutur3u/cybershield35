@@ -128,6 +128,20 @@ export async function updateZaloArticle(
 	});
 }
 
+export async function removeZaloArticle(
+	accessToken: string,
+	remoteArticleId: string,
+) {
+	return zaloRequest<Record<string, unknown>>(
+		accessToken,
+		"/v2.0/article/remove",
+		{
+			body: JSON.stringify({ id: remoteArticleId }),
+			method: "POST",
+		},
+	);
+}
+
 export async function verifyZaloArticleOperation(
 	accessToken: string,
 	token: string,
@@ -195,12 +209,16 @@ function toZaloArticlePayload(content: ZaloArticleContent) {
 				? { content: block.content, type: "text" }
 				: {
 						...(block.caption ? { caption: block.caption } : {}),
-						image_url: block.url,
+						url: block.url,
 						type: "image",
 					},
 		),
 		comment: content.commentsEnabled ? "show" : "hide",
-		cover: { photo_url: content.coverUrl },
+		cover: {
+			cover_type: "photo",
+			photo_url: content.coverUrl,
+			status: "show",
+		},
 		description: content.description,
 		status: content.status,
 		title: content.title,

@@ -172,6 +172,12 @@ describe("Zalo OA security and article contract", () => {
 					id: "block-1",
 					type: "text",
 				},
+				{
+					caption: "Ảnh minh họa",
+					id: "block-2",
+					type: "image",
+					url: "https://example.com/body.jpg",
+				},
 			],
 			commentsEnabled: true,
 			coverUrl: "https://example.com/cover.jpg",
@@ -190,6 +196,31 @@ describe("Zalo OA security and article contract", () => {
 		expect(createBody.cover.photo_url).toBe(
 			"https://example.com/cover.jpg",
 		);
+		expect(createBody.cover.cover_type).toBe("photo");
+		expect(createBody.cover.status).toBe("show");
+		expect(createBody.body[1]).toEqual({
+			caption: "Ảnh minh họa",
+			type: "image",
+			url: "https://example.com/body.jpg",
+		});
 		expect(verified.id).toBe("remote-article-id");
+	});
+
+	test("removes a hidden Zalo article through the official CRUD endpoint", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		globalThis.fetch = mock(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				calls.push({ input, init });
+				return Response.json({ error: 0, message: "Success" });
+			},
+		) as unknown as typeof fetch;
+		const { removeZaloArticle } = await import("@/lib/zalo/client");
+
+		await removeZaloArticle("access-token", "hidden-article-id");
+
+		expect(String(calls[0]?.input)).toContain("/v2.0/article/remove");
+		expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+			id: "hidden-article-id",
+		});
 	});
 });

@@ -17,6 +17,7 @@ import {
 	createZaloArticle,
 	getZaloArticle,
 	listZaloArticles,
+	removeZaloArticle,
 	updateZaloArticle,
 	verifyZaloArticleOperation,
 	type ZaloArticleContent,
@@ -302,6 +303,71 @@ export async function refreshRemoteArticle(articleId: string) {
 		.where(eq(articles.id, articleId))
 		.returning();
 	return updated ?? null;
+}
+
+export async function removeRemoteArticle(
+	articleId: string,
+	actor: ChatActor,
+) {
+	const [article] = await adminDb
+		.select()
+		.from(articles)
+		.where(eq(articles.id, articleId))
+		.limit(1);
+	if (!article?.remoteArticleId || !article.targetOaConnectionId) {
+		throw new Error("Bài viết chưa được đồng bộ với Zalo.");
+	}
+	const [activeJob] = await adminDb
+		.select({ id: articlePublicationJobs.id })
+		.from(articlePublicationJobs)
+		.where(
+			and(
+				eq(articlePublicationJobs.articleId, articleId),
+				inArray(articlePublicationJobs.status, ["queued", "running", "retrying"]),
+			),
+		)
+		.limit(1);
+	if (activeJob) {
+		throw new Error(
+			"Bài viết đang có thao tác Zalo chờ xử lý. Hãy hủy lịch hoặc đợi thao tác hoàn tất.",
+		);
+	}
+
+	const accessToken = await getValidZaloAccessToken(
+		article.targetOaConnectionId,
+	);
+	await removeZaloArticle(accessToken, article.remoteArticleId);
+	const removedAt = new Date();
+	return adminDb.transaction(async (tx) => {
+		const [updated] = await tx
+			.update(articles)
+			.set({
+				lastError: null,
+				lastSyncedAt: null,
+				publicationStatus: "not_synced",
+				remoteArticleId: null,
+				remoteOperationToken: null,
+				remoteSnapshot: {},
+				scheduledAt: null,
+				syncedContentHash: null,
+				updatedAt: removedAt,
+				updatedByDisplayName: actor.displayName,
+				updatedByUserId: actor.id,
+			})
+			.where(eq(articles.id, articleId))
+			.returning();
+		await tx.insert(auditEvents).values({
+			action: "article_removed_from_zalo",
+			entityId: articleId,
+			entityType: "article",
+			payload: {
+				actorId: actor.id,
+				remoteArticleId: article.remoteArticleId,
+				removedAt: removedAt.toISOString(),
+			},
+		});
+		return updated ?? null;
+	});
 }
 
 async function executePublicationOperation(

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ArticleBlock, ArticleContent } from "@/lib/articles/schemas";
@@ -89,6 +90,7 @@ type ZaloAccount = {
 type AiProposal = ArticleContent & { reviewNotes: string[] };
 
 export function ArticleEditor({ articleId }: { articleId: string }) {
+	const router = useRouter();
 	const queryClient = useQueryClient();
 	const detail = useQuery({
 		queryKey: ["article", articleId],
@@ -253,6 +255,45 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 			});
 			setNotice("Đã hủy lịch xuất bản.");
 			await refresh();
+		});
+	}
+
+	async function refreshFromZalo() {
+		await runAction("remote:refresh", async () => {
+			await fetchJson(`/api/articles/${articleId}/remote`, { method: "POST" });
+			setNotice("Đã làm mới trạng thái và bản xem trước từ Zalo.");
+			await refresh();
+		});
+	}
+
+	async function removeFromZalo() {
+		if (
+			!window.confirm(
+				"Xóa vĩnh viễn bản này khỏi Zalo OA? Bản nội dung trong CyberShield35 vẫn được giữ lại để chỉnh sửa hoặc đồng bộ lại.",
+			)
+		) {
+			return;
+		}
+		await runAction("remote:remove", async () => {
+			await fetchJson(`/api/articles/${articleId}/remote`, {
+				method: "DELETE",
+			});
+			setNotice("Đã xóa bản Zalo. Bản nội dung trong CyberShield35 vẫn được giữ.");
+			await refresh();
+		});
+	}
+
+	async function deleteLocalArticle() {
+		if (
+			!window.confirm(
+				"Xóa vĩnh viễn bài viết này khỏi CyberShield35? Thao tác này không thể hoàn tác.",
+			)
+		) {
+			return;
+		}
+		await runAction("article:delete", async () => {
+			await fetchJson(`/api/articles/${articleId}`, { method: "DELETE" });
+			router.push("/articles");
 		});
 	}
 
@@ -763,6 +804,37 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 											Ẩn bài khỏi Zalo
 										</button>
 									) : null}
+									{article.remoteArticleId ? (
+										<div className="mt-3 grid grid-cols-2 gap-2">
+											<button
+												type="button"
+												onClick={refreshFromZalo}
+												disabled={Boolean(busy)}
+												className={secondaryButton}
+											>
+												<RefreshCw size={13} />
+												Làm mới
+											</button>
+											<button
+												type="button"
+												onClick={removeFromZalo}
+												disabled={Boolean(busy)}
+												className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--danger-border)] px-2 text-[10px] font-bold text-[var(--danger-strong)]"
+											>
+												<Trash2 size={13} />
+												Xóa bản Zalo
+											</button>
+										</div>
+									) : (
+										<button
+											type="button"
+											onClick={deleteLocalArticle}
+											disabled={Boolean(busy)}
+											className="mt-3 w-full text-[10px] font-bold text-[var(--danger-strong)]"
+										>
+											Xóa bài khỏi CyberShield35
+										</button>
+									)}
 								</div>
 							</div>
 						)}
