@@ -1,6 +1,8 @@
 import "server-only";
 
 const DEFAULT_GOOGLE_TTS_MODEL = "gemini-3.1-flash-tts-preview";
+const DEFAULT_TUTURUUU_TTS_MODEL =
+	"google/gemini-3.1-flash-tts-preview";
 const DEFAULT_GOOGLE_TTS_VOICE = "Puck";
 const GOOGLE_TTS_TIMEOUT_MS = 60_000;
 const SAMPLE_RATE = 24_000;
@@ -140,7 +142,7 @@ async function generateWithTuturuuu(
 						"Đọc tiếng Việt tự nhiên, rõ ràng, điềm tĩnh; ngắt nghỉ theo dấu câu và không thêm lời dẫn.",
 					model:
 						process.env.TUTURUUU_TTS_MODEL?.trim() ??
-						DEFAULT_GOOGLE_TTS_MODEL,
+						DEFAULT_TUTURUUU_TTS_MODEL,
 					response_format: "wav",
 					voice: process.env.TUTURUUU_TTS_VOICE?.trim() ?? "Kore",
 				}),

@@ -110,7 +110,7 @@ describe("content exports", () => {
 			"Bearer ttr_app_session-token",
 		);
 		expect(headers.get("X-Tuturuuu-Workspace-Id")).toBe("workspace-1");
-		expect(body.model).toBe("gemini-3.1-flash-tts-preview");
+		expect(body.model).toBe("google/gemini-3.1-flash-tts-preview");
 		expect(result).toEqual(wav);
 	});
 
