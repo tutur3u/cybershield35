@@ -727,7 +727,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							</div>
 						) : accounts.data.accounts.length === 0 ? (
 							<a
-								href="/api/integrations/zalo/connect"
+								href="/api/integrations/zalo/authorize"
 								className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#0068ff] text-[12px] font-bold text-white"
 							>
 								<ExternalLink size={14} /> Kết nối Zalo OA

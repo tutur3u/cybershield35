@@ -85,7 +85,7 @@ export function ZaloSettingsPanel() {
 				action={
 					query.data?.enabled ? (
 						<a
-							href="/api/integrations/zalo/connect"
+							href="/api/integrations/zalo/authorize"
 							className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0068ff] px-3 text-[12px] font-bold text-white"
 						>
 							<ExternalLink size={14} />
