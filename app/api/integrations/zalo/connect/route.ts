@@ -44,10 +44,10 @@ export async function GET(request: Request) {
 			state: oauth.payload.state,
 		});
 		phase = "response";
-		const response = Response.redirect(
-			authorizationUrl,
-			302,
-		);
+		const response = new Response(null, {
+			headers: { Location: authorizationUrl },
+			status: 302,
+		});
 		phase = "cookie";
 		response.headers.append(
 			"Set-Cookie",

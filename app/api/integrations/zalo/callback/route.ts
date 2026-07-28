@@ -69,7 +69,10 @@ function redirectResult(
 	const target = new URL("/settings", requestUrl);
 	target.searchParams.set("zalo", status);
 	target.searchParams.set("message", message.slice(0, 300));
-	const response = Response.redirect(target, 302);
+	const response = new Response(null, {
+		headers: { Location: target.toString() },
+		status: 302,
+	});
 	response.headers.append("Set-Cookie", clearZaloOauthCookie(requestUrl));
 	return response;
 }
