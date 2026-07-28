@@ -104,7 +104,7 @@ describe("content exports", () => {
 		const body = JSON.parse(String(calls[0]?.init?.body));
 
 		expect(String(calls[0]?.input)).toBe(
-			"https://ai.tuturuuu.com/v1/audio/speech",
+			"https://tuturuuu.com/api/v1/external-ai/audio/speech",
 		);
 		expect(headers.get("Authorization")).toBe(
 			"Bearer ttr_app_session-token",

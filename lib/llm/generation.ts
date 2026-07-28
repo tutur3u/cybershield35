@@ -110,7 +110,11 @@ export function getAllowedAiModels() {
 		.filter(Boolean);
 	return configured?.length
 		? [...new Set(configured)]
-		: ["google/gemini-3.1-flash-lite", "google/gemini-3.6-flash"];
+		: [
+				"google/gemini-3.5-flash-lite",
+				"google/gemini-3.1-flash-lite",
+				"google/gemini-3.6-flash",
+			];
 }
 
 export function getInteractiveModelRuntime(
@@ -134,7 +138,7 @@ export function getInteractiveModelRuntime(
 			apiKey: session.accessToken,
 			baseURL:
 				process.env.TUTURUUU_AI_BASE_URL?.trim() ??
-				"https://ai.tuturuuu.com/v1",
+				"https://tuturuuu.com/api/v1/external-ai",
 			headers: {
 				"X-Tuturuuu-Workspace-Id": session.workspaceId,
 			},

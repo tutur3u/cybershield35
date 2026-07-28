@@ -132,7 +132,7 @@ async function generateWithTuturuuu(
 	try {
 		const baseUrl =
 			process.env.TUTURUUU_AI_BASE_URL?.trim() ??
-			"https://ai.tuturuuu.com/v1";
+			"https://tuturuuu.com/api/v1/external-ai";
 		const response = await (options.fetchImpl ?? fetch)(
 			`${baseUrl.replace(/\/+$/u, "")}/audio/speech`,
 			{
