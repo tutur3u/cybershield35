@@ -23,21 +23,32 @@ export async function GET(request: Request) {
 			{ status: 503, headers: authHeaders(auth) },
 		);
 	}
+	let phase:
+		| "authorization_url"
+		| "config"
+		| "cookie"
+		| "oauth_state"
+		| "response" = "config";
 	try {
 		const actor = actorFromAuth(auth);
 		const { redirectUri } = getZaloConfig(request.url);
+		phase = "oauth_state";
 		const oauth = createZaloOauthState({
 			actorUserId: actor.id,
 			redirectUri,
 		});
+		phase = "authorization_url";
+		const authorizationUrl = buildZaloAuthorizationUrl({
+			codeChallenge: oauth.codeChallenge,
+			redirectUri,
+			state: oauth.payload.state,
+		});
+		phase = "response";
 		const response = Response.redirect(
-			buildZaloAuthorizationUrl({
-				codeChallenge: oauth.codeChallenge,
-				redirectUri,
-				state: oauth.payload.state,
-			}),
+			authorizationUrl,
 			302,
 		);
+		phase = "cookie";
 		response.headers.append(
 			"Set-Cookie",
 			zaloOauthCookie(oauth.cookieValue, request.url),
@@ -49,6 +60,7 @@ export async function GET(request: Request) {
 			"zalo_oauth_start_failed",
 			{
 				errorType: error instanceof Error ? error.name : "UnknownError",
+				phase,
 				reason: safeOauthStartFailureReason(error),
 			},
 			"error",
