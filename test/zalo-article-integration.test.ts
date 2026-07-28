@@ -150,8 +150,6 @@ describe("Zalo OA security and article contract", () => {
 		const result = await exchangeZaloAuthorizationCode({
 			code: "single-use-code",
 			codeVerifier: "pkce-verifier",
-			redirectUri:
-				"https://cybershield35.example/api/integrations/zalo/callback",
 		});
 		const headers = new Headers(calls[0]?.init?.headers);
 		const body = new URLSearchParams(String(calls[0]?.init?.body));
@@ -160,7 +158,40 @@ describe("Zalo OA security and article contract", () => {
 		expect(headers.get("secret_key")).toBe("zalo-app-secret");
 		expect(body.get("grant_type")).toBe("authorization_code");
 		expect(body.get("code_verifier")).toBe("pkce-verifier");
+		expect(body.has("redirect_uri")).toBe(false);
 		expect(result.refreshToken).toBe("rotating-refresh-token");
+	});
+
+	test("loads the OA profile through the current v2 contract", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		globalThis.fetch = mock(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				calls.push({ input, init });
+				return Response.json({
+					data: {
+						avatar: "https://example.com/oa-avatar.jpg",
+						name: "Công an phường Ea Kao",
+						oaid: "2629920369363080604",
+					},
+					error: 0,
+				});
+			},
+		) as unknown as typeof fetch;
+		const { fetchZaloOaProfile } = await import("@/lib/zalo/client");
+
+		const profile = await fetchZaloOaProfile(
+			"access-token",
+			"fallback-oa-id",
+		);
+		const headers = new Headers(calls[0]?.init?.headers);
+
+		expect(String(calls[0]?.input)).toContain("/v2.0/oa/getoa");
+		expect(headers.get("access_token")).toBe("access-token");
+		expect(profile).toEqual({
+			avatarUrl: "https://example.com/oa-avatar.jpg",
+			displayName: "Công an phường Ea Kao",
+			oaId: "2629920369363080604",
+		});
 	});
 
 	test("creates an article hidden and verifies the asynchronous operation", async () => {

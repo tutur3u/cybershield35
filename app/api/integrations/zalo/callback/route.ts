@@ -4,6 +4,7 @@ import { publicErrorMessage } from "@/lib/http/public-error";
 import {
 	exchangeZaloAuthorizationCode,
 	fetchZaloOaProfile,
+	ZaloApiError,
 } from "@/lib/zalo/client";
 import { upsertZaloConnection } from "@/lib/zalo/connections";
 import {
@@ -35,7 +36,6 @@ export async function GET(request: Request) {
 		const tokens = await exchangeZaloAuthorizationCode({
 			code,
 			codeVerifier: pending.codeVerifier,
-			redirectUri: pending.redirectUri,
 		});
 		const profile = await fetchZaloOaProfile(tokens.accessToken, oaId).catch(
 			() => ({
@@ -53,12 +53,27 @@ export async function GET(request: Request) {
 		if (auth.setCookie) response.headers.append("Set-Cookie", auth.setCookie);
 		return response;
 	} catch (error) {
+		console.error("Zalo OAuth callback failed", {
+			errorClass: error instanceof Error ? error.name : typeof error,
+			errorMessage:
+				error instanceof Error ? error.message.slice(0, 300) : undefined,
+			providerCode: zaloProviderCode(error),
+			providerStatus: error instanceof ZaloApiError ? error.status : undefined,
+		});
 		return redirectResult(
 			request.url,
 			"error",
 			publicErrorMessage(error, "Không thể kết nối Zalo OA."),
 		);
 	}
+}
+
+function zaloProviderCode(error: unknown) {
+	if (!(error instanceof ZaloApiError)) return undefined;
+	if (!error.details || typeof error.details !== "object") return undefined;
+	const details = error.details as Record<string, unknown>;
+	const code = details.error ?? details.error_code ?? details.code;
+	return typeof code === "number" || typeof code === "string" ? code : undefined;
 }
 
 function redirectResult(

@@ -59,7 +59,6 @@ export function buildZaloAuthorizationUrl(input: {
 export async function exchangeZaloAuthorizationCode(input: {
 	code: string;
 	codeVerifier: string;
-	redirectUri: string;
 }) {
 	const config = getZaloConfig();
 	return exchangeToken({
@@ -69,7 +68,6 @@ export async function exchangeZaloAuthorizationCode(input: {
 			code: input.code,
 			code_verifier: input.codeVerifier,
 			grant_type: "authorization_code",
-			redirect_uri: input.redirectUri,
 		},
 	});
 }
@@ -89,7 +87,7 @@ export async function refreshZaloToken(refreshToken: string) {
 export async function fetchZaloOaProfile(accessToken: string, oaId: string) {
 	const body = await zaloRequest<Record<string, unknown>>(
 		accessToken,
-		"/v3.0/oa/getoa",
+		"/v2.0/oa/getoa",
 		{ method: "GET" },
 	);
 	const data = objectValue(body.data);
@@ -102,7 +100,7 @@ export async function fetchZaloOaProfile(accessToken: string, oaId: string) {
 			stringValue(data.name) ??
 			stringValue(data.display_name) ??
 			`Zalo OA ${oaId}`,
-		oaId: stringValue(data.oa_id) ?? oaId,
+		oaId: stringValue(data.oaid) ?? stringValue(data.oa_id) ?? oaId,
 	};
 }
 
