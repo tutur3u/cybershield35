@@ -1,5 +1,6 @@
 import { ApifyClient } from "apify-client";
 
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
 
 import type { ProviderAdapter } from "./types";
@@ -83,6 +84,12 @@ function normalizeApifyItem(item: Record<string, unknown>, fallbackUrl: string) 
 	const shares = pickNumber(item, ["sharesCount", "shareCount"]);
 	const reactions =
 		pickNumber(item, ["likesCount", "reactionLikeCount", "topReactionsCount"]) ?? 0;
+	const assessment = assessEvidenceRisk({
+		comments,
+		shares,
+		text,
+	});
+	const originalImageUrl = pickOriginalImageUrl(item);
 
 	return {
 		sourceUrl: url,
@@ -96,9 +103,11 @@ function normalizeApifyItem(item: Record<string, unknown>, fallbackUrl: string) 
 		engagement: { comments: comments ?? 0, shares: shares ?? 0, reactions },
 		stance: "unknown",
 		sentiment: "neutral",
-		riskLevel: inferRiskLevel(text, comments, shares),
+		riskLevel: assessment.level,
 		metadata: {
 			facebookId: pickString(item, ["facebookId", "postId", "commentId", "id"]),
+			originalImageUrl,
+			riskReasons: assessment.reasons,
 		},
 	};
 }
@@ -128,14 +137,63 @@ function parseDate(value?: string) {
 	return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function inferRiskLevel(text?: string, comments = 0, shares = 0) {
-	const value = text?.toLowerCase() ?? "";
-	const risky =
-		value.includes("sai") ||
-		value.includes("không đúng") ||
-		value.includes("kêu gọi") ||
-		value.includes("tẩy chay");
-	if (risky || comments > 100 || shares > 30) return "high" as const;
-	if (comments > 20 || shares > 5) return "medium" as const;
-	return "low" as const;
+function pickOriginalImageUrl(item: Record<string, unknown>) {
+	for (const key of [
+		"imageUrl",
+		"image",
+		"photoUrl",
+		"fullPicture",
+		"thumbnailUrl",
+	]) {
+		const value = item[key];
+		if (isRemoteImageUrl(value)) return value;
+	}
+	for (const key of ["media", "images", "attachments", "photos"]) {
+		const found = findImageUrl(item[key], 0);
+		if (found) return found;
+	}
+	return null;
+}
+
+function findImageUrl(value: unknown, depth: number): string | null {
+	if (depth > 4 || !value) return null;
+	if (isRemoteImageUrl(value)) return value;
+	if (Array.isArray(value)) {
+		for (const item of value.slice(0, 8)) {
+			const found = findImageUrl(item, depth + 1);
+			if (found) return found;
+		}
+		return null;
+	}
+	if (typeof value !== "object") return null;
+	const record = value as Record<string, unknown>;
+	for (const key of [
+		"fullPicture",
+		"imageUrl",
+		"photoUrl",
+		"thumbnailUrl",
+		"uri",
+		"url",
+		"src",
+	]) {
+		if (isRemoteImageUrl(record[key])) return record[key];
+	}
+	for (const child of Object.values(record).slice(0, 12)) {
+		const found = findImageUrl(child, depth + 1);
+		if (found) return found;
+	}
+	return null;
+}
+
+function isRemoteImageUrl(value: unknown): value is string {
+	if (typeof value !== "string") return false;
+	try {
+		const url = new URL(value);
+		return (
+			url.protocol === "https:" &&
+			/\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/iu.test(url.href)
+		);
+	} catch {
+		return false;
+	}
 }

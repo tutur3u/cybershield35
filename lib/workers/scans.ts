@@ -23,6 +23,8 @@ import {
 	resolveScanProvider,
 	type ScanProviderOverride,
 } from "@/lib/domain/provider-override";
+import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
+import { cleanDraftContent } from "@/lib/domain/draft-content";
 import { resolveDraftGenerationStyle } from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
 import {
@@ -311,6 +313,7 @@ export async function getScanDetail(id: string) {
 				createdAt: evidenceItems.createdAt,
 				engagement: evidenceItems.engagement,
 				id: evidenceItems.id,
+				metadata: evidenceItems.metadata,
 				provider: evidenceItems.provider,
 				publishedAt: evidenceItems.publishedAt,
 				quote: evidenceItems.quote,
@@ -399,6 +402,7 @@ export async function listEvidenceForScanPage(input: {
 			createdAt: evidenceItems.createdAt,
 			engagement: evidenceItems.engagement,
 			id: evidenceItems.id,
+			metadata: evidenceItems.metadata,
 			provider: evidenceItems.provider,
 			publishedAt: evidenceItems.publishedAt,
 			quote: evidenceItems.quote,
@@ -837,6 +841,7 @@ export async function generateDraftForScan(
 		actor?: { displayName: string | null; id: string };
 		automationKey?: string;
 		generationReason?: string;
+		session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 	},
 ) {
 	if (options.automationKey) {
@@ -881,7 +886,9 @@ export async function generateDraftForScan(
 		operatorNotes: options.operatorNotes,
 		tone: options.tone,
 		voice: generationStyle.voice,
+		session: options.session,
 	});
+	const cleanBody = cleanDraftContent(output.body);
 
 	const actor = options.actor ?? { displayName: "Hệ thống", id: "system" };
 	const draft = await adminDb.transaction(async (tx) => {
@@ -889,7 +896,7 @@ export async function generateDraftForScan(
 			.insert(counterArgumentDrafts)
 			.values({
 				audience: options.audience,
-				body: output.body,
+				body: cleanBody,
 				citations: output.citations,
 				createdByDisplayName: actor.displayName,
 				createdByUserId: actor.id,
@@ -914,7 +921,7 @@ export async function generateDraftForScan(
 		await tx.insert(counterArgumentDraftVersions).values({
 			actorDisplayName: actor.displayName,
 			actorUserId: actor.id,
-			body: output.body,
+			body: cleanBody,
 			citations: output.citations,
 			draftId: created.id,
 			safetyNotes: output.safetyNotes,
@@ -1038,6 +1045,7 @@ export async function reviseDraftWithAi(
 	options: {
 		actor: { displayName: string | null; id: string };
 		instruction: string;
+		session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 		tone: string;
 		voice: string;
 	},
@@ -1066,13 +1074,15 @@ export async function reviseDraftWithAi(
 		instruction: options.instruction,
 		language: draft.language,
 		length: draft.length,
+		draftKind: draft.draftKind,
+		session: options.session,
 		tone: options.tone,
 		voice: options.voice,
 	});
 
 	return updateDraftContent(id, {
 		actor: options.actor,
-		body: output.body,
+		body: cleanDraftContent(output.body),
 		citations: output.citations,
 		mode: "ai",
 		operatorNotes: options.instruction,

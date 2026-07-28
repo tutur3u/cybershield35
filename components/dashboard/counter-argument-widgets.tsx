@@ -34,6 +34,8 @@ import {
 	DRAFT_TONE_OPTIONS,
 	DRAFT_VOICE_OPTIONS,
 } from "@/lib/domain/draft-style";
+import { cleanDraftContent } from "@/lib/domain/draft-content";
+import { DRAFT_KIND_LABELS } from "@/lib/domain/draft-intent";
 
 export function SourceDetail({
 	analysis,
@@ -95,6 +97,7 @@ export function DraftReview({
 	onRewrite,
 	onSave,
 	scanId,
+	sourceImageUrl,
 }: {
 	draft: DraftShape | null;
 	onReview: (
@@ -107,6 +110,7 @@ export function DraftReview({
 	) => Promise<DraftShape | null>;
 	onSave: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	scanId?: string;
+	sourceImageUrl?: string | null;
 }) {
 	const [pendingStatus, setPendingStatus] = useState<
 		"needs_review" | "approved" | "rejected" | null
@@ -119,6 +123,7 @@ export function DraftReview({
 		useState<string>(DEFAULT_DRAFT_VOICE);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState("");
+	const cleanBody = draft ? cleanDraftContent(draft.body) : "";
 
 	async function submitReview(status: "needs_review" | "approved" | "rejected") {
 		if (!draft || pendingStatus) return;
@@ -144,7 +149,7 @@ export function DraftReview({
 		setFeedback("");
 		const updated = await onSave(draft, body);
 		if (updated) {
-			setEditedBody(updated.body);
+			setEditedBody(cleanDraftContent(updated.body));
 			setEditMode(null);
 			setFeedback("Đã lưu nội dung. Bản nháp cần được duyệt lại.");
 		} else {
@@ -164,7 +169,7 @@ export function DraftReview({
 			voice: selectedVoice,
 		});
 		if (updated) {
-			setEditedBody(updated.body);
+			setEditedBody(cleanDraftContent(updated.body));
 			setInstruction("");
 			setEditMode(null);
 			setFeedback("AI đã cập nhật nội dung. Hãy kiểm tra và duyệt lại bản nháp.");
@@ -175,7 +180,7 @@ export function DraftReview({
 	}
 
 	function cancelEdit() {
-		setEditedBody(draft?.body ?? "");
+		setEditedBody(draft ? cleanDraftContent(draft.body) : "");
 		setInstruction("");
 		setEditMode(null);
 		setFeedback("");
@@ -194,6 +199,22 @@ export function DraftReview({
 			<div className="space-y-4 p-4">
 				{draft ? (
 					<>
+						{sourceImageUrl ? (
+							<figure className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-soft)]">
+								{/* Facebook CDN URLs are discovered at runtime and cannot use a static Next image host allowlist. */}
+								{/* eslint-disable-next-line @next/next/no-img-element */}
+								<img
+									alt="Hình ảnh từ bài viết Facebook gốc"
+									className="max-h-[480px] w-full object-contain"
+									loading="lazy"
+									referrerPolicy="no-referrer"
+									src={sourceImageUrl}
+								/>
+								<figcaption className="border-t border-[var(--border)] px-3 py-2 text-[10px] font-semibold text-[var(--muted)]">
+									Hình ảnh gốc đi cùng bằng chứng dùng để tạo bản nháp.
+								</figcaption>
+							</figure>
+						) : null}
 						{editMode === "manual" ? (
 							<div className="space-y-3 rounded-lg border border-[var(--brand)] bg-[var(--surface-soft)] p-3">
 								<label
@@ -240,8 +261,8 @@ export function DraftReview({
 								</div>
 							</div>
 						) : (
-							<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 whitespace-pre-wrap text-[var(--muted-strong)]">
-								{draft.body}
+							<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-justify text-[13px] leading-6 whitespace-pre-wrap text-[var(--muted-strong)]">
+								{cleanBody}
 							</p>
 						)}
 						{editMode === "ai" ? (
@@ -318,7 +339,7 @@ export function DraftReview({
 								disabled={isSaving || editMode !== null}
 								onClick={() => {
 									setFeedback("");
-									setEditedBody(draft.body);
+									setEditedBody(cleanBody);
 									setEditMode("manual");
 								}}
 							>
@@ -360,9 +381,9 @@ export function DraftReview({
 								</p>
 							</div>
 							<ExportActions
-								content={draft.body}
+								content={cleanBody}
 								fileName={`ban-nhap-${draft.id}`}
-								title="Bản nháp phản hồi CyberShield35"
+								title={`${draft.draftKind ? DRAFT_KIND_LABELS[draft.draftKind] : "Bản nháp"} CyberShield35`}
 							/>
 						</div>
 						{feedback ? <p aria-live="polite" className={`rounded-md px-3 py-2 text-[11px] font-bold ${feedback.startsWith("Không") ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--success-soft)] text-[var(--success-strong)]"}`}>{feedback}</p> : null}

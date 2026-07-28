@@ -17,6 +17,7 @@ import {
 	topicsInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
 import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import {
 	DashboardTooltip,
 	Panel,
@@ -545,7 +546,10 @@ export function EvidencePanel({
 									{item.sourceLabel ?? "Nguồn công khai"} - {item.author ?? "Public"}
 								</p>
 								</IntentPrefetchLink>
-							<RiskPill risk={item.riskLevel ?? "medium"} />
+							<RiskPill
+								reasons={evidenceRiskReasons(item)}
+								risk={item.riskLevel ?? "medium"}
+							/>
 							{onEditEvidence || onDeleteEvidence ? (
 								<div className="flex gap-2 sm:justify-end">
 									{onEditEvidence ? (
@@ -601,6 +605,25 @@ export function EvidencePanel({
 			) : null}
 		</Panel>
 	);
+}
+
+function evidenceRiskReasons(item: EvidenceView[number]) {
+	const storedReasons = item.metadata?.riskReasons;
+	if (
+		Array.isArray(storedReasons) &&
+		storedReasons.every((reason): reason is string => typeof reason === "string")
+	) {
+		return storedReasons;
+	}
+	const engagement = item.engagement as
+		| { comments?: number; shares?: number }
+		| undefined;
+	return assessEvidenceRisk({
+		comments: engagement?.comments,
+		shares: engagement?.shares,
+		storedRisk: item.riskLevel,
+		text: item.quote,
+	}).reasons;
 }
 
 function TopicInsightRow({ topic }: { topic: TopicInsight }) {

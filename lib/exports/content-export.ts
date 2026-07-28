@@ -13,6 +13,8 @@ import {
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 
+import { cleanDraftContent } from "@/lib/domain/draft-content";
+
 export type ExportContent = {
 	content: string;
 	title: string;
@@ -35,6 +37,7 @@ export async function createDocxExport(input: ExportContent) {
 					...body.map(
 						(text) =>
 							new Paragraph({
+								alignment: AlignmentType.JUSTIFIED,
 								children: [new TextRun(text)],
 								spacing: { after: 160, line: 340 },
 							}),
@@ -79,6 +82,7 @@ export async function createPdfExport(input: ExportContent) {
 				text: input.title,
 			},
 			...contentParagraphs(input.content).map((text) => ({
+				alignment: "justify" as const,
 				fontSize: 11,
 				lineHeight: 1.45,
 				margin: [0, 0, 0, 9] as [number, number, number, number],
@@ -106,8 +110,7 @@ export async function createPdfExport(input: ExportContent) {
 }
 
 function contentParagraphs(content: string) {
-	return content
-		.replace(/\r\n?/g, "\n")
+	return cleanDraftContent(content)
 		.split(/\n{2,}/)
 		.map((paragraph) => paragraph.trim())
 		.filter(Boolean);

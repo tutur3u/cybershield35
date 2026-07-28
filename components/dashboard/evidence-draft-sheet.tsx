@@ -12,12 +12,23 @@ import {
 	DRAFT_TONE_OPTIONS,
 	DRAFT_VOICE_OPTIONS,
 } from "@/lib/domain/draft-style";
+import {
+	DRAFT_KIND_LABELS,
+	type DraftKind,
+	draftIntentGuidance,
+} from "@/lib/domain/draft-intent";
 
 const kinds = [
-	["response", "Phản hồi"],
-	["comment", "Bình luận"],
-	["counter_argument", "Phản biện"],
-	["internal_brief", "Tóm tắt nội bộ"],
+	[
+		"response",
+		DRAFT_KIND_LABELS.response,
+		"Đồng tình với luận điểm có căn cứ và giải thích vì sao đáng ủng hộ.",
+	],
+	[
+		"counter_argument",
+		DRAFT_KIND_LABELS.counter_argument,
+		"Chỉ ra điểm sai, thiếu hoặc gây hiểu lầm rồi phản bác bằng bằng chứng.",
+	],
 ] as const;
 
 export function EvidenceDraftSheet({
@@ -31,7 +42,7 @@ export function EvidenceDraftSheet({
 }) {
 	const router = useRouter();
 	const closeRef = useRef<HTMLButtonElement | null>(null);
-	const [draftKind, setDraftKind] = useState<(typeof kinds)[number][0]>("response");
+	const [draftKind, setDraftKind] = useState<DraftKind>("response");
 	const [includeRelatedEvidence, setIncludeRelatedEvidence] = useState(false);
 	const [operatorNotes, setOperatorNotes] = useState("");
 	const [tone, setTone] = useState<string>(DEFAULT_DRAFT_TONE);
@@ -93,7 +104,38 @@ export function EvidenceDraftSheet({
 				<div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3"><p className="line-clamp-4 text-xs font-semibold leading-5 text-[var(--foreground)]">{post.quote}</p><p className="mt-2 font-mono text-[9px] text-[var(--muted)]">{post.id}</p></div>
 					{post.pageClassification !== "uncategorized" ? <div className={`flex items-start gap-3 rounded-lg border p-3 ${post.pageClassification === "trusted" ? "border-[var(--success-border)] bg-[var(--success-soft)]" : "border-[var(--danger-border)] bg-[var(--danger-soft)]"}`}>{post.pageClassification === "trusted" ? <ShieldCheck className="mt-0.5 shrink-0 text-[var(--success-strong)]" size={17} /> : <ShieldAlert className="mt-0.5 shrink-0 text-[var(--danger-strong)]" size={17} />}<div><p className={`text-xs font-extrabold ${post.pageClassification === "trusted" ? "text-[var(--success-strong)]" : "text-[var(--danger-strong)]"}`}>{post.pageClassification === "trusted" ? "Gợi ý: bài chia sẻ tích cực" : "Gợi ý: phản biện có căn cứ"}</p><p className="mt-1 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">{post.pageClassification === "trusted" ? "Trang được đánh dấu đáng tin cậy. Hệ thống ưu tiên tóm lược giá trị thông tin và không thêm tuyên bố mới." : "Trang được đánh dấu có rủi ro. Bản nháp phải kiểm tra từng tuyên bố và vẫn cần con người duyệt."}</p></div></div> : null}
-					<fieldset><legend className={labelClass}>Loại bản nháp</legend><div className="mt-2 grid grid-cols-2 gap-2">{kinds.map(([value, label]) => <button key={value} type="button" onClick={() => setDraftKind(value)} className={`min-h-10 rounded-md border px-3 text-xs font-bold ${draftKind === value ? "border-[var(--brand)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--border)] text-[var(--muted-strong)]"}`}>{label}</button>)}</div></fieldset>
+					<fieldset>
+						<legend className={labelClass}>Mục đích bài viết</legend>
+						<div className="mt-2 grid gap-2">
+							{kinds.map(([value, label, description]) => (
+								<button
+									key={value}
+									type="button"
+									aria-pressed={draftKind === value}
+									onClick={() => setDraftKind(value)}
+									className={`rounded-lg border p-3 text-left transition ${draftKind === value ? "border-[var(--brand)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--border)] text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"}`}
+								>
+									<span className="block text-xs font-extrabold">{label}</span>
+									<span className="mt-1 block text-[10px] font-semibold leading-4">
+										{description}
+									</span>
+								</button>
+							))}
+						</div>
+					</fieldset>
+					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+						<p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]">
+							AI bắt buộc phải làm rõ
+						</p>
+						<p className="mt-2 text-xs font-bold leading-5 text-[var(--foreground)]">
+							{draftIntentGuidance(draftKind).goal}
+						</p>
+						<ul className="mt-2 list-disc space-y-1 pl-4 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">
+							{draftIntentGuidance(draftKind).requirements.map((requirement) => (
+								<li key={requirement}>{requirement}</li>
+							))}
+						</ul>
+					</div>
 					<div className="space-y-5 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] p-3">
 						<div className="flex items-start gap-2.5">
 							<Sparkles className="mt-0.5 shrink-0 text-[var(--accent-strong)]" size={15} />

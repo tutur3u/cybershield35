@@ -84,7 +84,15 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 	);
 }
 
-export function RiskPill({ risk }: { risk: RiskLevel | string }) {
+export function RiskPill({
+	labelPrefix,
+	reasons,
+	risk,
+}: {
+	labelPrefix?: string;
+	reasons?: string[];
+	risk: RiskLevel | string;
+}) {
 	const styles: Record<string, string> = {
 		high: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
 		medium: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
@@ -102,10 +110,27 @@ export function RiskPill({ risk }: { risk: RiskLevel | string }) {
 	};
 
 	return (
-		<DashboardTooltip content={help[risk] ?? "Mức rủi ro do phân tích gán cho mục này."}>
+		<DashboardTooltip
+			content={
+				<div className="space-y-1.5">
+					<p>{help[risk] ?? "Mức rủi ro do phân tích gán cho mục này."}</p>
+					{reasons?.length ? (
+						<ul className="list-disc space-y-1 pl-4">
+							{reasons.map((reason) => (
+								<li key={reason}>{reason}</li>
+							))}
+						</ul>
+					) : null}
+					<p className="text-[10px] font-medium text-[var(--muted)]">
+						Đây là mức ưu tiên hỗ trợ rà soát, không phải kết luận đúng/sai.
+					</p>
+				</div>
+			}
+		>
 			<span
 				className={`inline-flex h-6 min-w-12 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
 			>
+				{labelPrefix ? `${labelPrefix}: ` : ""}
 				{labels[risk] ?? risk}
 			</span>
 		</DashboardTooltip>

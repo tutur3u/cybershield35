@@ -35,6 +35,7 @@ import {
 } from "@/components/dashboard/ui-primitives";
 import { evidenceDetailQueryOptions } from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 
 const EvidenceTriageSheet = dynamic(
 	() => import("@/components/dashboard/evidence-triage-sheet"),
@@ -59,6 +60,15 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 	const [draftOpen, setDraftOpen] = useState(false);
 	const evidenceQuery = useQuery(evidenceDetailQueryOptions(evidenceId ?? ""));
 	const evidence = evidenceQuery.data;
+	const assessment = evidence
+		? assessEvidenceRisk({
+				comments: evidence.engagement.comments,
+				shares: evidence.engagement.shares,
+				sourceClassification: evidence.pageClassification,
+				storedRisk: evidence.riskLevel,
+				text: evidence.quote,
+			})
+		: null;
 
 	function optimisticUpdate(
 		patch: Partial<
@@ -137,9 +147,35 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<Panel>
-					<PanelHeader title="Nội dung bài viết" action={<RiskPill risk={evidence.riskLevel} />} />
+					<PanelHeader
+						title="Nội dung bài viết"
+						description="Mức ưu tiên kết hợp tín hiệu trong nội dung, độ lan truyền và phân loại trang nguồn."
+						action={
+							<RiskPill
+								labelPrefix="Ưu tiên"
+								reasons={assessment?.reasons}
+								risk={assessment?.level ?? evidence.riskLevel}
+							/>
+						}
+					/>
 					<div className="space-y-5 p-5">
-						<p className="whitespace-pre-wrap rounded-lg bg-[var(--surface-soft)] p-5 text-[15px] font-semibold leading-7 text-[var(--foreground)]">
+						{evidence.originalImageUrl ? (
+							<figure className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-soft)]">
+								{/* Facebook CDN URLs are discovered at runtime and cannot use a static Next image host allowlist. */}
+								{/* eslint-disable-next-line @next/next/no-img-element */}
+								<img
+									alt="Hình ảnh từ bài viết Facebook gốc"
+									className="max-h-[520px] w-full object-contain"
+									loading="lazy"
+									referrerPolicy="no-referrer"
+									src={evidence.originalImageUrl}
+								/>
+								<figcaption className="border-t border-[var(--border)] px-3 py-2 text-[10px] font-semibold text-[var(--muted)]">
+									Hình ảnh gốc được giữ lại từ dữ liệu scan để người duyệt đối chiếu.
+								</figcaption>
+							</figure>
+						) : null}
+						<p className="text-justify whitespace-pre-wrap rounded-lg bg-[var(--surface-soft)] p-5 text-[15px] font-semibold leading-7 text-[var(--foreground)]">
 							{evidence.quote}
 						</p>
 						{evidence.summary && evidence.summary !== evidence.quote ? (
@@ -172,7 +208,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						</dl>
 						<div className="grid gap-2 border-t border-[var(--border)] p-4 sm:grid-cols-2 xl:grid-cols-1">
 							<button type="button" onClick={() => setDraftOpen(true)} className={primaryActionClass}>
-								<Sparkles size={14} /> {evidence.pageClassification === "trusted" ? "Soạn bài tích cực" : evidence.pageClassification === "at_risk" ? "Soạn phản biện" : "Soạn phản hồi"}
+								<Sparkles size={14} /> {evidence.pageClassification === "trusted" ? "Soạn bài ủng hộ" : evidence.pageClassification === "at_risk" ? "Soạn bài phản bác" : "Chọn mục đích bài viết"}
 							</button>
 							<button type="button" onClick={() => setTriageOpen(true)} className={primaryActionClass}>
 								<MessageSquareText size={14} /> Mở bảng xử lý

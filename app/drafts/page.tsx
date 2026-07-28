@@ -10,7 +10,7 @@ export default function DraftsPage() {
 	return (
 		<div className="space-y-5">
 			<PageHeader
-				description="Một hàng đợi duyệt chung cho phản hồi, bình luận, phản biện và tóm tắt nội bộ. Không nội dung nào được tự động xuất bản."
+				description="Hàng đợi duyệt cho bài ủng hộ, bài phản bác, phân tích trung lập và ghi chú nội bộ. Không nội dung nào được tự động xuất bản."
 				icon={FilePenLine}
 				title="Bản nháp"
 			/>

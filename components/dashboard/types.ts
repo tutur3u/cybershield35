@@ -350,6 +350,8 @@ export type DraftShape = {
 	operatorNotes?: string | null;
 	body: string;
 	citations?: unknown[];
+	draftKind?: "response" | "comment" | "counter_argument" | "internal_brief";
+	evidenceItemId?: string | null;
 	safetyNotes?: unknown[];
 	createdAt?: string | Date;
 	updatedAt?: string | Date;
@@ -434,6 +436,7 @@ export type IntelligenceEvidenceRow = {
 	href: string;
 	id: string;
 	originalPostHref: string | null;
+	originalImageUrl?: string | null;
 	provider: ProviderName;
 	publishedAt: string | null;
 	quote: string;

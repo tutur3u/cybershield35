@@ -140,7 +140,7 @@ async function generateWithTuturuuu(
 						"Đọc tiếng Việt tự nhiên, rõ ràng, điềm tĩnh; ngắt nghỉ theo dấu câu và không thêm lời dẫn.",
 					model:
 						process.env.TUTURUUU_TTS_MODEL?.trim() ??
-						"gemini-2.5-flash-preview-tts",
+						DEFAULT_GOOGLE_TTS_MODEL,
 					response_format: "wav",
 					voice: process.env.TUTURUUU_TTS_VOICE?.trim() ?? "Kore",
 				}),

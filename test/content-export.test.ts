@@ -30,6 +30,18 @@ describe("content exports", () => {
 		expect(pdf.length).toBeGreaterThan(1_000);
 	});
 
+	test("removes inline citation markers before export", async () => {
+		const { cleanDraftContent } = await import("@/lib/domain/draft-content");
+
+		expect(
+			cleanDraftContent(
+				"Luận điểm đã được xác minh [1]. Nội dung tiếp theo【2】 vẫn tự nhiên.",
+			),
+		).toBe(
+			"Luận điểm đã được xác minh. Nội dung tiếp theo vẫn tự nhiên.",
+		);
+	});
+
 	test("uses Tuturuuu's Gemini TTS model and returns downloadable WAV audio", async () => {
 		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-google-key";
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
@@ -98,7 +110,7 @@ describe("content exports", () => {
 			"Bearer ttr_app_session-token",
 		);
 		expect(headers.get("X-Tuturuuu-Workspace-Id")).toBe("workspace-1");
-		expect(body.model).toBe("gemini-2.5-flash-preview-tts");
+		expect(body.model).toBe("gemini-3.1-flash-tts-preview");
 		expect(result).toEqual(wav);
 	});
 

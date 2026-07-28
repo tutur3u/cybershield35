@@ -39,6 +39,8 @@ describe("evidence detail routing regression", () => {
 		expect(details).toContain("data-evidence-id={evidence.id}");
 		expect(details).toContain("enableInfinite");
 		expect(details).toContain("Mở bảng xử lý");
+		expect(details).toContain("Mức ưu tiên kết hợp tín hiệu");
+		expect(details).toContain("Hình ảnh gốc được giữ lại");
 		expect(timeline).toContain("Xem chi tiết");
 		expect(timeline).toContain("Tải thêm bài viết");
 	});

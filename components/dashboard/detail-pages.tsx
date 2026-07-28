@@ -86,13 +86,20 @@ export function DraftDetailsPage(props: DashboardPageProps & { draftId?: string 
 	const draft =
 		props.detail?.drafts?.find((item) => item.id === props.draftId) ?? props.draft;
 	const draftShape = toDraftShape(draft, props.draft);
+	const sourceEvidence = props.detail?.evidence?.find(
+		(item) => item.id === draftShape?.evidenceItemId,
+	);
+	const sourceImageUrl =
+		typeof sourceEvidence?.metadata?.originalImageUrl === "string"
+			? sourceEvidence.metadata.originalImageUrl
+			: null;
 
 	return (
 		<div className="space-y-5">
 			<PageHeader
 				icon={MessageSquareText}
 				title="Chi tiết bản nháp"
-				description="Bản nháp phản hồi nội bộ, chỉ xuất sau khi người vận hành duyệt."
+				description="Bài viết nội bộ theo mục đích đã chọn, chỉ xuất sau khi người vận hành duyệt."
 				actions={
 					<>
 						<BackLink href="/counter-arguments" label="Lập luận" />
@@ -108,6 +115,7 @@ export function DraftDetailsPage(props: DashboardPageProps & { draftId?: string 
 					onRewrite={props.onRewriteDraft}
 					onSave={props.onSaveDraft}
 					scanId={props.selectedScanId}
+					sourceImageUrl={sourceImageUrl}
 				/>
 				<DraftMetaPanel draft={draftShape} />
 			</div>

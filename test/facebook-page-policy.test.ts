@@ -6,6 +6,7 @@ import {
 	facebookPageIdentity,
 } from "@/lib/domain/facebook-page-policy";
 import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 
 describe("Facebook page policy", () => {
 	test("uses a stable Facebook ID before the mutable username", () => {
@@ -56,6 +57,19 @@ describe("Facebook page policy", () => {
 				stance: "opposed",
 			}),
 		).toBeNull();
+	});
+
+	test("raises operational priority for content from an at-risk page", () => {
+		const assessment = assessEvidenceRisk({
+			comments: 0,
+			shares: 0,
+			sourceClassification: "at_risk",
+			storedRisk: "low",
+			text: "Một bài viết chưa có tín hiệu lan truyền.",
+		});
+
+		expect(assessment.level).toBe("medium");
+		expect(assessment.reasons.join(" ")).toContain("nâng tối thiểu lên trung bình");
 	});
 });
 

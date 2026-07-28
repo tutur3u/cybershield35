@@ -12,6 +12,9 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { cleanDraftContent } from "@/lib/domain/draft-content";
+import { DRAFT_KIND_LABELS } from "@/lib/domain/draft-intent";
+
 type Draft = {
 	body: string;
 	createdAt: string;
@@ -29,7 +32,7 @@ type Draft = {
 
 type DraftPage = { hasNextPage: boolean; items: Draft[]; nextCursor: string | null };
 
-const kindLabels = { comment: "Bình luận", counter_argument: "Phản biện", internal_brief: "Tóm tắt nội bộ", response: "Phản hồi" } as const;
+const kindLabels = DRAFT_KIND_LABELS;
 const statusLabels = { approved: "Đã duyệt", draft: "Bản nháp", needs_review: "Cần duyệt", rejected: "Từ chối" } as const;
 
 export function DraftsWorkspace() {
@@ -111,7 +114,7 @@ export function DraftsWorkspace() {
 				<article key={draft.id} className="group rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition hover:border-[var(--border-strong)]">
 					<div className="flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><Badge>{kindLabels[draft.draftKind]}</Badge><Badge>{statusLabels[draft.status]}</Badge></div><span className="text-[10px] font-semibold text-[var(--muted)]">{formatDate(draft.createdAt)}</span></div>
 					{draft.generationReason ? <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]"><ShieldCheck size={12} />{draft.generationReason === "at_risk_page" ? "Tự động: nguồn có rủi ro" : "Tự động: nội dung tích cực từ nguồn đáng tin"}</p> : null}
-					<Link href={`/drafts/${draft.id}?scanId=${draft.scanJobId}`} className="mt-3 block line-clamp-4 whitespace-pre-wrap text-sm font-semibold leading-6 text-[var(--foreground)] group-hover:text-[var(--accent-strong)]">{draft.body}</Link>
+					<Link href={`/drafts/${draft.id}?scanId=${draft.scanJobId}`} className="mt-3 block line-clamp-4 text-justify whitespace-pre-wrap text-sm font-semibold leading-6 text-[var(--foreground)] group-hover:text-[var(--accent-strong)]">{cleanDraftContent(draft.body)}</Link>
 					{draft.evidenceQuote ? <p className="mt-3 line-clamp-2 border-l-2 border-[var(--accent)] pl-3 text-xs leading-5 text-[var(--muted)]">{draft.evidenceQuote}</p> : null}
 					<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-[10px] font-semibold text-[var(--muted)]">{draft.createdByDisplayName ?? "Thành viên"} · {draft.tone} · {draft.voice}</span><div className="flex flex-wrap gap-2"><Link href={`/drafts/${draft.id}?scanId=${draft.scanJobId}`} className="inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">Chi tiết</Link><button type="button" disabled={reviewingId !== null || draft.status === "rejected"} onClick={() => void review(draft, "rejected")} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] disabled:opacity-50">{reviewingId === draft.id ? <LoaderCircle className="animate-spin" size={13} /> : <AlertTriangle size={13} />}Từ chối</button><button type="button" disabled={reviewingId !== null || draft.status === "approved"} onClick={() => void review(draft, "approved")} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[var(--brand)] px-3 text-[11px] font-bold text-white disabled:opacity-50">{reviewingId === draft.id ? <LoaderCircle className="animate-spin" size={13} /> : <CheckCircle2 size={13} />}Phê duyệt</button></div></div>
 				</article>

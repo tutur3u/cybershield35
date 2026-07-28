@@ -116,6 +116,7 @@ const timelinePostSelection = {
 	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
 	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
 	id: evidenceItems.id,
+	originalImageUrl: sql<string | null>`${evidenceItems.metadata}->>'originalImageUrl'`,
 	provider: evidenceItems.provider,
 	publishedAt: evidenceItems.publishedAt,
 	publishedMicros,
@@ -637,6 +638,7 @@ function mapTimelinePost(
 		createdAt: Date;
 		facebookPageId: string | null;
 		pageClassification: TimelinePost["pageClassification"];
+		originalImageUrl: string | null;
 		provider: TimelinePost["provider"];
 		publishedAt: Date | null;
 		quote: string;
@@ -673,6 +675,7 @@ function mapTimelinePost(
 		href: `/evidence/${row.id}`,
 		id: row.id,
 		originalPostHref: row.sourceUrl,
+		originalImageUrl: row.originalImageUrl,
 		pageClassification: row.pageClassification,
 		provider: row.provider,
 		publishedAt: row.publishedAt?.toISOString() ?? null,

@@ -12,6 +12,10 @@ import {
 	draftWritingBriefForMode,
 	resolveDraftGenerationStyle,
 } from "@/lib/domain/draft-style";
+import {
+	DRAFT_KIND_LABELS,
+	draftIntentGuidance,
+} from "@/lib/domain/draft-intent";
 
 describe("AI draft style", () => {
 	test("offers distinct tone and voice controls with a natural default", () => {
@@ -58,5 +62,14 @@ describe("AI draft style", () => {
 		expect(DEFAULT_DRAFT_WRITING_BRIEF.flow).toContain(
 			"Open directly with the central point instead of announcing the response.",
 		);
+	});
+
+	test("makes support and rebuttal intents explicit", () => {
+		expect(DRAFT_KIND_LABELS.response).toBe("Ủng hộ quan điểm");
+		expect(DRAFT_KIND_LABELS.counter_argument).toBe("Phản bác quan điểm");
+		expect(draftIntentGuidance("counter_argument").requirements.join(" ")).toContain(
+			"không được chỉ tóm tắt",
+		);
+		expect(draftIntentGuidance("response").goal).toContain("đồng tình");
 	});
 });

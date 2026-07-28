@@ -31,6 +31,7 @@ export async function POST(
 				id: auth.session.user.id,
 			},
 			instruction: input.instruction,
+			session: auth.session,
 			tone: input.tone,
 			voice: input.voice,
 		});

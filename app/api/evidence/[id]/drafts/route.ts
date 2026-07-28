@@ -47,6 +47,7 @@ export async function POST(
 				id: auth.session.user.id,
 			},
 			evidenceId: id,
+			session: auth.session,
 		});
 		revalidateDashboardScan(evidence.scanJobId);
 		revalidateDashboardIntelligence("activity");

@@ -9,6 +9,7 @@ import {
 	generateVietnameseSpeech,
 	SpeechGenerationError,
 } from "@/lib/exports/google-tts";
+import { cleanDraftContent } from "@/lib/domain/draft-content";
 
 const bodySchema = z
 	.object({
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 				? await createDocxExport(input)
 				: input.format === "pdf"
 					? await createPdfExport(input)
-					: await generateVietnameseSpeech(input.content, {
+					: await generateVietnameseSpeech(cleanDraftContent(input.content), {
 							accessToken: auth.session.accessToken,
 							signal: request.signal,
 							workspaceId: auth.session.workspaceId,

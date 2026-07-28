@@ -11,6 +11,10 @@ import {
 	NATURAL_VIETNAMESE_WRITING_GUIDANCE,
 } from "@/lib/domain/draft-style";
 import {
+	type DraftKind,
+	draftIntentGuidance,
+} from "@/lib/domain/draft-intent";
+import {
 	cleanSecret,
 	DEFAULT_GOOGLE_GENERATIVE_AI_MODEL,
 	resolveCredential,
@@ -106,7 +110,7 @@ export function getAllowedAiModels() {
 		.filter(Boolean);
 	return configured?.length
 		? [...new Set(configured)]
-		: ["gemini-2.5-flash", "gemini-2.5-pro"];
+		: ["gemini-3.1-flash-lite-preview", "gemini-3.1-flash-preview"];
 }
 
 export function getInteractiveModelRuntime(
@@ -114,10 +118,13 @@ export function getInteractiveModelRuntime(
 	requestedModel?: string | null,
 ) {
 	const allowed = getAllowedAiModels();
+	const configuredModel = process.env.TUTURUUU_AI_MODEL?.trim();
 	const model =
 		requestedModel && allowed.includes(requestedModel)
 			? requestedModel
-			: process.env.TUTURUUU_AI_MODEL?.trim() || allowed[0]!;
+			: configuredModel && allowed.includes(configuredModel)
+				? configuredModel
+				: allowed[0]!;
 	if (
 		session.accessToken !== "local-dev-bypass" &&
 		session.workspaceId &&
@@ -179,29 +186,41 @@ export async function generateCounterArgument(options: {
 	language: string;
 	length: string;
 	operatorNotes?: string | null;
-	draftKind?: "response" | "comment" | "counter_argument" | "internal_brief";
+	draftKind?: DraftKind;
 	generationMode?: DraftGenerationMode;
+	session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 }): Promise<CounterArgumentOutput> {
-	const model = getModel();
-	if (!model || options.evidence.length === 0) {
+	const runtime = options.session
+		? getInteractiveModelRuntime(options.session)
+		: getModelRuntime();
+	if (!runtime || options.evidence.length === 0) {
 		throw new Error(
-			!model
+			!runtime
 				? "LLM provider is not configured"
 				: "Cannot draft a response without evidence",
 		);
 	}
+	const draftKind = options.draftKind ?? "counter_argument";
 
 	const { output } = await generateText({
-		model,
+		model: runtime.model,
 		output: Output.object({ schema: counterArgumentOutputSchema }),
 		system:
-			`You create internal communication drafts for human review. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
+			`You create internal communication drafts for human review. Follow the requested editorial intent exactly. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose; citations are returned separately. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
 		prompt: JSON.stringify({
-			task: `Prepare an evidence-only ${options.draftKind ?? "counter_argument"} draft.`,
+			audience: options.audience,
+			draftKind,
+			evidence: options.evidence,
+			intent: draftIntentGuidance(draftKind),
+			language: options.language,
+			length: options.length,
+			operatorNotes: options.operatorNotes,
+			task: "Prepare an evidence-grounded draft that visibly fulfills the selected intent.",
+			tone: options.tone,
+			voice: options.voice,
 			writingBrief: draftWritingBriefForMode(
 				options.generationMode ?? "operator",
 			),
-			...options,
 		}),
 	});
 	return output;
@@ -216,25 +235,39 @@ export async function reviseCounterArgument(options: {
 	length: string;
 	tone: string;
 	voice: string;
+	draftKind?: DraftKind;
+	session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 }): Promise<CounterArgumentOutput> {
-	const model = getModel();
-	if (!model || options.evidence.length === 0) {
+	const runtime = options.session
+		? getInteractiveModelRuntime(options.session)
+		: getModelRuntime();
+	if (!runtime || options.evidence.length === 0) {
 		throw new Error(
-			!model
+			!runtime
 				? "LLM provider is not configured"
 				: "Cannot revise a response without evidence",
 		);
 	}
+	const draftKind = options.draftKind ?? "counter_argument";
 
 	const { output } = await generateText({
-		model,
+		model: runtime.model,
 		output: Output.object({ schema: counterArgumentOutputSchema }),
 		system:
-			`You revise internal communication drafts for human review. Follow the operator's editing instruction while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
+			`You revise internal communication drafts for human review. Follow the operator's editing instruction and the selected editorial intent while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
 		prompt: JSON.stringify({
+			audience: options.audience,
+			currentBody: options.currentBody,
+			draftKind,
+			evidence: options.evidence,
+			instruction: options.instruction,
+			intent: draftIntentGuidance(draftKind),
+			language: options.language,
+			length: options.length,
 			task: "Revise the existing draft without introducing unsupported claims.",
+			tone: options.tone,
+			voice: options.voice,
 			writingBrief: draftWritingBriefForMode("operator"),
-			...options,
 		}),
 	});
 	return output;
