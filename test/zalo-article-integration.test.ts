@@ -42,7 +42,9 @@ describe("Zalo OA security and article contract", () => {
 	});
 
 	test("enforces Zalo-safe article field limits", async () => {
-		const { articleContentSchema } = await import("@/lib/articles/schemas");
+		const { articleAiSchema, articleContentSchema } = await import(
+			"@/lib/articles/schemas"
+		);
 		const base = {
 			author: "CyberShield35",
 			blocks: [{ content: "Nội dung tự nhiên.", id: "block-1", type: "text" }],
@@ -62,6 +64,16 @@ describe("Zalo OA security and article contract", () => {
 				description: "x".repeat(301),
 			}).success,
 		).toBe(false);
+		expect(
+			articleAiSchema.parse({
+				action: "draft",
+				editorialIntent: "counter_argument",
+				model: "google/gemini-3.6-flash",
+			}),
+		).toMatchObject({
+			editorialIntent: "counter_argument",
+			model: "google/gemini-3.6-flash",
+		});
 	});
 
 	test("encrypts provider tokens without preserving plaintext", async () => {
@@ -222,5 +234,59 @@ describe("Zalo OA security and article contract", () => {
 		expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
 			id: "hidden-article-id",
 		});
+	});
+
+	test("updates a verified hidden article to public only through an explicit show operation", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		globalThis.fetch = mock(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				calls.push({ input, init });
+				return calls.length === 1
+					? Response.json({
+							data: { token: "publish-operation-token" },
+							error: 0,
+						})
+					: Response.json({
+							data: { id: "remote-article-id" },
+							error: 0,
+						});
+			},
+		) as unknown as typeof fetch;
+		const { updateZaloArticle, verifyZaloArticleOperation } = await import(
+			"@/lib/zalo/client"
+		);
+
+		const operation = await updateZaloArticle(
+			"access-token",
+			"remote-article-id",
+			{
+				author: "CyberShield35",
+				blocks: [
+					{
+						content: "Bài viết đã được duyệt để xuất bản.",
+						id: "block-1",
+						type: "text",
+					},
+				],
+				commentsEnabled: true,
+				coverUrl: "https://example.com/cover.jpg",
+				description: "Mô tả đã duyệt.",
+				status: "show",
+				title: "Tiêu đề đã duyệt",
+			},
+		);
+		const verified = await verifyZaloArticleOperation(
+			"access-token",
+			operation.token,
+		);
+		const updateBody = JSON.parse(String(calls[0]?.init?.body));
+
+		expect(String(calls[0]?.input)).toContain("/v2.0/article/update");
+		expect(updateBody).toMatchObject({
+			id: "remote-article-id",
+			status: "show",
+		});
+		expect(operation.token).toBe("publish-operation-token");
+		expect(verified.id).toBe("remote-article-id");
 	});
 });

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { generateChatReply, resolveLlmRuntime } from "@/lib/llm/generation";
+import {
+	generateChatReply,
+	getInteractiveModelRuntime,
+	resolveLlmRuntime,
+} from "@/lib/llm/generation";
 import {
 	parseClientRuntime,
 	redactRuntimeSecrets,
@@ -85,6 +89,26 @@ describe("LLM provider selection", () => {
 
 		expect(runtime.keys).toEqual({});
 		expect(resolveLlmRuntime()).toBeNull();
+	});
+
+	test("authenticated CS35 sessions use Tuturuuu chat completions without provider keys", () => {
+		process.env.OPENAI_API_KEY = "";
+		process.env.LLM_API_KEY = "";
+		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "";
+		const runtime = getInteractiveModelRuntime(
+			{
+				accessToken: "ttr_app_external-session",
+				workspaceId: "workspace-id",
+			},
+			"google/gemini-3.1-flash-lite",
+		);
+
+		expect(runtime?.resolved).toMatchObject({
+			model: "google/gemini-3.1-flash-lite",
+			provider: "tuturuuu",
+			source: "external-app-session",
+		});
+		expect(runtime?.model.provider).toBe("tuturuuu-ai.chat");
 	});
 
 	test("chat requires a configured LLM provider", async () => {

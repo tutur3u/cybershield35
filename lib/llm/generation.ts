@@ -141,7 +141,9 @@ export function getInteractiveModelRuntime(
 			name: "tuturuuu-ai",
 		});
 		return {
-			model: provider(model),
+			// Tuturuuu exposes an OpenAI-compatible chat-completions contract.
+			// Select it explicitly instead of sending Responses API-only fields.
+			model: provider.chat(model),
 			resolved: {
 				model,
 				provider: "tuturuuu" as const,
@@ -305,13 +307,15 @@ export async function generateArticleRevision(options: {
 		| "claim_check";
 	content: ArticleContent;
 	context?: string;
+	editorialIntent: "counter_argument" | "support" | "balanced";
 	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary">>;
 	instruction?: string;
+	model?: string;
 	session: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 	tone: string;
 	voice: string;
 }): Promise<ArticleAiOutput> {
-	const runtime = getInteractiveModelRuntime(options.session);
+	const runtime = getInteractiveModelRuntime(options.session, options.model);
 	if (!runtime) throw new Error("LLM provider is not configured");
 	const { output } = await generateText({
 		model: runtime.model,
@@ -321,11 +325,13 @@ export async function generateArticleRevision(options: {
 			"Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
 			"Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
 			"Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+			editorialIntentInstruction(options.editorialIntent),
 			NATURAL_VIETNAMESE_WRITING_GUIDANCE,
 		].join(" "),
 		prompt: JSON.stringify({
 			action: options.action,
 			currentArticle: options.content,
+			editorialIntent: options.editorialIntent,
 			evidence: options.evidence,
 			extraContext: options.context,
 			instruction: options.instruction,
@@ -340,6 +346,18 @@ export async function generateArticleRevision(options: {
 		}),
 	});
 	return output;
+}
+
+function editorialIntentInstruction(
+	intent: "counter_argument" | "support" | "balanced",
+) {
+	if (intent === "counter_argument") {
+		return "Mục tiêu là phản bác quan điểm nguồn: nêu rõ luận điểm cần phản bác, giải thích điểm chưa thuyết phục, rồi đưa bằng chứng và lập luận đối chiếu. Không chỉ tóm tắt hoặc đổi cách diễn đạt.";
+	}
+	if (intent === "support") {
+		return "Mục tiêu là ủng hộ quan điểm nguồn: nêu rõ điểm đồng tình và củng cố bằng bằng chứng được cung cấp, không phóng đại.";
+	}
+	return "Mục tiêu là trình bày cân bằng: phân biệt dữ kiện đã có, điểm còn chưa rõ và các góc nhìn hợp lý mà không ép kết luận.";
 }
 
 function buildChatPrompt(messages: ChatInputMessage[]) {

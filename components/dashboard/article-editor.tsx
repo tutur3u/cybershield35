@@ -88,6 +88,7 @@ type ZaloAccount = {
 };
 
 type AiProposal = ArticleContent & { reviewNotes: string[] };
+type EditorialIntent = "counter_argument" | "support" | "balanced";
 
 export function ArticleEditor({ articleId }: { articleId: string }) {
 	const router = useRouter();
@@ -111,6 +112,11 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				enabled: boolean;
 			}>("/api/integrations/zalo/accounts"),
 	});
+	const models = useQuery({
+		queryKey: ["ai", "models"],
+		queryFn: () =>
+			fetchJson<{ defaultModel: string; models: string[] }>("/api/ai/models"),
+	});
 	const [draft, setDraft] = useState<ArticleContent | null>(null);
 	const [targetOaConnectionId, setTargetOaConnectionId] = useState("");
 	const [busy, setBusy] = useState("");
@@ -119,6 +125,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const [aiInstruction, setAiInstruction] = useState("");
 	const [tone, setTone] = useState("Điềm tĩnh, khách quan");
 	const [voice, setVoice] = useState("Tự nhiên, gần gũi");
+	const [editorialIntent, setEditorialIntent] =
+		useState<EditorialIntent>("counter_argument");
+	const [model, setModel] = useState("");
 	const [proposal, setProposal] = useState<AiProposal | null>(null);
 	const hydratedHash = useRef("");
 
@@ -305,7 +314,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				{
 					body: JSON.stringify({
 						action,
+						editorialIntent,
 						instruction: aiInstruction || undefined,
+						model: model || models.data?.defaultModel || undefined,
 						tone,
 						voice,
 					}),
@@ -393,6 +404,22 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				(block.type === "image" && block.url),
 		);
 	const synced = article.syncedContentHash === article.contentHash;
+	const readiness = [
+		{ done: article.reviewStatus === "approved", label: "Bài đã được phê duyệt" },
+		{ done: Boolean(targetOaConnectionId), label: "Đã chọn Zalo OA" },
+		{
+			done: Boolean(draft.title && draft.description && draft.coverUrl),
+			label: "Đủ tiêu đề, mô tả và ảnh bìa",
+		},
+		{
+			done: draft.blocks.some(
+				(block) =>
+					(block.type === "text" && block.content.trim()) ||
+					(block.type === "image" && block.url),
+			),
+			label: "Có nội dung để đồng bộ",
+		},
+	];
 
 	return (
 		<div className="space-y-4">
@@ -660,12 +687,76 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					</Section>
 
 					<Section title="Biên tập bằng AI" icon={Bot}>
+						<div className="mb-4 rounded-md border border-[var(--success-border)] bg-[var(--success-soft)] p-3">
+							<div className="flex items-center justify-between gap-3">
+								<p className="text-[11px] font-extrabold text-[var(--brand-strong)]">
+									AI dùng chung · không cần khóa API riêng
+								</p>
+								<span className="rounded-full bg-[var(--surface)] px-2 py-1 text-[9px] font-bold text-[var(--muted-strong)]">
+									Đề xuất có thể xem lại
+								</span>
+							</div>
+							<p className="mt-1 text-[10px] leading-4 text-[var(--muted-strong)]">
+								Chọn mục tiêu biên tập rõ ràng để AI viết đúng hướng, đặc biệt khi
+								cần phản bác thay vì chỉ tóm tắt nội dung nguồn.
+							</p>
+						</div>
 						<div className="grid gap-3 sm:grid-cols-2">
+							<Field label="Mục tiêu bài viết" className="sm:col-span-2">
+								<div className="grid gap-2 sm:grid-cols-3">
+									{([
+										[
+											"counter_argument",
+											"Phản bác quan điểm",
+											"Chỉ ra điểm chưa thuyết phục và lập luận đối chiếu",
+										],
+										[
+											"support",
+											"Ủng hộ quan điểm",
+											"Củng cố quan điểm bằng bằng chứng đã chọn",
+										],
+										[
+											"balanced",
+											"Trình bày cân bằng",
+											"Nêu dữ kiện, khoảng trống và các góc nhìn",
+										],
+									] as const).map(([value, label, description]) => (
+										<button
+											key={value}
+											type="button"
+											onClick={() => setEditorialIntent(value)}
+											className={`rounded-md border p-3 text-left transition ${
+												editorialIntent === value
+													? "border-[var(--brand)] bg-[var(--success-soft)]"
+													: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand)]"
+											}`}
+										>
+											<span className="block text-[10px] font-extrabold">{label}</span>
+											<span className="mt-1 block text-[9px] leading-4 text-[var(--muted)]">
+												{description}
+											</span>
+										</button>
+									))}
+								</div>
+							</Field>
 							<Field label="Giọng điệu">
 								<input value={tone} onChange={(event) => setTone(event.target.value)} className={inputClass} />
 							</Field>
 							<Field label="Văn phong">
 								<input value={voice} onChange={(event) => setVoice(event.target.value)} className={inputClass} />
+							</Field>
+							<Field label="Mô hình AI" className="sm:col-span-2">
+								<select
+									value={model || models.data?.defaultModel || ""}
+									onChange={(event) => setModel(event.target.value)}
+									className={inputClass}
+								>
+									{models.data?.models.map((item) => (
+										<option key={item} value={item}>
+											{modelLabel(item)}
+										</option>
+									))}
+								</select>
 							</Field>
 							<Field label="Yêu cầu biên tập" className="sm:col-span-2">
 								<textarea
@@ -734,6 +825,34 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							</a>
 						) : (
 							<div className="space-y-3">
+								<div className="rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-3">
+									<p className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--muted-strong)]">
+										Sẵn sàng cho bản ẩn
+									</p>
+									<ul className="mt-2 space-y-1.5">
+										{readiness.map((item) => (
+											<li
+												key={item.label}
+												className={`flex items-center gap-2 text-[10px] font-semibold ${
+													item.done
+														? "text-[var(--success-strong)]"
+														: "text-[var(--muted)]"
+												}`}
+											>
+												<span
+													className={`grid size-4 place-items-center rounded-full ${
+														item.done
+															? "bg-[var(--success-soft)]"
+															: "border border-[var(--border)] bg-[var(--surface)]"
+													}`}
+												>
+													{item.done ? <Check size={10} /> : null}
+												</span>
+												{item.label}
+											</li>
+										))}
+									</ul>
+								</div>
 								<button
 									type="button"
 									disabled={!canSync || Boolean(busy)}
@@ -743,6 +862,10 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 									{busy === "sync" ? <LoaderCircle size={14} className="animate-spin" /> : <RefreshCw size={14} />}
 									Đồng bộ bản ẩn
 								</button>
+								<p className="text-[9px] leading-4 text-[var(--muted)]">
+									Bước này chỉ tạo hoặc cập nhật bản ẩn trên Zalo. Bài chưa hiển thị
+									công khai.
+								</p>
 								{article.publicationStatus === "published" && !synced ? (
 									<button
 										type="button"
@@ -763,7 +886,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 										onClick={() => publishAction("publish")}
 										className={`${primaryButton} w-full`}
 									>
-										<Send size={14} /> Xuất bản ngay
+										<Send size={14} /> Xuất bản công khai
 									</button>
 								)}
 								<div className="border-t border-[var(--border)] pt-3">
@@ -1135,6 +1258,10 @@ function operationLabel(operation: string) {
 			update_visible: "Cập nhật bài đã đăng",
 		}[operation] ?? operation
 	);
+}
+
+function modelLabel(value: string) {
+	return value.replace(/^google\//u, "").replaceAll("-", " ");
 }
 
 function articlePlainText(content: ArticleContent) {

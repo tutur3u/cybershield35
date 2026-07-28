@@ -81,7 +81,11 @@ export const articleAiSchema = z
 			"claim_check",
 		]),
 		context: z.string().trim().max(20_000).optional(),
+		editorialIntent: z
+			.enum(["counter_argument", "support", "balanced"])
+			.default("counter_argument"),
 		instruction: z.string().trim().max(2_000).optional(),
+		model: z.string().trim().min(1).max(120).optional(),
 		tone: z.string().trim().min(1).max(120).default("Điềm tĩnh, khách quan"),
 		voice: z.string().trim().min(1).max(120).default("Tự nhiên, gần gũi"),
 	})
