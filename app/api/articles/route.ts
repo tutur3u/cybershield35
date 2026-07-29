@@ -5,6 +5,7 @@ import { createArticle, listArticles } from "@/lib/articles/store";
 import { articleCreateSchema } from "@/lib/articles/schemas";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { listZaloArticleCatalog } from "@/lib/zalo/articles";
 
 export async function GET(request: Request) {
 	const auth = await requireAdminSession(request);
@@ -12,8 +13,16 @@ export async function GET(request: Request) {
 		return Response.json({ error: auth.error }, { status: auth.status });
 	}
 	try {
+		const [articles, zalo] = await Promise.all([
+			listArticles(),
+			listZaloArticleCatalog(),
+		]);
 		return Response.json(
-			{ articles: await listArticles() },
+			{
+				articles,
+				zaloArticles: zalo.articles,
+				zaloIssues: zalo.issues,
+			},
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {

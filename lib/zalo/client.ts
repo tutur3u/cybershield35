@@ -179,7 +179,7 @@ export async function listZaloArticles(
 	return zaloRequest<Record<string, unknown>>(
 		accessToken,
 		`/v2.0/article/getslice?${params.toString()}`,
-		{ method: "GET" },
+		{ method: "GET", signal: AbortSignal.timeout(8_000) },
 	);
 }
 

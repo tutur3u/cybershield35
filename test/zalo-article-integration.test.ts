@@ -42,6 +42,23 @@ describe("Zalo OA security and article contract", () => {
 		expect(editor.indexOf("<ZaloDashboardHandoff")).toBeLessThan(
 			editor.indexOf("!accounts.data?.enabled"),
 		);
+		expect(editor).toContain("const [railOpen, setRailOpen] = useState(false)");
+		expect(editor).toContain("Mở bảng điều khiển Zalo");
+	});
+
+	test("keeps CS35 and Zalo-only articles distinct in one compact catalog", () => {
+		const workspace = readFileSync(
+			"components/dashboard/articles-workspace.tsx",
+			"utf8",
+		);
+
+		expect(workspace).toContain("Created on CS35");
+		expect(workspace).toContain("Zalo OA");
+		expect(workspace).toContain("localRemoteIds");
+		expect(workspace).toContain("Lọc theo nguồn tạo bài");
+		expect(workspace).toContain("Mới cập nhật trước");
+		expect(workspace).toContain("Cũ cập nhật trước");
+		expect(workspace).toContain("Sắp xếp theo tiêu đề");
 	});
 
 	test("sanitizes database and provider failures before returning them", async () => {
@@ -235,6 +252,55 @@ describe("Zalo OA security and article contract", () => {
 			displayName: "Công an phường Ea Kao",
 			oaId: "2629920369363080604",
 		});
+	});
+
+	test("normalizes the Zalo article catalog without confusing its origin", async () => {
+		const {
+			normalizeZaloArticleList,
+			normalizeZaloPublicationStatus,
+		} = await import("@/lib/zalo/article-catalog");
+		const articles = normalizeZaloArticleList(
+			{
+				data: {
+					medias: [
+						{
+							create_date: 1_785_286_000,
+							id: "zalo-article-1",
+							status: "show",
+							thumb: "https://example.com/zalo-cover.jpg",
+							title: "Bài viết đã xuất bản",
+							total_share: 5,
+							total_view: "1.170",
+						},
+					],
+				},
+				error: 0,
+			},
+			{
+				connectionId: "connection-1",
+				displayName: "Công an phường Ea Kao",
+				oaId: "2629920369363080604",
+			},
+		);
+
+		expect(articles).toEqual([
+			expect.objectContaining({
+				coverUrl: "https://example.com/zalo-cover.jpg",
+				metrics: {
+					comments: 0,
+					likes: 0,
+					shares: 5,
+					views: 1170,
+				},
+				oaDisplayName: "Công an phường Ea Kao",
+				publicationStatus: "published",
+				remoteArticleId: "zalo-article-1",
+				title: "Bài viết đã xuất bản",
+			}),
+		]);
+		expect(normalizeZaloPublicationStatus("draft")).toBe("remote_draft");
+		expect(normalizeZaloPublicationStatus("hide")).toBe("hidden");
+		expect(normalizeZaloPublicationStatus("rejected")).toBe("failed");
 	});
 
 	test("creates an article hidden and verifies the asynchronous operation", async () => {

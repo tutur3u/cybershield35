@@ -15,6 +15,8 @@ import {
 	FileClock,
 	ImagePlus,
 	LoaderCircle,
+	PanelRightClose,
+	PanelRightOpen,
 	Plus,
 	Radio,
 	RefreshCw,
@@ -38,6 +40,11 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ExportActions } from "@/components/dashboard/export-actions";
 import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
 import {
@@ -151,6 +158,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 		useState<EditorialIntent>("counter_argument");
 	const [model, setModel] = useState("");
 	const [proposal, setProposal] = useState<AiProposal | null>(null);
+	const [railOpen, setRailOpen] = useState(false);
 	const hydratedHash = useRef("");
 
 	useEffect(() => {
@@ -521,7 +529,43 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				</div>
 			) : null}
 
-			<div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+			<Collapsible open={railOpen} onOpenChange={setRailOpen}>
+				<div className="mb-3 flex justify-end">
+					<DashboardTooltip
+						content={
+							railOpen
+								? "Thu gọn bảng xem trước và xuất bản để tập trung biên tập."
+								: "Mở xem trước, trạng thái đồng bộ và các thao tác Zalo."
+						}
+					>
+						<CollapsibleTrigger
+							className={secondaryButton}
+							aria-label={
+								railOpen
+									? "Thu gọn bảng điều khiển Zalo"
+									: "Mở bảng điều khiển Zalo"
+							}
+						>
+							{railOpen ? (
+								<PanelRightClose size={14} />
+							) : (
+								<PanelRightOpen size={14} />
+							)}
+							{railOpen ? "Thu gọn bảng Zalo" : "Mở bảng Zalo"}
+							<Badge
+								variant="outline"
+								className="ml-1 border-[var(--border)] bg-[var(--surface-soft)] text-[9px] text-[var(--muted-strong)]"
+							>
+								{publicationLabel(article.publicationStatus)}
+							</Badge>
+						</CollapsibleTrigger>
+					</DashboardTooltip>
+				</div>
+				<div
+					className={`grid min-w-0 gap-4 ${
+						railOpen ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""
+					}`}
+				>
 				<main className="min-w-0">
 					<Tabs defaultValue="compose">
 						<TabsList aria-label="Không gian biên tập bài viết">
@@ -811,7 +855,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					</Tabs>
 				</main>
 
-				<aside className="min-w-0 space-y-4">
+				<CollapsibleContent asChild>
+					<aside className="min-w-0 space-y-3 [&_section>div]:p-3 [&_section>header]:px-3 [&_section>header]:py-2.5">
 					<Section title="Xem trước Zalo" icon={Eye}>
 						<ZaloPreview content={draft} />
 					</Section>
@@ -1036,8 +1081,10 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							title={draft.title || "Bài viết CyberShield35"}
 						/>
 					</Section>
-				</aside>
-			</div>
+					</aside>
+				</CollapsibleContent>
+				</div>
+			</Collapsible>
 			<Dialog
 				open={Boolean(proposal)}
 				onOpenChange={(open) => {
@@ -1529,6 +1576,20 @@ function operationLabel(operation: string) {
 			sync_hidden: "Đồng bộ bản ẩn",
 			update_visible: "Cập nhật bài đã đăng",
 		}[operation] ?? operation
+	);
+}
+
+function publicationLabel(status: string) {
+	return (
+		{
+			failed: "Đồng bộ lỗi",
+			hidden: "Bản ẩn Zalo",
+			not_synced: "Chưa đồng bộ",
+			published: "Đã xuất bản",
+			publishing: "Đang xuất bản",
+			scheduled: "Đã lên lịch",
+			syncing: "Đang đồng bộ",
+		}[status] ?? status
 	);
 }
 
