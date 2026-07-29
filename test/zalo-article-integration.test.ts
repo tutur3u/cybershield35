@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 mock.module("server-only", () => ({}));
 
@@ -24,6 +25,25 @@ afterEach(() => {
 });
 
 describe("Zalo OA security and article contract", () => {
+	test("offers a secure handoff from synchronized articles to Zalo OA Manager", () => {
+		const editor = readFileSync(
+			"components/dashboard/article-editor.tsx",
+			"utf8",
+		);
+
+		expect(editor).toContain(
+			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/oa"',
+		);
+		expect(editor).toContain("Mở trong Zalo OA Manager");
+		expect(editor).toContain("Chọn OA, rồi vào Nội dung → Bài viết");
+		expect(editor).toContain('target="_blank"');
+		expect(editor).toContain('rel="noopener noreferrer"');
+		expect(editor).toContain("if (!remoteArticleId)");
+		expect(editor.indexOf("<ZaloDashboardHandoff")).toBeLessThan(
+			editor.indexOf("!accounts.data?.enabled"),
+		);
+	});
+
 	test("sanitizes database and provider failures before returning them", async () => {
 		const { publicErrorMessage } = await import("@/lib/http/public-error");
 

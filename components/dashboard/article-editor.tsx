@@ -811,8 +811,21 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<ZaloPreview content={draft} />
 					</Section>
 					<Section title="Đồng bộ & xuất bản" icon={Radio}>
+						{article.remoteArticleId ? (
+							<ZaloDashboardHandoff
+								oaDisplayName={detail.data.oaDisplayName}
+								oaId={detail.data.oaId}
+								publicationStatus={article.publicationStatus}
+								remoteArticleId={article.remoteArticleId}
+								synced={synced}
+							/>
+						) : null}
 						{!accounts.data?.enabled ? (
-							<div className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3 text-[11px] leading-5 text-[var(--warning-strong)]">
+							<div
+								className={`${
+									article.remoteArticleId ? "mt-3 " : ""
+								}rounded-md border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3 text-[11px] leading-5 text-[var(--warning-strong)]`}
+							>
 								Tích hợp đang tắt. Quản trị viên cần cấu hình biến môi trường và bật
 								<code className="mx-1">ZALO_OA_ENABLED</code>.
 							</div>
@@ -860,12 +873,23 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 									className={`${primaryButton} w-full`}
 								>
 									{busy === "sync" ? <LoaderCircle size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-									Đồng bộ bản ẩn
+									{article.remoteArticleId
+										? "Cập nhật bản ẩn trên Zalo"
+										: "Tạo bản ẩn trên Zalo"}
 								</button>
 								<p className="text-[9px] leading-4 text-[var(--muted)]">
 									Bước này chỉ tạo hoặc cập nhật bản ẩn trên Zalo. Bài chưa hiển thị
 									công khai.
 								</p>
+								{article.remoteArticleId ? null : (
+									<ZaloDashboardHandoff
+										oaDisplayName={detail.data.oaDisplayName}
+										oaId={detail.data.oaId}
+										publicationStatus={article.publicationStatus}
+										remoteArticleId={article.remoteArticleId}
+										synced={synced}
+									/>
+								)}
 								{article.publicationStatus === "published" && !synced ? (
 									<button
 										type="button"
@@ -928,24 +952,24 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 										</button>
 									) : null}
 									{article.remoteArticleId ? (
-										<div className="mt-3 grid grid-cols-2 gap-2">
+										<div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
 											<button
 												type="button"
 												onClick={refreshFromZalo}
 												disabled={Boolean(busy)}
-												className={secondaryButton}
+												className={`${secondaryButton} w-full`}
 											>
 												<RefreshCw size={13} />
-												Làm mới
+												Làm mới trạng thái từ Zalo
 											</button>
 											<button
 												type="button"
 												onClick={removeFromZalo}
 												disabled={Boolean(busy)}
-												className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--danger-border)] px-2 text-[10px] font-bold text-[var(--danger-strong)]"
+												className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md px-2 text-[10px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:opacity-50"
 											>
 												<Trash2 size={13} />
-												Xóa bản Zalo
+												Xóa bản khỏi Zalo
 											</button>
 										</div>
 									) : (
@@ -991,6 +1015,90 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					</Section>
 				</aside>
 			</div>
+		</div>
+	);
+}
+
+function ZaloDashboardHandoff({
+	oaDisplayName,
+	oaId,
+	publicationStatus,
+	remoteArticleId,
+	synced,
+}: {
+	oaDisplayName: string | null;
+	oaId: string | null;
+	publicationStatus: string;
+	remoteArticleId: string | null;
+	synced: boolean;
+}) {
+	if (!remoteArticleId) {
+		return (
+			<div className="rounded-md border border-dashed border-[var(--border)] bg-[var(--surface-soft)] p-3">
+				<p className="text-[10px] font-extrabold text-[var(--muted-strong)]">
+					Chưa có bản nháp trên Zalo
+				</p>
+				<p className="mt-1 text-[9px] leading-4 text-[var(--muted)]">
+					Phê duyệt và tạo bản ẩn trước. Sau đó bạn có thể mở OA Manager để kiểm
+					tra bài trực tiếp trên Zalo.
+				</p>
+			</div>
+		);
+	}
+
+	const published = publicationStatus === "published";
+	return (
+		<div
+			className={`rounded-md border p-3 ${
+				synced
+					? "border-[#0068ff]/25 bg-[#0068ff]/5"
+					: "border-[var(--warning-border)] bg-[var(--warning-soft)]"
+			}`}
+		>
+			<div className="flex items-start gap-2.5">
+				<span
+					className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full ${
+						synced
+							? "bg-[#0068ff] text-white"
+							: "bg-[var(--surface)] text-[var(--warning-strong)]"
+					}`}
+				>
+					{synced ? <Check size={14} /> : <RefreshCw size={13} />}
+				</span>
+				<div className="min-w-0">
+					<p className="text-[10px] font-extrabold text-[var(--foreground)]">
+						{synced
+							? published
+								? "Bài đang hiển thị trên Zalo"
+								: "Bản ẩn đã có trên Zalo"
+							: "Bản Zalo cần đồng bộ lại"}
+					</p>
+					<p className="mt-0.5 truncate text-[9px] text-[var(--muted)]">
+						{oaDisplayName ?? "Zalo Official Account"}
+						{oaId ? ` · OA ${oaId}` : ""}
+					</p>
+				</div>
+			</div>
+			<a
+				href={ZALO_OA_MANAGER_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+				aria-label={`Mở bản nháp trong Zalo OA Manager${
+					oaDisplayName ? ` của ${oaDisplayName}` : ""
+				}`}
+				className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-md bg-[#0068ff] px-3 py-2 text-left text-white transition hover:bg-[#005ae0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0068ff]/40 focus-visible:ring-offset-2"
+			>
+				<ExternalLink size={14} className="shrink-0" />
+				<span className="min-w-0 flex-1">
+					<span className="block text-[10px] font-extrabold">
+						Mở trong Zalo OA Manager
+					</span>
+					<span className="mt-0.5 block text-[9px] leading-4 text-white/80">
+						Chọn OA, rồi vào Nội dung → Bài viết
+					</span>
+				</span>
+				<ChevronRight size={14} className="shrink-0" />
+			</a>
 		</div>
 	);
 }
@@ -1300,3 +1408,4 @@ const smallButton =
 	"inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--brand)] disabled:opacity-50";
 const iconButton =
 	"grid size-7 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] disabled:opacity-35";
+const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/oa";
