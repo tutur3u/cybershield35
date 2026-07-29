@@ -27,6 +27,12 @@ const enqueueDueTrackedSources = mock(async () => ({
 	skipped: 0,
 	skippedSources: [],
 }));
+const reconcileAutomatedHiddenArticles = mock(async () => ({
+	failed: 0,
+	queued: 0,
+	repaired: 0,
+	scanned: 0,
+}));
 
 mock.module("server-only", () => ({}));
 
@@ -70,6 +76,10 @@ mock.module("@/lib/workers/tracked-sources", () => ({
 
 mock.module("@/lib/workers/article-publications", () => ({
 	processDueArticlePublications: async () => ({ processed: 0 }),
+}));
+
+mock.module("@/lib/workers/article-reconciliation", () => ({
+	reconcileAutomatedHiddenArticles,
 }));
 
 mock.module("@/lib/workers/draft-automation", () => ({
@@ -119,6 +129,7 @@ beforeEach(() => {
 	heartbeatFailure = null;
 	processNextJob.mockClear();
 	enqueueDueTrackedSources.mockClear();
+	reconcileAutomatedHiddenArticles.mockClear();
 	globalThis.fetch = mock(() => {
 		throw new Error("managed scheduler route tests must not call fetch");
 	}) as unknown as typeof fetch;

@@ -18,6 +18,7 @@ import {
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
 import { processDueArticlePublications } from "@/lib/workers/article-publications";
+import { reconcileAutomatedHiddenArticles } from "@/lib/workers/article-reconciliation";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
@@ -417,7 +418,9 @@ async function writeSchedulerHeartbeat(
 
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
-		return processDueArticlePublications(5);
+		const reconciliation = await reconcileAutomatedHiddenArticles(25);
+		const publications = await processDueArticlePublications(5);
+		return { ...publications, reconciliation };
 	}
 
 	if (job.jobKey === "enqueue-tracked-sources") {

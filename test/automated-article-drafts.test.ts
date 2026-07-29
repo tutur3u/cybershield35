@@ -111,6 +111,44 @@ describe("automated article draft preparation", () => {
 		});
 	});
 
+	test("repairs punctuation variants and clipped description fragments", () => {
+		const seed = buildAutomatedArticleSeed({
+			body: "Nội dung gốc.",
+			draftKind: "counter_argument",
+			evidence: {
+				metadata: {},
+				quote: "Nội dung nguồn",
+				summary:
+					"🚨 RỬA TIỀN CHO LỪA ĐẢO LÀ CHUYỆN Ở ĐÂU XA?\nNgay tại Đắk Lắk, cơ quan chức năng đã khởi tố vụ án.",
+			},
+		});
+		const content = normalizeAutomatedArticleContent(seed, {
+			author: "CyberShield35",
+			blocks: [
+				{
+					content:
+						"🚨 RỬA TIỀN CHO LỪA ĐẢO LÀ CHUYỆN Ở ĐÂU XA?\n\nNhiều người th\n\nNhiều người thắc mắc vì sao dòng tiền khó thu hồi.",
+					id: "text-1",
+					type: "text",
+				},
+			],
+			commentsEnabled: true,
+			coverUrl: null,
+			description:
+				"🚨 RỬA TIỀN CHO LỪA ĐẢO LÀ CHUYỆN Ở ĐÂU XA?\nNgay tại Đắk Lắk, cơ quan chức năng đã khởi tố vụ án và 5 bị can trong đường dây rửa tiền xuyên quốc gia.\n\nNhiều người th",
+			reviewNotes: [],
+			title: "🚨 RỬA TIỀN CHO LỪA ĐẢO LÀ CHUYỆN Ở ĐÂU XA",
+		});
+
+		expect(content.description).toBe(
+			"Ngay tại Đắk Lắk, cơ quan chức năng đã khởi tố vụ án và 5 bị can trong đường dây rửa tiền xuyên quốc gia.",
+		);
+		expect(content.blocks[0]).toMatchObject({
+			content:
+				"Nhiều người thắc mắc vì sao dòng tiền khó thu hồi.",
+		});
+	});
+
 	test("allows hidden review drafts but protects every public operation", () => {
 		expect(reviewAllowsArticleOperation("needs_review", "sync_hidden")).toBe(
 			true,

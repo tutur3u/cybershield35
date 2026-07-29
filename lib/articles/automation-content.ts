@@ -68,6 +68,17 @@ export function normalizeAutomatedArticleContent(
 	};
 }
 
+export function reconcileAutomatedArticleContent(
+	seed: ArticleContent,
+	current: ArticleContent,
+): ArticleContent {
+	return normalizeAutomatedArticleContent(seed, {
+		...current,
+		coverUrl: current.coverUrl ?? null,
+		reviewNotes: [],
+	});
+}
+
 function originalImageUrl(metadata: Record<string, unknown>) {
 	const value = metadata.originalImageUrl;
 	if (typeof value !== "string") return null;
@@ -123,7 +134,9 @@ function normalizeDescription(
 			? firstTextBlock.content.split(/\n{2,}/u)[0]
 			: "",
 	]) {
-		const description = stripLeadingTitle(candidate ?? "", title)
+		const description = removeTrailingClippedParagraph(
+			stripLeadingTitle(candidate ?? "", title),
+		)
 			.replace(/\s*\n+\s*/gu, " ")
 			.replace(/\s{2,}/gu, " ")
 			.trim();
@@ -134,30 +147,68 @@ function normalizeDescription(
 
 function cleanArticleBody(value: string, title: string) {
 	const content = cleanDraftContent(value);
-	const [firstLine = "", ...remainingLines] = content.split("\n");
+	const paragraphs = content
+		.split(/\n{2,}/u)
+		.map((paragraph) => paragraph.trim())
+		.filter(Boolean);
 	if (
-		remainingLines.length &&
-		comparableText(firstLine) === comparableText(title)
+		paragraphs.length > 1 &&
+		comparableText(paragraphs[0] ?? "") === comparableText(title)
 	) {
-		return remainingLines.join("\n").trim();
+		paragraphs.shift();
 	}
-	return content;
+	return paragraphs
+		.filter((paragraph, index) => {
+			const next = paragraphs[index + 1];
+			if (!next) return true;
+			const compact = comparableText(paragraph);
+			const nextCompact = comparableText(next);
+			return !(
+				paragraph.length <= 80 &&
+				compact.length >= 8 &&
+				compact !== nextCompact &&
+				nextCompact.startsWith(compact) &&
+				!/[.!?…:;]$/u.test(paragraph)
+			);
+		})
+		.join("\n\n")
+		.trim();
 }
 
 function stripLeadingTitle(value: string, title: string) {
-	const content = cleanDraftContent(value);
+	const content = cleanDraftContent(value).normalize("NFKC");
+	const titleTokens = comparableText(title).split(/\s+/u).filter(Boolean);
+	if (!titleTokens.length) return content;
+	const titlePattern = titleTokens
+		.map(escapeRegExp)
+		.join(String.raw`[^\p{L}\p{N}]+`);
+	return content
+		.replace(
+			new RegExp(
+				String.raw`^[^\p{L}\p{N}]*${titlePattern}[^\p{L}\p{N}]*`,
+				"iu",
+			),
+			"",
+		)
+		.trim();
+}
+
+function removeTrailingClippedParagraph(value: string) {
+	const paragraphs = value
+		.split(/\n{2,}/u)
+		.map((paragraph) => paragraph.trim())
+		.filter(Boolean);
+	const last = paragraphs.at(-1);
 	if (
-		title &&
-		content
-			.toLocaleLowerCase("vi-VN")
-			.startsWith(title.toLocaleLowerCase("vi-VN"))
+		paragraphs.length > 1 &&
+		last &&
+		last.length <= 60 &&
+		last.split(/\s+/u).length <= 6 &&
+		!/[.!?…:;]$/u.test(last)
 	) {
-		return content
-			.slice(title.length)
-			.replace(/^[\s:–—-]+/u, "")
-			.trim();
+		paragraphs.pop();
 	}
-	return content;
+	return paragraphs.join("\n\n");
 }
 
 function comparableText(value: string) {
@@ -166,6 +217,10 @@ function comparableText(value: string) {
 		.toLocaleLowerCase("vi-VN")
 		.replace(/[^\p{L}\p{N}]+/gu, " ")
 		.trim();
+}
+
+function escapeRegExp(value: string) {
+	return value.replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
 }
 
 function truncateText(value: string, limit: number) {
