@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, Output } from "ai";
+import { APICallError, generateText, Output } from "ai";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import type { ArticleContent } from "@/lib/articles/schemas";
@@ -185,7 +185,7 @@ export async function analyzeEvidence(
 	return output;
 }
 
-export async function generateCounterArgument(options: {
+export type CounterArgumentGenerationOptions = {
 	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary">>;
 	tone: string;
 	voice: string;
@@ -196,7 +196,11 @@ export async function generateCounterArgument(options: {
 	draftKind?: DraftKind;
 	generationMode?: DraftGenerationMode;
 	session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
-}): Promise<CounterArgumentOutput> {
+};
+
+export async function generateCounterArgument(
+	options: CounterArgumentGenerationOptions,
+): Promise<CounterArgumentOutput> {
 	const runtime = options.session
 		? getInteractiveModelRuntime(options.session)
 		: getModelRuntime();
@@ -231,6 +235,64 @@ export async function generateCounterArgument(options: {
 		}),
 	});
 	return output;
+}
+
+export async function generateCounterArgumentWithEvidenceFallback(
+	options: CounterArgumentGenerationOptions,
+	generate: (
+		input: CounterArgumentGenerationOptions,
+	) => Promise<CounterArgumentOutput> = generateCounterArgument,
+) {
+	try {
+		return await generate(options);
+	} catch (error) {
+		if (
+			options.evidence.length < 2 ||
+			!isContextReducibleAiError(error)
+		) {
+			throw error;
+		}
+		const output = await generate({
+			...options,
+			evidence: options.evidence.slice(0, 1),
+		});
+		return {
+			...output,
+			safetyNotes: [
+				...output.safetyNotes,
+				"Nhà cung cấp AI không xử lý được toàn bộ ngữ cảnh liên quan; bản nháp này chỉ dùng bằng chứng đang mở.",
+			],
+		};
+	}
+}
+
+export function isContextReducibleAiError(error: unknown) {
+	const pending: unknown[] = [error];
+	const seen = new Set<unknown>();
+	while (pending.length) {
+		const current = pending.shift();
+		if (!current || seen.has(current)) continue;
+		seen.add(current);
+		if (
+			APICallError.isInstance(current) &&
+			(current.statusCode === 400 || current.statusCode === 413)
+		) {
+			return true;
+		}
+		if (
+			current instanceof Error &&
+			/bad request|payload too large/iu.test(current.message)
+		) {
+			return true;
+		}
+		if (typeof current !== "object") continue;
+		const record = current as Record<string, unknown>;
+		for (const key of ["cause", "lastError"]) {
+			if (record[key]) pending.push(record[key]);
+		}
+		if (Array.isArray(record.errors)) pending.push(...record.errors);
+	}
+	return false;
 }
 
 export async function reviseCounterArgument(options: {

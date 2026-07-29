@@ -258,24 +258,27 @@ describe("Zalo OA security and article contract", () => {
 		const {
 			normalizeZaloArticleList,
 			normalizeZaloPublicationStatus,
+			zaloArticleListTotal,
 		} = await import("@/lib/zalo/article-catalog");
-		const articles = normalizeZaloArticleList(
-			{
-				data: {
-					medias: [
-						{
-							create_date: 1_785_286_000,
-							id: "zalo-article-1",
-							status: "show",
-							thumb: "https://example.com/zalo-cover.jpg",
-							title: "Bài viết đã xuất bản",
-							total_share: 5,
-							total_view: "1.170",
-						},
-					],
-				},
-				error: 0,
+		const payload = {
+			data: {
+				medias: [
+					{
+						create_date: 1_785_286_000,
+						id: "zalo-article-1",
+						status: "show",
+						thumb: "https://example.com/zalo-cover.jpg",
+						title: "Bài viết đã xuất bản",
+						total_share: 5,
+						total_view: "1.170",
+					},
+				],
+				total: 12,
 			},
+			error: 0,
+		};
+		const articles = normalizeZaloArticleList(
+			payload,
 			{
 				connectionId: "connection-1",
 				displayName: "Công an phường Ea Kao",
@@ -301,6 +304,24 @@ describe("Zalo OA security and article contract", () => {
 		expect(normalizeZaloPublicationStatus("draft")).toBe("remote_draft");
 		expect(normalizeZaloPublicationStatus("hide")).toBe("hidden");
 		expect(normalizeZaloPublicationStatus("rejected")).toBe("failed");
+		expect(zaloArticleListTotal(payload)).toBe(12);
+	});
+
+	test("uses the supported Zalo page size when loading the article catalog", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		globalThis.fetch = mock(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				calls.push({ input, init });
+				return Response.json({ data: { medias: [], total: 0 }, error: 0 });
+			},
+		) as unknown as typeof fetch;
+		const { listZaloArticles } = await import("@/lib/zalo/client");
+
+		await listZaloArticles("access-token", { limit: 20, offset: 10 });
+
+		const requestUrl = new URL(String(calls[0]?.input));
+		expect(requestUrl.searchParams.get("limit")).toBe("10");
+		expect(requestUrl.searchParams.get("offset")).toBe("10");
 	});
 
 	test("creates an article hidden and verifies the asynchronous operation", async () => {

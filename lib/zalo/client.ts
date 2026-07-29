@@ -172,7 +172,7 @@ export async function listZaloArticles(
 	input: { limit?: number; offset?: number } = {},
 ) {
 	const params = new URLSearchParams({
-		limit: String(Math.min(20, Math.max(1, input.limit ?? 10))),
+		limit: String(Math.min(10, Math.max(1, input.limit ?? 10))),
 		offset: String(Math.max(0, input.offset ?? 0)),
 		type: "normal",
 	});

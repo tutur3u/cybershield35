@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, max } from "drizzle-orm";
+import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -29,7 +29,7 @@ import { resolveDraftGenerationStyle } from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
 import {
 	analyzeEvidence,
-	generateCounterArgument,
+	generateCounterArgumentWithEvidenceFallback,
 	reviseCounterArgument,
 } from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
@@ -858,21 +858,42 @@ export async function generateDraftForScan(
 		mode: generationMode,
 		voice: options.voice,
 	});
-	const evidence = await adminDb
-		.select()
-		.from(evidenceItems)
-		.where(
-			and(
-				eq(evidenceItems.scanJobId, scanId),
-				options.evidenceId && !options.includeRelatedEvidence
-					? eq(evidenceItems.id, options.evidenceId)
-					: undefined,
-			),
-		)
-		.orderBy(desc(evidenceItems.createdAt))
-		.limit(8);
+	const evidence = options.evidenceId
+		? (
+				await Promise.all([
+					adminDb
+						.select()
+						.from(evidenceItems)
+						.where(
+							and(
+								eq(evidenceItems.scanJobId, scanId),
+								eq(evidenceItems.id, options.evidenceId),
+							),
+						)
+						.limit(1),
+					options.includeRelatedEvidence
+						? adminDb
+								.select()
+								.from(evidenceItems)
+								.where(
+									and(
+										eq(evidenceItems.scanJobId, scanId),
+										ne(evidenceItems.id, options.evidenceId),
+									),
+								)
+								.orderBy(desc(evidenceItems.createdAt))
+								.limit(3)
+						: Promise.resolve([]),
+				])
+			).flat()
+		: await adminDb
+				.select()
+				.from(evidenceItems)
+				.where(eq(evidenceItems.scanJobId, scanId))
+				.orderBy(desc(evidenceItems.createdAt))
+				.limit(8);
 
-	const output = await generateCounterArgument({
+	const output = await generateCounterArgumentWithEvidenceFallback({
 		audience: options.audience,
 		draftKind: options.draftKind,
 		evidence: evidence.map((item) => ({

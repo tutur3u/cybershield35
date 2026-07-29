@@ -110,6 +110,19 @@ export function normalizeZaloPublicationStatus(
 	return "hidden";
 }
 
+export function zaloArticleListTotal(payload: unknown) {
+	const root = objectValue(payload);
+	const data = objectValue(root.data);
+	const raw = data.total ?? root.total;
+	if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+		return Math.round(raw);
+	}
+	if (typeof raw === "string" && /^\d+$/u.test(raw.trim())) {
+		return Number(raw);
+	}
+	return null;
+}
+
 function articleItems(payload: unknown): unknown[] {
 	const root = objectValue(payload);
 	const data = root.data;

@@ -10,12 +10,46 @@ import {
 import {
 	normalizeZaloArticleList,
 	type ZaloCatalogArticle,
+	zaloArticleListTotal,
 } from "./article-catalog";
 
 export type ZaloArticleCatalog = {
 	articles: ZaloCatalogArticle[];
 	issues: Array<{ oaDisplayName: string; message: string }>;
 };
+
+const ZALO_ARTICLE_PAGE_SIZE = 10;
+const ZALO_ARTICLE_MAX_PAGES = 10;
+
+async function listAccountArticles(
+	account: Awaited<ReturnType<typeof listSafeZaloConnections>>[number],
+	accessToken: string,
+) {
+	const articles = new Map<string, ZaloCatalogArticle>();
+	for (let page = 0; page < ZALO_ARTICLE_MAX_PAGES; page += 1) {
+		const payload = await listZaloArticles(accessToken, {
+			limit: ZALO_ARTICLE_PAGE_SIZE,
+			offset: page * ZALO_ARTICLE_PAGE_SIZE,
+		});
+		const pageArticles = normalizeZaloArticleList(payload, {
+			connectionId: account.id,
+			displayName: account.displayName,
+			oaId: account.oaId,
+		});
+		for (const article of pageArticles) {
+			articles.set(article.remoteArticleId, article);
+		}
+
+		const total = zaloArticleListTotal(payload);
+		if (
+			pageArticles.length < ZALO_ARTICLE_PAGE_SIZE ||
+			(total !== null && articles.size >= total)
+		) {
+			break;
+		}
+	}
+	return [...articles.values()];
+}
 
 export async function listZaloArticleCatalog(): Promise<ZaloArticleCatalog> {
 	if (!isZaloEnabled()) return { articles: [], issues: [] };
@@ -26,12 +60,7 @@ export async function listZaloArticleCatalog(): Promise<ZaloArticleCatalog> {
 	const results = await Promise.allSettled(
 		accounts.map(async (account) => {
 			const accessToken = await getValidZaloAccessToken(account.id);
-			const payload = await listZaloArticles(accessToken, { limit: 20 });
-			return normalizeZaloArticleList(payload, {
-				connectionId: account.id,
-				displayName: account.displayName,
-				oaId: account.oaId,
-			});
+			return listAccountArticles(account, accessToken);
 		}),
 	);
 

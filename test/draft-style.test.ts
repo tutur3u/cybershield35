@@ -16,6 +16,10 @@ import {
 	DRAFT_KIND_LABELS,
 	draftIntentGuidance,
 } from "@/lib/domain/draft-intent";
+import {
+	generateCounterArgumentWithEvidenceFallback,
+	isContextReducibleAiError,
+} from "@/lib/llm/generation";
 
 describe("AI draft style", () => {
 	test("offers distinct tone and voice controls with a natural default", () => {
@@ -71,5 +75,42 @@ describe("AI draft style", () => {
 			"không được chỉ tóm tắt",
 		);
 		expect(draftIntentGuidance("response").goal).toContain("đồng tình");
+	});
+
+	test("retries a rejected multi-evidence draft with the current evidence only", async () => {
+		const evidence = [
+			{ id: "current", quote: "Bằng chứng đang mở", summary: "Nội dung chính" },
+			{ id: "related", quote: "Bằng chứng liên quan", summary: "Ngữ cảnh thêm" },
+		];
+		const attempts: string[][] = [];
+		const output = await generateCounterArgumentWithEvidenceFallback(
+			{
+				audience: "Công chúng chung",
+				evidence,
+				language: "vi",
+				length: "medium",
+				tone: "Điềm tĩnh, khách quan",
+				voice: DEFAULT_DRAFT_VOICE,
+			},
+			async (input) => {
+				attempts.push(input.evidence.map((item) => item.id));
+				if (input.evidence.length > 1) throw new Error("Bad Request");
+				return {
+					body: "Bản nháp dùng bằng chứng đang mở.",
+					citations: [{ evidenceId: "current", label: "Bằng chứng đang mở" }],
+					safetyNotes: [],
+				};
+			},
+		);
+
+		expect(attempts).toEqual([
+			["current", "related"],
+			["current"],
+		]);
+		expect(output.safetyNotes.join(" ")).toContain(
+			"chỉ dùng bằng chứng đang mở",
+		);
+		expect(isContextReducibleAiError(new Error("Bad Request"))).toBe(true);
+		expect(isContextReducibleAiError(new Error("Unauthorized"))).toBe(false);
 	});
 });

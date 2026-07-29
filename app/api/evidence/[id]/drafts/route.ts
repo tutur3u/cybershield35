@@ -9,6 +9,7 @@ import {
 	DEFAULT_DRAFT_TONE,
 	DEFAULT_DRAFT_VOICE,
 } from "@/lib/domain/draft-style";
+import { publicErrorMessage } from "@/lib/http/public-error";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
@@ -58,7 +59,12 @@ export async function POST(
 	} catch (error) {
 		if (error instanceof z.ZodError) return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 		return Response.json(
-			{ error: error instanceof Error ? error.message : "Không thể tạo bản nháp." },
+			{
+				error: publicErrorMessage(
+					error,
+					"Dịch vụ AI chưa thể tạo bản nháp. Vui lòng thử lại sau ít phút.",
+				),
+			},
 			{ status: 500, headers: authHeaders(auth) },
 		);
 	}

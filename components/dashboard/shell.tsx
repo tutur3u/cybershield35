@@ -252,7 +252,7 @@ function SidebarNavLink({
 		<IntentPrefetchLink
 			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:w-full lg:text-[12px] ${
+			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:text-[12px] ${
 				collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
 			} ${
 				active
@@ -263,7 +263,7 @@ function SidebarNavLink({
 			onClick={onNavigate}
 			title={collapsed ? item.label : undefined}
 		>
-			<item.icon aria-hidden size={16} strokeWidth={2} />
+			<item.icon aria-hidden className="shrink-0" size={16} strokeWidth={2} />
 			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
 		</IntentPrefetchLink>
 	);

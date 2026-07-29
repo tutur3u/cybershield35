@@ -1266,6 +1266,8 @@ describe("dashboard auth gate", () => {
 		expect(shell).not.toContain("TooltipContent");
 		expect(shell).toContain("aria-label={collapsed ? item.label : undefined}");
 		expect(shell).toContain("collapsed ? item.label : undefined");
+		expect(shell).toContain("items-center justify-start");
+		expect(shell).toContain('className="shrink-0"');
 		expect(layoutShell).toContain("<Sidebar");
 		expect(layoutShell).toContain("<TopBar");
 	});
