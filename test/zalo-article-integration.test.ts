@@ -54,6 +54,7 @@ describe("Zalo OA security and article contract", () => {
 
 		expect(workspace).toContain("Created on CS35");
 		expect(workspace).toContain("Zalo OA");
+		expect(workspace).toContain("Bản nháp Zalo · chưa đăng");
 		expect(workspace).toContain("localRemoteIds");
 		expect(workspace).toContain("Lọc theo nguồn tạo bài");
 		expect(workspace).toContain("Mới cập nhật trước");

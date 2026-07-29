@@ -936,8 +936,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 								>
 									{busy === "sync" ? <LoaderCircle size={14} className="animate-spin" /> : <RefreshCw size={14} />}
 									{article.remoteArticleId
-										? "Cập nhật bản ẩn trên Zalo"
-										: "Tạo bản ẩn trên Zalo"}
+										? "Cập nhật bản nháp ẩn trên Zalo"
+										: "Tạo bản nháp ẩn trên Zalo"}
 								</button>
 								<p className="text-[9px] leading-4 text-[var(--muted)]">
 									Bước này chỉ tạo hoặc cập nhật bản ẩn trên Zalo. Bài chưa hiển thị
@@ -1310,7 +1310,10 @@ function Lifecycle({ article, synced }: { article: ArticleRow; synced: boolean }
 	const steps = [
 		{ done: true, label: "Bản nháp" },
 		{ done: article.reviewStatus === "approved", label: "Đã duyệt" },
-		{ done: Boolean(article.remoteArticleId && synced), label: "Bản ẩn Zalo" },
+		{
+			done: Boolean(article.remoteArticleId && synced),
+			label: "Bản nháp Zalo · chưa đăng",
+		},
 		{
 			done: ["scheduled", "published"].includes(article.publicationStatus),
 			label: article.publicationStatus === "scheduled" ? "Đã lên lịch" : "Đã xuất bản",
@@ -1573,7 +1576,7 @@ function operationLabel(operation: string) {
 		{
 			hide: "Ẩn bài",
 			publish: "Xuất bản",
-			sync_hidden: "Đồng bộ bản ẩn",
+			sync_hidden: "Đồng bộ bản nháp ẩn",
 			update_visible: "Cập nhật bài đã đăng",
 		}[operation] ?? operation
 	);
@@ -1583,7 +1586,7 @@ function publicationLabel(status: string) {
 	return (
 		{
 			failed: "Đồng bộ lỗi",
-			hidden: "Bản ẩn Zalo",
+			hidden: "Bản nháp Zalo · chưa đăng",
 			not_synced: "Chưa đồng bộ",
 			published: "Đã xuất bản",
 			publishing: "Đang xuất bản",

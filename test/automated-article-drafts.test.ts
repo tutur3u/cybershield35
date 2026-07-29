@@ -4,7 +4,10 @@ import {
 	buildAutomatedArticleSeed,
 	normalizeAutomatedArticleContent,
 } from "@/lib/articles/automation-content";
-import { reviewAllowsArticleOperation } from "@/lib/articles/publication-policy";
+import {
+	actorAllowsArticleOperation,
+	reviewAllowsArticleOperation,
+} from "@/lib/articles/publication-policy";
 
 describe("automated article draft preparation", () => {
 	test("uses the scanned Facebook image and removes inline citation traces", () => {
@@ -66,6 +69,48 @@ describe("automated article draft preparation", () => {
 		});
 	});
 
+	test("keeps titles and excerpts separate and removes repeated headings", () => {
+		const seed = buildAutomatedArticleSeed({
+			body: "Nội dung gốc.",
+			draftKind: "response",
+			evidence: {
+				metadata: {},
+				quote: "Nội dung nguồn",
+				summary:
+					"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026\nLễ hội diễn ra từ 15/8 đến 02/9/2026 với nhiều hoạt động quảng bá nông sản và du lịch.",
+			},
+		});
+		const content = normalizeAutomatedArticleContent(seed, {
+			author: "CyberShield35",
+			blocks: [
+				{
+					content:
+						"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026\n\nLễ hội mang lại nhiều giá trị thiết thực [1].",
+					id: "text-1",
+					type: "text",
+				},
+			],
+			commentsEnabled: true,
+			coverUrl: null,
+			description:
+				"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026\nLễ hội diễn ra từ 15/8 đến 02/9/2026 với nhiều hoạt động quảng bá nông sản và du lịch.",
+			reviewNotes: [],
+			title:
+				"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026 Lễ hội diễn ra từ 15/8 đến 02/9/2026 với chủ đề kết nối vươn xa",
+		});
+
+		expect(seed.title).toBe(
+			"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026",
+		);
+		expect(content.title).toBe(seed.title);
+		expect(content.description).toBe(
+			"Lễ hội diễn ra từ 15/8 đến 02/9/2026 với nhiều hoạt động quảng bá nông sản và du lịch.",
+		);
+		expect(content.blocks[0]).toMatchObject({
+			content: "Lễ hội mang lại nhiều giá trị thiết thực.",
+		});
+	});
+
 	test("allows hidden review drafts but protects every public operation", () => {
 		expect(reviewAllowsArticleOperation("needs_review", "sync_hidden")).toBe(
 			true,
@@ -78,5 +123,9 @@ describe("automated article draft preparation", () => {
 			false,
 		);
 		expect(reviewAllowsArticleOperation("approved", "publish")).toBe(true);
+		expect(actorAllowsArticleOperation("system", "sync_hidden")).toBe(true);
+		expect(actorAllowsArticleOperation("system", "publish")).toBe(false);
+		expect(actorAllowsArticleOperation("system", "update_visible")).toBe(false);
+		expect(actorAllowsArticleOperation("user-1", "publish")).toBe(true);
 	});
 });

@@ -13,7 +13,10 @@ import {
 	cronHeartbeats,
 } from "@/lib/db/schema";
 import { publicErrorMessage } from "@/lib/http/public-error";
-import { reviewAllowsArticleOperation } from "@/lib/articles/publication-policy";
+import {
+	actorAllowsArticleOperation,
+	reviewAllowsArticleOperation,
+} from "@/lib/articles/publication-policy";
 import {
 	createZaloArticle,
 	getZaloArticle,
@@ -43,7 +46,7 @@ export async function enqueueArticlePublication(
 		.where(eq(articles.id, articleId))
 		.limit(1);
 	if (!article) throw new Error("Không tìm thấy bài viết.");
-	validateOperation(article, operation, scheduledAt);
+	validateOperation(article, operation, scheduledAt, actor.id);
 
 	const [active] = await adminDb
 		.select()
@@ -382,7 +385,12 @@ async function executePublicationOperation(
 	if (!article || !article.targetOaConnectionId) {
 		throw new Error("Bài viết hoặc Zalo OA đích không tồn tại.");
 	}
-	validateOperation(article, job.operation, job.scheduledAt);
+	validateOperation(
+		article,
+		job.operation,
+		job.scheduledAt,
+		job.requestedByUserId,
+	);
 	const accessToken = await getValidZaloAccessToken(
 		article.targetOaConnectionId,
 	);
@@ -473,7 +481,13 @@ function validateOperation(
 	article: typeof articles.$inferSelect,
 	operation: PublicationOperation,
 	scheduledAt: Date,
+	actorUserId: string,
 ) {
+	if (!actorAllowsArticleOperation(actorUserId, operation)) {
+		throw new Error(
+			"Tự động hóa chỉ được đồng bộ bản nháp ẩn; không được phép xuất bản công khai.",
+		);
+	}
 	if (!reviewAllowsArticleOperation(article.reviewStatus, operation)) {
 		throw new Error(
 			operation === "sync_hidden"

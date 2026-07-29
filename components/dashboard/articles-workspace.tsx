@@ -566,7 +566,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 function publicationLabel(status: string) {
 	const labels: Record<string, string> = {
 		failed: "Cần xử lý",
-		hidden: "Bản ẩn Zalo",
+		hidden: "Bản nháp Zalo · chưa đăng",
 		not_synced: "Chưa đồng bộ",
 		published: "Đã xuất bản",
 		publishing: "Đang xuất bản",

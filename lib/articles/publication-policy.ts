@@ -17,3 +17,13 @@ export function reviewAllowsArticleOperation(
 	if (operation === "sync_hidden") return reviewStatus !== "rejected";
 	return reviewStatus === "approved";
 }
+
+export function actorAllowsArticleOperation(
+	actorUserId: string,
+	operation: ArticlePublicationOperation,
+) {
+	return (
+		actorUserId !== "system" ||
+		(operation !== "publish" && operation !== "update_visible")
+	);
+}

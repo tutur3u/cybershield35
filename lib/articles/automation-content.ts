@@ -41,26 +41,30 @@ export function normalizeAutomatedArticleContent(
 	seed: ArticleContent,
 	proposal: ArticleAiOutput,
 ): ArticleContent {
+	const title = normalizeGeneratedTitle(proposal.title, seed.title);
 	const blocks: ArticleContent["blocks"] = [];
 	for (const block of proposal.blocks) {
 		if (block.type === "image") {
 			if (block.url) blocks.push(block);
 			continue;
 		}
-		const content = cleanDraftContent(block.content);
+		const content = cleanArticleBody(block.content, title);
 		if (content) blocks.push({ ...block, content });
 	}
+	const normalizedBlocks = blocks.length ? blocks : seed.blocks;
 
 	return {
 		author: cleanDraftContent(proposal.author) || seed.author,
-		blocks: blocks.length ? blocks : seed.blocks,
+		blocks: normalizedBlocks,
 		commentsEnabled: proposal.commentsEnabled,
 		coverUrl: seed.coverUrl ?? proposal.coverUrl,
-		description:
-			truncateText(cleanDraftContent(proposal.description), 300) ||
+		description: normalizeDescription(
+			title,
+			proposal.description,
 			seed.description,
-		title:
-			truncateText(cleanDraftContent(proposal.title), 150) || seed.title,
+			normalizedBlocks,
+		),
+		title,
 	};
 }
 
@@ -76,13 +80,92 @@ function originalImageUrl(metadata: Record<string, unknown>) {
 }
 
 function naturalTitle(value: string) {
-	const compact = value
+	const firstLine =
+		cleanDraftContent(value)
+			.split("\n")
+			.map((line) => line.trim())
+			.find(Boolean) ?? "";
+	const compact = firstLine
+		.replace(/^#{1,6}\s*/u, "")
 		.replace(/^["“”'‘’]+|["“”'‘’]+$/gu, "")
 		.replace(/\s+/gu, " ")
 		.trim();
 	if (!compact) return "";
 	const sentence = compact.split(/(?<=[.!?])\s/u)[0] ?? compact;
 	return sentence.replace(/[.!?]+$/u, "").trim();
+}
+
+function normalizeGeneratedTitle(value: string, fallback: string) {
+	const generated = naturalTitle(value);
+	const safeFallback = naturalTitle(fallback);
+	if (!generated) return truncateText(safeFallback, 150);
+	if (
+		safeFallback &&
+		comparableText(generated).startsWith(comparableText(safeFallback)) &&
+		comparableText(generated) !== comparableText(safeFallback)
+	) {
+		return truncateText(safeFallback, 150);
+	}
+	return truncateText(generated, 150);
+}
+
+function normalizeDescription(
+	title: string,
+	proposal: string,
+	fallback: string,
+	blocks: ArticleContent["blocks"],
+) {
+	const firstTextBlock = blocks.find((block) => block.type === "text");
+	for (const candidate of [
+		proposal,
+		fallback,
+		firstTextBlock?.type === "text"
+			? firstTextBlock.content.split(/\n{2,}/u)[0]
+			: "",
+	]) {
+		const description = stripLeadingTitle(candidate ?? "", title)
+			.replace(/\s*\n+\s*/gu, " ")
+			.replace(/\s{2,}/gu, " ")
+			.trim();
+		if (description.length >= 20) return truncateText(description, 280);
+	}
+	return "Bản nháp đang chờ biên tập viên kiểm tra nội dung và nguồn thông tin.";
+}
+
+function cleanArticleBody(value: string, title: string) {
+	const content = cleanDraftContent(value);
+	const [firstLine = "", ...remainingLines] = content.split("\n");
+	if (
+		remainingLines.length &&
+		comparableText(firstLine) === comparableText(title)
+	) {
+		return remainingLines.join("\n").trim();
+	}
+	return content;
+}
+
+function stripLeadingTitle(value: string, title: string) {
+	const content = cleanDraftContent(value);
+	if (
+		title &&
+		content
+			.toLocaleLowerCase("vi-VN")
+			.startsWith(title.toLocaleLowerCase("vi-VN"))
+	) {
+		return content
+			.slice(title.length)
+			.replace(/^[\s:–—-]+/u, "")
+			.trim();
+	}
+	return content;
+}
+
+function comparableText(value: string) {
+	return value
+		.normalize("NFKC")
+		.toLocaleLowerCase("vi-VN")
+		.replace(/[^\p{L}\p{N}]+/gu, " ")
+		.trim();
 }
 
 function truncateText(value: string, limit: number) {
