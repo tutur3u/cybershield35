@@ -31,7 +31,28 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ArticleBlock, ArticleContent } from "@/lib/articles/schemas";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { ExportActions } from "@/components/dashboard/export-actions";
+import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@/components/ui/tabs";
 
 type ArticleRow = ArticleContent & {
 	contentHash: string;
@@ -39,6 +60,7 @@ type ArticleRow = ArticleContent & {
 	id: string;
 	lastError: string | null;
 	lastSyncedAt: string | null;
+	originDraftId: string | null;
 	publicationStatus: string;
 	publishedAt: string | null;
 	remoteArticleId: string | null;
@@ -396,7 +418,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 
 	const article = detail.data.article;
 	const canSync =
-		article.reviewStatus === "approved" &&
+		article.reviewStatus !== "rejected" &&
 		Boolean(targetOaConnectionId && draft.title && draft.description && draft.coverUrl) &&
 		draft.blocks.some(
 			(block) =>
@@ -405,7 +427,10 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 		);
 	const synced = article.syncedContentHash === article.contentHash;
 	const readiness = [
-		{ done: article.reviewStatus === "approved", label: "Bài đã được phê duyệt" },
+		{
+			done: article.reviewStatus !== "rejected",
+			label: "Được phép tạo bản ẩn để duyệt",
+		},
 		{ done: Boolean(targetOaConnectionId), label: "Đã chọn Zalo OA" },
 		{
 			done: Boolean(draft.title && draft.description && draft.coverUrl),
@@ -433,9 +458,27 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<ArrowLeft size={16} />
 					</Link>
 					<div className="min-w-0">
-						<p className="truncate text-sm font-bold">
-							{draft.title || "Bài viết chưa đặt tên"}
-						</p>
+						<div className="flex min-w-0 flex-wrap items-center gap-2">
+							<p className="truncate text-sm font-bold">
+								{draft.title || "Bài viết chưa đặt tên"}
+							</p>
+							<Badge
+								variant="outline"
+								className={reviewBadgeClass(article.reviewStatus)}
+							>
+								{reviewLabel(article.reviewStatus)}
+							</Badge>
+							{article.originDraftId ? (
+								<DashboardTooltip content="Bài được chuẩn bị tự động từ scan và vẫn cần con người kiểm tra trước khi xuất bản.">
+									<Badge
+										variant="outline"
+										className="border-[var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+									>
+										<Bot size={11} /> Tự động từ scan
+									</Badge>
+								</DashboardTooltip>
+							) : null}
+						</div>
 						<p className="mt-0.5 text-[10px] text-[var(--muted)]">
 							{dirty ? "Có thay đổi chưa lưu" : `Đã lưu ${relativeTime(article.updatedAt)}`}
 						</p>
@@ -478,69 +521,29 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				</div>
 			) : null}
 
-			<div className="grid min-w-0 gap-4 xl:grid-cols-[260px_minmax(0,1fr)_330px]">
-				<aside className="min-w-0 space-y-4">
-					<Section title="Ngữ cảnh & bằng chứng" icon={FileClock}>
-						{detail.data.evidence.length ? (
-							<div className="space-y-2">
-								{detail.data.evidence.map((item) => (
-									<Link
-										key={item.id}
-										href={`/evidence/${item.id}`}
-										className="block rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-3 hover:border-[var(--brand)]"
+			<div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+				<main className="min-w-0">
+					<Tabs defaultValue="compose">
+						<TabsList aria-label="Không gian biên tập bài viết">
+							<TabsTrigger value="compose">
+								<Type size={13} /> Soạn bài
+							</TabsTrigger>
+							<TabsTrigger value="ai">
+								<Sparkles size={13} /> AI hỗ trợ
+							</TabsTrigger>
+							<TabsTrigger value="context">
+								<FileClock size={13} /> Bằng chứng
+								{detail.data.evidence.length ? (
+									<Badge
+										variant="secondary"
+										className="h-4 min-w-4 px-1 text-[9px]"
 									>
-										<div className="flex items-center justify-between gap-2">
-											<p className="truncate text-[10px] font-bold">
-												{item.sourceLabel ?? item.author ?? "Bằng chứng"}
-											</p>
-											<span className="text-[9px] font-bold uppercase text-[var(--muted)]">
-												{item.riskLevel}
-											</span>
-										</div>
-										<p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--muted)]">
-											{item.summary}
-										</p>
-									</Link>
-								))}
-							</div>
-						) : (
-							<p className="text-[11px] leading-5 text-[var(--muted)]">
-								Chưa ghim bằng chứng. Mở Chat để tạo bài từ scan hoặc thêm evidence
-								qua API bài viết.
-							</p>
-						)}
-					</Section>
-					<Section title="Lịch sử phiên bản" icon={Clock3}>
-						<div className="space-y-2">
-							{detail.data.versions.slice(0, 8).map((version) => (
-								<div
-									key={version.id}
-									className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] p-2.5"
-								>
-									<div>
-										<p className="text-[10px] font-bold">
-											v{version.version} · {version.origin === "ai" ? "AI" : "Thủ công"}
-										</p>
-										<p className="mt-0.5 text-[9px] text-[var(--muted)]">
-											{relativeTime(version.createdAt)}
-										</p>
-									</div>
-									<button
-										type="button"
-										onClick={() => restore(version.id)}
-										disabled={Boolean(busy)}
-										className="grid size-8 place-items-center rounded-md border border-[var(--border)]"
-										aria-label={`Khôi phục phiên bản ${version.version}`}
-									>
-										<Undo2 size={13} />
-									</button>
-								</div>
-							))}
-						</div>
-					</Section>
-				</aside>
-
-				<main className="min-w-0 space-y-4">
+										{detail.data.evidence.length}
+									</Badge>
+								) : null}
+							</TabsTrigger>
+						</TabsList>
+						<TabsContent value="compose" className="space-y-4">
 					<Section title="Thông tin bài viết" icon={Type}>
 						<div className="grid gap-4 sm:grid-cols-2">
 							<Field
@@ -685,7 +688,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							))}
 						</div>
 					</Section>
-
+						</TabsContent>
+						<TabsContent value="ai">
 					<Section title="Biên tập bằng AI" icon={Bot}>
 						<div className="mb-4 rounded-md border border-[var(--success-border)] bg-[var(--success-soft)] p-3">
 							<div className="flex items-center justify-between gap-3">
@@ -794,16 +798,17 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 								</button>
 							))}
 						</div>
-						{proposal ? (
-							<AiProposalReview
-								current={draft}
-								proposal={proposal}
-								onApply={applyProposal}
-								onReject={() => setProposal(null)}
-								pending={busy === "ai:apply"}
-							/>
-						) : null}
 					</Section>
+						</TabsContent>
+						<TabsContent value="context">
+							<ArticleContextPanel
+								busy={Boolean(busy)}
+								evidence={detail.data.evidence}
+								onRestore={restore}
+								versions={detail.data.versions}
+							/>
+						</TabsContent>
+					</Tabs>
 				</main>
 
 				<aside className="min-w-0 space-y-4">
@@ -811,6 +816,18 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<ZaloPreview content={draft} />
 					</Section>
 					<Section title="Đồng bộ & xuất bản" icon={Radio}>
+						{article.originDraftId ? (
+							<div className="mb-3 flex items-start gap-2 rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-3">
+								<Bot
+									size={14}
+									className="mt-0.5 shrink-0 text-[var(--accent-strong)]"
+								/>
+								<p className="text-[10px] leading-4 text-[var(--muted-strong)]">
+									Bài được chuẩn bị tự động từ scan. Hệ thống chỉ đồng bộ ở trạng
+									thái ẩn; xuất bản công khai luôn cần phê duyệt và xác nhận tại đây.
+								</p>
+							</div>
+						) : null}
 						{article.remoteArticleId ? (
 							<ZaloDashboardHandoff
 								oaDisplayName={detail.data.oaDisplayName}
@@ -904,6 +921,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 										type="button"
 										disabled={
 											!synced ||
+											article.reviewStatus !== "approved" ||
 											!["hidden", "scheduled"].includes(article.publicationStatus) ||
 											Boolean(busy)
 										}
@@ -925,7 +943,12 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 									/>
 									<button
 										type="button"
-										disabled={!synced || article.publicationStatus !== "hidden" || Boolean(busy)}
+										disabled={
+											!synced ||
+											article.reviewStatus !== "approved" ||
+											article.publicationStatus !== "hidden" ||
+											Boolean(busy)
+										}
 										onClick={schedulePublish}
 										className={`${secondaryButton} mt-2 w-full`}
 									>
@@ -1015,6 +1038,30 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					</Section>
 				</aside>
 			</div>
+			<Dialog
+				open={Boolean(proposal)}
+				onOpenChange={(open) => {
+					if (!open && busy !== "ai:apply") setProposal(null);
+				}}
+			>
+				<DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--foreground)] sm:max-w-4xl">
+					<DialogHeader>
+						<DialogTitle>So sánh đề xuất biên tập</DialogTitle>
+						<DialogDescription>
+							AI không thay đổi bài viết cho đến khi bạn xem lại và chọn Áp dụng.
+						</DialogDescription>
+					</DialogHeader>
+					{proposal ? (
+						<AiProposalReview
+							current={draft}
+							proposal={proposal}
+							onApply={applyProposal}
+							onReject={() => setProposal(null)}
+							pending={busy === "ai:apply"}
+						/>
+					) : null}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
@@ -1039,8 +1086,8 @@ function ZaloDashboardHandoff({
 					Chưa có bản nháp trên Zalo
 				</p>
 				<p className="mt-1 text-[9px] leading-4 text-[var(--muted)]">
-					Phê duyệt và tạo bản ẩn trước. Sau đó bạn có thể mở OA Manager để kiểm
-					tra bài trực tiếp trên Zalo.
+					Tạo bản ẩn để kiểm tra trực tiếp trong OA Manager. Bài chỉ có thể xuất
+					bản công khai sau khi được phê duyệt.
 				</p>
 			</div>
 		);
@@ -1100,6 +1147,115 @@ function ZaloDashboardHandoff({
 				<ChevronRight size={14} className="shrink-0" />
 			</a>
 		</div>
+	);
+}
+
+function ArticleContextPanel({
+	busy,
+	evidence,
+	onRestore,
+	versions,
+}: {
+	busy: boolean;
+	evidence: ArticleDetail["evidence"];
+	onRestore: (versionId: string) => void;
+	versions: ArticleDetail["versions"];
+}) {
+	return (
+		<Accordion
+			type="multiple"
+			defaultValue={["evidence", "versions"]}
+			className="shadow-[var(--shadow-soft)]"
+		>
+			<AccordionItem value="evidence">
+				<AccordionTrigger>
+					<span className="flex min-w-0 items-center gap-2">
+						<FileClock size={14} className="text-[var(--brand)]" />
+						Ngữ cảnh & bằng chứng
+						<Badge variant="secondary" className="h-5 px-1.5 text-[9px]">
+							{evidence.length}
+						</Badge>
+					</span>
+				</AccordionTrigger>
+				<AccordionContent>
+					{evidence.length ? (
+						<div className="grid gap-2 md:grid-cols-2">
+							{evidence.map((item) => (
+								<Link
+									key={item.id}
+									href={`/evidence/${item.id}`}
+									className="block rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-3 transition hover:border-[var(--brand)]"
+								>
+									<div className="flex items-center justify-between gap-2">
+										<p className="truncate text-[10px] font-bold">
+											{item.sourceLabel ?? item.author ?? "Bằng chứng"}
+										</p>
+										<Badge
+											variant="outline"
+											className="h-5 text-[9px] uppercase"
+										>
+											{item.riskLevel}
+										</Badge>
+									</div>
+									<p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--muted)]">
+										{item.summary}
+									</p>
+								</Link>
+							))}
+						</div>
+					) : (
+						<p className="text-[11px] leading-5 text-[var(--muted)]">
+							Chưa ghim bằng chứng. Mở Chat để tạo bài từ scan hoặc thêm bằng
+							chứng vào bài viết.
+						</p>
+					)}
+				</AccordionContent>
+			</AccordionItem>
+			<AccordionItem value="versions">
+				<AccordionTrigger>
+					<span className="flex min-w-0 items-center gap-2">
+						<Clock3 size={14} className="text-[var(--brand)]" />
+						Lịch sử phiên bản
+						<Badge variant="secondary" className="h-5 px-1.5 text-[9px]">
+							{versions.length}
+						</Badge>
+					</span>
+				</AccordionTrigger>
+				<AccordionContent>
+					<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+						{versions.slice(0, 12).map((version) => (
+							<div
+								key={version.id}
+								className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-2.5"
+							>
+								<div>
+									<p className="text-[10px] font-bold">
+										v{version.version} ·{" "}
+										{version.origin === "ai" ? "AI" : "Thủ công"}
+									</p>
+									<p className="mt-0.5 text-[9px] text-[var(--muted)]">
+										{relativeTime(version.createdAt)}
+									</p>
+								</div>
+								<DashboardTooltip
+									content={`Khôi phục phiên bản ${version.version} thành nội dung hiện tại.`}
+								>
+									<button
+										type="button"
+										onClick={() => onRestore(version.id)}
+										disabled={busy}
+										className="grid size-8 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] transition hover:border-[var(--brand)] disabled:opacity-50"
+										aria-label={`Khôi phục phiên bản ${version.version}`}
+									>
+										<Undo2 size={13} />
+									</button>
+								</DashboardTooltip>
+							</div>
+						))}
+					</div>
+				</AccordionContent>
+			</AccordionItem>
+		</Accordion>
 	);
 }
 
@@ -1244,26 +1400,34 @@ function BlockEditor({
 
 function ZaloPreview({ content }: { content: ArticleContent }) {
 	return (
-		<article className="overflow-hidden rounded-lg border border-[#dbe7f7] bg-white text-slate-900 shadow-sm">
+		<article className="overflow-hidden rounded-lg border border-[var(--border-strong)] bg-[var(--surface-elevated)] text-[var(--foreground)] shadow-sm">
 			{isImageUrl(content.coverUrl) ? (
-				<Image unoptimized width={960} height={540} src={content.coverUrl} alt="" className="aspect-[16/9] w-full object-cover" />
+				<Image
+					unoptimized
+					loading="eager"
+					width={960}
+					height={540}
+					src={content.coverUrl}
+					alt=""
+					className="aspect-[16/9] w-full object-cover"
+				/>
 			) : (
-				<div className="grid aspect-[16/9] place-items-center bg-slate-100 text-xs font-bold text-slate-400">
+				<div className="grid aspect-[16/9] place-items-center bg-[var(--surface-soft)] text-xs font-bold text-[var(--muted)]">
 					Chưa có ảnh bìa
 				</div>
 			)}
 			<div className="p-4">
 				<p className="text-[10px] font-bold uppercase tracking-wide text-[#0068ff]">Zalo Article</p>
 				<h3 className="mt-2 text-base font-bold leading-6">{content.title || "Tiêu đề bài viết"}</h3>
-				<p className="mt-2 text-[11px] leading-5 text-slate-600">{content.description || "Mô tả bài viết sẽ hiển thị tại đây."}</p>
+				<p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">{content.description || "Mô tả bài viết sẽ hiển thị tại đây."}</p>
 				<div className="mt-4 space-y-3">
 					{content.blocks.map((block) =>
 						block.type === "text" ? (
-							<p key={block.id} className="whitespace-pre-wrap text-[12px] leading-5 text-slate-700">{block.content}</p>
+							<p key={block.id} className="whitespace-pre-wrap text-justify text-[12px] leading-5 text-[var(--muted-strong)]">{block.content}</p>
 						) : isImageUrl(block.url) ? (
 							<figure key={block.id}>
 								<Image unoptimized width={960} height={540} src={block.url} alt={block.caption ?? ""} className="h-auto w-full rounded-md" />
-								{block.caption ? <figcaption className="mt-1 text-[10px] text-slate-500">{block.caption}</figcaption> : null}
+								{block.caption ? <figcaption className="mt-1 text-[10px] text-[var(--muted)]">{block.caption}</figcaption> : null}
 							</figure>
 						) : null,
 					)}
@@ -1365,6 +1529,31 @@ function operationLabel(operation: string) {
 			sync_hidden: "Đồng bộ bản ẩn",
 			update_visible: "Cập nhật bài đã đăng",
 		}[operation] ?? operation
+	);
+}
+
+function reviewLabel(status: string) {
+	return (
+		{
+			approved: "Đã duyệt",
+			draft: "Bản nháp",
+			needs_review: "Cần duyệt",
+			rejected: "Đã từ chối",
+		}[status] ?? status
+	);
+}
+
+function reviewBadgeClass(status: string) {
+	return (
+		{
+			approved:
+				"border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]",
+			needs_review:
+				"border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			rejected:
+				"border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+		}[status] ??
+		"border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted-strong)]"
 	);
 }
 

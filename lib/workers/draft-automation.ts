@@ -6,6 +6,7 @@ import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { draftAutomationJobs, evidenceItems } from "@/lib/db/schema";
 import { automatedDraftPolicy } from "@/lib/domain/facebook-page-policy";
 import { logOperation } from "@/lib/operations/telemetry";
+import { prepareAndSyncAutomatedArticleDraft } from "@/lib/articles/automation";
 import { generateDraftForScan } from "@/lib/workers/scans";
 
 type ClaimedDraftJob = {
@@ -62,6 +63,10 @@ export async function processNextAutomatedDraftJob() {
 			tone: policy.tone,
 			voice: policy.voice,
 		});
+		const articleResult = await prepareAndSyncAutomatedArticleDraft({
+			draftId: draft.id,
+			evidenceId: evidence.id,
+		});
 
 		await adminDb
 			.update(draftAutomationJobs)
@@ -74,11 +79,20 @@ export async function processNextAutomatedDraftJob() {
 			})
 			.where(eq(draftAutomationJobs.id, claimed.id));
 		logOperation("automated_draft_completed", {
+			articleId: articleResult.articleId,
 			draftId: draft.id,
 			jobId: claimed.id,
 			pageKey: claimed.page_key,
+			preparationMode: articleResult.preparationMode,
+			zaloStatus: articleResult.zaloStatus,
 		});
-		return { draftId: draft.id, jobId: claimed.id, processed: true } as const;
+		return {
+			articleId: articleResult.articleId,
+			draftId: draft.id,
+			jobId: claimed.id,
+			processed: true,
+			zaloStatus: articleResult.zaloStatus,
+		} as const;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		const status = claimed.attempts < claimed.max_attempts ? "retrying" : "failed";

@@ -5,6 +5,7 @@ import { generateText, Output } from "ai";
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
+import { cleanDraftContent } from "@/lib/domain/draft-content";
 import {
 	draftWritingBriefForMode,
 	type DraftGenerationMode,
@@ -175,7 +176,7 @@ export async function analyzeEvidence(
 		model,
 		output: Output.object({ schema: analysisOutputSchema }),
 		system:
-			"You are an evidence-grounded civic information analyst. Return Vietnamese analysis only. Do not infer identity, do not recommend automated posting, and cite only provided evidence IDs.",
+			`You are an evidence-grounded civic information analyst. Return Vietnamese analysis only. Distinguish facts, interpretations, and missing context. Write summaries in fluent, idiomatic Vietnamese without mechanical openings or bureaucratic filler. Do not infer identity, do not recommend automated posting, and cite only provided evidence IDs. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
 		prompt: JSON.stringify({
 			task: "Analyze public topic discussion, claims, stance, risk flags, and sentiment.",
 			evidence,
@@ -313,13 +314,16 @@ export async function generateArticleRevision(options: {
 	context?: string;
 	editorialIntent: "counter_argument" | "support" | "balanced";
 	evidence: Array<Pick<EvidenceItemRow, "id" | "quote" | "summary">>;
+	generationMode?: DraftGenerationMode;
 	instruction?: string;
 	model?: string;
-	session: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
+	session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 	tone: string;
 	voice: string;
 }): Promise<ArticleAiOutput> {
-	const runtime = getInteractiveModelRuntime(options.session, options.model);
+	const runtime = options.session
+		? getInteractiveModelRuntime(options.session, options.model)
+		: getModelRuntime();
 	if (!runtime) throw new Error("LLM provider is not configured");
 	const { output } = await generateText({
 		model: runtime.model,
@@ -329,6 +333,9 @@ export async function generateArticleRevision(options: {
 			"Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
 			"Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
 			"Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+			"Tiêu đề phải cụ thể, tự nhiên, không giật gân; mô tả phải tóm đúng giá trị thông tin trong một hoặc hai câu.",
+			"Thân bài mặc định gồm ba đến sáu đoạn ngắn, mỗi đoạn phát triển một ý và nối với nhau bằng chuyển ý tự nhiên.",
+			"Không chèn ký hiệu trích dẫn dạng [1], [2] hoặc 【1】 vào nội dung; mọi lưu ý kiểm chứng phải nằm trong reviewNotes.",
 			editorialIntentInstruction(options.editorialIntent),
 			NATURAL_VIETNAMESE_WRITING_GUIDANCE,
 		].join(" "),
@@ -347,9 +354,22 @@ export async function generateArticleRevision(options: {
 			},
 			tone: options.tone,
 			voice: options.voice,
+			writingBrief: draftWritingBriefForMode(
+				options.generationMode ?? "operator",
+			),
 		}),
 	});
-	return output;
+	return {
+		...output,
+		author: cleanDraftContent(output.author),
+		blocks: output.blocks.map((block) =>
+			block.type === "text"
+				? { ...block, content: cleanDraftContent(block.content) }
+				: block,
+		),
+		description: cleanDraftContent(output.description),
+		title: cleanDraftContent(output.title),
+	};
 }
 
 function editorialIntentInstruction(

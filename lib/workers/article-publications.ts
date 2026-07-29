@@ -13,6 +13,7 @@ import {
 	cronHeartbeats,
 } from "@/lib/db/schema";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { reviewAllowsArticleOperation } from "@/lib/articles/publication-policy";
 import {
 	createZaloArticle,
 	getZaloArticle,
@@ -473,8 +474,12 @@ function validateOperation(
 	operation: PublicationOperation,
 	scheduledAt: Date,
 ) {
-	if (article.reviewStatus !== "approved") {
-		throw new Error("Bài viết phải được phê duyệt trước khi đồng bộ hoặc xuất bản.");
+	if (!reviewAllowsArticleOperation(article.reviewStatus, operation)) {
+		throw new Error(
+			operation === "sync_hidden"
+				? "Bài viết đã bị từ chối nên không thể đồng bộ bản ẩn."
+				: "Bài viết phải được phê duyệt trước khi xuất bản.",
+		);
 	}
 	if (!article.targetOaConnectionId) {
 		throw new Error("Hãy chọn Zalo OA đích.");
