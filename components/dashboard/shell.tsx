@@ -252,9 +252,7 @@ function SidebarNavLink({
 		<IntentPrefetchLink
 			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:text-[12px] ${
-				collapsed ? "lg:justify-center lg:px-0" : "lg:gap-3"
-			} ${
+			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:justify-start lg:gap-3 lg:px-3 lg:text-[12px] ${
 				active
 					? "bg-[var(--surface-soft)] text-[color:var(--brand-strong)] before:bg-[var(--brand)]"
 					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"

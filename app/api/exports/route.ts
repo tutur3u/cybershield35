@@ -14,7 +14,7 @@ import { cleanDraftContent } from "@/lib/domain/draft-content";
 const bodySchema = z
 	.object({
 		content: z.string().trim().min(1).max(20_000),
-		fileName: z.string().trim().min(1).max(120),
+		fileName: z.string().trim().min(1).max(160),
 		format: z.enum(["docx", "pdf", "wav"]),
 		title: z.string().trim().min(1).max(160),
 	})

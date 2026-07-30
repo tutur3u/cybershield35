@@ -1267,6 +1267,8 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("aria-label={collapsed ? item.label : undefined}");
 		expect(shell).toContain("collapsed ? item.label : undefined");
 		expect(shell).toContain("items-center justify-start");
+		expect(shell).toContain("lg:justify-start lg:gap-3 lg:px-3");
+		expect(shell).not.toContain("lg:justify-center lg:px-0");
 		expect(shell).toContain('className="shrink-0"');
 		expect(layoutShell).toContain("<Sidebar");
 		expect(layoutShell).toContain("<TopBar");

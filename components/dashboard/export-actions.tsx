@@ -34,6 +34,7 @@ export function ExportActions({
 	const [pending, setPending] = useState<ExportFormat | null>(null);
 	const [status, setStatus] = useState("");
 	const disabled = !content.trim();
+	const exportFileName = normalizeExportFileName(fileName);
 
 	async function download(format: ExportFormat) {
 		if (pending || disabled) return;
@@ -46,7 +47,12 @@ export function ExportActions({
 
 		try {
 			const response = await fetch("/api/exports", {
-				body: JSON.stringify({ content, fileName, format, title }),
+				body: JSON.stringify({
+					content,
+					fileName: exportFileName,
+					format,
+					title,
+				}),
 				cache: "no-store",
 				headers: { "Content-Type": "application/json" },
 				method: "POST",
@@ -60,7 +66,7 @@ export function ExportActions({
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement("a");
 			anchor.href = url;
-			anchor.download = `${fileName}.${format}`;
+			anchor.download = `${exportFileName}.${format}`;
 			document.body.append(anchor);
 			anchor.click();
 			anchor.remove();
@@ -109,4 +115,8 @@ export function ExportActions({
 			) : null}
 		</div>
 	);
+}
+
+export function normalizeExportFileName(value: string) {
+	return value.trim().slice(0, 120) || "cybershield35-export";
 }

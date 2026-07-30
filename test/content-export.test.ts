@@ -163,4 +163,39 @@ describe("content exports", () => {
 			"PK",
 		);
 	});
+
+	test("accepts article-length titles as export filenames", async () => {
+		process.env.AUTH_LOCAL_BYPASS = "true";
+		const { POST } = await import("@/app/api/exports/route");
+		const longArticleTitle = "B".repeat(150);
+		const response = await POST(
+			new Request("http://localhost/api/exports", {
+				body: JSON.stringify({
+					content: "Nội dung bài viết tiếng Việt.",
+					fileName: longArticleTitle,
+					format: "docx",
+					title: longArticleTitle,
+				}),
+				headers: {
+					"Content-Type": "application/json",
+					host: "localhost",
+				},
+				method: "POST",
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-disposition")).toContain(
+			`${"B".repeat(80)}.docx`,
+		);
+	});
+
+	test("normalizes client export filenames to the API-safe limit", async () => {
+		const { normalizeExportFileName } = await import(
+			"@/components/dashboard/export-actions"
+		);
+
+		expect(normalizeExportFileName(`  ${"Tên".repeat(60)}  `).length).toBe(120);
+		expect(normalizeExportFileName("   ")).toBe("cybershield35-export");
+	});
 });
