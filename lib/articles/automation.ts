@@ -144,6 +144,13 @@ export async function prepareAndSyncAutomatedArticleDraft(input: {
 			zaloStatus: "local_feature_disabled",
 		} as const;
 	}
+	if (defaultOa && !defaultOa.autoSyncDrafts) {
+		return {
+			articleId: article.id,
+			preparationMode,
+			zaloStatus: "local_auto_sync_disabled",
+		} as const;
+	}
 	if (!article.targetOaConnectionId) {
 		return {
 			articleId: article.id,

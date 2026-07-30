@@ -93,5 +93,27 @@ export const articleAiSchema = z
 
 export const articleIdSchema = z.string().uuid();
 
+export const articleWorkspaceSettingsSchema = z
+	.object({
+		autoSyncDrafts: z.boolean(),
+	})
+	.strict();
+
+export const articleBulkActionSchema = z.discriminatedUnion("action", [
+	z
+		.object({
+			action: z.literal("set_review_status"),
+			articleIds: z.array(articleIdSchema).min(1).max(100),
+			status: z.enum(["draft", "needs_review", "approved", "rejected"]),
+		})
+		.strict(),
+	z
+		.object({
+			action: z.enum(["sync_hidden", "hide", "delete"]),
+			articleIds: z.array(articleIdSchema).min(1).max(100),
+		})
+		.strict(),
+]);
+
 export type ArticleBlock = z.infer<typeof articleBlockSchema>;
 export type ArticleContent = z.infer<typeof articleContentSchema>;

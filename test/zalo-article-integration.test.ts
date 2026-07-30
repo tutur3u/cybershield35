@@ -32,10 +32,10 @@ describe("Zalo OA security and article contract", () => {
 		);
 
 		expect(editor).toContain(
-			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/oa"',
+			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/"',
 		);
 		expect(editor).toContain("Mở trong Zalo OA Manager");
-		expect(editor).toContain("Chọn OA, rồi vào Nội dung → Bài viết");
+		expect(editor).toContain("Mở trực tiếp danh sách Nội dung → Bài viết");
 		expect(editor).toContain('target="_blank"');
 		expect(editor).toContain('rel="noopener noreferrer"');
 		expect(editor).toContain("if (!remoteArticleId)");
@@ -60,6 +60,28 @@ describe("Zalo OA security and article contract", () => {
 		expect(workspace).toContain("Mới cập nhật trước");
 		expect(workspace).toContain("Cũ cập nhật trước");
 		expect(workspace).toContain("Sắp xếp theo tiêu đề");
+		expect(workspace).toContain(
+			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/"',
+		);
+		expect(workspace).toContain("Chọn tất cả bài CS35 đang hiển thị");
+		expect(workspace).toContain("Đồng bộ bản nháp ẩn");
+		expect(workspace).toContain("Bản nháp ẩn · chưa đăng");
+	});
+
+	test("keeps automatic scan articles hidden and configurable", () => {
+		const automation = readFileSync("lib/articles/automation.ts", "utf8");
+		const schema = readFileSync("lib/db/schema.ts", "utf8");
+		const bulkRoute = readFileSync(
+			"app/api/articles/bulk/route.ts",
+			"utf8",
+		);
+
+		expect(schema).toContain('autoSyncDrafts: boolean("auto_sync_drafts")');
+		expect(automation).toContain("!defaultOa.autoSyncDrafts");
+		expect(automation).toContain('"sync_hidden"');
+		expect(bulkRoute).toContain('"set_review_status"');
+		expect(bulkRoute).toContain("removeRemoteArticle");
+		expect(bulkRoute).not.toContain('"publish"');
 	});
 
 	test("sanitizes database and provider failures before returning them", async () => {

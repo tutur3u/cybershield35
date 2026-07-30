@@ -1,0 +1,1 @@
+ALTER TABLE "zalo_oa_connections" ADD COLUMN "auto_sync_drafts" boolean DEFAULT true NOT NULL;

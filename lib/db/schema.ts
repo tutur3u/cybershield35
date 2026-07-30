@@ -861,6 +861,7 @@ export const zaloOaConnections = pgTable(
 		}).notNull(),
 		scopes: jsonb("scopes").$type<string[]>().default([]).notNull(),
 		isDefault: boolean("is_default").default(false).notNull(),
+		autoSyncDrafts: boolean("auto_sync_drafts").default(true).notNull(),
 		status: text("status").default("connected").notNull(),
 		lastError: text("last_error"),
 		connectedByUserId: text("connected_by_user_id").notNull(),

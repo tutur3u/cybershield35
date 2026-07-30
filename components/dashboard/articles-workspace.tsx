@@ -1,21 +1,26 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowDown,
 	ArrowDownAZ,
 	ArrowRight,
 	ArrowUp,
 	CalendarClock,
+	CheckSquare2,
+	CloudUpload,
 	Eye,
 	FilePlus2,
 	Heart,
+	LoaderCircle,
 	MessageCircle,
 	Newspaper,
 	Radio,
 	Search,
+	Settings2,
 	Share2,
 	ShieldCheck,
+	Trash2,
 	X,
 } from "lucide-react";
 import Image from "next/image";
@@ -25,6 +30,15 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
 import { Badge } from "@/components/ui/badge";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import type { ZaloCatalogArticle } from "@/lib/zalo/article-catalog";
 
 type LocalArticleListItem = {
@@ -52,6 +66,7 @@ type ArticleCatalogResponse = {
 };
 
 type CatalogArticle = {
+	articleId: string | null;
 	coverUrl: string | null;
 	date: string;
 	description: string;
@@ -66,8 +81,15 @@ type CatalogArticle = {
 	title: string;
 };
 
+type ArticleSettings = {
+	autoSyncDrafts: boolean;
+	defaultOa: { displayName: string; id: string } | null;
+	defaultRemoteStatus: "hidden";
+};
+
 type SortMode = "title" | "updated_asc" | "updated_desc";
-const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/oa";
+type ReviewStatus = "approved" | "draft" | "needs_review" | "rejected";
+const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
 
 export function ArticlesWorkspace() {
 	const query = useQuery({
@@ -75,11 +97,24 @@ export function ArticlesWorkspace() {
 		queryFn: () => fetchJson<ArticleCatalogResponse>("/api/articles"),
 		staleTime: 60_000,
 	});
+	const settings = useQuery({
+		queryKey: ["article-settings"],
+		queryFn: () => fetchJson<ArticleSettings>("/api/articles/settings"),
+		staleTime: 60_000,
+	});
+	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
 	const [source, setSource] = useState<"all" | "cs35" | "zalo">("all");
 	const [status, setStatus] = useState("all");
 	const [oa, setOa] = useState("all");
 	const [sort, setSort] = useState<SortMode>("updated_desc");
+	const [selected, setSelected] = useState<Set<string>>(() => new Set());
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [bulkBusy, setBulkBusy] = useState<string | null>(null);
+	const [bulkReviewStatus, setBulkReviewStatus] =
+		useState<ReviewStatus>("needs_review");
+	const [notice, setNotice] = useState<string | null>(null);
 	const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
 
 	const catalog = useMemo(
@@ -116,6 +151,48 @@ export function ArticlesWorkspace() {
 	}, [catalog, deferredSearch, oa, sort, source, status]);
 	const filtersActive =
 		Boolean(search) || source !== "all" || status !== "all" || oa !== "all";
+	const visibleCs35Ids = visibleArticles.flatMap((article) =>
+		article.articleId ? [article.articleId] : [],
+	);
+	const selectedIds = [...selected].filter((id) =>
+		catalog.some((article) => article.articleId === id),
+	);
+	const allVisibleSelected =
+		visibleCs35Ids.length > 0 &&
+		visibleCs35Ids.every((id) => selected.has(id));
+
+	async function runBulk(
+		action: "delete" | "hide" | "set_review_status" | "sync_hidden",
+		status?: ReviewStatus,
+	) {
+		if (!selectedIds.length) return;
+		setBulkBusy(action);
+		setNotice(null);
+		try {
+			const result = await postJson<{
+				failed: number;
+				succeeded: number;
+			}>("/api/articles/bulk", {
+				action,
+				articleIds: selectedIds,
+				...(action === "set_review_status" ? { status } : {}),
+			});
+			setNotice(
+				result.failed
+					? `Đã xử lý ${result.succeeded} bài; ${result.failed} bài cần kiểm tra lại.`
+					: `Đã xử lý ${result.succeeded} bài viết.`,
+			);
+			setSelected(new Set());
+			setDeleteOpen(false);
+			await queryClient.invalidateQueries({ queryKey: ["articles"] });
+		} catch (error) {
+			setNotice(
+				error instanceof Error ? error.message : "Không thể xử lý bài viết.",
+			);
+		} finally {
+			setBulkBusy(null);
+		}
+	}
 
 	return (
 		<Panel>
@@ -123,13 +200,25 @@ export function ArticlesWorkspace() {
 				title="Không gian bài viết"
 				description="Một danh sách thống nhất cho bài tạo trên CS35 và nội dung hiện có trên các Zalo OA đã kết nối."
 				action={
-					<Link
-						href="/articles/new"
-						className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[11px] font-bold text-white"
-					>
-						<FilePlus2 size={14} />
-						Bài viết mới
-					</Link>
+					<div className="flex items-center gap-2">
+						<DashboardTooltip content="Cài đặt đồng bộ bản nháp tự động và trạng thái Zalo mặc định.">
+							<button
+								type="button"
+								onClick={() => setSettingsOpen(true)}
+								className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+								aria-label="Cài đặt bài viết"
+							>
+								<Settings2 size={14} />
+							</button>
+						</DashboardTooltip>
+						<Link
+							href="/articles/new"
+							className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[11px] font-bold text-white"
+						>
+							<FilePlus2 size={14} />
+							Bài viết mới
+						</Link>
+					</div>
 				}
 			/>
 			<div className="border-b border-[var(--border)] p-3">
@@ -264,8 +353,90 @@ export function ArticlesWorkspace() {
 							</Badge>
 						</DashboardTooltip>
 					) : null}
+					<a
+						href={ZALO_OA_MANAGER_URL}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--border)] px-2 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[#0068ff]/60 hover:text-[#5b9aff]"
+					>
+						<Radio size={11} /> Mở Nội dung Zalo OA
+					</a>
 				</div>
 			</div>
+			{selectedIds.length ? (
+				<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--accent-soft)] px-3 py-2">
+					<Badge className="h-6 bg-[var(--brand)] text-[10px] text-white">
+						<CheckSquare2 size={11} /> {selectedIds.length} bài CS35
+					</Badge>
+					<select
+						value={bulkReviewStatus}
+						onChange={(event) =>
+							setBulkReviewStatus(event.target.value as ReviewStatus)
+						}
+						aria-label="Trạng thái duyệt hàng loạt"
+						className="h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[10px] font-bold"
+					>
+						<option value="draft">Bản nháp</option>
+						<option value="needs_review">Cần duyệt</option>
+						<option value="approved">Đã duyệt</option>
+						<option value="rejected">Đã từ chối</option>
+					</select>
+					<button
+						type="button"
+						disabled={Boolean(bulkBusy)}
+						onClick={() =>
+							void runBulk("set_review_status", bulkReviewStatus)
+						}
+						className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold disabled:opacity-50"
+					>
+						{bulkBusy === "set_review_status" ? (
+							<LoaderCircle size={12} className="animate-spin" />
+						) : (
+							<CheckSquare2 size={12} />
+						)}
+						Đổi trạng thái
+					</button>
+					<DashboardTooltip content="Tạo hoặc cập nhật các bài đã chọn thành bản nháp ẩn trên Zalo. Không xuất bản công khai.">
+						<button
+							type="button"
+							disabled={Boolean(bulkBusy)}
+							onClick={() => void runBulk("sync_hidden")}
+							className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold disabled:opacity-50"
+						>
+							<CloudUpload size={12} /> Đồng bộ bản nháp ẩn
+						</button>
+					</DashboardTooltip>
+					<button
+						type="button"
+						disabled={Boolean(bulkBusy)}
+						onClick={() => void runBulk("hide")}
+						className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold disabled:opacity-50"
+					>
+						<Eye size={12} /> Chuyển về ẩn
+					</button>
+					<button
+						type="button"
+						disabled={Boolean(bulkBusy)}
+						onClick={() => setDeleteOpen(true)}
+						className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--danger-border)] bg-[var(--danger-soft)] px-2.5 text-[10px] font-bold text-[var(--danger-strong)] disabled:opacity-50"
+					>
+						<Trash2 size={12} /> Xóa
+					</button>
+					<button
+						type="button"
+						onClick={() => setSelected(new Set())}
+						className="ml-auto grid size-8 place-items-center rounded-md text-[var(--muted)] hover:bg-[var(--surface)]"
+						aria-label="Bỏ chọn tất cả"
+					>
+						<X size={13} />
+					</button>
+				</div>
+			) : null}
+			{notice ? (
+				<div className="border-b border-[var(--border)] px-3 py-2 text-[11px] font-semibold text-[var(--muted-strong)]">
+					{notice}
+				</div>
+			) : null}
 			<div className="p-3">
 				{query.isPending ? (
 					<div className="space-y-2">
@@ -297,17 +468,233 @@ export function ArticlesWorkspace() {
 					</div>
 				) : (
 					<div className="space-y-2">
+						<label className="flex w-fit items-center gap-2 px-1 py-1 text-[10px] font-bold text-[var(--muted-strong)]">
+							<input
+								type="checkbox"
+								checked={allVisibleSelected}
+								onChange={() =>
+									setSelected((current) => {
+										const next = new Set(current);
+										for (const id of visibleCs35Ids) {
+											if (allVisibleSelected) next.delete(id);
+											else next.add(id);
+										}
+										return next;
+									})
+								}
+							/>
+							Chọn tất cả bài CS35 đang hiển thị
+						</label>
 						{visibleArticles.map((article) => (
-							<ArticleCatalogRow key={article.id} article={article} />
+							<ArticleCatalogRow
+								key={article.id}
+								article={article}
+								selected={
+									article.articleId
+										? selected.has(article.articleId)
+										: false
+								}
+								onSelect={(checked) => {
+									if (!article.articleId) return;
+									setSelected((current) => {
+										const next = new Set(current);
+										if (checked) next.add(article.articleId!);
+										else next.delete(article.articleId!);
+										return next;
+									});
+								}}
+							/>
 						))}
 					</div>
 				)}
 			</div>
+			<ArticleSettingsDialog
+				open={settingsOpen}
+				onOpenChange={setSettingsOpen}
+				settings={settings.data}
+				pending={settings.isPending}
+				onSaved={async () => {
+					await queryClient.invalidateQueries({
+						queryKey: ["article-settings"],
+					});
+				}}
+			/>
+			<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Xóa {selectedIds.length} bài viết?</DialogTitle>
+						<DialogDescription>
+							Bài do CS35 tạo sẽ bị xóa khỏi CS35. Nếu đã đồng bộ, bản
+							nháp hoặc bài đăng tương ứng cũng bị xóa khỏi Zalo OA. Thao
+							tác này không thể hoàn tác.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<DialogClose asChild>
+							<button
+								type="button"
+								className="h-9 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold"
+							>
+								Hủy
+							</button>
+						</DialogClose>
+						<button
+							type="button"
+							onClick={() => void runBulk("delete")}
+							disabled={bulkBusy === "delete"}
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--danger)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
+						>
+							{bulkBusy === "delete" ? (
+								<LoaderCircle size={13} className="animate-spin" />
+							) : (
+								<Trash2 size={13} />
+							)}
+							Xóa khỏi CS35 và Zalo
+						</button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</Panel>
 	);
 }
 
-function ArticleCatalogRow({ article }: { article: CatalogArticle }) {
+function ArticleSettingsDialog({
+	onOpenChange,
+	onSaved,
+	open,
+	pending,
+	settings,
+}: {
+	onOpenChange: (open: boolean) => void;
+	onSaved: () => Promise<void>;
+	open: boolean;
+	pending: boolean;
+	settings: ArticleSettings | undefined;
+}) {
+	const [autoSyncDrafts, setAutoSyncDrafts] = useState(
+		settings?.autoSyncDrafts ?? true,
+	);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const currentAutoSync = settings?.autoSyncDrafts ?? true;
+
+	async function save() {
+		setBusy(true);
+		setError(null);
+		try {
+			await patchJson("/api/articles/settings", { autoSyncDrafts });
+			await onSaved();
+			onOpenChange(false);
+		} catch (saveError) {
+			setError(
+				saveError instanceof Error
+					? saveError.message
+					: "Không thể lưu cài đặt.",
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(nextOpen) => {
+				if (nextOpen) setAutoSyncDrafts(currentAutoSync);
+				onOpenChange(nextOpen);
+			}}
+		>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Cài đặt bản nháp Zalo OA</DialogTitle>
+					<DialogDescription>
+						Kiểm soát cách bài viết tự động từ scan được chuyển sang Zalo.
+						Mọi bài tự động luôn ở trạng thái ẩn và không được xuất bản công
+						khai.
+					</DialogDescription>
+				</DialogHeader>
+				{pending ? (
+					<div className="h-24 animate-pulse rounded-lg bg-[var(--surface-soft)]" />
+				) : (
+					<div className="space-y-3">
+						<label className="flex cursor-pointer items-start justify-between gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+							<span>
+								<span className="block text-[12px] font-bold">
+									Tự động đồng bộ bản nháp
+								</span>
+								<span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
+									Bài tạo tự động từ scan sẽ được gửi tới{" "}
+									{settings?.defaultOa?.displayName ??
+										"Zalo OA mặc định"}{" "}
+									để duyệt.
+								</span>
+							</span>
+							<input
+								type="checkbox"
+								role="switch"
+								checked={autoSyncDrafts}
+								onChange={(event) =>
+									setAutoSyncDrafts(event.target.checked)
+								}
+								className="mt-1"
+							/>
+						</label>
+						<div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--success-border)] bg-[var(--success-soft)] p-3">
+							<div>
+								<p className="text-[11px] font-bold text-[var(--success-strong)]">
+									Trạng thái mặc định
+								</p>
+								<p className="mt-1 text-[10px] text-[var(--muted-strong)]">
+									Chỉ người quản trị OA nhìn thấy cho đến khi duyệt.
+								</p>
+							</div>
+							<Badge
+								variant="outline"
+								className="border-[var(--success-border)] bg-[var(--surface)] text-[10px] text-[var(--success-strong)]"
+							>
+								Bản nháp ẩn · chưa đăng
+							</Badge>
+						</div>
+						{error ? (
+							<p className="rounded-md bg-[var(--danger-soft)] p-2 text-[10px] font-semibold text-[var(--danger-strong)]">
+								{error}
+							</p>
+						) : null}
+					</div>
+				)}
+				<DialogFooter>
+					<DialogClose asChild>
+						<button
+							type="button"
+							className="h-9 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold"
+						>
+							Hủy
+						</button>
+					</DialogClose>
+					<button
+						type="button"
+						disabled={busy || pending || !settings?.defaultOa}
+						onClick={() => void save()}
+						className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
+					>
+						{busy ? <LoaderCircle size={13} className="animate-spin" /> : null}
+						Lưu cài đặt
+					</button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ArticleCatalogRow({
+	article,
+	onSelect,
+	selected,
+}: {
+	article: CatalogArticle;
+	onSelect: (checked: boolean) => void;
+	selected: boolean;
+}) {
 	const body = (
 		<>
 			<div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md bg-[var(--surface-soft)] sm:w-32">
@@ -401,22 +788,36 @@ function ArticleCatalogRow({ article }: { article: CatalogArticle }) {
 		</>
 	);
 	const className =
-		"group flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 transition hover:border-[var(--brand)] hover:bg-[var(--surface-soft)] sm:flex-row sm:items-center";
+		"group flex min-w-0 flex-1 flex-col gap-3 p-3 sm:flex-row sm:items-center";
 
-	return article.origin === "cs35" ? (
-		<Link href={article.href} className={className}>
-			{body}
-		</Link>
-	) : (
-		<a
-			href={article.href}
-			target="_blank"
-			rel="noopener noreferrer"
-			className={className}
-			aria-label={`${article.title} · Mở trong Zalo OA Manager`}
-		>
-			{body}
-		</a>
+	return (
+		<div className="flex overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] transition hover:border-[var(--brand)] hover:bg-[var(--surface-soft)]">
+			{article.articleId ? (
+				<label className="flex shrink-0 items-start border-r border-[var(--border)] px-3 py-4">
+					<input
+						type="checkbox"
+						checked={selected}
+						onChange={(event) => onSelect(event.target.checked)}
+						aria-label={`Chọn ${article.title}`}
+					/>
+				</label>
+			) : null}
+			{article.origin === "cs35" ? (
+				<Link href={article.href} className={className}>
+					{body}
+				</Link>
+			) : (
+				<a
+					href={article.href}
+					target="_blank"
+					rel="noopener noreferrer"
+					className={className}
+					aria-label={`${article.title} · Mở trong Zalo OA Manager`}
+				>
+					{body}
+				</a>
+			)}
+		</div>
 	);
 }
 
@@ -517,6 +918,7 @@ function buildCatalog(data: ArticleCatalogResponse | undefined): CatalogArticle[
 			? remoteById.get(article.remoteArticleId)
 			: undefined;
 		return {
+			articleId: article.id,
 			coverUrl: article.coverUrl ?? remote?.coverUrl ?? null,
 			date: article.updatedAt,
 			description: article.description,
@@ -534,6 +936,7 @@ function buildCatalog(data: ArticleCatalogResponse | undefined): CatalogArticle[
 	const remoteOnly = data.zaloArticles
 		.filter((article) => !localRemoteIds.has(article.remoteArticleId))
 		.map((article) => ({
+			articleId: null,
 			coverUrl: article.coverUrl,
 			date:
 				article.updatedAt ??
@@ -559,6 +962,34 @@ async function fetchJson<T>(url: string): Promise<T> {
 	const body = await response.json().catch(() => null);
 	if (!response.ok) {
 		throw new Error(body?.error ?? "Không thể tải dữ liệu.");
+	}
+	return body as T;
+}
+
+async function postJson<T>(url: string, input: unknown): Promise<T> {
+	const response = await fetch(url, {
+		body: JSON.stringify(input),
+		cache: "no-store",
+		headers: { "content-type": "application/json" },
+		method: "POST",
+	});
+	const body = await response.json().catch(() => null);
+	if (!response.ok) {
+		throw new Error(body?.error ?? "Không thể xử lý dữ liệu.");
+	}
+	return body as T;
+}
+
+async function patchJson<T>(url: string, input: unknown): Promise<T> {
+	const response = await fetch(url, {
+		body: JSON.stringify(input),
+		cache: "no-store",
+		headers: { "content-type": "application/json" },
+		method: "PATCH",
+	});
+	const body = await response.json().catch(() => null);
+	if (!response.ok) {
+		throw new Error(body?.error ?? "Không thể lưu dữ liệu.");
 	}
 	return body as T;
 }

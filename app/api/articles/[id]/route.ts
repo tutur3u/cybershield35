@@ -1,12 +1,13 @@
-import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { articleIdSchema, articleUpdateSchema } from "@/lib/articles/schemas";
-import { getArticleDetail, updateArticle } from "@/lib/articles/store";
+import {
+	deleteLocalArticle,
+	getArticleDetail,
+	updateArticle,
+} from "@/lib/articles/store";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
-import { adminDb } from "@/lib/db/client";
-import { articles, auditEvents } from "@/lib/db/schema";
 import { publicErrorMessage } from "@/lib/http/public-error";
 
 export async function GET(
@@ -74,20 +75,7 @@ export async function DELETE(
 	try {
 		const id = articleIdSchema.parse((await params).id);
 		const actor = actorFromAuth(auth);
-		const deleted = await adminDb.transaction(async (tx) => {
-			const [article] = await tx
-				.delete(articles)
-				.where(and(eq(articles.id, id), isNull(articles.remoteArticleId)))
-				.returning();
-			if (!article) return null;
-			await tx.insert(auditEvents).values({
-				action: "article_deleted",
-				entityId: id,
-				entityType: "article",
-				payload: { actorId: actor.id },
-			});
-			return article;
-		});
+		const deleted = await deleteLocalArticle(id, actor);
 		return deleted
 			? Response.json({ deleted: true }, { headers: authHeaders(auth) })
 			: Response.json(

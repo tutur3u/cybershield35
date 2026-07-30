@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, desc, eq, inArray, max } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
 
 import type { ChatActor } from "@/lib/chat/types";
 import { adminDb } from "@/lib/db/client";
@@ -281,6 +281,23 @@ export async function setArticleReviewStatus(
 		});
 	}
 	return updated ?? null;
+}
+
+export async function deleteLocalArticle(id: string, actor: ChatActor) {
+	return adminDb.transaction(async (tx) => {
+		const [article] = await tx
+			.delete(articles)
+			.where(and(eq(articles.id, id), isNull(articles.remoteArticleId)))
+			.returning();
+		if (!article) return null;
+		await tx.insert(auditEvents).values({
+			action: "article_deleted",
+			entityId: id,
+			entityType: "article",
+			payload: { actorId: actor.id },
+		});
+		return article;
+	});
 }
 
 export async function restoreArticleVersion(

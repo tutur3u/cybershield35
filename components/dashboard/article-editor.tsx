@@ -514,23 +514,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				</div>
 			</div>
 
-			<Lifecycle article={article} synced={synced} />
-
-			{notice || article.lastError ? (
-				<div
-					role="status"
-					className={`rounded-lg border px-4 py-3 text-[12px] font-semibold ${
-						article.lastError
-							? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]"
-							: "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
-					}`}
-				>
-					{article.lastError ?? notice}
-				</div>
-			) : null}
-
 			<Collapsible open={railOpen} onOpenChange={setRailOpen}>
-				<div className="mb-3 flex justify-end">
+				<div className="flex min-w-0 items-center gap-2 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
+					<Lifecycle article={article} synced={synced} />
 					<DashboardTooltip
 						content={
 							railOpen
@@ -539,7 +525,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						}
 					>
 						<CollapsibleTrigger
-							className={secondaryButton}
+							className={`${secondaryButton} shrink-0`}
 							aria-label={
 								railOpen
 									? "Thu gọn bảng điều khiển Zalo"
@@ -561,8 +547,20 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						</CollapsibleTrigger>
 					</DashboardTooltip>
 				</div>
+				{notice || article.lastError ? (
+					<div
+						role="status"
+						className={`mt-4 rounded-lg border px-4 py-3 text-[12px] font-semibold ${
+							article.lastError
+								? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]"
+								: "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
+						}`}
+					>
+						{article.lastError ?? notice}
+					</div>
+				) : null}
 				<div
-					className={`grid min-w-0 gap-4 ${
+					className={`mt-4 grid min-w-0 gap-4 ${
 						railOpen ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""
 					}`}
 				>
@@ -1188,7 +1186,7 @@ function ZaloDashboardHandoff({
 						Mở trong Zalo OA Manager
 					</span>
 					<span className="mt-0.5 block text-[9px] leading-4 text-white/80">
-						Chọn OA, rồi vào Nội dung → Bài viết
+						Mở trực tiếp danh sách Nội dung → Bài viết
 					</span>
 				</span>
 				<ChevronRight size={14} className="shrink-0" />
@@ -1320,14 +1318,14 @@ function Lifecycle({ article, synced }: { article: ArticleRow; synced: boolean }
 		},
 	];
 	return (
-		<ol className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-4">
+		<ol className="flex min-w-max flex-1 items-center gap-2">
 			{steps.map((step, index) => (
-				<li key={step.label} className="flex items-center gap-2">
+				<li key={step.label} className="flex items-center gap-2 whitespace-nowrap">
 					<span className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${step.done ? "bg-[var(--brand)] text-white" : "bg-[var(--surface-soft)] text-[var(--muted)]"}`}>
 						{step.done ? <Check size={12} /> : index + 1}
 					</span>
 					<span className="text-[10px] font-bold">{step.label}</span>
-					{index < steps.length - 1 ? <ChevronRight size={12} className="ml-auto hidden text-[var(--muted)] sm:block" /> : null}
+					{index < steps.length - 1 ? <ChevronRight size={12} className="text-[var(--muted)]" /> : null}
 				</li>
 			))}
 		</ol>
@@ -1661,4 +1659,4 @@ const smallButton =
 	"inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--brand)] disabled:opacity-50";
 const iconButton =
 	"grid size-7 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] disabled:opacity-35";
-const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/oa";
+const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
