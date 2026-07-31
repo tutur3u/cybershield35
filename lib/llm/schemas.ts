@@ -52,9 +52,9 @@ export const articleAiOutputSchema = z.object({
 	blocks: z.array(articleBlockSchema).min(1).max(100),
 	commentsEnabled: z.boolean(),
 	coverUrl: z.string().url().nullable(),
-	description: z.string().trim().max(300),
+	description: z.string().trim().max(180),
 	reviewNotes: z.array(z.string().trim().min(1).max(500)).max(12).default([]),
-	title: z.string().trim().min(1).max(150),
+	title: z.string().trim().min(1).max(110),
 });
 
 export type ArticleAiOutput = z.infer<typeof articleAiOutputSchema>;

@@ -26,6 +26,7 @@ import {
 	verifyZaloArticleOperation,
 	type ZaloArticleContent,
 } from "@/lib/zalo/client";
+import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
 import { getValidZaloAccessToken } from "@/lib/zalo/connections";
 
 type PublicationOperation =
@@ -519,14 +520,18 @@ function toZaloContent(
 	article: typeof articles.$inferSelect,
 	status: "hide" | "show",
 ): ZaloArticleContent {
-	return {
+	const prepared = prepareZaloArticleContent({
 		author: article.author,
 		blocks: article.blocks,
 		commentsEnabled: article.commentsEnabled,
 		coverUrl: article.coverUrl,
 		description: article.description,
-		status,
 		title: article.title,
+	});
+	return {
+		...prepared,
+		coverUrl: prepared.coverUrl ?? null,
+		status,
 	};
 }
 

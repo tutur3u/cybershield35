@@ -1,6 +1,7 @@
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
 import type { ArticleAiOutput } from "@/lib/llm/schemas";
+import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
 
 type AutomatedArticleEvidence = {
 	metadata: Record<string, unknown>;
@@ -21,7 +22,7 @@ export function buildAutomatedArticleSeed(input: {
 				? "Góc nhìn đáng chú ý từ thông tin đã kiểm chứng"
 				: "Những điểm cần làm rõ từ thông tin đang được chia sẻ";
 
-	return {
+	return prepareZaloArticleContent({
 		author: "CyberShield35",
 		blocks: [
 			{
@@ -32,9 +33,9 @@ export function buildAutomatedArticleSeed(input: {
 		],
 		commentsEnabled: true,
 		coverUrl: originalImageUrl(input.evidence.metadata),
-		description: truncateText(summary, 300),
-		title: truncateText(naturalTitle(summary) || fallbackTitle, 150),
-	};
+		description: summary,
+		title: naturalTitle(summary) || fallbackTitle,
+	});
 }
 
 export function normalizeAutomatedArticleContent(
@@ -53,7 +54,7 @@ export function normalizeAutomatedArticleContent(
 	}
 	const normalizedBlocks = blocks.length ? blocks : seed.blocks;
 
-	return {
+	return prepareZaloArticleContent({
 		author: cleanDraftContent(proposal.author) || seed.author,
 		blocks: normalizedBlocks,
 		commentsEnabled: proposal.commentsEnabled,
@@ -65,7 +66,7 @@ export function normalizeAutomatedArticleContent(
 			normalizedBlocks,
 		),
 		title,
-	};
+	});
 }
 
 export function reconcileAutomatedArticleContent(

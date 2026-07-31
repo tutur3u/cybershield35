@@ -100,7 +100,7 @@ describe("automated article draft preparation", () => {
 		});
 
 		expect(seed.title).toBe(
-			"📖 THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026",
+			"THÔNG CÁO BÁO CHÍ LỄ HỘI SẦU RIÊNG ĐẮK LẮK NĂM 2026",
 		);
 		expect(content.title).toBe(seed.title);
 		expect(content.description).toBe(
@@ -147,6 +147,7 @@ describe("automated article draft preparation", () => {
 			content:
 				"Nhiều người thắc mắc vì sao dòng tiền khó thu hồi.",
 		});
+		expect(content.title).not.toContain("🚨");
 	});
 
 	test("allows hidden review drafts but protects every public operation", () => {

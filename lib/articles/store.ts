@@ -16,6 +16,7 @@ import {
 	evidenceItems,
 	zaloOaConnections,
 } from "@/lib/db/schema";
+import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
 
 import type { ArticleContent } from "./schemas";
 
@@ -350,14 +351,17 @@ export async function addArticleEvidence(
 function snapshotFromInput(
 	input: ArticleContent & { targetOaConnectionId?: string | null },
 ): ArticleSnapshot {
-	return normalizeArticleSnapshot({
+	const prepared = prepareZaloArticleContent({
 		author: input.author.trim(),
 		blocks: input.blocks,
 		commentsEnabled: input.commentsEnabled,
 		coverUrl: input.coverUrl ?? null,
 		description: input.description.trim(),
-		targetOaConnectionId: input.targetOaConnectionId ?? null,
 		title: input.title.trim(),
+	});
+	return normalizeArticleSnapshot({
+		...prepared,
+		targetOaConnectionId: input.targetOaConnectionId ?? null,
 	});
 }
 

@@ -34,6 +34,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ArticleBlock, ArticleContent } from "@/lib/articles/schemas";
 import {
+	ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+	ZALO_EDITORIAL_TITLE_LIMIT,
+} from "@/lib/zalo/article-content";
+import {
 	Accordion,
 	AccordionContent,
 	AccordionItem,
@@ -590,17 +594,17 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<div className="grid gap-4 sm:grid-cols-2">
 							<Field
 								label="Tiêu đề"
-								count={`${draft.title.length}/150`}
+								count={`${draft.title.length}/${ZALO_EDITORIAL_TITLE_LIMIT}`}
 								className="sm:col-span-2"
 							>
 								<input
 									value={draft.title}
-									maxLength={150}
+									maxLength={ZALO_EDITORIAL_TITLE_LIMIT}
 									onChange={(event) =>
 										setDraft({ ...draft, title: event.target.value })
 									}
 									className={inputClass}
-									placeholder="Tiêu đề ngắn gọn, rõ ý"
+									placeholder="Tiêu đề ngắn gọn, rõ ý; không lặp trích yếu"
 								/>
 							</Field>
 							<Field label="Tác giả" count={`${draft.author.length}/50`}>
@@ -630,19 +634,19 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 								</select>
 							</Field>
 							<Field
-								label="Mô tả"
-								count={`${draft.description.length}/300`}
+								label="Trích yếu"
+								count={`${draft.description.length}/${ZALO_EDITORIAL_DESCRIPTION_LIMIT}`}
 								className="sm:col-span-2"
 							>
 								<textarea
 									value={draft.description}
-									maxLength={300}
+									maxLength={ZALO_EDITORIAL_DESCRIPTION_LIMIT}
 									rows={3}
 									onChange={(event) =>
 										setDraft({ ...draft, description: event.target.value })
 									}
 									className={textareaClass}
-									placeholder="Tóm tắt tự nhiên để người đọc hiểu nội dung chính"
+									placeholder="Một đến hai câu hoàn chỉnh tóm tắt nội dung bài; không lặp tiêu đề"
 								/>
 							</Field>
 							<Field label="URL ảnh bìa" className="sm:col-span-2">
