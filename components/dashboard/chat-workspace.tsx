@@ -27,8 +27,6 @@ import {
   LoaderCircle,
   MessageCircle,
   MoreHorizontal,
-  PanelRightClose,
-  PanelRightOpen,
   Paperclip,
   Pencil,
   Plus,
@@ -53,6 +51,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import {
   Attachment,
@@ -704,7 +710,6 @@ function ConversationWorkspace({
       {topbarPortal
         ? createPortal(
             <ConversationTopBar
-              contextOpen={contextOpen}
               conversation={conversation}
               onChanged={() =>
                 void Promise.all([
@@ -716,15 +721,35 @@ function ConversationWorkspace({
               }
               onDeleted={() => router.push("/chat")}
               onFork={(id) => router.push(`/chat/${id}`)}
-              onToggleContext={() => setContextOpen((current) => !current)}
+              onOpenContext={() => setContextOpen(true)}
               readOnly={readOnly}
             />,
             topbarPortal,
           )
         : null}
-      <div
-        className={`grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"}`}
-      >
+      <Dialog open={contextOpen} onOpenChange={setContextOpen}>
+        <DialogContent className="grid max-h-[min(88dvh,820px)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-[var(--foreground)] sm:max-w-2xl sm:p-5">
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle>Ngữ cảnh và cấu hình</DialogTitle>
+            <DialogDescription className="text-[var(--muted)]">
+              Quản lý dữ liệu đã ghim, mô hình, tệp và hoạt động AI của cuộc trò
+              chuyện này.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 overflow-y-auto overscroll-contain pr-1">
+            <ContextRail
+              attachments={detail.data.attachments}
+              conversation={conversation}
+              conversationId={conversationId}
+              modelRuns={detail.data.modelRuns}
+              onChanged={() => void detail.refetch()}
+              onUsePreset={(instructions) => void sendChatMessage(instructions)}
+              readOnly={readOnly}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <div className="grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
         <Conversation className="min-h-0 bg-[var(--background)]">
           <ConversationContent className="mx-auto w-full max-w-5xl gap-5 px-4 py-5 sm:px-6">
             {chat.messages.length === 0 ? (
@@ -761,35 +786,7 @@ function ConversationWorkspace({
           <ConversationScrollButton />
         </Conversation>
 
-        <aside
-          className={`${contextOpen ? "hidden xl:row-start-1 xl:block" : "hidden"} min-h-0 border-l border-[var(--border)] bg-[var(--surface-soft)] xl:overflow-y-auto`}
-        >
-          <ContextRail
-            attachments={detail.data.attachments}
-            conversation={conversation}
-            conversationId={conversationId}
-            modelRuns={detail.data.modelRuns}
-            onChanged={() => void detail.refetch()}
-            onUsePreset={(instructions) => void sendChatMessage(instructions)}
-            readOnly={readOnly}
-          />
-        </aside>
-
         <div className="max-h-[42dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] px-3 pb-2 pt-2 sm:px-4 sm:pb-3 xl:col-start-1">
-          <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
-            <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
-              Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
-            </summary>
-            <ContextRail
-              attachments={detail.data.attachments}
-              conversation={conversation}
-              conversationId={conversationId}
-              modelRuns={detail.data.modelRuns}
-              onChanged={() => void detail.refetch()}
-              onUsePreset={(instructions) => void sendChatMessage(instructions)}
-              readOnly={readOnly}
-            />
-          </details>
           {Object.entries(uploadState).map(([key, item]) => (
             <div
               key={key}
@@ -840,12 +837,12 @@ function ConversationWorkspace({
                 onError={(error) => setComposerError(error.message)}
                 onSubmit={submit}
               >
-                <PromptInputHeader className="px-2.5 pb-0 pt-0">
+                <PromptInputHeader className="bg-[var(--surface-elevated)] px-2.5 pb-0 pt-0 dark:bg-[var(--surface-elevated)]">
                   <SelectedPromptAttachments />
                 </PromptInputHeader>
                 <PromptInputBody>
                   <PromptInputTextarea
-                    className="min-h-14 px-3 pb-1 pt-2.5 text-[13px] font-medium leading-5 text-[var(--foreground)] placeholder:text-[var(--muted)]"
+                    className="min-h-14 bg-[var(--surface-elevated)] px-3 pb-1 pt-2.5 text-[13px] font-medium leading-5 text-[var(--foreground)] placeholder:text-[var(--muted)] dark:bg-[var(--surface-elevated)]"
                     disabled={isBusy}
                     placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
                   />
@@ -853,7 +850,7 @@ function ConversationWorkspace({
                     Enter để gửi · Shift + Enter để xuống dòng
                   </div>
                 </PromptInputBody>
-                <PromptInputFooter className="items-center bg-transparent px-2 pb-2 pt-1">
+                <PromptInputFooter className="items-center bg-[var(--surface-elevated)] px-2 pb-2 pt-1 dark:bg-[var(--surface-elevated)]">
                   <PromptInputTools className="flex-wrap gap-1.5">
                     <PromptInputActionMenu>
                       <PromptInputActionMenuTrigger
@@ -874,7 +871,7 @@ function ConversationWorkspace({
                     />
                     <button
                       type="button"
-                      onClick={() => setContextOpen((current) => !current)}
+                      onClick={() => setContextOpen(true)}
                       className="hidden h-8 items-center gap-1.5 rounded-lg border border-transparent px-2 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border)] hover:bg-[var(--surface-soft)] sm:inline-flex"
                       title="Xem bằng chứng và nội dung đã ghim"
                     >
@@ -905,20 +902,18 @@ function ConversationWorkspace({
 }
 
 function ConversationTopBar({
-  contextOpen,
   conversation,
   onChanged,
   onDeleted,
   onFork,
-  onToggleContext,
+  onOpenContext,
   readOnly,
 }: {
-  contextOpen: boolean;
   conversation: ConversationRow;
   onChanged: () => void;
   onDeleted: () => void;
   onFork: (id: string) => void;
-  onToggleContext: () => void;
+  onOpenContext: () => void;
   readOnly: boolean;
 }) {
   return (
@@ -954,16 +949,12 @@ function ConversationTopBar({
       <button
         type="button"
         className={iconButtonClass}
-        onClick={onToggleContext}
-        aria-expanded={contextOpen}
-        aria-label={contextOpen ? "Đóng bảng ngữ cảnh" : "Mở bảng ngữ cảnh"}
+        onClick={onOpenContext}
+        aria-haspopup="dialog"
+        aria-label="Mở ngữ cảnh và cấu hình"
         title="Ngữ cảnh và cấu hình"
       >
-        {contextOpen ? (
-          <PanelRightClose size={14} />
-        ) : (
-          <PanelRightOpen size={14} />
-        )}
+        <SlidersHorizontal size={14} />
       </button>
       <ConversationActions
         conversation={conversation}

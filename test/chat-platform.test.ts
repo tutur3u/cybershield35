@@ -117,7 +117,10 @@ describe("first-class Chat platform", () => {
       "!loading && !failed && conversations.length === 0",
     );
     expect(workspace).toContain(
-      'PromptInputFooter className="items-center bg-transparent',
+      'PromptInputFooter className="items-center bg-[var(--surface-elevated)]',
+    );
+    expect(workspace).toContain(
+      'className="min-h-14 bg-[var(--surface-elevated)]',
     );
     expect(workspace).toContain("min-h-14");
     expect(workspace).not.toContain(
@@ -126,6 +129,12 @@ describe("first-class Chat platform", () => {
     expect(workspace).toContain('aria-label="Đính kèm tệp"');
     expect(workspace).toContain('title="Đính kèm tệp"');
     expect(workspace).toContain('aria-label="Chọn mục tiêu trò chuyện"');
+    expect(workspace).toContain("<Dialog open={contextOpen}");
+    expect(workspace).toContain('aria-haspopup="dialog"');
+    expect(workspace).toContain('aria-label="Mở ngữ cảnh và cấu hình"');
+    expect(workspace).not.toContain("<aside");
+    expect(workspace).not.toContain("xl:grid-cols-[minmax(0,1fr)_264px]");
+    expect(workspace).not.toContain("Ngữ cảnh và cấu hình ·");
   });
 
   test("keeps all generated content internal and human reviewed", () => {
