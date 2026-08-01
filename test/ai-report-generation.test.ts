@@ -50,5 +50,7 @@ describe("AI report output", () => {
     expect(generation).toContain("Trả về văn bản thuần, không JSON");
     expect(generation).toContain("toSorted");
     expect(generation).toContain("riskRank");
+    expect(generation).toContain("options.analysis.claims.slice(0, 12)");
+    expect(generation).toContain("maxOutputTokens: deep ? 2_800 : 2_000");
   });
 });

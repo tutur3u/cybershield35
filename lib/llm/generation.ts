@@ -445,22 +445,34 @@ export async function generateInDepthReport(options: {
   ].join(" ");
   const compactEvidence = options.evidence
     .toSorted((a, b) => riskRank(b.riskLevel) - riskRank(a.riskLevel))
-    .slice(0, deep ? 24 : 16)
+    .slice(0, deep ? 12 : 8)
     .map((item) => ({
       id: item.id,
-      quote: item.quote?.slice(0, 1_200) ?? null,
+      quote: item.quote?.slice(0, 600) ?? null,
       riskLevel: item.riskLevel,
       sourceLabel: item.sourceLabel?.slice(0, 300) ?? null,
-      summary: item.summary?.slice(0, 700) ?? null,
+      summary: item.summary?.slice(0, 400) ?? null,
     }));
   const { text: plainTextReport } = await generateText({
-    maxOutputTokens: deep ? 5_200 : 3_800,
+    maxOutputTokens: deep ? 2_800 : 2_000,
     model: runtime.model,
     system: `${system} Trả về văn bản thuần, không JSON, không Markdown và không dùng dấu sao để định dạng. Dùng tiêu đề mục viết hoa trên dòng riêng.`,
     prompt: JSON.stringify({
-      analysis: options.analysis,
+      analysis: {
+        claims: options.analysis.claims.slice(0, 12).map((claim) => ({
+          ...claim,
+          claim: claim.claim.slice(0, 600),
+          stance: claim.stance.slice(0, 300),
+        })),
+        riskFlags: options.analysis.riskFlags.slice(0, 12),
+        riskLevel: options.analysis.riskLevel,
+        sentiment: options.analysis.sentiment,
+        stanceSummary: options.analysis.stanceSummary.slice(0, 2_000),
+        summary: options.analysis.summary.slice(0, 4_000),
+        topicClusters: options.analysis.topicClusters.slice(0, 12),
+      },
       depth: options.depth,
-      draftBody: options.draftBody?.slice(0, 4_000),
+      draftBody: options.draftBody?.slice(0, 1_500),
       evidence: compactEvidence,
       reportTemplate: options.report,
       scan: options.scan,
