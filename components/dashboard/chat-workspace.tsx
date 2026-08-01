@@ -837,7 +837,10 @@ function ConversationWorkspace({
                 onError={(error) => setComposerError(error.message)}
                 onSubmit={submit}
               >
-                <PromptInputHeader className="bg-[var(--surface-elevated)] px-2.5 pb-0 pt-0 dark:bg-[var(--surface-elevated)]">
+                <PromptInputHeader
+                  className="bg-[var(--surface-elevated)] px-2.5 pb-0 pt-0 dark:bg-[var(--surface-elevated)]"
+                  style={{ backgroundColor: "var(--surface-elevated)" }}
+                >
                   <SelectedPromptAttachments />
                 </PromptInputHeader>
                 <PromptInputBody>
@@ -845,12 +848,16 @@ function ConversationWorkspace({
                     className="min-h-14 bg-[var(--surface-elevated)] px-3 pb-1 pt-2.5 text-[13px] font-medium leading-5 text-[var(--foreground)] placeholder:text-[var(--muted)] dark:bg-[var(--surface-elevated)]"
                     disabled={isBusy}
                     placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
+                    style={{ backgroundColor: "var(--surface-elevated)" }}
                   />
                   <div className="sr-only">
                     Enter để gửi · Shift + Enter để xuống dòng
                   </div>
                 </PromptInputBody>
-                <PromptInputFooter className="items-center bg-[var(--surface-elevated)] px-2 pb-2 pt-1 dark:bg-[var(--surface-elevated)]">
+                <PromptInputFooter
+                  className="items-center bg-[var(--surface-elevated)] px-2 pb-2 pt-1 dark:bg-[var(--surface-elevated)]"
+                  style={{ backgroundColor: "var(--surface-elevated)" }}
+                >
                   <PromptInputTools className="flex-wrap gap-1.5">
                     <PromptInputActionMenu>
                       <PromptInputActionMenuTrigger

@@ -195,13 +195,13 @@ export function Sidebar({
 								<div
 									className={`min-h-0 flex-1 flex-col ${collapsed ? "flex lg:hidden" : "flex"}`}
 								>
-									<button
-										type="button"
-										onClick={() => setChatMenuOpen(false)}
+									<IntentPrefetchLink
+										href="/"
+										onClick={() => setMobileOpen(false)}
 										className="mx-3 mt-3 flex h-9 shrink-0 items-center gap-2 rounded-md px-2 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
 									>
 										<ArrowLeft size={14} /> Tất cả chức năng
-									</button>
+									</IntentPrefetchLink>
 									<div id="chat-sidebar-portal" className="min-h-0 flex-1" />
 								</div>
 								<div
@@ -215,15 +215,14 @@ export function Sidebar({
 									>
 										<MessageCircle size={16} />
 									</IntentPrefetchLink>
-									<button
-										type="button"
-										onClick={() => setChatMenuOpen(false)}
+									<IntentPrefetchLink
+										href="/"
 										aria-label="Tất cả chức năng"
 										title="Tất cả chức năng"
 										className="grid size-10 place-items-center rounded-md text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
 									>
 										<LayoutGrid size={16} />
-									</button>
+									</IntentPrefetchLink>
 								</div>
 							</>
 						) : (

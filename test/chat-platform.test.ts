@@ -95,6 +95,9 @@ describe("first-class Chat platform", () => {
     expect(shell).toContain('id="chat-sidebar-portal"');
     expect(shell).toContain('id="chat-topbar-portal"');
     expect(shell).toContain("lg:justify-center lg:gap-0 lg:px-0");
+    expect(shell.match(/<IntentPrefetchLink\s+href="\/"/g)?.length).toBe(3);
+    expect(shell).toContain("Tất cả chức năng");
+    expect(shell).not.toContain("onClick={() => setChatMenuOpen(false)}");
     expect(workspace).toContain("createPortal");
     expect(workspace).toContain("grid h-full min-h-0 min-w-0");
     expect(workspace).toContain("overflow-y-auto overscroll-contain");
@@ -117,10 +120,13 @@ describe("first-class Chat platform", () => {
       "!loading && !failed && conversations.length === 0",
     );
     expect(workspace).toContain(
-      'PromptInputFooter className="items-center bg-[var(--surface-elevated)]',
+      'className="items-center bg-[var(--surface-elevated)]',
     );
     expect(workspace).toContain(
       'className="min-h-14 bg-[var(--surface-elevated)]',
+    );
+    expect(workspace).toContain(
+      'style={{ backgroundColor: "var(--surface-elevated)" }}',
     );
     expect(workspace).toContain("min-h-14");
     expect(workspace).not.toContain(
