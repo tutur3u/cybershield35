@@ -119,6 +119,7 @@ export async function POST(
       instructions: [
         "Bạn là Chat nội bộ của CyberShield35.",
         "Trả lời bằng tiếng Việt tự nhiên, mạch lạc, đúng trọng tâm và dùng công cụ để kiểm tra dữ liệu thay vì suy đoán.",
+        "Hoàn tất yêu cầu ngay trong lượt hiện tại. Không được chỉ nói rằng đang kiểm tra, sẽ xử lý hoặc sẽ quay lại; câu hỏi về dữ liệu mới nhất, hiện tại hoặc trong workspace bắt buộc phải gọi công cụ phù hợp rồi mới kết luận.",
         chatModeInstruction(input.mode),
         thinkingModeInstruction(input.thinkingMode),
         "Mọi nguồn phải trỏ tới ID và liên kết nội bộ chuẩn. Không tiết lộ bí mật hay nội dung tệp ngoài Chat hiện tại.",

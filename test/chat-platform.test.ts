@@ -61,6 +61,8 @@ describe("first-class Chat platform", () => {
     expect(route).toContain("chatModeInstruction(input.mode)");
     expect(route).toContain("thinkingModeInstruction(input.thinkingMode)");
     expect(route).toContain("không tiết lộ chuỗi suy nghĩ nội bộ");
+    expect(route).toContain("Hoàn tất yêu cầu ngay trong lượt hiện tại");
+    expect(route).toContain("bắt buộc phải gọi công cụ phù hợp");
   });
 
   test("keeps all generated content internal and human reviewed", () => {
