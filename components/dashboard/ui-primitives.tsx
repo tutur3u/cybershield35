@@ -17,7 +17,7 @@ export function Panel({
 }) {
 	return (
 		<section
-			className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] ${className}`}
+			className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] [contain-intrinsic-size:auto_320px] [content-visibility:auto] ${className}`}
 		>
 			{children}
 		</section>

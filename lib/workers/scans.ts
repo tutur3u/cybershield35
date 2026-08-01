@@ -241,6 +241,16 @@ export async function listScans() {
 	return page.items;
 }
 
+export async function getLatestScanId() {
+	const [latestScan] = await adminDb
+		.select({ id: scanJobs.id })
+		.from(scanJobs)
+		.orderBy(desc(scanJobs.createdAt))
+		.limit(1);
+
+	return latestScan?.id ?? "";
+}
+
 export async function listScansPage(input?: {
 	cursor?: string | null;
 	limit?: number;
@@ -277,31 +287,27 @@ export async function listScansPage(input?: {
 }
 
 export async function getScanDetail(id: string) {
-	const rows = await adminDb
-		.select({
-			jobCompletedAt: scanJobs.completedAt,
-			jobCreatedAt: scanJobs.createdAt,
-			jobErrorMessage: scanJobs.errorMessage,
-			jobId: scanJobs.id,
-			jobProvider: scanJobs.provider,
-			jobStartedAt: scanJobs.startedAt,
-			jobStatus: scanJobs.status,
-			jobUpdatedAt: scanJobs.updatedAt,
-			sourceCreatedAt: sources.createdAt,
-			sourceFileName: sources.fileName,
-			sourceNormalizedUrl: sources.normalizedUrl,
-			sourceTitle: sources.title,
-			sourceType: sources.type,
-		})
-		.from(scanJobs)
-		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
-		.where(eq(scanJobs.id, id))
-		.limit(1);
-
-	const row = rows[0];
-	if (!row) return null;
-
-	const [analysisRows, evidence, drafts, runs, audit] = await Promise.all([
+	const [rows, analysisRows, evidence, drafts, runs, audit] = await Promise.all([
+		adminDb
+			.select({
+				jobCompletedAt: scanJobs.completedAt,
+				jobCreatedAt: scanJobs.createdAt,
+				jobErrorMessage: scanJobs.errorMessage,
+				jobId: scanJobs.id,
+				jobProvider: scanJobs.provider,
+				jobStartedAt: scanJobs.startedAt,
+				jobStatus: scanJobs.status,
+				jobUpdatedAt: scanJobs.updatedAt,
+				sourceCreatedAt: sources.createdAt,
+				sourceFileName: sources.fileName,
+				sourceNormalizedUrl: sources.normalizedUrl,
+				sourceTitle: sources.title,
+				sourceType: sources.type,
+			})
+			.from(scanJobs)
+			.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
+			.where(eq(scanJobs.id, id))
+			.limit(1),
 		adminDb
 			.select()
 			.from(analyses)
@@ -361,6 +367,8 @@ export async function getScanDetail(id: string) {
 			)
 			.orderBy(desc(auditEvents.createdAt)),
 	]);
+	const row = rows[0];
+	if (!row) return null;
 	const analysis = analysisRows[0];
 
 	return {

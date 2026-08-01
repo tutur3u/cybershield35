@@ -5,7 +5,10 @@ import {
 import { io } from "next/cache";
 
 import { CyberShieldDashboard } from "@/components/dashboard/cybershield-dashboard";
-import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import {
+	AnalysisPageSkeleton,
+	DashboardPageSkeleton,
+} from "@/components/dashboard/dashboard-skeleton";
 import { QueryProvider } from "@/components/providers/query-provider";
 import type {
 	DashboardInitialData,
@@ -140,6 +143,7 @@ export function DashboardRouteSkeleton({
 }: {
 	page?: DashboardPage;
 }) {
+	if (page === "analysis") return <AnalysisPageSkeleton />;
 	return <DashboardPageSkeleton {...(dashboardSkeletonCopy[page] ?? {})} />;
 }
 

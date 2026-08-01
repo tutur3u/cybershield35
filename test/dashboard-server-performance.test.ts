@@ -66,6 +66,28 @@ describe("dashboard server performance", () => {
 		expect(sourcesPage).toContain(
 			'<DashboardRouteSkeleton page="sources" />',
 		);
+		expect(route).toContain('if (page === "analysis")');
+		expect(skeleton).toContain("Đang chuẩn bị dữ liệu phân tích gần nhất");
+	});
+
+	test("keeps analysis in its own route chunk", () => {
+		const controller = read("components/dashboard/cybershield-dashboard.tsx");
+		const analysisPage = read("components/dashboard/analysis-page.tsx");
+
+		expect(controller).toContain(
+			'import("@/components/dashboard/analysis-page")',
+		);
+		expect(controller).not.toContain(
+			"loadDashboardPages().then((module) => module.AnalysisPage)",
+		);
+		expect(analysisPage).toContain("export function AnalysisPage");
+	});
+
+	test("skips off-screen dashboard panels until they approach the viewport", () => {
+		const primitives = read("components/dashboard/ui-primitives.tsx");
+
+		expect(primitives).toContain("[content-visibility:auto]");
+		expect(primitives).toContain("[contain-intrinsic-size:auto_320px]");
 	});
 
 	test("defers scan snapshots and mutation bundles until evidence or topic intent", () => {
@@ -192,11 +214,25 @@ describe("dashboard server performance", () => {
 		);
 
 		expect(detailRead).toContain(
-			"const [analysisRows, evidence, drafts, runs, audit] = await Promise.all([",
+			"const [rows, analysisRows, evidence, drafts, runs, audit] = await Promise.all([",
 		);
 		expect(detailRead).toContain(
 			'eq(auditEvents.entityType, "scan_job")',
 		);
+	});
+
+	test("starts the latest scan detail before waiting for the scan list", () => {
+		const source = read("lib/dashboard/server-data.ts");
+		const initialRead = source.slice(
+			source.indexOf("export const getDashboardInitialData"),
+			source.indexOf("async function getCachedScans"),
+		);
+
+		expect(initialRead).toContain("getCachedLatestScanId()");
+		expect(initialRead).toContain("const detailPromise = selectedScanId");
+		expect(initialRead.indexOf("const detailPromise"))
+			.toBeLessThan(initialRead.indexOf("const [detail, scans, trackedSources]"));
+		expect(source).toContain("return getLatestScanId()");
 	});
 
 	test("declares indexes for each hot dashboard ordering path", () => {

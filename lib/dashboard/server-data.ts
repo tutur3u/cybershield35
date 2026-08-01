@@ -10,7 +10,11 @@ import {
 	dashboardScanDetailTag,
 } from "@/lib/dashboard/cache-tags";
 import { toClientScanDetail } from "@/lib/dashboard/detail-projection";
-import { getScanDetail, listScans } from "@/lib/workers/scans";
+import {
+	getLatestScanId,
+	getScanDetail,
+	listScans,
+} from "@/lib/workers/scans";
 import { listTrackedSources } from "@/lib/workers/tracked-sources";
 
 export const getDashboardInitialData = cache(
@@ -24,10 +28,19 @@ export const getDashboardInitialData = cache(
 			const trackedSourcesPromise = includeTrackedSources
 				? getCachedTrackedSources()
 				: Promise.resolve([]);
+			const selectedScanIdPromise = scanId
+				? Promise.resolve(scanId)
+				: includeDetail
+					? getCachedLatestScanId()
+					: Promise.resolve("");
 
-			if (scanId && includeDetail) {
+			if (includeDetail) {
+				const selectedScanId = await selectedScanIdPromise;
+				const detailPromise = selectedScanId
+					? getCachedDashboardScanDetail(selectedScanId)
+					: Promise.resolve(null);
 				const [detail, scans, trackedSources] = await Promise.all([
-					getCachedDashboardScanDetail(scanId),
+					detailPromise,
 					scansPromise,
 					trackedSourcesPromise,
 				]);
@@ -35,7 +48,7 @@ export const getDashboardInitialData = cache(
 				return serializeForClient({
 					detail,
 					scans,
-					selectedScanId: scanId,
+					selectedScanId,
 					trackedSources,
 				});
 			}
@@ -45,13 +58,9 @@ export const getDashboardInitialData = cache(
 				trackedSourcesPromise,
 			]);
 			const selectedScanId = scanId || scans[0]?.id || "";
-			const detail =
-				includeDetail && selectedScanId
-					? await getCachedDashboardScanDetail(selectedScanId)
-					: null;
 
 			return serializeForClient({
-				detail,
+				detail: null,
 				scans,
 				selectedScanId,
 				trackedSources,
@@ -76,6 +85,13 @@ async function getCachedScans() {
 	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
 	cacheTag(DASHBOARD_SCANS_TAG);
 	return listScans();
+}
+
+async function getCachedLatestScanId() {
+	"use cache";
+	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
+	cacheTag(DASHBOARD_SCANS_TAG);
+	return getLatestScanId();
 }
 
 async function getCachedTrackedSources() {

@@ -85,7 +85,9 @@ const SourcesPage = dynamic(() =>
 	),
 );
 const AnalysisPage = dynamic(() =>
-	loadDashboardPages().then((module) => module.AnalysisPage),
+	import("@/components/dashboard/analysis-page").then(
+		(module) => module.AnalysisPage,
+	),
 );
 const TopicsPage = dynamic(() =>
 	import("@/components/dashboard/topics-page").then(
