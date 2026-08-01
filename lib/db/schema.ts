@@ -59,7 +59,7 @@ export const draftKindEnum = pgEnum("draft_kind", [
 
 export const facebookPageClassificationEnum = pgEnum(
 	"facebook_page_classification",
-	["uncategorized", "trusted", "at_risk"],
+	["uncategorized", "trusted", "neutral", "at_risk"],
 );
 
 export const draftAutomationStatusEnum = pgEnum("draft_automation_status", [

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, LoaderCircle, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
+import { FileText, LoaderCircle, Scale, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -103,7 +103,7 @@ export function EvidenceDraftSheet({
 				</header>
 				<div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3"><p className="line-clamp-4 text-xs font-semibold leading-5 text-[var(--foreground)]">{post.quote}</p><p className="mt-2 font-mono text-[9px] text-[var(--muted)]">{post.id}</p></div>
-					{post.pageClassification !== "uncategorized" ? <div className={`flex items-start gap-3 rounded-lg border p-3 ${post.pageClassification === "trusted" ? "border-[var(--success-border)] bg-[var(--success-soft)]" : "border-[var(--danger-border)] bg-[var(--danger-soft)]"}`}>{post.pageClassification === "trusted" ? <ShieldCheck className="mt-0.5 shrink-0 text-[var(--success-strong)]" size={17} /> : <ShieldAlert className="mt-0.5 shrink-0 text-[var(--danger-strong)]" size={17} />}<div><p className={`text-xs font-extrabold ${post.pageClassification === "trusted" ? "text-[var(--success-strong)]" : "text-[var(--danger-strong)]"}`}>{post.pageClassification === "trusted" ? "Gợi ý: bài chia sẻ tích cực" : "Gợi ý: phản biện có căn cứ"}</p><p className="mt-1 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">{post.pageClassification === "trusted" ? "Trang được đánh dấu đáng tin cậy. Hệ thống ưu tiên tóm lược giá trị thông tin và không thêm tuyên bố mới." : "Trang được đánh dấu có rủi ro. Bản nháp phải kiểm tra từng tuyên bố và vẫn cần con người duyệt."}</p></div></div> : null}
+					<PageClassificationGuidance classification={post.pageClassification} />
 					<fieldset>
 						<legend className={labelClass}>Mục đích bài viết</legend>
 						<div className="mt-2 grid gap-2">
@@ -174,5 +174,42 @@ export function EvidenceDraftSheet({
 }
 
 const labelClass = "text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
+
+function PageClassificationGuidance({
+	classification,
+}: {
+	classification: TimelinePost["pageClassification"];
+}) {
+	if (classification === "uncategorized") return null;
+	const neutral = classification === "neutral";
+	const trusted = classification === "trusted";
+	const Icon = trusted ? ShieldCheck : neutral ? Scale : ShieldAlert;
+	const colorClass = trusted
+		? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
+		: neutral
+			? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+			: "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]";
+	return (
+		<div className={`flex items-start gap-3 rounded-lg border p-3 ${colorClass}`}>
+			<Icon className="mt-0.5 shrink-0" size={17} />
+			<div>
+				<p className="text-xs font-extrabold">
+					{trusted
+						? "Gợi ý: bài chia sẻ tích cực"
+						: neutral
+							? "Gợi ý: bài viết trung lập"
+							: "Gợi ý: phản biện có căn cứ"}
+				</p>
+				<p className="mt-1 text-[10px] font-semibold leading-4 text-[var(--muted-strong)]">
+					{trusted
+						? "Trang được đánh dấu đáng tin cậy. Hệ thống ưu tiên tóm lược giá trị thông tin và không thêm tuyên bố mới."
+						: neutral
+							? "Trang được đánh dấu trung lập. Hệ thống trình bày bằng chứng cân bằng, không mặc định ủng hộ hoặc phản bác."
+							: "Trang được đánh dấu có rủi ro. Bản nháp phải kiểm tra từng tuyên bố và vẫn cần con người duyệt."}
+				</p>
+			</div>
+		</div>
+	);
+}
 
 export default EvidenceDraftSheet;

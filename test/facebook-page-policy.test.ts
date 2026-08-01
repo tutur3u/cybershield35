@@ -48,6 +48,22 @@ describe("Facebook page policy", () => {
 		});
 	});
 
+	test("drafts neutral coverage without supporting or opposing the source", () => {
+		expect(
+			automatedDraftPolicy({
+				classification: "neutral",
+				riskLevel: "high",
+				sentiment: "negative",
+				stance: "opposed",
+			}),
+		).toMatchObject({
+			draftKind: "response",
+			generationReason: "neutral_page",
+			tone: "Khách quan, cân bằng, rõ ràng",
+			voice: DEFAULT_DRAFT_VOICE,
+		});
+	});
+
 	test("does not amplify ambiguous trusted-page content automatically", () => {
 		expect(
 			automatedDraftPolicy({
@@ -75,6 +91,7 @@ describe("Facebook page policy", () => {
 
 describe("Facebook page policy migration", () => {
 	const migration = readFileSync("drizzle/0012_little_lenny_balinger.sql", "utf8");
+	const neutralMigration = readFileSync("drizzle/0017_fuzzy_patch.sql", "utf8");
 
 	test("adds an observable idempotent queue protected by RLS", () => {
 		expect(migration).toContain(
@@ -86,6 +103,12 @@ describe("Facebook page policy migration", () => {
 		);
 		expect(migration).toContain(
 			'REVOKE ALL ON TABLE "public"."facebook_page_profiles" FROM PUBLIC',
+		);
+	});
+
+	test("adds neutral as a durable page classification", () => {
+		expect(neutralMigration).toContain(
+			'ALTER TYPE "public"."facebook_page_classification" ADD VALUE \'neutral\'',
 		);
 	});
 });

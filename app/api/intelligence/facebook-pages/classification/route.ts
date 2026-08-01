@@ -7,7 +7,7 @@ import { updateFacebookPagePolicy } from "@/lib/workers/facebook-page-jobs";
 const bodySchema = z
 	.object({
 		autoDraftEnabled: z.boolean().default(true),
-		classification: z.enum(["uncategorized", "trusted", "at_risk"]),
+		classification: z.enum(["uncategorized", "trusted", "neutral", "at_risk"]),
 		displayName: z.string().trim().min(1).max(200),
 		facebookPageId: z.string().trim().min(1).max(200).nullable(),
 		pageKey: z

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."facebook_page_classification" ADD VALUE 'neutral' BEFORE 'at_risk';

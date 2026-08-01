@@ -105,8 +105,9 @@ describe("executive intelligence dashboard architecture", () => {
 			"Tự động tạo bản nháp cần duyệt cho ${page.label}",
 		);
 		expect(sourcesPage).toContain(
-			"Chọn “Đáng tin” hoặc “Có rủi ro” phía trên",
+			"Chọn “Đáng tin”, “Trung lập” hoặc “Có rủi ro” phía trên",
 		);
+		expect(sourcesPage).toContain('classification: "neutral"');
 		expect(sourcesPage).toContain("feedbackByPage");
 		expect(sourcesPage).toContain("updateCachedPage");
 		expect(sourcesPage).not.toContain('type="checkbox"');

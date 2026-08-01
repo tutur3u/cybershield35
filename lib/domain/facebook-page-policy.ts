@@ -3,6 +3,7 @@ import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
 export type FacebookPageClassification =
 	| "uncategorized"
 	| "trusted"
+	| "neutral"
 	| "at_risk";
 
 export type FacebookPageIdentity = {
@@ -57,6 +58,18 @@ export function automatedDraftPolicy(input: {
 		};
 	}
 
+	if (input.classification === "neutral") {
+		return {
+			audience: "Công chúng chung",
+			draftKind: "response",
+			generationReason: "neutral_page",
+			operatorNotes:
+				"Soạn bản tin trung lập dựa đúng trên bằng chứng được cung cấp. Không mặc định ủng hộ hay phản bác nguồn; phân biệt rõ sự kiện, phát biểu và điều chưa thể xác minh. Không thêm tuyên bố mới.",
+			tone: "Khách quan, cân bằng, rõ ràng",
+			voice: DEFAULT_DRAFT_VOICE,
+		};
+	}
+
 	const looksConstructive =
 		input.riskLevel === "low" ||
 		input.sentiment === "positive" ||
@@ -78,6 +91,7 @@ export function facebookPageClassificationLabel(
 	classification: FacebookPageClassification,
 ) {
 	if (classification === "trusted") return "Đáng tin cậy";
+	if (classification === "neutral") return "Trung lập";
 	if (classification === "at_risk") return "Có rủi ro";
 	return "Chưa phân loại";
 }

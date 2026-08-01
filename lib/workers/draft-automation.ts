@@ -11,7 +11,7 @@ import { generateDraftForScan } from "@/lib/workers/scans";
 
 type ClaimedDraftJob = {
 	attempts: number;
-	classification: "trusted" | "at_risk" | "uncategorized";
+	classification: "trusted" | "neutral" | "at_risk" | "uncategorized";
 	draft_kind: "response" | "comment" | "counter_argument" | "internal_brief";
 	evidence_item_id: string;
 	id: string;
@@ -42,7 +42,7 @@ export async function processNextAutomatedDraftJob() {
 				.update(draftAutomationJobs)
 				.set({
 					completedAt: new Date(),
-					errorMessage: "Evidence no longer matches the trusted-content policy.",
+					errorMessage: "Evidence no longer matches the page automation policy.",
 					status: "skipped",
 					updatedAt: new Date(),
 				})

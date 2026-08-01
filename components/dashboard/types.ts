@@ -537,6 +537,7 @@ export type IntelligenceFacebookPageOption = {
 export type FacebookPageClassification =
 	| "uncategorized"
 	| "trusted"
+	| "neutral"
 	| "at_risk";
 
 export type IntelligenceClaimRow = {

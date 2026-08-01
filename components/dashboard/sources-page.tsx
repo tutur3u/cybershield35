@@ -12,6 +12,7 @@ import {
 	Radar,
 	RefreshCw,
 	Search,
+	Scale,
 	ScrollText,
 	ShieldAlert,
 	ShieldCheck,
@@ -136,7 +137,7 @@ function SourceTabs({
 		value: string;
 	}> = [
 		{
-			help: "Phân loại fanpage là Đáng tin cậy hoặc Có rủi ro và kiểm soát bản nháp tự động.",
+			help: "Phân loại fanpage là Đáng tin cậy, Trung lập hoặc Có rủi ro và kiểm soát bản nháp tự động.",
 			icon: ShieldCheck,
 			key: "pages",
 			label: "Phân loại fanpage",
@@ -234,7 +235,7 @@ function FacebookPageTrustPanel() {
 			result[page.classification] += 1;
 			return result;
 		},
-		{ at_risk: 0, trusted: 0, uncategorized: 0 },
+		{ at_risk: 0, neutral: 0, trusted: 0, uncategorized: 0 },
 	);
 
 	async function savePolicy(
@@ -348,7 +349,7 @@ function FacebookPageTrustPanel() {
 			[page.pageKey]: {
 				message: trackedOnly
 					? "Hãy quét ít nhất một bài từ nguồn này để CS35 nhận diện fanpage trước khi bật tự động."
-					: "Chọn “Đáng tin” hoặc “Có rủi ro” phía trên. CS35 sẽ bật tự động tạo bản nháp ngay sau khi lưu phân loại.",
+					: "Chọn “Đáng tin”, “Trung lập” hoặc “Có rủi ro” phía trên. CS35 sẽ bật tự động tạo bản nháp ngay sau khi lưu phân loại.",
 				tone: "info",
 			},
 		}));
@@ -358,7 +359,7 @@ function FacebookPageTrustPanel() {
 		<Panel>
 			<PanelHeader
 				title="Phân loại fanpage"
-				description="Một quy tắc rõ ràng cho mỗi trang: hỗ trợ nội dung hữu ích từ nguồn đáng tin cậy, hoặc chuẩn bị phản biện có căn cứ cho nguồn có rủi ro. Mọi bản nháp đều chờ con người duyệt."
+				description="Chọn cách CS35 xử lý từng fanpage: ủng hộ nguồn đáng tin, viết trung lập không chọn phía, hoặc phản biện nguồn có rủi ro. Mọi bản nháp đều chờ con người duyệt."
 				action={
 					<span className="inline-flex h-8 items-center gap-2 rounded-md bg-[var(--accent-soft)] px-3 text-[11px] font-bold text-[var(--accent-strong)]">
 						<Sparkles size={14} /> {pages.reduce((sum, page) => sum + page.automation.pending, 0)} đang chờ
@@ -378,6 +379,7 @@ function FacebookPageTrustPanel() {
 				<div className="flex flex-wrap gap-2">
 					<PagePolicyFilter active={filter === "all"} label="Tất cả" value={pages.length} onClick={() => setFilter("all")} />
 					<PagePolicyFilter active={filter === "trusted"} label="Đáng tin" value={counts.trusted} onClick={() => setFilter("trusted")} />
+					<PagePolicyFilter active={filter === "neutral"} label="Trung lập" value={counts.neutral} onClick={() => setFilter("neutral")} />
 					<PagePolicyFilter active={filter === "at_risk"} label="Có rủi ro" value={counts.at_risk} onClick={() => setFilter("at_risk")} />
 					<PagePolicyFilter active={filter === "uncategorized"} label="Chưa phân loại" value={counts.uncategorized} onClick={() => setFilter("uncategorized")} />
 				</div>
@@ -475,8 +477,9 @@ function FacebookPagePolicyRow({
 					<span>Mục đích xử lý</span>
 					<span>Chọn một</span>
 				</div>
-				<div className="grid grid-cols-3 gap-2" aria-label={`Phân loại ${page.label}`}>
+				<div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={`Phân loại ${page.label}`}>
 					<PagePolicyButton active={page.classification === "trusted"} disabled={saving || trackedOnly} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
+					<PagePolicyButton active={page.classification === "neutral"} disabled={saving || trackedOnly} icon={Scale} label="Trung lập" tone="neutral" onClick={() => onSave({ autoDraftEnabled: true, classification: "neutral" })} />
 					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving || trackedOnly} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
 					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving || trackedOnly} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
 				</div>
@@ -539,8 +542,8 @@ function FacebookPagePolicyRow({
 }
 
 function PageClassificationBadge({ classification }: { classification: FacebookPageClassification }) {
-	const styles = classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--neutral-soft)] text-[var(--muted-strong)]";
-	const label = classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : "Chưa phân loại";
+	const styles = classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : classification === "neutral" ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "bg-[var(--neutral-soft)] text-[var(--muted-strong)]";
+	const label = classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : classification === "neutral" ? "Trung lập" : "Chưa phân loại";
 	return <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${styles}`}>{label}</span>;
 }
 

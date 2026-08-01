@@ -10,6 +10,7 @@ import {
 	Gauge,
 	MessageSquareText,
 	Radar,
+	Scale,
 	ShieldAlert,
 	ShieldCheck,
 	Sparkles,
@@ -208,7 +209,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						</dl>
 						<div className="grid gap-2 border-t border-[var(--border)] p-4 sm:grid-cols-2 xl:grid-cols-1">
 							<button type="button" onClick={() => setDraftOpen(true)} className={primaryActionClass}>
-								<Sparkles size={14} /> {evidence.pageClassification === "trusted" ? "Soạn bài ủng hộ" : evidence.pageClassification === "at_risk" ? "Soạn bài phản bác" : "Chọn mục đích bài viết"}
+								<Sparkles size={14} /> {evidence.pageClassification === "trusted" ? "Soạn bài ủng hộ" : evidence.pageClassification === "at_risk" ? "Soạn bài phản bác" : evidence.pageClassification === "neutral" ? "Soạn bài trung lập" : "Chọn mục đích bài viết"}
 							</button>
 							<button type="button" onClick={() => setTriageOpen(true)} className={primaryActionClass}>
 								<MessageSquareText size={14} /> Mở bảng xử lý
@@ -253,12 +254,12 @@ function Detail({ label, mono = false, value }: { label: string; mono?: boolean;
 
 function PageTrustBadge({ classification }: { classification: TimelinePost["pageClassification"] }) {
 	if (classification === "uncategorized") return null;
-	const Icon = classification === "trusted" ? ShieldCheck : ShieldAlert;
-	return <span className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-extrabold ${classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : "bg-[var(--danger-soft)] text-[var(--danger-strong)]"}`}><Icon size={13} />{pageClassificationLabel(classification)}</span>;
+	const Icon = classification === "trusted" ? ShieldCheck : classification === "at_risk" ? ShieldAlert : Scale;
+	return <span className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-extrabold ${classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--accent-soft)] text-[var(--accent-strong)]"}`}><Icon size={13} />{pageClassificationLabel(classification)}</span>;
 }
 
 function pageClassificationLabel(classification: TimelinePost["pageClassification"]) {
-	return classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : "Chưa phân loại";
+	return classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : classification === "neutral" ? "Trung lập" : "Chưa phân loại";
 }
 
 function EvidenceDetailLoading() {
