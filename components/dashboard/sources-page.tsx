@@ -20,7 +20,7 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages";
 import { IntelligenceSourcesWorkspace } from "@/components/dashboard/intelligence-widgets";
@@ -209,11 +209,15 @@ function SourceTabs({
 }
 
 function FacebookPageTrustPanel() {
-	const pagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
+	const pagesQueryOptions = intelligenceFacebookPagesQueryOptions();
+	const queryClient = useQueryClient();
+	const pagesQuery = useQuery(pagesQueryOptions);
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<FacebookPageClassification | "all">("all");
-	const [savingKey, setSavingKey] = useState<string | null>(null);
-	const [notice, setNotice] = useState("");
+	const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
+	const [feedbackByPage, setFeedbackByPage] = useState<
+		Record<string, PagePolicyFeedback>
+	>({});
 	const pages = pagesQuery.data ?? [];
 	const filteredPages = pages.filter((page) => {
 		if (filter !== "all" && page.classification !== filter) return false;
@@ -239,16 +243,29 @@ function FacebookPageTrustPanel() {
 			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
 		>,
 	) {
-		setSavingKey(page.pageKey);
-		setNotice("");
+		const classification = patch.classification ?? page.classification;
+		const autoDraftEnabled =
+			classification === "uncategorized"
+				? false
+				: (patch.autoDraftEnabled ?? page.autoDraftEnabled);
+		const previousPage = page;
+
+		setSavingKeys((current) => new Set(current).add(page.pageKey));
+		setFeedbackByPage((current) => ({
+			...current,
+			[page.pageKey]: {
+				message: "Đang lưu quy tắc và chuẩn bị hàng đợi bản nháp…",
+				tone: "info",
+			},
+		}));
+		updateCachedPage(page.pageKey, { autoDraftEnabled, classification });
 		try {
 			const response = await fetch(
 				"/api/intelligence/facebook-pages/classification",
 				{
 					body: JSON.stringify({
-						autoDraftEnabled:
-							patch.autoDraftEnabled ?? page.autoDraftEnabled,
-						classification: patch.classification ?? page.classification,
+						autoDraftEnabled,
+						classification,
 						displayName: page.label,
 						facebookPageId: page.facebookId,
 						pageKey: page.pageKey,
@@ -263,21 +280,78 @@ function FacebookPageTrustPanel() {
 			if (!response.ok) {
 				throw new Error(payload?.error ?? "Không thể lưu phân loại fanpage.");
 			}
-			setNotice(
-				payload.enqueued
-					? `Đã lưu và xếp hàng ${payload.enqueued} bản nháp cần duyệt.`
-					: "Đã lưu quy tắc fanpage.",
-			);
+			const enqueued = Number(payload?.enqueued) || 0;
+			const savedAutoDraftEnabled =
+				payload?.profile?.autoDraftEnabled ?? autoDraftEnabled;
+			updateCachedPage(page.pageKey, {
+				autoDraftEnabled: savedAutoDraftEnabled,
+				classification: payload?.profile?.classification ?? classification,
+				...(enqueued
+					? {
+							automation: {
+								...page.automation,
+								pending: page.automation.pending + enqueued,
+							},
+						}
+					: {}),
+			});
+			setFeedbackByPage((current) => ({
+				...current,
+				[page.pageKey]: {
+					message: savedAutoDraftEnabled
+						? enqueued
+							? `Đã bật · ${enqueued.toLocaleString("vi-VN")} bài được đưa vào hàng chờ tạo bản nháp.`
+							: "Đã bật · Bài mới từ fanpage này sẽ tự động tạo bản nháp cần duyệt."
+						: "Đã tắt · Hệ thống sẽ không tạo thêm bản nháp tự động từ fanpage này.",
+					tone: "success",
+				},
+			}));
 			await pagesQuery.refetch();
 		} catch (error) {
-			setNotice(
-				error instanceof Error
-					? error.message
-					: "Không thể lưu phân loại fanpage.",
-			);
+			updateCachedPage(page.pageKey, previousPage);
+			setFeedbackByPage((current) => ({
+				...current,
+				[page.pageKey]: {
+					message:
+						error instanceof Error
+							? error.message
+							: "Không thể lưu phân loại fanpage.",
+					tone: "error",
+				},
+			}));
 		} finally {
-			setSavingKey(null);
+			setSavingKeys((current) => {
+				const next = new Set(current);
+				next.delete(page.pageKey);
+				return next;
+			});
 		}
+	}
+
+	function updateCachedPage(
+		pageKey: string,
+		patch: Partial<IntelligenceFacebookPageOption>,
+	) {
+		queryClient.setQueryData<IntelligenceFacebookPageOption[]>(
+			pagesQueryOptions.queryKey,
+			(current) =>
+				current?.map((page) =>
+					page.pageKey === pageKey ? { ...page, ...patch } : page,
+				),
+		);
+	}
+
+	function explainUnavailableAutomation(page: IntelligenceFacebookPageOption) {
+		const trackedOnly = page.pageKey.startsWith("tracked:");
+		setFeedbackByPage((current) => ({
+			...current,
+			[page.pageKey]: {
+				message: trackedOnly
+					? "Hãy quét ít nhất một bài từ nguồn này để CS35 nhận diện fanpage trước khi bật tự động."
+					: "Chọn “Đáng tin” hoặc “Có rủi ro” phía trên. CS35 sẽ bật tự động tạo bản nháp ngay sau khi lưu phân loại.",
+				tone: "info",
+			},
+		}));
 	}
 
 	return (
@@ -308,11 +382,6 @@ function FacebookPageTrustPanel() {
 					<PagePolicyFilter active={filter === "uncategorized"} label="Chưa phân loại" value={counts.uncategorized} onClick={() => setFilter("uncategorized")} />
 				</div>
 			</div>
-			{notice ? (
-				<p aria-live="polite" className="border-b border-[var(--border)] bg-[var(--surface-soft)] px-4 py-2 text-[12px] font-semibold text-[var(--muted-strong)]">
-					{notice}
-				</p>
-			) : null}
 			{pagesQuery.isPending ? (
 				<div className="grid min-h-48 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div>
 			) : pagesQuery.isError ? (
@@ -323,7 +392,11 @@ function FacebookPageTrustPanel() {
 						<FacebookPagePolicyRow
 							key={page.pageKey}
 							page={page}
-							saving={savingKey === page.pageKey}
+							feedback={feedbackByPage[page.pageKey]}
+							saving={savingKeys.has(page.pageKey)}
+							onAutomationUnavailable={() =>
+								explainUnavailableAutomation(page)
+							}
 							onSave={(patch) => savePolicy(page, patch)}
 						/>
 					))}
@@ -335,11 +408,20 @@ function FacebookPageTrustPanel() {
 	);
 }
 
+type PagePolicyFeedback = {
+	message: string;
+	tone: "error" | "info" | "success";
+};
+
 function FacebookPagePolicyRow({
+	feedback,
+	onAutomationUnavailable,
 	onSave,
 	page,
 	saving,
 }: {
+	feedback?: PagePolicyFeedback;
+	onAutomationUnavailable: () => void;
 	onSave: (
 		patch: Partial<
 			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
@@ -348,6 +430,29 @@ function FacebookPagePolicyRow({
 	page: IntelligenceFacebookPageOption;
 	saving: boolean;
 }) {
+	const trackedOnly = page.pageKey.startsWith("tracked:");
+	const automationUnavailable =
+		trackedOnly || page.classification === "uncategorized";
+	const automationStatus = automationUnavailable
+		? "Cần phân loại"
+		: page.autoDraftEnabled
+			? "Đang bật"
+			: "Đang tắt";
+	const feedbackClass =
+		feedback?.tone === "error"
+			? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]"
+			: feedback?.tone === "success"
+				? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
+				: "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted-strong)]";
+
+	function toggleAutomation() {
+		if (automationUnavailable) {
+			onAutomationUnavailable();
+			return;
+		}
+		void onSave({ autoDraftEnabled: !page.autoDraftEnabled });
+	}
+
 	return (
 		<div className="grid gap-4 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)] xl:items-center">
 			<div className="min-w-0">
@@ -366,16 +471,68 @@ function FacebookPagePolicyRow({
 				</div>
 			</div>
 			<div className="space-y-2">
-				<div className="grid grid-cols-3 gap-2" aria-label={`Phân loại ${page.label}`}>
-					<PagePolicyButton active={page.classification === "trusted"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
-					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
-					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving || page.pageKey.startsWith("tracked:")} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
+				<div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+					<span>Mục đích xử lý</span>
+					<span>Chọn một</span>
 				</div>
-				<label className="flex min-h-9 items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">
-					<span>Tự động tạo bản nháp cần duyệt</span>
-					<input type="checkbox" checked={page.autoDraftEnabled} disabled={saving || page.classification === "uncategorized"} onChange={(event) => void onSave({ autoDraftEnabled: event.target.checked })} />
-				</label>
-				{saving ? <p className="flex items-center justify-end gap-2 text-[10px] font-bold text-[var(--muted)]"><LoaderCircle className="animate-spin" size={12} /> Đang lưu và xếp hàng…</p> : null}
+				<div className="grid grid-cols-3 gap-2" aria-label={`Phân loại ${page.label}`}>
+					<PagePolicyButton active={page.classification === "trusted"} disabled={saving || trackedOnly} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
+					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving || trackedOnly} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
+					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving || trackedOnly} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
+				</div>
+				<button
+					type="button"
+					role="switch"
+					aria-checked={page.autoDraftEnabled && !automationUnavailable}
+					aria-label={`Tự động tạo bản nháp cần duyệt cho ${page.label}`}
+					disabled={saving}
+					onClick={toggleAutomation}
+					className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition disabled:cursor-wait disabled:opacity-70 ${
+						page.autoDraftEnabled && !automationUnavailable
+							? "border-[var(--accent)] bg-[var(--accent-soft)]"
+							: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+					}`}
+				>
+					<span className="min-w-0">
+						<span className="block text-[11px] font-extrabold text-[var(--foreground)]">
+							Tự động tạo bản nháp cần duyệt
+						</span>
+						<span className="mt-0.5 block text-[10px] font-semibold leading-4 text-[var(--muted)]">
+							{automationUnavailable
+								? "Chọn loại fanpage trước để bật tự động."
+								: "Chỉ tạo bản nháp nội bộ, không tự động đăng bài."}
+						</span>
+					</span>
+					<span className="flex shrink-0 items-center gap-2">
+						<span className="text-[10px] font-extrabold text-[var(--muted-strong)]">
+							{saving ? "Đang lưu" : automationStatus}
+						</span>
+						<span
+							aria-hidden="true"
+							className={`relative inline-flex h-6 w-11 rounded-full p-0.5 transition ${
+								page.autoDraftEnabled && !automationUnavailable
+									? "bg-[var(--accent)]"
+									: "bg-[var(--border-strong)]"
+							}`}
+						>
+							<span
+								className={`size-5 rounded-full bg-white shadow-sm transition ${
+									page.autoDraftEnabled && !automationUnavailable
+										? "translate-x-5"
+										: "translate-x-0"
+								}`}
+							/>
+						</span>
+					</span>
+				</button>
+				{feedback ? (
+					<p
+						aria-live="polite"
+						className={`rounded-md border px-3 py-2 text-[10px] font-bold leading-4 ${feedbackClass}`}
+					>
+						{feedback.message}
+					</p>
+				) : null}
 			</div>
 		</div>
 	);

@@ -97,6 +97,21 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(shared).toContain("facebookPage");
 	});
 
+	test("keeps automatic draft controls actionable and explains blocked pages", () => {
+		const sourcesPage = read("components/dashboard/sources-page.tsx");
+
+		expect(sourcesPage).toContain('role="switch"');
+		expect(sourcesPage).toContain(
+			"Tự động tạo bản nháp cần duyệt cho ${page.label}",
+		);
+		expect(sourcesPage).toContain(
+			"Chọn “Đáng tin” hoặc “Có rủi ro” phía trên",
+		);
+		expect(sourcesPage).toContain("feedbackByPage");
+		expect(sourcesPage).toContain("updateCachedPage");
+		expect(sourcesPage).not.toContain('type="checkbox"');
+	});
+
 	test("keeps broad dashboard routes off selected scan detail fetches", () => {
 		for (const page of ["overview", "evidence", "alerts", "audit"] as const) {
 			expect(dashboardSnapshotRequirements(page).includeDetail).toBe(false);
