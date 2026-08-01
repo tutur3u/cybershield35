@@ -21,6 +21,7 @@ import {
   MessageCircle,
   PanelRightClose,
   PanelRightOpen,
+  Paperclip,
   Pencil,
   Plus,
   RefreshCw,
@@ -634,7 +635,7 @@ function ConversationWorkspace({
         />
       </aside>
 
-      <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4 xl:col-start-1">
+      <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] p-3 sm:px-4 sm:pb-4 sm:pt-3 xl:col-start-1">
         <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
           <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
             Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
@@ -692,25 +693,36 @@ function ConversationWorkspace({
             <PromptInput
               accept={accept}
               globalDrop
+              inputGroupClassName="rounded-xl border-[var(--border-strong)] bg-[var(--surface-elevated)] shadow-[0_12px_32px_rgb(15_23_42/0.08)] transition-[border-color,box-shadow] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_22%,transparent)] dark:bg-[var(--surface-elevated)] dark:shadow-[0_16px_36px_rgb(0_0_0/0.22)]"
               maxFiles={5}
               maxFileSize={25 * 1024 * 1024}
               multiple
               onError={(error) => setComposerError(error.message)}
               onSubmit={submit}
             >
-              <PromptInputHeader>
+              <PromptInputHeader className="px-3 pb-0 pt-3">
                 <SelectedPromptAttachments />
               </PromptInputHeader>
               <PromptInputBody>
                 <PromptInputTextarea
+                  className="min-h-20 px-3.5 pb-2 pt-3 text-[13px] font-medium leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)]"
                   disabled={isBusy}
-                  placeholder="Hỏi về bằng chứng, scan, insight hoặc soạn bản nháp…"
+                  placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
                 />
+                <div className="hidden px-3.5 pb-2 text-right text-[9px] font-medium text-[var(--muted)] sm:block">
+                  Enter để gửi · Shift + Enter để xuống dòng
+                </div>
               </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
+              <PromptInputFooter className="items-end border-t border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2">
+                <PromptInputTools className="flex-wrap gap-1.5">
                   <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
+                    <PromptInputActionMenuTrigger
+                      aria-label="Đính kèm tệp"
+                      className="size-8 rounded-lg border border-transparent text-[var(--muted-strong)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
+                      tooltip="Đính kèm tệp"
+                    >
+                      <Paperclip size={14} />
+                    </PromptInputActionMenuTrigger>
                     <PromptInputActionMenuContent>
                       <PromptInputActionAddAttachments label="Tải tệp lên Tuturuuu Drive" />
                     </PromptInputActionMenuContent>
@@ -723,14 +735,18 @@ function ConversationWorkspace({
                   <button
                     type="button"
                     onClick={() => setContextOpen((current) => !current)}
-                    className="hidden h-7 items-center gap-1 rounded-md px-2 text-[9px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] sm:inline-flex"
-                    title="Mở ngữ cảnh đã ghim"
+                    className="hidden h-8 items-center gap-1.5 rounded-lg border border-transparent px-2 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border)] hover:bg-[var(--surface-soft)] sm:inline-flex"
+                    title="Xem bằng chứng và nội dung đã ghim"
                   >
-                    <ShieldCheck size={12} />{" "}
-                    {conversation.pinnedContext.length}
+                    <ShieldCheck size={13} /> Ngữ cảnh
+                    <span className="rounded-md bg-[var(--surface-soft)] px-1.5 py-0.5 text-[9px] text-[var(--muted)]">
+                      {conversation.pinnedContext.length}
+                    </span>
                   </button>
                 </PromptInputTools>
                 <PromptInputSubmit
+                  aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
+                  className="size-9 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
                   disabled={isBusy}
                   onStop={chat.stop}
                   status={chat.status}
@@ -856,13 +872,22 @@ function ChatModeControl({
   mode: ChatMode;
   onChange: (mode: ChatMode) => void;
 }) {
+  const selectedMode =
+    chatModes.find((item) => item.value === mode) ?? chatModes[0]!;
+  const Icon = selectedMode.icon;
   return (
-    <label className="relative inline-flex items-center">
+    <label
+      className="relative inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-extrabold text-[var(--foreground)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_18%,transparent)]"
+      title={`${selectedMode.label}: ${selectedMode.description}`}
+    >
       <span className="sr-only">Chế độ Chat</span>
+      <Icon size={12} className="text-[var(--brand-strong)]" />
+      <span>{selectedMode.label}</span>
       <select
         value={mode}
         onChange={(event) => onChange(event.target.value as ChatMode)}
-        className="h-7 appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-soft)] py-0 pl-2 pr-6 text-[9px] font-extrabold text-[var(--muted-strong)] outline-none focus:border-[var(--accent)]"
+        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+        aria-label="Chọn mục tiêu trò chuyện"
       >
         {chatModes.map((item) => (
           <option key={item.value} value={item.value}>
@@ -871,7 +896,7 @@ function ChatModeControl({
         ))}
       </select>
       <ChevronDown
-        className="pointer-events-none absolute right-1.5 text-[var(--muted)]"
+        className="pointer-events-none text-[var(--muted)]"
         size={11}
       />
     </label>
@@ -887,22 +912,22 @@ function ThinkingModeControl({
 }) {
   return (
     <div
-      className="inline-flex h-7 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-0.5"
+      className="inline-flex h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5"
       aria-label="Mức suy xét"
     >
       <button
         type="button"
         onClick={() => onChange("fast")}
-        className={`inline-flex items-center gap-1 rounded px-1.5 text-[9px] font-extrabold transition ${mode === "fast" ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"}`}
-        title="Nhanh: ít bước công cụ"
+        className={`inline-flex items-center gap-1 rounded-md px-2 text-[10px] font-extrabold transition ${mode === "fast" ? "bg-[var(--success-soft)] text-[var(--brand-strong)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--muted-strong)]"}`}
+        title="Nhanh: trả lời trực tiếp, dùng ít bước công cụ"
       >
         <Zap size={10} /> Nhanh
       </button>
       <button
         type="button"
         onClick={() => onChange("deep")}
-        className={`inline-flex items-center gap-1 rounded px-1.5 text-[9px] font-extrabold transition ${mode === "deep" ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"}`}
-        title="Sâu: đối chiếu nhiều bước"
+        className={`inline-flex items-center gap-1 rounded-md px-2 text-[10px] font-extrabold transition ${mode === "deep" ? "bg-[var(--success-soft)] text-[var(--brand-strong)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--muted-strong)]"}`}
+        title="Sâu: đối chiếu nhiều bước và nhiều nguồn"
       >
         <Brain size={10} /> Sâu
       </button>

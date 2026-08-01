@@ -92,6 +92,20 @@ describe("first-class Chat platform", () => {
     expect(workspace).not.toContain("min-h-[620px]");
   });
 
+  test("uses a cohesive and understandable prompt composer", () => {
+    const workspace = read("components/dashboard/chat-workspace.tsx");
+    const promptInput = read("components/ai-elements/prompt-input.tsx");
+
+    expect(promptInput).toContain("inputGroupClassName?: string");
+    expect(workspace).toContain("bg-[var(--background)]");
+    expect(workspace).toContain("bg-[var(--surface-elevated)]");
+    expect(workspace).toContain("focus-within:border-[var(--brand)]");
+    expect(workspace).toContain("Enter để gửi · Shift + Enter để xuống dòng");
+    expect(workspace).toContain("Hỏi về bằng chứng, lần quét, chủ đề");
+    expect(workspace).toContain('aria-label="Đính kèm tệp"');
+    expect(workspace).toContain('aria-label="Chọn mục tiêu trò chuyện"');
+  });
+
   test("keeps all generated content internal and human reviewed", () => {
     const generation = read("lib/llm/generation.ts");
     const worker = read("lib/workers/scans.ts");
