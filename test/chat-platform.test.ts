@@ -64,8 +64,10 @@ describe("first-class Chat platform", () => {
     expect(route).toContain("Hoàn tất yêu cầu ngay trong lượt hiện tại");
     expect(route).toContain("bắt buộc phải gọi công cụ phù hợp");
     expect(route).toContain("shouldRequireGrounding(input.mode, incoming)");
-    expect(route).toContain('toolChoice: "required"');
-    expect(route).toContain('"searchEvidence"');
+    expect(route).toContain(
+      'toolChoice: { toolName: "getInsights", type: "tool" }',
+    );
+    expect(route).toContain('activeTools: ["getInsights"]');
     expect(route).toContain('"getInsights"');
   });
 

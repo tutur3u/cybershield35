@@ -135,19 +135,8 @@ export async function POST(
       prepareStep: ({ stepNumber }) =>
         requiresGrounding && stepNumber === 0
           ? {
-              activeTools: [
-                "searchEvidence",
-                "getEvidence",
-                "listScans",
-                "getScan",
-                "listTopics",
-                "getInsights",
-                "listArticles",
-                "getArticle",
-                "listZaloAccounts",
-                "searchAttachments",
-              ],
-              toolChoice: "required",
+              activeTools: ["getInsights"],
+              toolChoice: { toolName: "getInsights", type: "tool" },
             }
           : { toolChoice: "auto" },
       stopWhen: stepCountIs(input.thinkingMode === "deep" ? 12 : 6),
