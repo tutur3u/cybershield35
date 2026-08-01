@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -12,6 +12,7 @@ import {
 
 export function NewArticleRedirect() {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const searchParams = useSearchParams();
 	const started = useRef(false);
 	const createArticle = useMutation({
@@ -35,7 +36,10 @@ export function NewArticleRedirect() {
 				headers: { "Content-Type": "application/json" },
 				method: "POST",
 			}),
-		onSuccess: ({ article }) => router.replace(`/articles/${article.id}`),
+		onSuccess: ({ article }) => {
+			void queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
+			router.replace(`/articles/${article.id}`);
+		},
 	});
 	const { mutate } = createArticle;
 

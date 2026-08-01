@@ -36,26 +36,33 @@ export type ArticleSettings = {
 
 export const articleQueryKeys = {
 	all: ["articles"] as const,
-	catalog: (limit: number) => ["articles", "catalog", "infinite", limit] as const,
+	catalog: (scope: "local" | "zalo", limit: number) =>
+		["articles", "catalog", scope, "infinite", limit] as const,
 	detail: (articleId: string) => ["articles", "detail", articleId] as const,
 	settings: () => ["articles", "settings"] as const,
 };
 
-export function articleCatalogInfiniteQueryOptions(limit = 10) {
+export function articleCatalogInfiniteQueryOptions(
+	scope: "local" | "zalo",
+	limit = 10,
+) {
 	return infiniteQueryOptions({
-		gcTime: 30 * 60_000,
+		gcTime: 60 * 60_000,
 		getNextPageParam: (lastPage: ArticleCatalogPage) =>
 			lastPage.hasNextPage ? lastPage.nextCursor : undefined,
 		initialPageParam: null as string | null,
 		queryFn: ({ pageParam }: { pageParam: string | null }) => {
-			const params = new URLSearchParams({ limit: String(limit) });
+			const params = new URLSearchParams({
+				limit: String(limit),
+				scope,
+			});
 			if (pageParam) params.set("cursor", pageParam);
 			return fetchArticleJson<ArticleCatalogPage>(
 				`/api/articles?${params.toString()}`,
 			);
 		},
-		queryKey: articleQueryKeys.catalog(limit),
-		staleTime: 2 * 60_000,
+		queryKey: articleQueryKeys.catalog(scope, limit),
+		staleTime: scope === "zalo" ? 15 * 60_000 : 5 * 60_000,
 	});
 }
 
@@ -65,7 +72,7 @@ export function articleSettingsQueryOptions() {
 		queryFn: () =>
 			fetchArticleJson<ArticleSettings>("/api/articles/settings"),
 		queryKey: articleQueryKeys.settings(),
-		staleTime: 5 * 60_000,
+		staleTime: 15 * 60_000,
 	});
 }
 

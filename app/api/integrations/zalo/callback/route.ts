@@ -1,4 +1,5 @@
 import { actorFromAuth } from "@/lib/chat/http";
+import { revalidateTag } from "next/cache";
 import { requireAdminSession } from "@/lib/auth/require-admin";
 import { publicErrorMessage } from "@/lib/http/public-error";
 import {
@@ -7,6 +8,7 @@ import {
 	ZaloApiError,
 } from "@/lib/zalo/client";
 import { upsertZaloConnection } from "@/lib/zalo/connections";
+import { ZALO_ARTICLE_CATALOG_TAG } from "@/lib/zalo/cache-tags";
 import {
 	clearZaloOauthCookie,
 	readZaloOauthState,
@@ -45,6 +47,7 @@ export async function GET(request: Request) {
 			}),
 		);
 		await upsertZaloConnection(profile, tokens, actor);
+		revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
 		const response = redirectResult(
 			request.url,
 			"connected",

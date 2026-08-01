@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
+
 import { publicErrorMessage } from "@/lib/http/public-error";
 import { listZaloArticles, isZaloEnabled } from "@/lib/zalo/client";
 import {
@@ -12,6 +14,7 @@ import {
 	type ZaloCatalogArticle,
 	zaloArticleListTotal,
 } from "./article-catalog";
+import { ZALO_ARTICLE_CATALOG_TAG } from "./cache-tags";
 
 export type ZaloArticleCatalog = {
 	articles: ZaloCatalogArticle[];
@@ -150,4 +153,14 @@ export async function listZaloArticleCatalogPage(input: {
 	}
 
 	return { articles, hasNextPage, issues };
+}
+
+export async function getCachedZaloArticleCatalogPage(input: {
+	limit: number;
+	offset: number;
+}) {
+	"use cache";
+	cacheLife({ stale: 120, revalidate: 120, expire: 1_800 });
+	cacheTag(ZALO_ARTICLE_CATALOG_TAG);
+	return listZaloArticleCatalogPage(input);
 }

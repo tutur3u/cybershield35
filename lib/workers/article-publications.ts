@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
 import { adminDb } from "@/lib/db/client";
@@ -28,6 +29,7 @@ import {
 } from "@/lib/zalo/client";
 import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
 import { getValidZaloAccessToken } from "@/lib/zalo/connections";
+import { ZALO_ARTICLE_CATALOG_TAG } from "@/lib/zalo/cache-tags";
 
 type PublicationOperation =
 	| "sync_hidden"
@@ -343,7 +345,7 @@ export async function removeRemoteArticle(
 	);
 	await removeZaloArticle(accessToken, article.remoteArticleId);
 	const removedAt = new Date();
-	return adminDb.transaction(async (tx) => {
+	const updated = await adminDb.transaction(async (tx) => {
 		const [updated] = await tx
 			.update(articles)
 			.set({
@@ -373,6 +375,8 @@ export async function removeRemoteArticle(
 		});
 		return updated ?? null;
 	});
+	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
+	return updated;
 }
 
 async function executePublicationOperation(
@@ -476,6 +480,7 @@ async function executePublicationOperation(
 			},
 		});
 	});
+	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
 }
 
 function validateOperation(

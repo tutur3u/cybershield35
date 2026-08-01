@@ -5,7 +5,7 @@ import { createArticle, listArticlesPage } from "@/lib/articles/store";
 import { articleCreateSchema } from "@/lib/articles/schemas";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
-import { listZaloArticleCatalogPage } from "@/lib/zalo/articles";
+import { getCachedZaloArticleCatalogPage } from "@/lib/zalo/articles";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 10;
@@ -25,6 +25,37 @@ export async function GET(request: Request) {
 	try {
 		const url = new URL(request.url);
 		const limit = normalizePageSize(url.searchParams.get("limit"));
+		const scope = url.searchParams.get("scope");
+		if (scope === "local") {
+			const local = await listArticlesPage({
+				cursor: url.searchParams.get("cursor"),
+				limit,
+			});
+			return Response.json(
+				{
+					articles: local.items,
+					hasNextPage: local.hasNextPage,
+					nextCursor: local.nextCursor,
+					zaloArticles: [],
+					zaloIssues: [],
+				},
+				{ headers: authHeaders(auth) },
+			);
+		}
+		if (scope === "zalo") {
+			const offset = normalizeOffset(url.searchParams.get("cursor"));
+			const zalo = await getCachedZaloArticleCatalogPage({ limit, offset });
+			return Response.json(
+				{
+					articles: [],
+					hasNextPage: zalo.hasNextPage,
+					nextCursor: zalo.hasNextPage ? String(offset + limit) : null,
+					zaloArticles: zalo.articles,
+					zaloIssues: zalo.issues,
+				},
+				{ headers: authHeaders(auth) },
+			);
+		}
 		const cursor = parseCatalogCursor(url.searchParams.get("cursor"));
 		const [local, zalo] = await Promise.all([
 			cursor.localDone
@@ -36,7 +67,7 @@ export async function GET(request: Request) {
 				: listArticlesPage({ cursor: cursor.localCursor, limit }),
 			cursor.remoteDone
 				? Promise.resolve({ articles: [], hasNextPage: false, issues: [] })
-				: listZaloArticleCatalogPage({
+				: getCachedZaloArticleCatalogPage({
 						limit,
 						offset: cursor.remoteOffset,
 					}),
@@ -72,6 +103,11 @@ function normalizePageSize(value: string | null) {
 	const parsed = Math.floor(Number(value ?? DEFAULT_PAGE_SIZE));
 	if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_PAGE_SIZE;
 	return Math.min(MAX_PAGE_SIZE, parsed);
+}
+
+function normalizeOffset(value: string | null) {
+	const parsed = Math.floor(Number(value ?? 0));
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function parseCatalogCursor(value: string | null): CatalogCursor {

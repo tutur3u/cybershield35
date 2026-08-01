@@ -82,7 +82,12 @@ type ReviewStatus = "approved" | "draft" | "needs_review" | "rejected";
 const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
 
 export function ArticlesWorkspace() {
-	const query = useInfiniteQuery(articleCatalogInfiniteQueryOptions());
+	const localQuery = useInfiniteQuery(
+		articleCatalogInfiniteQueryOptions("local"),
+	);
+	const zaloQuery = useInfiniteQuery(
+		articleCatalogInfiniteQueryOptions("zalo"),
+	);
 	const settings = useQuery(articleSettingsQueryOptions());
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
@@ -99,8 +104,12 @@ export function ArticlesWorkspace() {
 	const loadMoreRef = useRef<HTMLDivElement>(null);
 	const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
 	const catalogData = useMemo(
-		() => mergeArticlePages(query.data?.pages),
-		[query.data?.pages],
+		() =>
+			mergeArticlePages([
+				...(localQuery.data?.pages ?? []),
+				...(zaloQuery.data?.pages ?? []),
+			]),
+		[localQuery.data?.pages, zaloQuery.data?.pages],
 	);
 
 	const catalog = useMemo(
@@ -161,20 +170,54 @@ export function ArticlesWorkspace() {
 	const bulkBusy = bulkMutation.isPending
 		? bulkMutation.variables?.action
 		: null;
-	const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
+	const {
+		fetchNextPage: fetchNextLocalPage,
+		hasNextPage: hasNextLocalPage,
+		isFetchingNextPage: isFetchingNextLocalPage,
+	} = localQuery;
+	const {
+		fetchNextPage: fetchNextZaloPage,
+		hasNextPage: hasNextZaloPage,
+		isFetchingNextPage: isFetchingNextZaloPage,
+	} = zaloQuery;
+	const hasNextPage = hasNextLocalPage || hasNextZaloPage;
+	const isFetchingNextPage =
+		isFetchingNextLocalPage || isFetchingNextZaloPage;
+	const catalogPending =
+		catalog.length === 0 && (localQuery.isPending || zaloQuery.isPending);
+	const catalogError = localQuery.error ?? zaloQuery.error;
+	const catalogFailed =
+		catalog.length === 0 && localQuery.isError && zaloQuery.isError;
+	const fetchNextPages = () => {
+		if (hasNextLocalPage && !isFetchingNextLocalPage) {
+			void fetchNextLocalPage();
+		}
+		if (hasNextZaloPage && !isFetchingNextZaloPage) {
+			void fetchNextZaloPage();
+		}
+	};
 
 	useEffect(() => {
 		const node = loadMoreRef.current;
 		if (!node || !hasNextPage || isFetchingNextPage) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (entries[0]?.isIntersecting) void fetchNextPage();
+				if (!entries[0]?.isIntersecting) return;
+				if (hasNextLocalPage) void fetchNextLocalPage();
+				if (hasNextZaloPage) void fetchNextZaloPage();
 			},
 			{ rootMargin: "400px 0px" },
 		);
 		observer.observe(node);
 		return () => observer.disconnect();
-	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+	}, [
+		hasNextPage,
+		isFetchingNextPage,
+		fetchNextLocalPage,
+		fetchNextZaloPage,
+		hasNextLocalPage,
+		hasNextZaloPage,
+	]);
 
 	async function runBulk(
 		action: "delete" | "hide" | "set_review_status" | "sync_hidden",
@@ -342,6 +385,14 @@ export function ArticlesWorkspace() {
 					>
 						{visibleArticles.length} đang hiển thị · {catalog.length} đã tải
 					</Badge>
+					{zaloQuery.isPending ? (
+						<Badge
+							variant="outline"
+							className="h-5 gap-1 border-[#0068ff]/30 bg-[#0068ff]/10 px-1.5 text-[9px] text-[#5b9aff]"
+						>
+							<LoaderCircle size={9} className="animate-spin" /> Đang tải bài Zalo
+						</Badge>
+					) : null}
 					{catalogData?.zaloIssues.length ? (
 						<DashboardTooltip
 							content={
@@ -447,7 +498,7 @@ export function ArticlesWorkspace() {
 				</div>
 			) : null}
 			<div className="p-3">
-				{query.isPending ? (
+				{catalogPending ? (
 					<div className="space-y-2">
 						{Array.from({ length: 7 }).map((_, index) => (
 							<div
@@ -456,9 +507,11 @@ export function ArticlesWorkspace() {
 							/>
 						))}
 					</div>
-				) : query.isError ? (
+				) : catalogFailed ? (
 					<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger-strong)]">
-						{query.error.message}
+						{catalogError instanceof Error
+							? catalogError.message
+							: "Không thể tải danh sách bài viết."}
 					</div>
 				) : catalog.length === 0 ? (
 					<EmptyArticles />
@@ -516,23 +569,23 @@ export function ArticlesWorkspace() {
 						))}
 					</div>
 				)}
-				{!query.isPending && !query.isError && query.hasNextPage ? (
+				{!catalogPending && !catalogFailed && hasNextPage ? (
 					<div
 						ref={loadMoreRef}
 						className="mt-3 flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-soft)] p-3"
 					>
 						<button
 							type="button"
-							disabled={query.isFetchingNextPage}
-							onClick={() => void query.fetchNextPage()}
+							disabled={isFetchingNextPage}
+							onClick={fetchNextPages}
 							className="inline-flex h-8 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[10px] font-bold transition hover:border-[var(--brand)] disabled:opacity-60"
 						>
-							{query.isFetchingNextPage ? (
+							{isFetchingNextPage ? (
 								<LoaderCircle size={12} className="animate-spin" />
 							) : (
 								<ArrowDown size={12} />
 							)}
-							{query.isFetchingNextPage
+							{isFetchingNextPage
 								? "Đang tải thêm…"
 								: "Tải thêm bài viết"}
 						</button>
@@ -540,7 +593,7 @@ export function ArticlesWorkspace() {
 							Cuộn xuống để tự động tải tiếp. Danh sách đã tải được giữ trong bộ nhớ đệm.
 						</p>
 					</div>
-				) : !query.isPending && !query.isError && catalog.length > 0 ? (
+				) : !catalogPending && !catalogFailed && catalog.length > 0 ? (
 					<p className="mt-3 text-center text-[9px] text-[var(--muted)]">
 						Đã tải toàn bộ {catalog.length} bài viết.
 					</p>

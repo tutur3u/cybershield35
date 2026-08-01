@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
@@ -7,6 +8,7 @@ import {
 	disconnectZaloConnection,
 	setDefaultZaloConnection,
 } from "@/lib/zalo/connections";
+import { ZALO_ARTICLE_CATALOG_TAG } from "@/lib/zalo/cache-tags";
 
 const idSchema = z.string().uuid();
 const patchSchema = z.object({ isDefault: z.literal(true) }).strict();
@@ -48,6 +50,7 @@ export async function DELETE(
 	try {
 		const id = idSchema.parse((await params).id);
 		const account = await disconnectZaloConnection(id, actorFromAuth(auth));
+		if (account) revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
 		return account
 			? Response.json({ account }, { headers: authHeaders(auth) })
 			: Response.json({ error: "Không tìm thấy Zalo OA." }, { status: 404 });

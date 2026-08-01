@@ -82,19 +82,29 @@ describe("Zalo OA security and article contract", () => {
 		const zaloCatalog = readFileSync("lib/zalo/articles.ts", "utf8");
 
 		expect(workspace).toContain(
-			"useInfiniteQuery(articleCatalogInfiniteQueryOptions())",
+			'articleCatalogInfiniteQueryOptions("local")',
+		);
+		expect(workspace).toContain(
+			'articleCatalogInfiniteQueryOptions("zalo")',
 		);
 		expect(workspace).toContain("IntersectionObserver");
 		expect(workspace).toContain("Tải thêm bài viết");
 		expect(workspace).toContain("mergeArticlePages");
 		expect(clientQueries).toContain("infiniteQueryOptions");
 		expect(clientQueries).toContain("getNextPageParam");
-		expect(clientQueries).toContain("staleTime: 2 * 60_000");
+		expect(clientQueries).toContain(
+			'staleTime: scope === "zalo" ? 15 * 60_000 : 5 * 60_000',
+		);
 		expect(route).toContain("listArticlesPage");
-		expect(route).toContain("listZaloArticleCatalogPage");
+		expect(route).toContain("getCachedZaloArticleCatalogPage");
 		expect(route).toContain("nextCursor");
 		expect(store).toContain(".limit(limit + 1)");
 		expect(zaloCatalog).toContain("listAccountArticlesPage");
+		expect(zaloCatalog).toContain('"use cache"');
+		expect(zaloCatalog).toContain("cacheTag(ZALO_ARTICLE_CATALOG_TAG)");
+		expect(readFileSync("app/articles/page.tsx", "utf8")).toContain(
+			"<HydrationBoundary",
+		);
 	});
 
 	test("keeps automatic scan articles hidden and configurable", () => {
