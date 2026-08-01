@@ -73,6 +73,7 @@ export async function POST(
 
     const actor = actorFromAuth(auth);
     const incoming = input.message as ChatUIMessage;
+    const requiresGrounding = shouldRequireGrounding(input.mode, incoming);
     const storedIncoming = await persistChatMessage(
       conversationId,
       incoming,
@@ -131,6 +132,24 @@ export async function POST(
       ].join("\n"),
       temperature: conversation.temperature / 100,
       model: runtime.model,
+      prepareStep: ({ stepNumber }) =>
+        requiresGrounding && stepNumber === 0
+          ? {
+              activeTools: [
+                "searchEvidence",
+                "getEvidence",
+                "listScans",
+                "getScan",
+                "listTopics",
+                "getInsights",
+                "listArticles",
+                "getArticle",
+                "listZaloAccounts",
+                "searchAttachments",
+              ],
+              toolChoice: "required",
+            }
+          : { toolChoice: "auto" },
       stopWhen: stepCountIs(input.thinkingMode === "deep" ? 12 : 6),
       tools,
     });
@@ -252,6 +271,26 @@ function thinkingModeInstruction(mode: "fast" | "deep") {
   return mode === "deep"
     ? "Suy xét sâu: lập kế hoạch kiểm tra dữ liệu qua nhiều bước và trình bày phần giải thích ngắn gọn, có thể kiểm chứng; không tiết lộ chuỗi suy nghĩ nội bộ."
     : "Phản hồi nhanh: dùng ít bước công cụ nhất có thể nhưng vẫn phải kiểm chứng các khẳng định quan trọng.";
+}
+
+function shouldRequireGrounding(
+  mode: "ask" | "investigate" | "draft" | "report",
+  message: ChatUIMessage,
+) {
+  if (mode !== "ask") return true;
+  const text = message.parts
+    .filter(
+      (
+        part,
+      ): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
+        part.type === "text",
+    )
+    .map((part) => part.text)
+    .join(" ")
+    .toLocaleLowerCase("vi");
+  return /\b(mới nhất|hiện tại|gần đây|hôm nay|workspace|bằng chứng|scan|rủi ro|chủ đề|bài viết|bản nháp|zalo)\b/u.test(
+    text,
+  );
 }
 
 function trimMessagesToBudget(

@@ -63,6 +63,10 @@ describe("first-class Chat platform", () => {
     expect(route).toContain("không tiết lộ chuỗi suy nghĩ nội bộ");
     expect(route).toContain("Hoàn tất yêu cầu ngay trong lượt hiện tại");
     expect(route).toContain("bắt buộc phải gọi công cụ phù hợp");
+    expect(route).toContain("shouldRequireGrounding(input.mode, incoming)");
+    expect(route).toContain('toolChoice: "required"');
+    expect(route).toContain('"searchEvidence"');
+    expect(route).toContain('"getInsights"');
   });
 
   test("keeps all generated content internal and human reviewed", () => {
