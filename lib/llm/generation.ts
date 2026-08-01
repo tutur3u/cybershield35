@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { APICallError, generateText, Output } from "ai";
+import { APICallError, generateText, Output, streamText } from "ai";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import type { ArticleContent } from "@/lib/articles/schemas";
@@ -453,7 +453,7 @@ export async function generateInDepthReport(options: {
       sourceLabel: item.sourceLabel?.slice(0, 300) ?? null,
       summary: item.summary?.slice(0, 400) ?? null,
     }));
-  const { text: plainTextReport } = await generateText({
+  const reportStream = streamText({
     model: runtime.model,
     system: `${system} Trả về văn bản thuần, không JSON, không Markdown và không dùng dấu sao để định dạng. Dùng tiêu đề mục viết hoa trên dòng riêng.`,
     prompt: JSON.stringify({
@@ -480,6 +480,7 @@ export async function generateInDepthReport(options: {
         : "Soạn báo cáo hoàn chỉnh, rõ ràng, có căn cứ, gồm tóm tắt điều hành, các mục được yêu cầu, phát hiện chính, giới hạn và khuyến nghị. Mục tiêu khoảng 1.000-1.600 từ nếu dữ liệu đủ.",
     }),
   });
+  const plainTextReport = await reportStream.text;
   const content = cleanDraftContent(plainTextReport).slice(0, 12_000);
   const executiveSummary = cleanDraftContent(
     `${options.analysis.summary} ${options.analysis.stanceSummary}`,

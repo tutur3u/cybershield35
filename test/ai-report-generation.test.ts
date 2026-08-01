@@ -46,7 +46,8 @@ describe("AI report output", () => {
   test("bounds evidence context and uses the gateway-compatible text path", () => {
     const generation = readFileSync("lib/llm/generation.ts", "utf8");
     expect(generation).toContain("const compactEvidence");
-    expect(generation).toContain("text: plainTextReport");
+    expect(generation).toContain("const reportStream = streamText");
+    expect(generation).toContain("await reportStream.text");
     expect(generation).toContain("Trả về văn bản thuần, không JSON");
     expect(generation).toContain("toSorted");
     expect(generation).toContain("riskRank");
