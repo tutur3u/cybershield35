@@ -7,7 +7,7 @@ import { ArticlesWorkspace } from "@/components/dashboard/articles-workspace";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { articleQueryKeys, type ArticleCatalogPage } from "@/lib/articles/client-queries";
-import { listArticlesPage } from "@/lib/articles/store";
+import { getCachedArticlesPage } from "@/lib/articles/store";
 import { getQueryClient } from "@/lib/query-client";
 
 export const instant = true;
@@ -32,7 +32,7 @@ export default function ArticlesPage() {
 async function HydratedArticlesWorkspace() {
 	await io();
 	const queryClient = getQueryClient();
-	const local = await listArticlesPage({ limit: 10 });
+	const local = await getCachedArticlesPage({ limit: 10 });
 	const initialPage: ArticleCatalogPage = {
 		articles: local.items.map(({ article, oaDisplayName, oaId }) => ({
 			article: {

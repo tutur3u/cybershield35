@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { createArticle, listArticlesPage } from "@/lib/articles/store";
+import { createArticle, getCachedArticlesPage } from "@/lib/articles/store";
 import { articleCreateSchema } from "@/lib/articles/schemas";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 		const limit = normalizePageSize(url.searchParams.get("limit"));
 		const scope = url.searchParams.get("scope");
 		if (scope === "local") {
-			const local = await listArticlesPage({
+			const local = await getCachedArticlesPage({
 				cursor: url.searchParams.get("cursor"),
 				limit,
 			});
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 						items: [],
 						nextCursor: null,
 					})
-				: listArticlesPage({ cursor: cursor.localCursor, limit }),
+				: getCachedArticlesPage({ cursor: cursor.localCursor, limit }),
 			cursor.remoteDone
 				? Promise.resolve({ articles: [], hasNextPage: false, issues: [] })
 				: getCachedZaloArticleCatalogPage({

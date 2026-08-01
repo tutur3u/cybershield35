@@ -6,6 +6,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
+import { ARTICLE_CATALOG_TAG } from "@/lib/articles/cache-tags";
 import { adminDb } from "@/lib/db/client";
 import {
 	articlePublicationJobs,
@@ -376,6 +377,7 @@ export async function removeRemoteArticle(
 		return updated ?? null;
 	});
 	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
+	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 	return updated;
 }
 
@@ -481,6 +483,7 @@ async function executePublicationOperation(
 		});
 	});
 	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
+	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 }
 
 function validateOperation(

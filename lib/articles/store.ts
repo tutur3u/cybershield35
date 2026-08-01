@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { and, desc, eq, inArray, isNull, lt, max, or } from "drizzle-orm";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
 import { adminDb } from "@/lib/db/client";
@@ -19,6 +20,7 @@ import {
 import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
 
 import type { ArticleContent } from "./schemas";
+import { ARTICLE_CATALOG_TAG } from "./cache-tags";
 
 export type ArticleSnapshot = ArticleContent & {
 	targetOaConnectionId: string | null;
@@ -87,6 +89,20 @@ export async function listArticlesPage(input: {
 				? `${last.updatedAt.toISOString()}~${last.id}`
 				: null,
 	};
+}
+
+export async function getCachedArticlesPage(input: {
+	cursor?: string | null;
+	limit: number;
+}) {
+	"use cache";
+	cacheLife({ expire: 300, revalidate: 30, stale: 30 });
+	cacheTag(ARTICLE_CATALOG_TAG);
+	return listArticlesPage(input);
+}
+
+function invalidateArticleCatalog() {
+	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 }
 
 function parseArticleListCursor(value?: string | null) {
@@ -175,7 +191,7 @@ export async function createArticle(
 	}
 
 	const snapshot = snapshotFromInput(seeded);
-	return adminDb.transaction(async (tx) => {
+	const article = await adminDb.transaction(async (tx) => {
 		const [article] = await tx
 			.insert(articles)
 			.values({
@@ -217,6 +233,8 @@ export async function createArticle(
 		});
 		return article;
 	});
+	invalidateArticleCatalog();
+	return article;
 }
 
 export async function updateArticle(
@@ -225,7 +243,7 @@ export async function updateArticle(
 	actor: ChatActor,
 	input: { instruction?: string; origin?: "manual" | "ai" | "restore" } = {},
 ) {
-	return adminDb.transaction(async (tx) => {
+	const article = await adminDb.transaction(async (tx) => {
 		const [current] = await tx
 			.select()
 			.from(articles)
@@ -310,6 +328,8 @@ export async function updateArticle(
 		});
 		return updated;
 	});
+	if (article) invalidateArticleCatalog();
+	return article;
 }
 
 export async function setArticleReviewStatus(
@@ -328,6 +348,7 @@ export async function setArticleReviewStatus(
 		.where(eq(articles.id, id))
 		.returning();
 	if (updated) {
+		invalidateArticleCatalog();
 		await adminDb.insert(auditEvents).values({
 			action: `article_review_${status}`,
 			entityId: id,
@@ -339,7 +360,7 @@ export async function setArticleReviewStatus(
 }
 
 export async function deleteLocalArticle(id: string, actor: ChatActor) {
-	return adminDb.transaction(async (tx) => {
+	const article = await adminDb.transaction(async (tx) => {
 		const [article] = await tx
 			.delete(articles)
 			.where(and(eq(articles.id, id), isNull(articles.remoteArticleId)))
@@ -353,6 +374,8 @@ export async function deleteLocalArticle(id: string, actor: ChatActor) {
 		});
 		return article;
 	});
+	if (article) invalidateArticleCatalog();
+	return article;
 }
 
 export async function restoreArticleVersion(

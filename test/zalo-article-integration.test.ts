@@ -95,7 +95,7 @@ describe("Zalo OA security and article contract", () => {
 		expect(clientQueries).toContain(
 			'staleTime: scope === "zalo" ? 15 * 60_000 : 5 * 60_000',
 		);
-		expect(route).toContain("listArticlesPage");
+		expect(route).toContain("getCachedArticlesPage");
 		expect(route).toContain("getCachedZaloArticleCatalogPage");
 		expect(route).toContain("nextCursor");
 		expect(store).toContain(".limit(limit + 1)");
@@ -105,6 +105,12 @@ describe("Zalo OA security and article contract", () => {
 		expect(readFileSync("app/articles/page.tsx", "utf8")).toContain(
 			"<HydrationBoundary",
 		);
+		expect(store).toContain('"use cache"');
+		expect(store).toContain(
+			"cacheLife({ expire: 300, revalidate: 30, stale: 30 })",
+		);
+		expect(store).toContain("cacheTag(ARTICLE_CATALOG_TAG)");
+		expect(store).toContain('revalidateTag(ARTICLE_CATALOG_TAG, "max")');
 	});
 
 	test("keeps automatic scan articles hidden and configurable", () => {
