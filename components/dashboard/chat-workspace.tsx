@@ -218,7 +218,7 @@ export function ChatWorkspace({
   }, [conversations.data?.conversations, historyQuery]);
 
   return (
-    <div className="grid min-h-[calc(100vh-8.5rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_60px_rgba(15,23,42,0.08)] lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_60px_rgba(15,23,42,0.08)] lg:grid-cols-[248px_minmax(0,1fr)] lg:grid-rows-1">
       <details className="border-b border-[var(--border)] bg-[var(--surface-soft)] lg:hidden">
         <summary className="cursor-pointer px-4 py-3 text-xs font-extrabold">
           Lịch sử · {conversations.data?.conversations.length ?? 0} cuộc trò
@@ -317,7 +317,7 @@ export function ChatWorkspace({
           initialPrompt={initialPrompt}
         />
       ) : (
-        <div className="grid min-h-[620px] place-items-center p-6">
+        <div className="grid min-h-0 place-items-center overflow-y-auto p-6">
           <div className="max-w-lg text-center">
             <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
               <MessageCircle size={25} />
@@ -532,7 +532,7 @@ function ConversationWorkspace({
   const { conversation, readOnly } = detail.data;
   return (
     <div
-      className={`grid min-h-[620px] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"} xl:grid-rows-[auto_minmax(0,1fr)_auto]`}
+      className={`grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"}`}
     >
       <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5 xl:col-span-full">
         <div className="min-w-0">
@@ -634,7 +634,7 @@ function ConversationWorkspace({
         />
       </aside>
 
-      <div className="border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4 xl:col-start-1">
+      <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4 xl:col-start-1">
         <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
           <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
             Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
@@ -1773,7 +1773,7 @@ async function openAttachment(conversationId: string, attachmentId: string) {
 
 function ChatLoading() {
   return (
-    <div className="grid min-h-[620px] place-items-center">
+    <div className="grid h-full min-h-0 place-items-center">
       <LoaderCircle className="animate-spin text-[var(--brand)]" />
     </div>
   );
@@ -1786,7 +1786,7 @@ function ChatError({
   onRetry: () => void;
 }) {
   return (
-    <div className="grid min-h-[620px] place-items-center p-6 text-center">
+    <div className="grid h-full min-h-0 place-items-center overflow-y-auto p-6 text-center">
       <div>
         <p className="text-sm font-bold text-[var(--danger-strong)]">
           {message ?? "Không thể tải Chat."}

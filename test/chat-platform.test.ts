@@ -77,6 +77,21 @@ describe("first-class Chat platform", () => {
     );
   });
 
+  test("keeps Chat inside the viewport and scrolls only its internal panes", () => {
+    const chatPage = read("app/chat/page.tsx");
+    const conversationPage = read("app/chat/[id]/page.tsx");
+    const workspace = read("components/dashboard/chat-workspace.tsx");
+
+    for (const page of [chatPage, conversationPage]) {
+      expect(page).toContain("h-[calc(100dvh-6rem)]");
+      expect(page).toContain("overflow-hidden");
+      expect(page).not.toContain("<PageHeader");
+    }
+    expect(workspace).toContain("grid h-full min-h-0");
+    expect(workspace).toContain("overflow-y-auto overscroll-contain");
+    expect(workspace).not.toContain("min-h-[620px]");
+  });
+
   test("keeps all generated content internal and human reviewed", () => {
     const generation = read("lib/llm/generation.ts");
     const worker = read("lib/workers/scans.ts");
