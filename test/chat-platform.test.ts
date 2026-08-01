@@ -112,6 +112,17 @@ describe("first-class Chat platform", () => {
     expect(workspace).toContain("focus-within:border-[var(--brand)]");
     expect(workspace).toContain("Enter để gửi · Shift + Enter để xuống dòng");
     expect(workspace).toContain("Hỏi về bằng chứng, lần quét, chủ đề");
+    expect(workspace).toContain("loading ? <ChatHistorySkeleton");
+    expect(workspace).toContain(
+      "!loading && !failed && conversations.length === 0",
+    );
+    expect(workspace).toContain(
+      'PromptInputFooter className="items-center bg-transparent',
+    );
+    expect(workspace).toContain("min-h-14");
+    expect(workspace).not.toContain(
+      'PromptInputFooter className="items-end border-t',
+    );
     expect(workspace).toContain('aria-label="Đính kèm tệp"');
     expect(workspace).toContain('title="Đính kèm tệp"');
     expect(workspace).toContain('aria-label="Chọn mục tiêu trò chuyện"');

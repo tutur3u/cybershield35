@@ -262,13 +262,16 @@ export function ChatWorkspace({
               conversations={visibleConversations}
               creating={createConversation.isPending}
               historyQuery={historyQuery}
+              loading={conversations.isPending}
               onCreate={createChat}
+              onRetry={() => void conversations.refetch()}
               onSearch={setHistoryQuery}
               onSelect={(id) => {
                 router.push(`/chat/${id}`);
                 closeChatNavigation();
               }}
               total={conversations.data?.conversations.length ?? 0}
+              failed={conversations.isError}
             />,
             sidebarPortal,
           )
@@ -277,6 +280,7 @@ export function ChatWorkspace({
         ? createPortal(
             <ChatLandingTopBar
               creating={createConversation.isPending}
+              loading={conversations.isPending}
               onCreate={createChat}
               total={conversations.data?.conversations.length ?? 0}
             />,
@@ -322,8 +326,11 @@ function ChatHistoryMenu({
   conversationId,
   conversations,
   creating,
+  failed,
   historyQuery,
+  loading,
   onCreate,
+  onRetry,
   onSearch,
   onSelect,
   total,
@@ -331,8 +338,11 @@ function ChatHistoryMenu({
   conversationId?: string;
   conversations: ConversationRow[];
   creating: boolean;
+  failed: boolean;
   historyQuery: string;
+  loading: boolean;
   onCreate: () => void;
+  onRetry: () => void;
   onSearch: (value: string) => void;
   onSelect: (id: string) => void;
   total: number;
@@ -344,9 +354,16 @@ function ChatHistoryMenu({
           <History className="shrink-0" size={14} />
           <div className="min-w-0">
             <p className="truncate text-xs font-extrabold">Trò chuyện</p>
-            <p className="mt-0.5 text-[10px] text-[var(--muted)]">
-              {total} cuộc trò chuyện
-            </p>
+            {loading ? (
+              <span
+                aria-label="Đang tải danh sách trò chuyện"
+                className="mt-1 block h-2.5 w-20 animate-pulse rounded-full bg-[var(--surface-elevated)]"
+              />
+            ) : (
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                {total} cuộc trò chuyện
+              </p>
+            )}
           </div>
         </div>
         <button
@@ -374,28 +391,48 @@ function ChatHistoryMenu({
           className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] pl-8 pr-2 text-[11px] outline-none focus:border-[var(--accent)]"
           placeholder="Tìm cuộc trò chuyện…"
           aria-label="Tìm cuộc trò chuyện"
+          disabled={loading}
         />
       </label>
       <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
-        {conversations.map((conversation) => (
-          <button
-            type="button"
-            key={conversation.id}
-            onClick={() => onSelect(conversation.id)}
-            className={`w-full rounded-lg border p-3 text-left transition ${conversation.id === conversationId ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"}`}
-          >
-            <p className="truncate text-xs font-bold">{conversation.title}</p>
-            <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
-              <span>
-                {conversation.visibility === "workspace"
-                  ? "Đã chia sẻ"
-                  : "Riêng tư"}
-              </span>
-              <span>{relativeTime(conversation.updatedAt)}</span>
-            </div>
-          </button>
-        ))}
-        {conversations.length === 0 ? (
+        {loading ? <ChatHistorySkeleton /> : null}
+        {!loading && !failed
+          ? conversations.map((conversation) => (
+              <button
+                type="button"
+                key={conversation.id}
+                onClick={() => onSelect(conversation.id)}
+                className={`w-full rounded-lg border p-3 text-left transition ${conversation.id === conversationId ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"}`}
+              >
+                <p className="truncate text-xs font-bold">
+                  {conversation.title}
+                </p>
+                <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
+                  <span>
+                    {conversation.visibility === "workspace"
+                      ? "Đã chia sẻ"
+                      : "Riêng tư"}
+                  </span>
+                  <span>{relativeTime(conversation.updatedAt)}</span>
+                </div>
+              </button>
+            ))
+          : null}
+        {!loading && failed ? (
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-4 text-center">
+            <p className="text-[10px] font-semibold text-[var(--muted-strong)]">
+              Chưa tải được lịch sử trò chuyện.
+            </p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-2 text-[10px] font-bold text-[var(--brand-strong)] hover:underline"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : null}
+        {!loading && !failed && conversations.length === 0 ? (
           <p className="px-3 py-8 text-center text-[10px] text-[var(--muted)]">
             Không tìm thấy cuộc trò chuyện.
           </p>
@@ -405,12 +442,38 @@ function ChatHistoryMenu({
   );
 }
 
+function ChatHistorySkeleton() {
+  return (
+    <div
+      aria-label="Đang tải danh sách trò chuyện"
+      className="space-y-1"
+      role="status"
+    >
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="animate-pulse rounded-lg border border-transparent px-3 py-3"
+        >
+          <div className="h-3 w-3/4 rounded-full bg-[var(--surface-elevated)]" />
+          <div className="mt-2 flex items-center justify-between gap-4">
+            <div className="h-2.5 w-14 rounded-full bg-[var(--surface-elevated)]" />
+            <div className="h-2.5 w-10 rounded-full bg-[var(--surface-elevated)]" />
+          </div>
+        </div>
+      ))}
+      <span className="sr-only">Đang tải các cuộc trò chuyện trước đây…</span>
+    </div>
+  );
+}
+
 function ChatLandingTopBar({
   creating,
+  loading,
   onCreate,
   total,
 }: {
   creating: boolean;
+  loading: boolean;
   onCreate: () => void;
   total: number;
 }) {
@@ -428,7 +491,7 @@ function ChatLandingTopBar({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-extrabold">Chat</p>
         <p className="hidden text-[10px] text-[var(--muted)] sm:block">
-          {total} cuộc trò chuyện
+          {loading ? "Đang tải lịch sử…" : `${total} cuộc trò chuyện`}
         </p>
       </div>
       <button
@@ -712,7 +775,7 @@ function ConversationWorkspace({
           />
         </aside>
 
-        <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] p-3 sm:px-4 sm:pb-4 sm:pt-3 xl:col-start-1">
+        <div className="max-h-[42dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] px-3 pb-2 pt-2 sm:px-4 sm:pb-3 xl:col-start-1">
           <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
             <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
               Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
@@ -770,27 +833,27 @@ function ConversationWorkspace({
               <PromptInput
                 accept={accept}
                 globalDrop
-                inputGroupClassName="rounded-xl border-[var(--border-strong)] bg-[var(--surface-elevated)] shadow-[0_12px_32px_rgb(15_23_42/0.08)] transition-[border-color,box-shadow] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_22%,transparent)] dark:bg-[var(--surface-elevated)] dark:shadow-[0_16px_36px_rgb(0_0_0/0.22)]"
+                inputGroupClassName="rounded-xl border-[var(--border-strong)] bg-[var(--surface-elevated)] shadow-[0_8px_24px_rgb(15_23_42/0.06)] transition-[border-color,box-shadow] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_22%,transparent)] dark:bg-[var(--surface-elevated)] dark:shadow-[0_10px_28px_rgb(0_0_0/0.18)]"
                 maxFiles={5}
                 maxFileSize={25 * 1024 * 1024}
                 multiple
                 onError={(error) => setComposerError(error.message)}
                 onSubmit={submit}
               >
-                <PromptInputHeader className="px-3 pb-0 pt-3">
+                <PromptInputHeader className="px-2.5 pb-0 pt-0">
                   <SelectedPromptAttachments />
                 </PromptInputHeader>
                 <PromptInputBody>
                   <PromptInputTextarea
-                    className="min-h-20 px-3.5 pb-2 pt-3 text-[13px] font-medium leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)]"
+                    className="min-h-14 px-3 pb-1 pt-2.5 text-[13px] font-medium leading-5 text-[var(--foreground)] placeholder:text-[var(--muted)]"
                     disabled={isBusy}
                     placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
                   />
-                  <div className="hidden px-3.5 pb-2 text-right text-[9px] font-medium text-[var(--muted)] sm:block">
+                  <div className="sr-only">
                     Enter để gửi · Shift + Enter để xuống dòng
                   </div>
                 </PromptInputBody>
-                <PromptInputFooter className="items-end border-t border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2">
+                <PromptInputFooter className="items-center bg-transparent px-2 pb-2 pt-1">
                   <PromptInputTools className="flex-wrap gap-1.5">
                     <PromptInputActionMenu>
                       <PromptInputActionMenuTrigger
@@ -823,14 +886,14 @@ function ConversationWorkspace({
                   </PromptInputTools>
                   <PromptInputSubmit
                     aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
-                    className="size-9 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
+                    className="size-8 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
                     disabled={isBusy}
                     onStop={chat.stop}
                     status={chat.status}
                   />
                 </PromptInputFooter>
               </PromptInput>
-              <p className="mt-2 text-center text-[9px] text-[var(--muted)]">
+              <p className="mt-1.5 text-center text-[9px] text-[var(--muted)]">
                 AI có thể sai. Kiểm tra nguồn và phê duyệt mọi thay đổi nội bộ.
               </p>
             </>
