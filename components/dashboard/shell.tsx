@@ -15,6 +15,7 @@ import {
 } from "@tuturuuu/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@tuturuuu/ui/avatar";
 import {
+	ArrowLeft,
 	Bell,
 	Check,
 	CheckCircle2,
@@ -22,7 +23,9 @@ import {
 	ChevronRight,
 	CircleHelp,
 	Laptop,
+	LayoutGrid,
 	LogOut,
+	MessageCircle,
 	Moon,
 	Menu,
 	Palette,
@@ -71,15 +74,39 @@ export function Sidebar({
 	onToggle: () => void;
 }) {
 	const pathname = usePathname();
+	const chatRoute = pathname.startsWith("/chat");
 	const [mobileOpen, setMobileOpen] = useState(false);
+	const [chatMenuOpen, setChatMenuOpen] = useState(chatRoute);
 	const activeSection = navSections.find((section) =>
 		section.items.some((item) => isNavActive(pathname, item.href)),
 	)?.id;
-	const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
-		readSidebarSections,
-	);
+	const [expandedSections, setExpandedSections] =
+		useState<Record<string, boolean>>(readSidebarSections);
 	const [manuallyCollapsedActivePath, setManuallyCollapsedActivePath] =
 		useState<string | null>(null);
+
+	useEffect(() => {
+		const openChatNavigation = () => {
+			setChatMenuOpen(true);
+			setMobileOpen(true);
+		};
+		const closeNavigation = () => setMobileOpen(false);
+		window.addEventListener(
+			"cybershield35:open-chat-navigation",
+			openChatNavigation,
+		);
+		window.addEventListener("cybershield35:close-navigation", closeNavigation);
+		return () => {
+			window.removeEventListener(
+				"cybershield35:open-chat-navigation",
+				openChatNavigation,
+			);
+			window.removeEventListener(
+				"cybershield35:close-navigation",
+				closeNavigation,
+			);
+		};
+	}, []);
 
 	useEffect(() => {
 		window.localStorage.setItem(
@@ -120,117 +147,200 @@ export function Sidebar({
 						: "relative border-x-0 border-t-0 border-b"
 				} ${collapsed ? "lg:w-[76px]" : "lg:w-[248px]"}`}
 			>
-			<div className={`flex flex-col ${mobileOpen ? "h-full" : "min-h-[64px]"} lg:h-full`}>
 				<div
-					className={`flex h-16 items-center gap-3 border-b border-[var(--border)] px-4 ${
-						collapsed ? "lg:justify-center lg:px-2" : ""
-					}`}
+					className={`flex flex-col ${mobileOpen ? "h-full" : "min-h-[64px]"} lg:h-full`}
 				>
-					<BrandmarkLink
-						key={collapsed ? "brand-collapsed" : "brand-expanded"}
-						collapsed={collapsed}
-					/>
-					<button
-						type="button"
-						aria-expanded={mobileOpen}
-						aria-label={mobileOpen ? "Đóng điều hướng" : "Mở điều hướng"}
-						onClick={() => setMobileOpen((current) => !current)}
-						className="ml-auto grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] lg:hidden"
-					>
-						{mobileOpen ? <X size={17} /> : <Menu size={17} />}
-					</button>
-					<button
-						type="button"
-						aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-						title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-						onClick={onToggle}
-						className={`ml-auto hidden size-8 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] lg:grid ${
-							collapsed ? "lg:ml-0" : ""
+					<div
+						className={`flex h-16 items-center gap-3 border-b border-[var(--border)] px-4 ${
+							collapsed ? "lg:justify-center lg:px-2" : ""
 						}`}
 					>
-						{collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-					</button>
-				</div>
-				<nav
-					aria-label="Điều hướng chính"
-					className={`${mobileOpen ? "block flex-1" : "hidden"} max-h-[calc(100vh-4rem)] overflow-y-auto px-3 py-3 lg:block lg:max-h-none lg:space-y-1 lg:overflow-visible lg:py-3`}
-				>
-					<SidebarNavLink
-						collapsed={collapsed}
-						item={overviewNavItem}
-						onNavigate={() => setMobileOpen(false)}
-						pathname={pathname}
-					/>
-					{navSections.map((section, sectionIndex) => {
-						const routeRevealsSection =
-							section.id === activeSection && manuallyCollapsedActivePath !== pathname;
-						const expanded =
-							collapsed || routeRevealsSection || expandedSections[section.id] !== false;
-						return (
-							<div
-								key={section.id}
-								className={sectionIndex === 0 ? "pt-1" : "border-t border-[var(--divider)] pt-1"}
-							>
-								<button
-									type="button"
-									aria-expanded={expanded}
-									aria-controls={`sidebar-section-${section.id}`}
-									onClick={() => {
-										const nextExpanded = !expanded;
-										setExpandedSections((current) => ({
-											...current,
-											[section.id]: nextExpanded,
-										}));
-										setManuallyCollapsedActivePath(
-											!nextExpanded && section.id === activeSection ? pathname : null,
-										);
-									}}
-									className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-semibold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
+						<BrandmarkLink
+							key={collapsed ? "brand-collapsed" : "brand-expanded"}
+							collapsed={collapsed}
+						/>
+						<button
+							type="button"
+							aria-expanded={mobileOpen}
+							aria-label={mobileOpen ? "Đóng điều hướng" : "Mở điều hướng"}
+							onClick={() => setMobileOpen((current) => !current)}
+							className="ml-auto grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] lg:hidden"
+						>
+							{mobileOpen ? <X size={17} /> : <Menu size={17} />}
+						</button>
+						<button
+							type="button"
+							aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+							title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+							onClick={onToggle}
+							className={`ml-auto hidden size-8 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] lg:grid ${
+								collapsed ? "lg:ml-0" : ""
+							}`}
+						>
+							{collapsed ? (
+								<PanelLeftOpen size={15} />
+							) : (
+								<PanelLeftClose size={15} />
+							)}
+						</button>
+					</div>
+					<nav
+						aria-label={
+							chatRoute && chatMenuOpen ? "Điều hướng Chat" : "Điều hướng chính"
+						}
+						className={`${mobileOpen ? "flex" : "hidden"} min-h-0 flex-1 flex-col overflow-y-auto lg:flex`}
+					>
+						{chatRoute && chatMenuOpen ? (
+							<>
+								<div
+									className={`min-h-0 flex-1 flex-col ${collapsed ? "flex lg:hidden" : "flex"}`}
 								>
-									<span className="min-w-0 truncate whitespace-nowrap">{section.label}</span>
-									<ChevronRight aria-hidden size={11} strokeWidth={2} className={`shrink-0 opacity-70 transition-transform group-hover:opacity-100 ${expanded ? "rotate-90" : ""}`} />
-								</button>
-								{expanded ? (
-									<div id={`sidebar-section-${section.id}`} className="space-y-0.5">
-										{section.items.map((item) => (
-											<SidebarNavLink
-												collapsed={collapsed}
-												item={item}
-												key={item.href}
-												onNavigate={() => setMobileOpen(false)}
-												pathname={pathname}
-											/>
-										))}
-									</div>
+									<button
+										type="button"
+										onClick={() => setChatMenuOpen(false)}
+										className="mx-3 mt-3 flex h-9 shrink-0 items-center gap-2 rounded-md px-2 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+									>
+										<ArrowLeft size={14} /> Tất cả chức năng
+									</button>
+									<div id="chat-sidebar-portal" className="min-h-0 flex-1" />
+								</div>
+								<div
+									className={`${collapsed ? "hidden lg:flex" : "hidden"} flex-1 flex-col items-center gap-2 px-3 py-3`}
+								>
+									<IntentPrefetchLink
+										aria-label="Chat"
+										className="grid size-10 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--brand-strong)]"
+										href="/chat"
+										title="Chat"
+									>
+										<MessageCircle size={16} />
+									</IntentPrefetchLink>
+									<button
+										type="button"
+										onClick={() => setChatMenuOpen(false)}
+										aria-label="Tất cả chức năng"
+										title="Tất cả chức năng"
+										className="grid size-10 place-items-center rounded-md text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+									>
+										<LayoutGrid size={16} />
+									</button>
+								</div>
+							</>
+						) : (
+							<div className="space-y-1 px-3 py-3">
+								{chatRoute ? (
+									<button
+										type="button"
+										onClick={() => setChatMenuOpen(true)}
+										aria-label={collapsed ? "Trở lại Chat" : undefined}
+										title={collapsed ? "Trở lại Chat" : undefined}
+										className={`mb-2 flex h-9 w-full items-center gap-2 rounded-md bg-[var(--success-soft)] px-3 text-[11px] font-bold text-[var(--brand-strong)] ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+									>
+										<MessageCircle size={16} />
+										<span className={collapsed ? "lg:hidden" : ""}>
+											Trở lại Chat
+										</span>
+									</button>
 								) : null}
+								<SidebarNavLink
+									collapsed={collapsed}
+									item={overviewNavItem}
+									onNavigate={() => setMobileOpen(false)}
+									pathname={pathname}
+								/>
+								{navSections.map((section, sectionIndex) => {
+									const routeRevealsSection =
+										section.id === activeSection &&
+										manuallyCollapsedActivePath !== pathname;
+									const expanded =
+										collapsed ||
+										routeRevealsSection ||
+										expandedSections[section.id] !== false;
+									return (
+										<div
+											key={section.id}
+											className={
+												sectionIndex === 0
+													? "pt-1"
+													: "border-t border-[var(--divider)] pt-1"
+											}
+										>
+											<button
+												type="button"
+												aria-expanded={expanded}
+												aria-controls={`sidebar-section-${section.id}`}
+												onClick={() => {
+													const nextExpanded = !expanded;
+													setExpandedSections((current) => ({
+														...current,
+														[section.id]: nextExpanded,
+													}));
+													setManuallyCollapsedActivePath(
+														!nextExpanded && section.id === activeSection
+															? pathname
+															: null,
+													);
+												}}
+												className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-semibold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
+											>
+												<span className="min-w-0 truncate whitespace-nowrap">
+													{section.label}
+												</span>
+												<ChevronRight
+													aria-hidden
+													size={11}
+													strokeWidth={2}
+													className={`shrink-0 opacity-70 transition-transform group-hover:opacity-100 ${expanded ? "rotate-90" : ""}`}
+												/>
+											</button>
+											{expanded ? (
+												<div
+													id={`sidebar-section-${section.id}`}
+													className="space-y-0.5"
+												>
+													{section.items.map((item) => (
+														<SidebarNavLink
+															collapsed={collapsed}
+															item={item}
+															key={item.href}
+															onNavigate={() => setMobileOpen(false)}
+															pathname={pathname}
+														/>
+													))}
+												</div>
+											) : null}
+										</div>
+									);
+								})}
 							</div>
-						);
-					})}
-				</nav>
-				<div className={`mt-auto border-t border-[var(--divider)] p-3 ${collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}>
-					<div>
-						<p className="px-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">
-							Trợ giúp
-						</p>
-						<div className="mt-1 space-y-0.5">
-							{quickLinks.map((link) => (
-								<IntentPrefetchLink
-									key={link.href}
-									href={link.href}
-									className={`flex h-8 items-center gap-2 rounded-md px-2 text-[11px] font-medium transition ${
-										pathname === link.href
-											? "bg-[var(--success-soft)] text-[color:var(--brand-strong)]"
-											: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
-									}`}
-								>
-									<CircleHelp aria-hidden size={13} />
-									<span className="truncate">{link.label}</span>
-								</IntentPrefetchLink>
-							))}
+						)}
+					</nav>
+					<div
+						className={`mt-auto border-t border-[var(--divider)] p-3 ${chatRoute && chatMenuOpen ? "hidden" : collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}
+					>
+						<div>
+							<p className="px-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">
+								Trợ giúp
+							</p>
+							<div className="mt-1 space-y-0.5">
+								{quickLinks.map((link) => (
+									<IntentPrefetchLink
+										key={link.href}
+										href={link.href}
+										className={`flex h-8 items-center gap-2 rounded-md px-2 text-[11px] font-medium transition ${
+											pathname === link.href
+												? "bg-[var(--success-soft)] text-[color:var(--brand-strong)]"
+												: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
+										}`}
+									>
+										<CircleHelp aria-hidden size={13} />
+										<span className="truncate">{link.label}</span>
+									</IntentPrefetchLink>
+								))}
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
 			</aside>
 		</>
 	);
@@ -252,7 +362,11 @@ function SidebarNavLink({
 		<IntentPrefetchLink
 			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:justify-start lg:gap-3 lg:px-3 lg:text-[12px] ${
+			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:text-[12px] ${
+				collapsed
+					? "lg:justify-center lg:gap-0 lg:px-0"
+					: "lg:justify-start lg:gap-3 lg:px-3"
+			} ${
 				active
 					? "bg-[var(--surface-soft)] text-[color:var(--brand-strong)] before:bg-[var(--brand)]"
 					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
@@ -262,7 +376,9 @@ function SidebarNavLink({
 			title={collapsed ? item.label : undefined}
 		>
 			<item.icon aria-hidden className="shrink-0" size={16} strokeWidth={2} />
-			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
+				{item.label}
+			</span>
 		</IntentPrefetchLink>
 	);
 }
@@ -282,11 +398,7 @@ function readSidebarSections() {
 	}
 }
 
-function BrandmarkLink({
-	collapsed,
-}: {
-	collapsed: boolean;
-}) {
+function BrandmarkLink({ collapsed }: { collapsed: boolean }) {
 	return (
 		<IntentPrefetchLink
 			href="/"
@@ -322,13 +434,18 @@ export function TopBar({
 	themePreference: ThemePreference;
 }) {
 	const [accountOpen, setAccountOpen] = useState(false);
+	const pathname = usePathname();
+	const chatRoute = pathname.startsWith("/chat");
 	const unreadCount = notifications.length;
 	const identity = getSessionIdentity(auth);
 
 	return (
-		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-end gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+		<header className="sticky top-0 z-20 flex min-h-16 items-center justify-end gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 sm:px-4">
+			{chatRoute ? (
+				<div id="chat-topbar-portal" className="min-w-0 flex-1" />
+			) : null}
 			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
-				<BrowserClock />
+				{chatRoute ? null : <BrowserClock />}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<button

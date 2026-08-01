@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -50,12 +51,15 @@ export function DashboardLayoutShell({
 	initialAuth: AuthViewState;
 	initialProviderAvailability?: ProviderAvailabilityView | null;
 }) {
+	const pathname = usePathname();
+	const chatShell = pathname.startsWith("/chat");
 	const [auth, setAuth] = useState<AuthViewState>(initialAuth);
-	const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+	const [sidebarCollapsed, setSidebarCollapsed] =
+		useState(readSidebarCollapsed);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [schedulerAutoRetryToken] = useState(readSchedulerAutoRetryToken);
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(() =>
-		Boolean(schedulerAutoRetryToken)
+		Boolean(schedulerAutoRetryToken),
 	);
 	const [, setNotice] = useState("");
 	const { preference, resolvedTheme, setPreference } = useThemePreference();
@@ -70,7 +74,7 @@ export function DashboardLayoutShell({
 		window.history.replaceState(
 			null,
 			"",
-			`${url.pathname}${url.search}${url.hash}`
+			`${url.pathname}${url.search}${url.hash}`,
 		);
 	}, [schedulerAutoRetryToken]);
 
@@ -91,10 +95,17 @@ export function DashboardLayoutShell({
 						}`}
 					>
 						<Sidebar
+							key={chatShell ? "chat-sidebar" : "dashboard-sidebar"}
 							collapsed={sidebarCollapsed}
 							onToggle={() => setSidebarCollapsed((current) => !current)}
 						/>
-						<section className="min-w-0 lg:h-screen lg:overflow-y-auto">
+						<section
+							className={
+								chatShell
+									? "h-[calc(100dvh-4rem)] min-w-0 overflow-hidden lg:h-screen"
+									: "min-w-0 lg:h-screen lg:overflow-y-auto"
+							}
+						>
 							<TopBar
 								auth={auth}
 								onLogout={() =>
@@ -116,7 +127,13 @@ export function DashboardLayoutShell({
 								resolvedTheme={resolvedTheme}
 								themePreference={preference}
 							/>
-							<div className="flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6">
+							<div
+								className={
+									chatShell
+										? "min-h-0 flex-1 overflow-hidden"
+										: "flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6"
+								}
+							>
 								{children}
 							</div>
 						</section>
@@ -182,5 +199,7 @@ function readSchedulerAutoRetryToken() {
 
 function readSidebarCollapsed() {
 	if (typeof window === "undefined") return false;
-	return window.localStorage.getItem("cybershield35:sidebar-collapsed:v1") === "1";
+	return (
+		window.localStorage.getItem("cybershield35:sidebar-collapsed:v1") === "1"
+	);
 }

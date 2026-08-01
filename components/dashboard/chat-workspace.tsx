@@ -3,6 +3,13 @@
 import { useChat } from "@ai-sdk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@tuturuuu/ui/dropdown-menu";
+import {
   DefaultChatTransport,
   getToolName,
   isToolUIPart,
@@ -19,6 +26,7 @@ import {
   History,
   LoaderCircle,
   MessageCircle,
+  MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
   Paperclip,
@@ -36,7 +44,15 @@ import {
   Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { createPortal } from "react-dom";
 
 import {
   Attachment,
@@ -164,6 +180,22 @@ const accept = [
   "image/webp",
 ].join(",");
 
+function usePortalTarget(id: string) {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => document.getElementById(id),
+    () => null,
+  );
+}
+
+function openChatNavigation() {
+  window.dispatchEvent(new Event("cybershield35:open-chat-navigation"));
+}
+
+function closeChatNavigation() {
+  window.dispatchEvent(new Event("cybershield35:close-navigation"));
+}
+
 export function ChatWorkspace({
   conversationId,
   initialPrompt,
@@ -174,6 +206,8 @@ export function ChatWorkspace({
   const router = useRouter();
   const queryClient = useQueryClient();
   const promptStarted = useRef(false);
+  const sidebarPortal = usePortalTarget("chat-sidebar-portal");
+  const topbarPortal = usePortalTarget("chat-topbar-portal");
   const [historyQuery, setHistoryQuery] = useState("");
   const conversations = useQuery({
     queryKey: ["chat", "conversations"],
@@ -218,128 +252,198 @@ export function ChatWorkspace({
     );
   }, [conversations.data?.conversations, historyQuery]);
 
+  const createChat = () => createConversation.mutate(undefined);
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_60px_rgba(15,23,42,0.08)] lg:grid-cols-[248px_minmax(0,1fr)] lg:grid-rows-1">
-      <details className="border-b border-[var(--border)] bg-[var(--surface-soft)] lg:hidden">
-        <summary className="cursor-pointer px-4 py-3 text-xs font-extrabold">
-          Lịch sử · {conversations.data?.conversations.length ?? 0} cuộc trò
-          chuyện
-        </summary>
-        <div className="max-h-64 space-y-1 overflow-y-auto p-2">
-          {visibleConversations.map((conversation) => (
-            <button
-              key={conversation.id}
-              type="button"
-              onClick={() => router.push(`/chat/${conversation.id}`)}
-              className="block w-full rounded-lg p-3 text-left text-xs font-bold hover:bg-[var(--surface)]"
-            >
-              {conversation.title}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => createConversation.mutate(undefined)}
-            className="mt-1 inline-flex h-9 items-center gap-2 rounded-md bg-[var(--brand)] px-3 text-xs font-bold text-white"
-          >
-            <Plus size={14} /> Chat mới
-          </button>
-        </div>
-      </details>
-      <aside className="hidden border-r border-[var(--border)] bg-[var(--surface-soft)] lg:flex lg:min-h-0 lg:flex-col">
-        <div className="flex items-center justify-between border-b border-[var(--border)] p-3">
-          <div className="flex items-center gap-2">
-            <History size={14} />
-            <div>
-              <p className="text-xs font-extrabold text-[var(--foreground)]">
-                Trò chuyện
+    <>
+      {sidebarPortal
+        ? createPortal(
+            <ChatHistoryMenu
+              conversationId={conversationId}
+              conversations={visibleConversations}
+              creating={createConversation.isPending}
+              historyQuery={historyQuery}
+              onCreate={createChat}
+              onSearch={setHistoryQuery}
+              onSelect={(id) => {
+                router.push(`/chat/${id}`);
+                closeChatNavigation();
+              }}
+              total={conversations.data?.conversations.length ?? 0}
+            />,
+            sidebarPortal,
+          )
+        : null}
+      {topbarPortal && !conversationId
+        ? createPortal(
+            <ChatLandingTopBar
+              creating={createConversation.isPending}
+              onCreate={createChat}
+              total={conversations.data?.conversations.length ?? 0}
+            />,
+            topbarPortal,
+          )
+        : null}
+      <div className="h-full min-h-0 overflow-hidden bg-[var(--background)]">
+        {conversationId ? (
+          <ConversationWorkspace
+            key={conversationId}
+            conversationId={conversationId}
+            initialPrompt={initialPrompt}
+          />
+        ) : (
+          <div className="grid h-full min-h-0 place-items-center overflow-y-auto p-6">
+            <div className="max-w-lg text-center">
+              <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+                <MessageCircle size={25} />
+              </span>
+              <h2 className="mt-4 text-lg font-extrabold text-[var(--foreground)]">
+                Chat phân tích nội bộ
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                Tra cứu bằng chứng, lần quét và chủ đề; phân tích tệp qua
+                Tuturuuu Drive; chuẩn bị nội dung để đội ngũ xem xét.
               </p>
-              <p className="mt-0.5 text-[10px] text-[var(--muted)]">
-                Riêng tư mặc định
-              </p>
+              <button
+                type="button"
+                onClick={createChat}
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white"
+              >
+                <Plus size={15} /> Tạo cuộc trò chuyện riêng tư
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => createConversation.mutate(undefined)}
-            className={iconButtonClass}
-            aria-label="Tạo Chat mới"
-          >
-            {createConversation.isPending ? (
-              <LoaderCircle className="animate-spin" size={15} />
-            ) : (
-              <Plus size={15} />
-            )}
-          </button>
-        </div>
-        <label className="relative mx-2 mt-2 block">
-          <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]"
-            size={13}
-          />
-          <input
-            value={historyQuery}
-            onChange={(event) => setHistoryQuery(event.target.value)}
-            className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] pl-8 pr-2 text-[11px] outline-none focus:border-[var(--accent)]"
-            placeholder="Tìm cuộc trò chuyện…"
-            aria-label="Tìm cuộc trò chuyện"
-          />
-        </label>
-        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-          {visibleConversations.map((conversation) => (
-            <button
-              type="button"
-              key={conversation.id}
-              onClick={() => router.push(`/chat/${conversation.id}`)}
-              className={`w-full rounded-lg border p-3 text-left transition ${conversation.id === conversationId ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"}`}
-            >
-              <p className="truncate text-xs font-bold">{conversation.title}</p>
-              <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
-                <span>
-                  {conversation.visibility === "workspace"
-                    ? "Đã chia sẻ"
-                    : "Riêng tư"}
-                </span>
-                <span>{relativeTime(conversation.updatedAt)}</span>
-              </div>
-            </button>
-          ))}
-          {visibleConversations.length === 0 ? (
-            <p className="px-3 py-8 text-center text-[10px] text-[var(--muted)]">
-              Không tìm thấy cuộc trò chuyện.
-            </p>
-          ) : null}
-        </div>
-      </aside>
+        )}
+      </div>
+    </>
+  );
+}
 
-      {conversationId ? (
-        <ConversationWorkspace
-          key={conversationId}
-          conversationId={conversationId}
-          initialPrompt={initialPrompt}
-        />
-      ) : (
-        <div className="grid min-h-0 place-items-center overflow-y-auto p-6">
-          <div className="max-w-lg text-center">
-            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
-              <MessageCircle size={25} />
-            </span>
-            <h2 className="mt-4 text-lg font-extrabold text-[var(--foreground)]">
-              Chat phân tích nội bộ
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Tra cứu bằng chứng, scan, chủ đề và insight; xử lý tệp qua
-              Tuturuuu Drive; lưu bản nháp để con người duyệt.
+function ChatHistoryMenu({
+  conversationId,
+  conversations,
+  creating,
+  historyQuery,
+  onCreate,
+  onSearch,
+  onSelect,
+  total,
+}: {
+  conversationId?: string;
+  conversations: ConversationRow[];
+  creating: boolean;
+  historyQuery: string;
+  onCreate: () => void;
+  onSearch: (value: string) => void;
+  onSelect: (id: string) => void;
+  total: number;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col px-3 pb-3">
+      <div className="flex items-center justify-between py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <History className="shrink-0" size={14} />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-extrabold">Trò chuyện</p>
+            <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+              {total} cuộc trò chuyện
             </p>
-            <button
-              type="button"
-              onClick={() => createConversation.mutate(undefined)}
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white"
-            >
-              <Plus size={15} /> Tạo Chat riêng tư
-            </button>
           </div>
         </div>
-      )}
+        <button
+          type="button"
+          onClick={onCreate}
+          className={iconButtonClass}
+          aria-label="Tạo cuộc trò chuyện mới"
+          title="Tạo cuộc trò chuyện mới"
+        >
+          {creating ? (
+            <LoaderCircle className="animate-spin" size={15} />
+          ) : (
+            <Plus size={15} />
+          )}
+        </button>
+      </div>
+      <label className="relative block shrink-0">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+          size={13}
+        />
+        <input
+          value={historyQuery}
+          onChange={(event) => onSearch(event.target.value)}
+          className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] pl-8 pr-2 text-[11px] outline-none focus:border-[var(--accent)]"
+          placeholder="Tìm cuộc trò chuyện…"
+          aria-label="Tìm cuộc trò chuyện"
+        />
+      </label>
+      <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
+        {conversations.map((conversation) => (
+          <button
+            type="button"
+            key={conversation.id}
+            onClick={() => onSelect(conversation.id)}
+            className={`w-full rounded-lg border p-3 text-left transition ${conversation.id === conversationId ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-transparent hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"}`}
+          >
+            <p className="truncate text-xs font-bold">{conversation.title}</p>
+            <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
+              <span>
+                {conversation.visibility === "workspace"
+                  ? "Đã chia sẻ"
+                  : "Riêng tư"}
+              </span>
+              <span>{relativeTime(conversation.updatedAt)}</span>
+            </div>
+          </button>
+        ))}
+        {conversations.length === 0 ? (
+          <p className="px-3 py-8 text-center text-[10px] text-[var(--muted)]">
+            Không tìm thấy cuộc trò chuyện.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChatLandingTopBar({
+  creating,
+  onCreate,
+  total,
+}: {
+  creating: boolean;
+  onCreate: () => void;
+  total: number;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        className={`${iconButtonClass} lg:hidden`}
+        onClick={openChatNavigation}
+        aria-label="Mở lịch sử trò chuyện"
+        title="Lịch sử trò chuyện"
+      >
+        <History size={14} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-extrabold">Chat</p>
+        <p className="hidden text-[10px] text-[var(--muted)] sm:block">
+          {total} cuộc trò chuyện
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onCreate}
+        className={iconButtonClass}
+        aria-label="Tạo cuộc trò chuyện mới"
+        title="Tạo cuộc trò chuyện mới"
+      >
+        {creating ? (
+          <LoaderCircle className="animate-spin" size={15} />
+        ) : (
+          <Plus size={15} />
+        )}
+      </button>
     </div>
   );
 }
@@ -353,6 +457,7 @@ function ConversationWorkspace({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const topbarPortal = usePortalTarget("chat-topbar-portal");
   const [uploadState, setUploadState] = useState<
     Record<string, { name: string; progress: number; status: string }>
   >({});
@@ -532,114 +637,70 @@ function ConversationWorkspace({
 
   const { conversation, readOnly } = detail.data;
   return (
-    <div
-      className={`grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"}`}
-    >
-      <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5 xl:col-span-full">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-extrabold text-[var(--foreground)]">
-              {conversation.title}
-            </h2>
-            <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--muted-strong)]">
-              {readOnly
-                ? "Chỉ đọc"
-                : conversation.visibility === "workspace"
-                  ? "Workspace"
-                  : "Riêng tư"}
-            </span>
-          </div>
-          <p className="mt-1 text-[10px] text-[var(--muted)]">
-            {readOnly
-              ? `Được chia sẻ bởi ${conversation.ownerDisplayName ?? "thành viên"}`
-              : "Không nội dung nào được tự động xuất bản"}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className={iconButtonClass}
-            onClick={() => setContextOpen((current) => !current)}
-            aria-expanded={contextOpen}
-            aria-label={contextOpen ? "Đóng bảng ngữ cảnh" : "Mở bảng ngữ cảnh"}
-            title="Ngữ cảnh và cấu hình"
-          >
-            {contextOpen ? (
-              <PanelRightClose size={14} />
-            ) : (
-              <PanelRightOpen size={14} />
-            )}
-          </button>
-          <ConversationActions
-            conversation={conversation}
-            readOnly={readOnly}
-            onChanged={() =>
-              void Promise.all([
-                detail.refetch(),
-                queryClient.invalidateQueries({
-                  queryKey: ["chat", "conversations"],
-                }),
-              ])
-            }
-            onFork={(id) => router.push(`/chat/${id}`)}
-            onDeleted={() => router.push("/chat")}
-          />
-        </div>
-      </header>
-
-      <Conversation className="min-h-0 bg-[var(--background)]">
-        <ConversationContent className="mx-auto w-full max-w-4xl gap-5 px-4 py-5 sm:px-6">
-          {chat.messages.length === 0 ? (
-            <ChatStart
-              mode={mode}
-              onSelectMode={setMode}
-              onSend={(value, selectedMode) =>
-                void chat.sendMessage({
-                  metadata: { mode: selectedMode, thinkingMode },
-                  text: value,
-                })
+    <>
+      {topbarPortal
+        ? createPortal(
+            <ConversationTopBar
+              contextOpen={contextOpen}
+              conversation={conversation}
+              onChanged={() =>
+                void Promise.all([
+                  detail.refetch(),
+                  queryClient.invalidateQueries({
+                    queryKey: ["chat", "conversations"],
+                  }),
+                ])
               }
-            />
-          ) : (
-            chat.messages.map((message, index) => (
-              <ChatMessageView
-                addToolApprovalResponse={chat.addToolApprovalResponse}
-                isLast={index === chat.messages.length - 1}
-                key={message.id}
-                message={message}
-                onRegenerate={() => chat.regenerate({ messageId: message.id })}
-              />
-            ))
-          )}
-          {chat.status === "submitted" ? (
-            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
-              <LoaderCircle className="animate-spin" size={14} /> Đang kiểm tra
-              dữ liệu và công cụ…
-            </div>
-          ) : null}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      <aside
-        className={`${contextOpen ? "hidden xl:row-start-2 xl:block" : "hidden"} min-h-0 border-l border-[var(--border)] bg-[var(--surface-soft)] xl:overflow-y-auto`}
+              onDeleted={() => router.push("/chat")}
+              onFork={(id) => router.push(`/chat/${id}`)}
+              onToggleContext={() => setContextOpen((current) => !current)}
+              readOnly={readOnly}
+            />,
+            topbarPortal,
+          )
+        : null}
+      <div
+        className={`grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"}`}
       >
-        <ContextRail
-          attachments={detail.data.attachments}
-          conversation={conversation}
-          conversationId={conversationId}
-          modelRuns={detail.data.modelRuns}
-          onChanged={() => void detail.refetch()}
-          onUsePreset={(instructions) => void sendChatMessage(instructions)}
-          readOnly={readOnly}
-        />
-      </aside>
+        <Conversation className="min-h-0 bg-[var(--background)]">
+          <ConversationContent className="mx-auto w-full max-w-5xl gap-5 px-4 py-5 sm:px-6">
+            {chat.messages.length === 0 ? (
+              <ChatStart
+                mode={mode}
+                onSelectMode={setMode}
+                onSend={(value, selectedMode) =>
+                  void chat.sendMessage({
+                    metadata: { mode: selectedMode, thinkingMode },
+                    text: value,
+                  })
+                }
+              />
+            ) : (
+              chat.messages.map((message, index) => (
+                <ChatMessageView
+                  addToolApprovalResponse={chat.addToolApprovalResponse}
+                  isLast={index === chat.messages.length - 1}
+                  key={message.id}
+                  message={message}
+                  onRegenerate={() =>
+                    chat.regenerate({ messageId: message.id })
+                  }
+                />
+              ))
+            )}
+            {chat.status === "submitted" ? (
+              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
+                <LoaderCircle className="animate-spin" size={14} /> Đang kiểm
+                tra dữ liệu và công cụ…
+              </div>
+            ) : null}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
 
-      <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] p-3 sm:px-4 sm:pb-4 sm:pt-3 xl:col-start-1">
-        <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
-          <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
-            Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
-          </summary>
+        <aside
+          className={`${contextOpen ? "hidden xl:row-start-1 xl:block" : "hidden"} min-h-0 border-l border-[var(--border)] bg-[var(--surface-soft)] xl:overflow-y-auto`}
+        >
           <ContextRail
             attachments={detail.data.attachments}
             conversation={conversation}
@@ -649,116 +710,205 @@ function ConversationWorkspace({
             onUsePreset={(instructions) => void sendChatMessage(instructions)}
             readOnly={readOnly}
           />
-        </details>
-        {Object.entries(uploadState).map(([key, item]) => (
-          <div
-            key={key}
-            className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-2.5"
-          >
-            <div className="flex items-center justify-between gap-3 text-[10px] font-bold text-[var(--muted-strong)]">
-              <span className="truncate">
-                {item.name} · {item.status}
-              </span>
-              <span>{item.progress}%</span>
+        </aside>
+
+        <div className="max-h-[48dvh] overflow-y-auto overscroll-contain border-t border-[var(--border)] bg-[var(--background)] p-3 sm:px-4 sm:pb-4 sm:pt-3 xl:col-start-1">
+          <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
+            <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
+              Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
+            </summary>
+            <ContextRail
+              attachments={detail.data.attachments}
+              conversation={conversation}
+              conversationId={conversationId}
+              modelRuns={detail.data.modelRuns}
+              onChanged={() => void detail.refetch()}
+              onUsePreset={(instructions) => void sendChatMessage(instructions)}
+              readOnly={readOnly}
+            />
+          </details>
+          {Object.entries(uploadState).map(([key, item]) => (
+            <div
+              key={key}
+              className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-2.5"
+            >
+              <div className="flex items-center justify-between gap-3 text-[10px] font-bold text-[var(--muted-strong)]">
+                <span className="truncate">
+                  {item.name} · {item.status}
+                </span>
+                <span>{item.progress}%</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                <div
+                  className="h-full rounded-full bg-[var(--brand)] transition-[width]"
+                  style={{ width: `${item.progress}%` }}
+                />
+              </div>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
-              <div
-                className="h-full rounded-full bg-[var(--brand)] transition-[width]"
-                style={{ width: `${item.progress}%` }}
+          ))}
+          {readOnly ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-soft)] p-3 text-xs text-[var(--muted-strong)]">
+              <span>Chat chia sẻ ở chế độ chỉ đọc.</span>
+              <ConversationActions
+                conversation={conversation}
+                readOnly
+                onChanged={() => undefined}
+                onFork={(id) => router.push(`/chat/${id}`)}
+                onDeleted={() => undefined}
               />
             </div>
-          </div>
-        ))}
-        {readOnly ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-soft)] p-3 text-xs text-[var(--muted-strong)]">
-            <span>Chat chia sẻ ở chế độ chỉ đọc.</span>
-            <ConversationActions
-              conversation={conversation}
-              readOnly
-              onChanged={() => undefined}
-              onFork={(id) => router.push(`/chat/${id}`)}
-              onDeleted={() => undefined}
-            />
-          </div>
-        ) : (
-          <>
-            {composerError ? (
-              <p
-                className="mb-2 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]"
-                role="alert"
+          ) : (
+            <>
+              {composerError ? (
+                <p
+                  className="mb-2 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]"
+                  role="alert"
+                >
+                  {composerError}
+                </p>
+              ) : null}
+              <PromptInput
+                accept={accept}
+                globalDrop
+                inputGroupClassName="rounded-xl border-[var(--border-strong)] bg-[var(--surface-elevated)] shadow-[0_12px_32px_rgb(15_23_42/0.08)] transition-[border-color,box-shadow] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_22%,transparent)] dark:bg-[var(--surface-elevated)] dark:shadow-[0_16px_36px_rgb(0_0_0/0.22)]"
+                maxFiles={5}
+                maxFileSize={25 * 1024 * 1024}
+                multiple
+                onError={(error) => setComposerError(error.message)}
+                onSubmit={submit}
               >
-                {composerError}
-              </p>
-            ) : null}
-            <PromptInput
-              accept={accept}
-              globalDrop
-              inputGroupClassName="rounded-xl border-[var(--border-strong)] bg-[var(--surface-elevated)] shadow-[0_12px_32px_rgb(15_23_42/0.08)] transition-[border-color,box-shadow] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[color-mix(in_srgb,var(--brand)_22%,transparent)] dark:bg-[var(--surface-elevated)] dark:shadow-[0_16px_36px_rgb(0_0_0/0.22)]"
-              maxFiles={5}
-              maxFileSize={25 * 1024 * 1024}
-              multiple
-              onError={(error) => setComposerError(error.message)}
-              onSubmit={submit}
-            >
-              <PromptInputHeader className="px-3 pb-0 pt-3">
-                <SelectedPromptAttachments />
-              </PromptInputHeader>
-              <PromptInputBody>
-                <PromptInputTextarea
-                  className="min-h-20 px-3.5 pb-2 pt-3 text-[13px] font-medium leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)]"
-                  disabled={isBusy}
-                  placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
-                />
-                <div className="hidden px-3.5 pb-2 text-right text-[9px] font-medium text-[var(--muted)] sm:block">
-                  Enter để gửi · Shift + Enter để xuống dòng
-                </div>
-              </PromptInputBody>
-              <PromptInputFooter className="items-end border-t border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2">
-                <PromptInputTools className="flex-wrap gap-1.5">
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger
-                      aria-label="Đính kèm tệp"
-                      className="size-8 rounded-lg border border-transparent text-[var(--muted-strong)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
-                      title="Đính kèm tệp"
-                    >
-                      <Paperclip size={14} />
-                    </PromptInputActionMenuTrigger>
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionAddAttachments label="Tải tệp lên Tuturuuu Drive" />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
-                  <ChatModeControl mode={mode} onChange={setMode} />
-                  <ThinkingModeControl
-                    mode={thinkingMode}
-                    onChange={setThinkingMode}
+                <PromptInputHeader className="px-3 pb-0 pt-3">
+                  <SelectedPromptAttachments />
+                </PromptInputHeader>
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    className="min-h-20 px-3.5 pb-2 pt-3 text-[13px] font-medium leading-6 text-[var(--foreground)] placeholder:text-[var(--muted)]"
+                    disabled={isBusy}
+                    placeholder="Hỏi về bằng chứng, lần quét, chủ đề hoặc nhờ soạn bản nháp…"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setContextOpen((current) => !current)}
-                    className="hidden h-8 items-center gap-1.5 rounded-lg border border-transparent px-2 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border)] hover:bg-[var(--surface-soft)] sm:inline-flex"
-                    title="Xem bằng chứng và nội dung đã ghim"
-                  >
-                    <ShieldCheck size={13} /> Ngữ cảnh
-                    <span className="rounded-md bg-[var(--surface-soft)] px-1.5 py-0.5 text-[9px] text-[var(--muted)]">
-                      {conversation.pinnedContext.length}
-                    </span>
-                  </button>
-                </PromptInputTools>
-                <PromptInputSubmit
-                  aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
-                  className="size-9 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
-                  disabled={isBusy}
-                  onStop={chat.stop}
-                  status={chat.status}
-                />
-              </PromptInputFooter>
-            </PromptInput>
-            <p className="mt-2 text-center text-[9px] text-[var(--muted)]">
-              AI có thể sai. Kiểm tra nguồn và phê duyệt mọi thay đổi nội bộ.
-            </p>
-          </>
-        )}
+                  <div className="hidden px-3.5 pb-2 text-right text-[9px] font-medium text-[var(--muted)] sm:block">
+                    Enter để gửi · Shift + Enter để xuống dòng
+                  </div>
+                </PromptInputBody>
+                <PromptInputFooter className="items-end border-t border-[var(--divider)] bg-[var(--surface)] px-2.5 py-2">
+                  <PromptInputTools className="flex-wrap gap-1.5">
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger
+                        aria-label="Đính kèm tệp"
+                        className="size-8 rounded-lg border border-transparent text-[var(--muted-strong)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
+                        title="Đính kèm tệp"
+                      >
+                        <Paperclip size={14} />
+                      </PromptInputActionMenuTrigger>
+                      <PromptInputActionMenuContent>
+                        <PromptInputActionAddAttachments label="Tải tệp lên Tuturuuu Drive" />
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
+                    <ChatModeControl mode={mode} onChange={setMode} />
+                    <ThinkingModeControl
+                      mode={thinkingMode}
+                      onChange={setThinkingMode}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setContextOpen((current) => !current)}
+                      className="hidden h-8 items-center gap-1.5 rounded-lg border border-transparent px-2 text-[10px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border)] hover:bg-[var(--surface-soft)] sm:inline-flex"
+                      title="Xem bằng chứng và nội dung đã ghim"
+                    >
+                      <ShieldCheck size={13} /> Ngữ cảnh
+                      <span className="rounded-md bg-[var(--surface-soft)] px-1.5 py-0.5 text-[9px] text-[var(--muted)]">
+                        {conversation.pinnedContext.length}
+                      </span>
+                    </button>
+                  </PromptInputTools>
+                  <PromptInputSubmit
+                    aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
+                    className="size-9 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
+                    disabled={isBusy}
+                    onStop={chat.stop}
+                    status={chat.status}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
+              <p className="mt-2 text-center text-[9px] text-[var(--muted)]">
+                AI có thể sai. Kiểm tra nguồn và phê duyệt mọi thay đổi nội bộ.
+              </p>
+            </>
+          )}
+        </div>
       </div>
+    </>
+  );
+}
+
+function ConversationTopBar({
+  contextOpen,
+  conversation,
+  onChanged,
+  onDeleted,
+  onFork,
+  onToggleContext,
+  readOnly,
+}: {
+  contextOpen: boolean;
+  conversation: ConversationRow;
+  onChanged: () => void;
+  onDeleted: () => void;
+  onFork: (id: string) => void;
+  onToggleContext: () => void;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        className={`${iconButtonClass} lg:hidden`}
+        onClick={openChatNavigation}
+        aria-label="Mở lịch sử trò chuyện"
+        title="Lịch sử trò chuyện"
+      >
+        <History size={14} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-sm font-extrabold text-[var(--foreground)]">
+            {conversation.title}
+          </h1>
+          <span className="hidden shrink-0 rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--muted-strong)] md:inline-flex">
+            {readOnly
+              ? "Chỉ đọc"
+              : conversation.visibility === "workspace"
+                ? "Workspace"
+                : "Riêng tư"}
+          </span>
+        </div>
+        <p className="hidden truncate text-[10px] text-[var(--muted)] lg:block">
+          {readOnly
+            ? `Được chia sẻ bởi ${conversation.ownerDisplayName ?? "thành viên"}`
+            : "Mọi thay đổi đều cần được xác nhận"}
+        </p>
+      </div>
+      <button
+        type="button"
+        className={iconButtonClass}
+        onClick={onToggleContext}
+        aria-expanded={contextOpen}
+        aria-label={contextOpen ? "Đóng bảng ngữ cảnh" : "Mở bảng ngữ cảnh"}
+        title="Ngữ cảnh và cấu hình"
+      >
+        {contextOpen ? (
+          <PanelRightClose size={14} />
+        ) : (
+          <PanelRightOpen size={14} />
+        )}
+      </button>
+      <ConversationActions
+        conversation={conversation}
+        readOnly={readOnly}
+        onChanged={onChanged}
+        onFork={onFork}
+        onDeleted={onDeleted}
+      />
     </div>
   );
 }
@@ -1603,6 +1753,12 @@ function ConversationActions({
     });
     onChanged();
   }
+  async function deleteConversation() {
+    await fetchJson(`/api/chat/conversations/${conversation.id}`, {
+      method: "DELETE",
+    });
+    onDeleted();
+  }
   if (readOnly)
     return (
       <button
@@ -1614,9 +1770,10 @@ function ConversationActions({
           );
           onFork(result.conversation.id);
         }}
-        className={smallButtonClass}
+        className={`${smallButtonClass} px-2 sm:px-3`}
       >
-        <GitFork size={13} /> Tạo bản riêng
+        <GitFork size={13} />
+        <span className="hidden sm:inline">Tạo bản riêng</span>
       </button>
     );
   return (
@@ -1637,60 +1794,127 @@ function ConversationActions({
             value={title}
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
-            className="h-8 w-40 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs"
+            className="h-8 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs sm:w-40"
           />
           <button className={iconButtonClass} type="submit">
             <Pencil size={13} />
           </button>
         </form>
       ) : (
-        <button
-          type="button"
-          title="Đổi tên"
-          onClick={() => setRenaming(true)}
-          className={iconButtonClass}
-        >
-          <Pencil size={14} />
-        </button>
+        <>
+          <div className="hidden items-center gap-1 sm:flex">
+            <button
+              type="button"
+              title="Đổi tên"
+              aria-label="Đổi tên cuộc trò chuyện"
+              onClick={() => setRenaming(true)}
+              className={iconButtonClass}
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              title={
+                conversation.visibility === "workspace"
+                  ? "Chuyển thành riêng tư"
+                  : "Chia sẻ trong workspace"
+              }
+              aria-label={
+                conversation.visibility === "workspace"
+                  ? "Chuyển thành riêng tư"
+                  : "Chia sẻ trong workspace"
+              }
+              onClick={() =>
+                void patch({
+                  visibility:
+                    conversation.visibility === "workspace"
+                      ? "private"
+                      : "workspace",
+                })
+              }
+              className={iconButtonClass}
+            >
+              {conversation.visibility === "workspace" ? (
+                <Users size={14} />
+              ) : (
+                <Share2 size={14} />
+              )}
+            </button>
+            <button
+              type="button"
+              title={conversation.archivedAt ? "Bỏ lưu trữ" : "Lưu trữ"}
+              aria-label={conversation.archivedAt ? "Bỏ lưu trữ" : "Lưu trữ"}
+              onClick={() => void patch({ archived: !conversation.archivedAt })}
+              className={iconButtonClass}
+            >
+              <Archive size={14} />
+            </button>
+            <button
+              type="button"
+              title="Xóa"
+              aria-label="Xóa cuộc trò chuyện"
+              onClick={() => void deleteConversation()}
+              className={iconButtonClass}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`${iconButtonClass} sm:hidden`}
+                aria-label="Thao tác với cuộc trò chuyện"
+                title="Thao tác"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-52 border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"
+            >
+              <DropdownMenuItem onSelect={() => setRenaming(true)}>
+                <Pencil size={14} /> Đổi tên
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  void patch({
+                    visibility:
+                      conversation.visibility === "workspace"
+                        ? "private"
+                        : "workspace",
+                  })
+                }
+              >
+                {conversation.visibility === "workspace" ? (
+                  <Users size={14} />
+                ) : (
+                  <Share2 size={14} />
+                )}
+                {conversation.visibility === "workspace"
+                  ? "Chuyển thành riêng tư"
+                  : "Chia sẻ trong workspace"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  void patch({ archived: !conversation.archivedAt })
+                }
+              >
+                <Archive size={14} />
+                {conversation.archivedAt ? "Bỏ lưu trữ" : "Lưu trữ"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-[var(--danger-strong)] focus:text-[var(--danger-strong)]"
+                onSelect={() => void deleteConversation()}
+              >
+                <Trash2 size={14} /> Xóa cuộc trò chuyện
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
       )}
-      <button
-        type="button"
-        title="Chia sẻ workspace"
-        onClick={() =>
-          void patch({
-            visibility:
-              conversation.visibility === "workspace" ? "private" : "workspace",
-          })
-        }
-        className={iconButtonClass}
-      >
-        {conversation.visibility === "workspace" ? (
-          <Users size={14} />
-        ) : (
-          <Share2 size={14} />
-        )}
-      </button>
-      <button
-        type="button"
-        title="Lưu trữ"
-        onClick={() => void patch({ archived: !conversation.archivedAt })}
-        className={iconButtonClass}
-      >
-        <Archive size={14} />
-      </button>
-      <button
-        type="button"
-        title="Xóa"
-        onClick={async () => {
-          await fetchJson(`/api/chat/conversations/${conversation.id}`, {
-            method: "DELETE",
-          });
-          onDeleted();
-        }}
-        className={iconButtonClass}
-      >
-        <Trash2 size={14} />
-      </button>
     </div>
   );
 }

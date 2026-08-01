@@ -81,14 +81,24 @@ describe("first-class Chat platform", () => {
     const chatPage = read("app/chat/page.tsx");
     const conversationPage = read("app/chat/[id]/page.tsx");
     const workspace = read("components/dashboard/chat-workspace.tsx");
+    const layout = read("components/dashboard/dashboard-layout-shell.tsx");
+    const shell = read("components/dashboard/shell.tsx");
 
     for (const page of [chatPage, conversationPage]) {
-      expect(page).toContain("h-[calc(100dvh-6rem)]");
+      expect(page).toContain("h-[calc(100dvh-8rem)]");
+      expect(page).toContain("lg:h-[calc(100dvh-4rem)]");
       expect(page).toContain("overflow-hidden");
       expect(page).not.toContain("<PageHeader");
     }
-    expect(workspace).toContain("grid h-full min-h-0");
+    expect(layout).toContain('pathname.startsWith("/chat")');
+    expect(layout).toContain("min-h-0 flex-1 overflow-hidden");
+    expect(shell).toContain('id="chat-sidebar-portal"');
+    expect(shell).toContain('id="chat-topbar-portal"');
+    expect(shell).toContain("lg:justify-center lg:gap-0 lg:px-0");
+    expect(workspace).toContain("createPortal");
+    expect(workspace).toContain("grid h-full min-h-0 min-w-0");
     expect(workspace).toContain("overflow-y-auto overscroll-contain");
+    expect(workspace).not.toContain("lg:grid-cols-[248px_minmax(0,1fr)]");
     expect(workspace).not.toContain("min-h-[620px]");
   });
 

@@ -14,7 +14,7 @@ export default function ChatConversationPage({
   searchParams: Promise<{ prompt?: string }>;
 }) {
   return (
-    <div className="h-[calc(100dvh-6rem)] min-h-0 overflow-hidden lg:h-[calc(100dvh-7rem)]">
+    <div className="h-[calc(100dvh-8rem)] min-h-0 overflow-hidden lg:h-[calc(100dvh-4rem)]">
       <QueryProvider>
         <Suspense
           fallback={
