@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, max, or } from "drizzle-orm";
 
 import type { ChatActor } from "@/lib/chat/types";
 import { adminDb } from "@/lib/db/client";
@@ -43,6 +43,60 @@ export async function listArticles() {
 			eq(articles.targetOaConnectionId, zaloOaConnections.id),
 		)
 		.orderBy(desc(articles.updatedAt), desc(articles.id));
+}
+
+export async function listArticlesPage(input: {
+	cursor?: string | null;
+	limit: number;
+}) {
+	const limit = Math.min(25, Math.max(1, Math.floor(input.limit)));
+	const cursor = parseArticleListCursor(input.cursor);
+	const rows = await adminDb
+		.select({
+			article: articles,
+			oaDisplayName: zaloOaConnections.displayName,
+			oaId: zaloOaConnections.oaId,
+		})
+		.from(articles)
+		.leftJoin(
+			zaloOaConnections,
+			eq(articles.targetOaConnectionId, zaloOaConnections.id),
+		)
+		.where(
+			cursor
+				? or(
+						lt(articles.updatedAt, cursor.updatedAt),
+						and(
+							eq(articles.updatedAt, cursor.updatedAt),
+							lt(articles.id, cursor.id),
+						),
+					)
+				: undefined,
+		)
+		.orderBy(desc(articles.updatedAt), desc(articles.id))
+		.limit(limit + 1);
+	const hasNextPage = rows.length > limit;
+	const items = rows.slice(0, limit);
+	const last = items.at(-1)?.article;
+
+	return {
+		hasNextPage,
+		items,
+		nextCursor:
+			hasNextPage && last
+				? `${last.updatedAt.toISOString()}~${last.id}`
+				: null,
+	};
+}
+
+function parseArticleListCursor(value?: string | null) {
+	if (!value) return null;
+	const separator = value.lastIndexOf("~");
+	if (separator <= 0) return null;
+	const updatedAt = new Date(value.slice(0, separator));
+	const id = value.slice(separator + 1);
+	if (Number.isNaN(updatedAt.getTime()) || !id) return null;
+	return { id, updatedAt };
 }
 
 export async function getArticleDetail(id: string) {

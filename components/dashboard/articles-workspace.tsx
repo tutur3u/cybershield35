@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import {
 	ArrowDown,
 	ArrowDownAZ,
@@ -25,7 +30,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
@@ -39,27 +44,18 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	articleCatalogInfiniteQueryOptions,
+	articleQueryKeys,
+	articleSettingsQueryOptions,
+	fetchArticleJson,
+	type ArticleCatalogPage,
+	type ArticleSettings,
+	type LocalArticleListItem,
+} from "@/lib/articles/client-queries";
 import type { ZaloCatalogArticle } from "@/lib/zalo/article-catalog";
 
-type LocalArticleListItem = {
-	article: {
-		coverUrl: string | null;
-		createdAt: string;
-		description: string;
-		id: string;
-		originDraftId: string | null;
-		publicationStatus: string;
-		remoteArticleId: string | null;
-		reviewStatus: string;
-		scheduledAt: string | null;
-		title: string;
-		updatedAt: string;
-	};
-	oaDisplayName: string | null;
-	oaId: string | null;
-};
-
-type ArticleCatalogResponse = {
+type ArticleCatalogData = {
 	articles: LocalArticleListItem[];
 	zaloArticles: ZaloCatalogArticle[];
 	zaloIssues: Array<{ message: string; oaDisplayName: string }>;
@@ -81,27 +77,13 @@ type CatalogArticle = {
 	title: string;
 };
 
-type ArticleSettings = {
-	autoSyncDrafts: boolean;
-	defaultOa: { displayName: string; id: string } | null;
-	defaultRemoteStatus: "hidden";
-};
-
 type SortMode = "title" | "updated_asc" | "updated_desc";
 type ReviewStatus = "approved" | "draft" | "needs_review" | "rejected";
 const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
 
 export function ArticlesWorkspace() {
-	const query = useQuery({
-		queryKey: ["articles"],
-		queryFn: () => fetchJson<ArticleCatalogResponse>("/api/articles"),
-		staleTime: 60_000,
-	});
-	const settings = useQuery({
-		queryKey: ["article-settings"],
-		queryFn: () => fetchJson<ArticleSettings>("/api/articles/settings"),
-		staleTime: 60_000,
-	});
+	const query = useInfiniteQuery(articleCatalogInfiniteQueryOptions());
+	const settings = useQuery(articleSettingsQueryOptions());
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
 	const [source, setSource] = useState<"all" | "cs35" | "zalo">("all");
@@ -111,15 +93,19 @@ export function ArticlesWorkspace() {
 	const [selected, setSelected] = useState<Set<string>>(() => new Set());
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [bulkBusy, setBulkBusy] = useState<string | null>(null);
 	const [bulkReviewStatus, setBulkReviewStatus] =
 		useState<ReviewStatus>("needs_review");
 	const [notice, setNotice] = useState<string | null>(null);
+	const loadMoreRef = useRef<HTMLDivElement>(null);
 	const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
+	const catalogData = useMemo(
+		() => mergeArticlePages(query.data?.pages),
+		[query.data?.pages],
+	);
 
 	const catalog = useMemo(
-		() => buildCatalog(query.data),
-		[query.data],
+		() => buildCatalog(catalogData),
+		[catalogData],
 	);
 	const oaOptions = useMemo(
 		() =>
@@ -160,19 +146,44 @@ export function ArticlesWorkspace() {
 	const allVisibleSelected =
 		visibleCs35Ids.length > 0 &&
 		visibleCs35Ids.every((id) => selected.has(id));
+	const bulkMutation = useMutation({
+		mutationKey: [...articleQueryKeys.all, "bulk"],
+		mutationFn: (input: {
+			action: "delete" | "hide" | "set_review_status" | "sync_hidden";
+			articleIds: string[];
+			status?: ReviewStatus;
+		}) =>
+			postJson<{ failed: number; succeeded: number }>(
+				"/api/articles/bulk",
+				input,
+			),
+	});
+	const bulkBusy = bulkMutation.isPending
+		? bulkMutation.variables?.action
+		: null;
+	const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
+
+	useEffect(() => {
+		const node = loadMoreRef.current;
+		if (!node || !hasNextPage || isFetchingNextPage) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) void fetchNextPage();
+			},
+			{ rootMargin: "400px 0px" },
+		);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
 	async function runBulk(
 		action: "delete" | "hide" | "set_review_status" | "sync_hidden",
 		status?: ReviewStatus,
 	) {
 		if (!selectedIds.length) return;
-		setBulkBusy(action);
 		setNotice(null);
 		try {
-			const result = await postJson<{
-				failed: number;
-				succeeded: number;
-			}>("/api/articles/bulk", {
+			const result = await bulkMutation.mutateAsync({
 				action,
 				articleIds: selectedIds,
 				...(action === "set_review_status" ? { status } : {}),
@@ -184,13 +195,11 @@ export function ArticlesWorkspace() {
 			);
 			setSelected(new Set());
 			setDeleteOpen(false);
-			await queryClient.invalidateQueries({ queryKey: ["articles"] });
+			await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
 		} catch (error) {
 			setNotice(
 				error instanceof Error ? error.message : "Không thể xử lý bài viết.",
 			);
-		} finally {
-			setBulkBusy(null);
 		}
 	}
 
@@ -331,14 +340,14 @@ export function ArticlesWorkspace() {
 						variant="secondary"
 						className="h-5 rounded px-1.5 text-[9px]"
 					>
-						{visibleArticles.length} / {catalog.length} bài viết
+						{visibleArticles.length} đang hiển thị · {catalog.length} đã tải
 					</Badge>
-					{query.data?.zaloIssues.length ? (
+					{catalogData?.zaloIssues.length ? (
 						<DashboardTooltip
 							content={
 								<div className="space-y-1">
-									{query.data.zaloIssues.map((issue) => (
-										<p key={issue.oaDisplayName}>
+									{catalogData.zaloIssues.map((issue) => (
+										<p key={`${issue.oaDisplayName}:${issue.message}`}>
 											{issue.oaDisplayName}: {issue.message}
 										</p>
 									))}
@@ -349,7 +358,7 @@ export function ArticlesWorkspace() {
 								variant="outline"
 								className="h-5 border-[var(--warning-border)] bg-[var(--warning-soft)] px-1.5 text-[9px] text-[var(--warning-strong)]"
 							>
-								{query.data.zaloIssues.length} OA cần làm mới
+								{catalogData.zaloIssues.length} OA cần làm mới
 							</Badge>
 						</DashboardTooltip>
 					) : null}
@@ -507,6 +516,35 @@ export function ArticlesWorkspace() {
 						))}
 					</div>
 				)}
+				{!query.isPending && !query.isError && query.hasNextPage ? (
+					<div
+						ref={loadMoreRef}
+						className="mt-3 flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-soft)] p-3"
+					>
+						<button
+							type="button"
+							disabled={query.isFetchingNextPage}
+							onClick={() => void query.fetchNextPage()}
+							className="inline-flex h-8 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[10px] font-bold transition hover:border-[var(--brand)] disabled:opacity-60"
+						>
+							{query.isFetchingNextPage ? (
+								<LoaderCircle size={12} className="animate-spin" />
+							) : (
+								<ArrowDown size={12} />
+							)}
+							{query.isFetchingNextPage
+								? "Đang tải thêm…"
+								: "Tải thêm bài viết"}
+						</button>
+						<p className="text-[9px] text-[var(--muted)]">
+							Cuộn xuống để tự động tải tiếp. Danh sách đã tải được giữ trong bộ nhớ đệm.
+						</p>
+					</div>
+				) : !query.isPending && !query.isError && catalog.length > 0 ? (
+					<p className="mt-3 text-center text-[9px] text-[var(--muted)]">
+						Đã tải toàn bộ {catalog.length} bài viết.
+					</p>
+				) : null}
 			</div>
 			<ArticleSettingsDialog
 				open={settingsOpen}
@@ -515,7 +553,7 @@ export function ArticlesWorkspace() {
 				pending={settings.isPending}
 				onSaved={async () => {
 					await queryClient.invalidateQueries({
-						queryKey: ["article-settings"],
+						queryKey: articleQueryKeys.settings(),
 					});
 				}}
 			/>
@@ -574,33 +612,31 @@ function ArticleSettingsDialog({
 	const [autoSyncDrafts, setAutoSyncDrafts] = useState(
 		settings?.autoSyncDrafts ?? true,
 	);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const currentAutoSync = settings?.autoSyncDrafts ?? true;
-
-	async function save() {
-		setBusy(true);
-		setError(null);
-		try {
-			await patchJson("/api/articles/settings", { autoSyncDrafts });
+	const saveMutation = useMutation({
+		mutationKey: [...articleQueryKeys.settings(), "update"],
+		mutationFn: (nextAutoSyncDrafts: boolean) =>
+			patchJson("/api/articles/settings", {
+				autoSyncDrafts: nextAutoSyncDrafts,
+			}),
+		onSuccess: async () => {
 			await onSaved();
 			onOpenChange(false);
-		} catch (saveError) {
-			setError(
-				saveError instanceof Error
-					? saveError.message
-					: "Không thể lưu cài đặt.",
-			);
-		} finally {
-			setBusy(false);
-		}
-	}
+		},
+	});
+	const error =
+		saveMutation.error instanceof Error
+			? saveMutation.error.message
+			: saveMutation.error
+				? "Không thể lưu cài đặt."
+				: null;
 
 	return (
 		<Dialog
 			open={open}
 			onOpenChange={(nextOpen) => {
 				if (nextOpen) setAutoSyncDrafts(currentAutoSync);
+				if (!nextOpen) saveMutation.reset();
 				onOpenChange(nextOpen);
 			}}
 		>
@@ -673,11 +709,13 @@ function ArticleSettingsDialog({
 					</DialogClose>
 					<button
 						type="button"
-						disabled={busy || pending || !settings?.defaultOa}
-						onClick={() => void save()}
+						disabled={saveMutation.isPending || pending || !settings?.defaultOa}
+						onClick={() => saveMutation.mutate(autoSyncDrafts)}
 						className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
 					>
-						{busy ? <LoaderCircle size={13} className="animate-spin" /> : null}
+						{saveMutation.isPending ? (
+							<LoaderCircle size={13} className="animate-spin" />
+						) : null}
 						Lưu cài đặt
 					</button>
 				</DialogFooter>
@@ -903,7 +941,38 @@ function EmptyArticles() {
 	);
 }
 
-function buildCatalog(data: ArticleCatalogResponse | undefined): CatalogArticle[] {
+function mergeArticlePages(
+	pages: ArticleCatalogPage[] | undefined,
+): ArticleCatalogData | undefined {
+	if (!pages?.length) return undefined;
+	const localArticles = new Map<string, LocalArticleListItem>();
+	const remoteArticles = new Map<string, ZaloCatalogArticle>();
+	const issues = new Map<
+		string,
+		{ message: string; oaDisplayName: string }
+	>();
+	for (const page of pages) {
+		for (const item of page.articles) {
+			localArticles.set(item.article.id, item);
+		}
+		for (const item of page.zaloArticles) {
+			remoteArticles.set(
+				`${item.oaConnectionId}:${item.remoteArticleId}`,
+				item,
+			);
+		}
+		for (const issue of page.zaloIssues) {
+			issues.set(`${issue.oaDisplayName}:${issue.message}`, issue);
+		}
+	}
+	return {
+		articles: [...localArticles.values()],
+		zaloArticles: [...remoteArticles.values()],
+		zaloIssues: [...issues.values()],
+	};
+}
+
+function buildCatalog(data: ArticleCatalogData | undefined): CatalogArticle[] {
 	if (!data) return [];
 	const remoteById = new Map(
 		data.zaloArticles.map((article) => [article.remoteArticleId, article]),
@@ -957,41 +1026,20 @@ function buildCatalog(data: ArticleCatalogResponse | undefined): CatalogArticle[
 	return [...local, ...remoteOnly];
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-	const response = await fetch(url, { cache: "no-store" });
-	const body = await response.json().catch(() => null);
-	if (!response.ok) {
-		throw new Error(body?.error ?? "Không thể tải dữ liệu.");
-	}
-	return body as T;
-}
-
 async function postJson<T>(url: string, input: unknown): Promise<T> {
-	const response = await fetch(url, {
+	return fetchArticleJson<T>(url, {
 		body: JSON.stringify(input),
-		cache: "no-store",
 		headers: { "content-type": "application/json" },
 		method: "POST",
 	});
-	const body = await response.json().catch(() => null);
-	if (!response.ok) {
-		throw new Error(body?.error ?? "Không thể xử lý dữ liệu.");
-	}
-	return body as T;
 }
 
 async function patchJson<T>(url: string, input: unknown): Promise<T> {
-	const response = await fetch(url, {
+	return fetchArticleJson<T>(url, {
 		body: JSON.stringify(input),
-		cache: "no-store",
 		headers: { "content-type": "application/json" },
 		method: "PATCH",
 	});
-	const body = await response.json().catch(() => null);
-	if (!response.ok) {
-		throw new Error(body?.error ?? "Không thể lưu dữ liệu.");
-	}
-	return body as T;
 }
 
 function publicationLabel(status: string) {

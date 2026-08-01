@@ -33,6 +33,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ArticleBlock, ArticleContent } from "@/lib/articles/schemas";
+import { articleQueryKeys } from "@/lib/articles/client-queries";
 import {
 	ZALO_EDITORIAL_DESCRIPTION_LIMIT,
 	ZALO_EDITORIAL_TITLE_LIMIT,
@@ -127,7 +128,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const detail = useQuery({
-		queryKey: ["article", articleId],
+		queryKey: articleQueryKeys.detail(articleId),
 		queryFn: () => fetchJson<ArticleDetail>(`/api/articles/${articleId}`),
 		refetchInterval: (query) =>
 			["syncing", "publishing"].includes(
@@ -203,7 +204,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	async function refresh() {
 		await Promise.all([
 			detail.refetch(),
-			queryClient.invalidateQueries({ queryKey: ["articles"] }),
+			queryClient.invalidateQueries({ queryKey: articleQueryKeys.all }),
 		]);
 	}
 

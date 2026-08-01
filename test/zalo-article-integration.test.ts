@@ -68,6 +68,35 @@ describe("Zalo OA security and article contract", () => {
 		expect(workspace).toContain("Bản nháp ẩn · chưa đăng");
 	});
 
+	test("loads the unified article catalog incrementally with a cached cursor", () => {
+		const workspace = readFileSync(
+			"components/dashboard/articles-workspace.tsx",
+			"utf8",
+		);
+		const clientQueries = readFileSync(
+			"lib/articles/client-queries.ts",
+			"utf8",
+		);
+		const route = readFileSync("app/api/articles/route.ts", "utf8");
+		const store = readFileSync("lib/articles/store.ts", "utf8");
+		const zaloCatalog = readFileSync("lib/zalo/articles.ts", "utf8");
+
+		expect(workspace).toContain(
+			"useInfiniteQuery(articleCatalogInfiniteQueryOptions())",
+		);
+		expect(workspace).toContain("IntersectionObserver");
+		expect(workspace).toContain("Tải thêm bài viết");
+		expect(workspace).toContain("mergeArticlePages");
+		expect(clientQueries).toContain("infiniteQueryOptions");
+		expect(clientQueries).toContain("getNextPageParam");
+		expect(clientQueries).toContain("staleTime: 2 * 60_000");
+		expect(route).toContain("listArticlesPage");
+		expect(route).toContain("listZaloArticleCatalogPage");
+		expect(route).toContain("nextCursor");
+		expect(store).toContain(".limit(limit + 1)");
+		expect(zaloCatalog).toContain("listAccountArticlesPage");
+	});
+
 	test("keeps automatic scan articles hidden and configurable", () => {
 		const automation = readFileSync("lib/articles/automation.ts", "utf8");
 		const schema = readFileSync("lib/db/schema.ts", "utf8");

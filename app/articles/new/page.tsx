@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { NewArticleRedirect } from "@/components/dashboard/new-article-redirect";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 export const instant = true;
 
@@ -15,7 +16,9 @@ export default function NewArticlePage() {
 				title="Bài viết mới"
 			/>
 			<Suspense fallback={<div className="h-[55vh] animate-pulse rounded-lg bg-[var(--surface)]" />}>
-				<NewArticleRedirect />
+				<QueryProvider>
+					<NewArticleRedirect />
+				</QueryProvider>
 			</Suspense>
 		</div>
 	);
