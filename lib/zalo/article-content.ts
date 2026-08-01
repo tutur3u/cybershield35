@@ -96,13 +96,19 @@ function prepareZaloDescription(input: {
 
 function prepareZaloBody(value: string, title: string) {
 	const paragraphs = sanitizeZaloText(value, true)
-		.split(/\n{2,}/u)
+		// Zalo's manager can collapse a single newline and visually join a
+		// heading with the following sentence. Treat every authored line break as
+		// a paragraph boundary so the remote preview keeps deliberate spacing.
+		.split(/\n+/u)
 		.map((paragraph) => paragraph.trim())
 		.filter(Boolean);
 	if (
 		paragraphs.length &&
 		comparableText(paragraphs[0] ?? "") === comparableText(title)
 	) {
+		paragraphs.shift();
+	}
+	if (paragraphs.length > 1 && isStandaloneLeadHeading(paragraphs[0] ?? "")) {
 		paragraphs.shift();
 	}
 	return paragraphs
@@ -121,6 +127,20 @@ function prepareZaloBody(value: string, title: string) {
 		})
 		.join("\n\n")
 		.trim();
+}
+
+function isStandaloneLeadHeading(value: string) {
+	if (value.length < 20 || value.length > 180 || /[.!?…:]$/u.test(value)) {
+		return false;
+	}
+	const letters = [...value].filter((character) => /\p{L}/u.test(character));
+	if (letters.length < 12) return false;
+	const uppercase = letters.filter(
+		(character) =>
+			character === character.toLocaleUpperCase("vi-VN") &&
+			character !== character.toLocaleLowerCase("vi-VN"),
+	).length;
+	return uppercase / letters.length >= 0.78;
 }
 
 function sanitizeZaloText(value: string, preserveParagraphs: boolean) {

@@ -3,799 +3,1867 @@
 import { useChat } from "@ai-sdk/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	DefaultChatTransport,
-	getToolName,
-	isToolUIPart,
-	lastAssistantMessageIsCompleteWithApprovalResponses,
-	type FileUIPart,
+  DefaultChatTransport,
+  getToolName,
+  isToolUIPart,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+  type FileUIPart,
 } from "ai";
 import {
-	Archive,
-	Copy,
-	FileText,
-	GitFork,
-	LoaderCircle,
-	MessageCircle,
-	Pencil,
-	Plus,
-	RefreshCw,
-	Share2,
-	ShieldCheck,
-	SlidersHorizontal,
-	Trash2,
-	Users,
+  Archive,
+  Brain,
+  ChevronDown,
+  Copy,
+  FileText,
+  GitFork,
+  History,
+  LoaderCircle,
+  MessageCircle,
+  PanelRightClose,
+  PanelRightOpen,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Share2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+  Users,
+  WandSparkles,
+  Wrench,
+  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-	Attachment,
-	AttachmentInfo,
-	AttachmentPreview,
-	AttachmentRemove,
-	Attachments,
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  AttachmentRemove,
+  Attachments,
 } from "@/components/ai-elements/attachments";
 import {
-	Confirmation,
-	ConfirmationAction,
-	ConfirmationActions,
-	ConfirmationRequest,
-	ConfirmationTitle,
+  Confirmation,
+  ConfirmationAction,
+  ConfirmationActions,
+  ConfirmationRequest,
+  ConfirmationTitle,
 } from "@/components/ai-elements/confirmation";
 import {
-	Conversation,
-	ConversationContent,
-	ConversationEmptyState,
-	ConversationScrollButton,
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
-	Message,
-	MessageAction,
-	MessageActions,
-	MessageContent,
-	MessageResponse,
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
 } from "@/components/ai-elements/message";
 import {
-	PromptInput,
-	PromptInputActionAddAttachments,
-	PromptInputActionMenu,
-	PromptInputActionMenuContent,
-	PromptInputActionMenuTrigger,
-	PromptInputBody,
-	PromptInputFooter,
-	PromptInputHeader,
-	PromptInputSubmit,
-	PromptInputTextarea,
-	PromptInputTools,
-	usePromptInputAttachments,
+  PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputHeader,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import {
-	Tool,
-	ToolContent,
-	ToolHeader,
-	ToolInput,
-	ToolOutput,
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
 } from "@/components/ai-elements/tool";
-import type { ChatUIMessage } from "@/lib/chat/types";
+import type {
+  ChatMode,
+  ChatThinkingMode,
+  ChatUIMessage,
+} from "@/lib/chat/types";
 
 type ConversationRow = {
-	archivedAt: string | null;
-	contextBudget: number;
-	createdAt: string;
-	id: string;
-	lastMessageAt: string | null;
-	model: string | null;
-	ownerDisplayName: string | null;
-	ownerUserId: string;
-	pinnedContext: Array<{
-		href?: string;
-		id: string;
-		label: string;
-		type: "scan" | "evidence" | "topic" | "draft" | "article";
-	}>;
-	temperature: number;
-	title: string;
-	updatedAt: string;
-	visibility: "private" | "workspace";
+  archivedAt: string | null;
+  contextBudget: number;
+  createdAt: string;
+  id: string;
+  lastMessageAt: string | null;
+  model: string | null;
+  ownerDisplayName: string | null;
+  ownerUserId: string;
+  pinnedContext: Array<{
+    href?: string;
+    id: string;
+    label: string;
+    type: "scan" | "evidence" | "topic" | "draft" | "article";
+  }>;
+  temperature: number;
+  title: string;
+  updatedAt: string;
+  visibility: "private" | "workspace";
 };
 
 type AttachmentRow = {
-	contentType: string;
-	errorMessage: string | null;
-	fileName: string;
-	id: string;
-	processedAt: string | null;
-	sizeBytes: number;
-	status: "pending_upload" | "uploading" | "processing" | "ready" | "failed" | "deleting" | "deleted";
+  contentType: string;
+  errorMessage: string | null;
+  fileName: string;
+  id: string;
+  processedAt: string | null;
+  sizeBytes: number;
+  status:
+    | "pending_upload"
+    | "uploading"
+    | "processing"
+    | "ready"
+    | "failed"
+    | "deleting"
+    | "deleted";
 };
 
 type ChatDetail = {
-	attachments: AttachmentRow[];
-	conversation: ConversationRow;
-	messages: ChatUIMessage[];
-	modelRuns: Array<{
-		id: string;
-		inputTokens: number | null;
-		latencyMs: number | null;
-		model: string;
-		outputTokens: number | null;
-		provider: string;
-		startedAt: string;
-		status: "running" | "completed" | "failed" | "aborted";
-		stepCount: number;
-	}>;
-	readOnly: boolean;
+  attachments: AttachmentRow[];
+  conversation: ConversationRow;
+  messages: ChatUIMessage[];
+  modelRuns: Array<{
+    id: string;
+    inputTokens: number | null;
+    latencyMs: number | null;
+    model: string;
+    outputTokens: number | null;
+    provider: string;
+    startedAt: string;
+    status: "running" | "completed" | "failed" | "aborted";
+    stepCount: number;
+  }>;
+  readOnly: boolean;
 };
 
 const accept = [
-	".txt",
-	".md",
-	".csv",
-	".json",
-	".pdf",
-	".doc",
-	".docx",
-	".xls",
-	".xlsx",
-	".ppt",
-	".pptx",
-	"image/png",
-	"image/jpeg",
-	"image/webp",
+  ".txt",
+  ".md",
+  ".csv",
+  ".json",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
 ].join(",");
 
 export function ChatWorkspace({
-	conversationId,
-	initialPrompt,
+  conversationId,
+  initialPrompt,
 }: {
-	conversationId?: string;
-	initialPrompt?: string;
+  conversationId?: string;
+  initialPrompt?: string;
 }) {
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const promptStarted = useRef(false);
-	const conversations = useQuery({
-		queryKey: ["chat", "conversations"],
-		queryFn: () => fetchJson<{ conversations: ConversationRow[] }>("/api/chat/conversations"),
-		staleTime: 10_000,
-	});
-	const createConversation = useMutation({
-		mutationFn: (prompt?: string) =>
-			fetchJson<{ conversation: ConversationRow }>("/api/chat/conversations", {
-				body: JSON.stringify({
-					title: prompt ? prompt.slice(0, 80) : undefined,
-				}),
-				headers: { "Content-Type": "application/json" },
-				method: "POST",
-			}),
-		onSuccess: ({ conversation }, prompt) => {
-			void queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
-			router.push(
-				prompt
-					? `/chat/${conversation.id}?prompt=${encodeURIComponent(prompt)}`
-					: `/chat/${conversation.id}`,
-			);
-		},
-	});
-	useEffect(() => {
-		if (conversationId || !initialPrompt?.trim() || promptStarted.current) return;
-		promptStarted.current = true;
-		createConversation.mutate(initialPrompt.trim());
-	}, [conversationId, createConversation, initialPrompt]);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const promptStarted = useRef(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const conversations = useQuery({
+    queryKey: ["chat", "conversations"],
+    queryFn: () =>
+      fetchJson<{ conversations: ConversationRow[] }>(
+        "/api/chat/conversations",
+      ),
+    staleTime: 10_000,
+  });
+  const createConversation = useMutation({
+    mutationFn: (prompt?: string) =>
+      fetchJson<{ conversation: ConversationRow }>("/api/chat/conversations", {
+        body: JSON.stringify({
+          title: prompt ? prompt.slice(0, 80) : undefined,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }),
+    onSuccess: ({ conversation }, prompt) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["chat", "conversations"],
+      });
+      router.push(
+        prompt
+          ? `/chat/${conversation.id}?prompt=${encodeURIComponent(prompt)}`
+          : `/chat/${conversation.id}`,
+      );
+    },
+  });
+  useEffect(() => {
+    if (conversationId || !initialPrompt?.trim() || promptStarted.current)
+      return;
+    promptStarted.current = true;
+    createConversation.mutate(initialPrompt.trim());
+  }, [conversationId, createConversation, initialPrompt]);
+  const visibleConversations = useMemo(() => {
+    const normalized = historyQuery.trim().toLocaleLowerCase("vi");
+    return (conversations.data?.conversations ?? []).filter((conversation) =>
+      normalized
+        ? conversation.title.toLocaleLowerCase("vi").includes(normalized)
+        : true,
+    );
+  }, [conversations.data?.conversations, historyQuery]);
 
-	return (
-		<div className="grid min-h-[calc(100vh-8.5rem)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm lg:grid-cols-[280px_minmax(0,1fr)]">
-			<details className="border-b border-[var(--border)] bg-[var(--surface-soft)] lg:hidden">
-				<summary className="cursor-pointer px-4 py-3 text-xs font-extrabold">Lịch sử Chat · {conversations.data?.conversations.length ?? 0}</summary>
-				<div className="max-h-64 space-y-1 overflow-y-auto p-2">{conversations.data?.conversations.map((conversation) => <button key={conversation.id} type="button" onClick={() => router.push(`/chat/${conversation.id}`)} className="block w-full rounded-lg p-3 text-left text-xs font-bold hover:bg-[var(--surface)]">{conversation.title}</button>)}<button type="button" onClick={() => createConversation.mutate(undefined)} className="mt-1 inline-flex h-9 items-center gap-2 rounded-md bg-[var(--brand)] px-3 text-xs font-bold text-white"><Plus size={14} /> Chat mới</button></div>
-			</details>
-			<aside className="hidden border-r border-[var(--border)] bg-[var(--surface-soft)] lg:flex lg:min-h-0 lg:flex-col">
-				<div className="flex items-center justify-between border-b border-[var(--border)] p-3">
-					<div>
-						<p className="text-xs font-extrabold text-[var(--foreground)]">Lịch sử Chat</p>
-						<p className="mt-0.5 text-[10px] text-[var(--muted)]">Riêng tư mặc định</p>
-					</div>
-						<button type="button" onClick={() => createConversation.mutate(undefined)} className={iconButtonClass} aria-label="Tạo Chat mới">
-						{createConversation.isPending ? <LoaderCircle className="animate-spin" size={15} /> : <Plus size={15} />}
-					</button>
-				</div>
-				<div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-					{conversations.data?.conversations.map((conversation) => (
-						<button
-							type="button"
-							key={conversation.id}
-							onClick={() => router.push(`/chat/${conversation.id}`)}
-							className={`w-full rounded-lg p-3 text-left transition ${conversation.id === conversationId ? "bg-[var(--brand)] text-white" : "hover:bg-[var(--surface)]"}`}
-						>
-							<p className="truncate text-xs font-bold">{conversation.title}</p>
-							<div className={`mt-1.5 flex items-center justify-between gap-2 text-[10px] ${conversation.id === conversationId ? "text-white/75" : "text-[var(--muted)]"}`}>
-								<span>{conversation.visibility === "workspace" ? "Đã chia sẻ" : "Riêng tư"}</span>
-								<span>{relativeTime(conversation.updatedAt)}</span>
-							</div>
-						</button>
-					))}
-				</div>
-			</aside>
+  return (
+    <div className="grid min-h-[calc(100vh-8.5rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_60px_rgba(15,23,42,0.08)] lg:grid-cols-[248px_minmax(0,1fr)]">
+      <details className="border-b border-[var(--border)] bg-[var(--surface-soft)] lg:hidden">
+        <summary className="cursor-pointer px-4 py-3 text-xs font-extrabold">
+          Lịch sử · {conversations.data?.conversations.length ?? 0} cuộc trò
+          chuyện
+        </summary>
+        <div className="max-h-64 space-y-1 overflow-y-auto p-2">
+          {visibleConversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              type="button"
+              onClick={() => router.push(`/chat/${conversation.id}`)}
+              className="block w-full rounded-lg p-3 text-left text-xs font-bold hover:bg-[var(--surface)]"
+            >
+              {conversation.title}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => createConversation.mutate(undefined)}
+            className="mt-1 inline-flex h-9 items-center gap-2 rounded-md bg-[var(--brand)] px-3 text-xs font-bold text-white"
+          >
+            <Plus size={14} /> Chat mới
+          </button>
+        </div>
+      </details>
+      <aside className="hidden border-r border-[var(--border)] bg-[var(--surface-soft)] lg:flex lg:min-h-0 lg:flex-col">
+        <div className="flex items-center justify-between border-b border-[var(--border)] p-3">
+          <div className="flex items-center gap-2">
+            <History size={14} />
+            <div>
+              <p className="text-xs font-extrabold text-[var(--foreground)]">
+                Trò chuyện
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                Riêng tư mặc định
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => createConversation.mutate(undefined)}
+            className={iconButtonClass}
+            aria-label="Tạo Chat mới"
+          >
+            {createConversation.isPending ? (
+              <LoaderCircle className="animate-spin" size={15} />
+            ) : (
+              <Plus size={15} />
+            )}
+          </button>
+        </div>
+        <label className="relative mx-2 mt-2 block">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+            size={13}
+          />
+          <input
+            value={historyQuery}
+            onChange={(event) => setHistoryQuery(event.target.value)}
+            className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] pl-8 pr-2 text-[11px] outline-none focus:border-[var(--accent)]"
+            placeholder="Tìm cuộc trò chuyện…"
+            aria-label="Tìm cuộc trò chuyện"
+          />
+        </label>
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+          {visibleConversations.map((conversation) => (
+            <button
+              type="button"
+              key={conversation.id}
+              onClick={() => router.push(`/chat/${conversation.id}`)}
+              className={`w-full rounded-lg border p-3 text-left transition ${conversation.id === conversationId ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"}`}
+            >
+              <p className="truncate text-xs font-bold">{conversation.title}</p>
+              <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--muted)]">
+                <span>
+                  {conversation.visibility === "workspace"
+                    ? "Đã chia sẻ"
+                    : "Riêng tư"}
+                </span>
+                <span>{relativeTime(conversation.updatedAt)}</span>
+              </div>
+            </button>
+          ))}
+          {visibleConversations.length === 0 ? (
+            <p className="px-3 py-8 text-center text-[10px] text-[var(--muted)]">
+              Không tìm thấy cuộc trò chuyện.
+            </p>
+          ) : null}
+        </div>
+      </aside>
 
-			{conversationId ? (
-				<ConversationWorkspace
-					key={conversationId}
-					conversationId={conversationId}
-					initialPrompt={initialPrompt}
-				/>
-			) : (
-				<div className="grid min-h-[620px] place-items-center p-6">
-					<div className="max-w-lg text-center">
-						<span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]"><MessageCircle size={25} /></span>
-						<h2 className="mt-4 text-lg font-extrabold text-[var(--foreground)]">Chat phân tích nội bộ</h2>
-						<p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tra cứu bằng chứng, scan, chủ đề và insight; xử lý tệp qua Tuturuuu Drive; lưu bản nháp để con người duyệt.</p>
-						<button type="button" onClick={() => createConversation.mutate(undefined)} className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white">
-							<Plus size={15} /> Tạo Chat riêng tư
-						</button>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+      {conversationId ? (
+        <ConversationWorkspace
+          key={conversationId}
+          conversationId={conversationId}
+          initialPrompt={initialPrompt}
+        />
+      ) : (
+        <div className="grid min-h-[620px] place-items-center p-6">
+          <div className="max-w-lg text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+              <MessageCircle size={25} />
+            </span>
+            <h2 className="mt-4 text-lg font-extrabold text-[var(--foreground)]">
+              Chat phân tích nội bộ
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Tra cứu bằng chứng, scan, chủ đề và insight; xử lý tệp qua
+              Tuturuuu Drive; lưu bản nháp để con người duyệt.
+            </p>
+            <button
+              type="button"
+              onClick={() => createConversation.mutate(undefined)}
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white"
+            >
+              <Plus size={15} /> Tạo Chat riêng tư
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ConversationWorkspace({
-	conversationId,
-	initialPrompt,
+  conversationId,
+  initialPrompt,
 }: {
-	conversationId: string;
-	initialPrompt?: string;
+  conversationId: string;
+  initialPrompt?: string;
 }) {
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const [uploadState, setUploadState] = useState<Record<string, { name: string; progress: number; status: string }>>({});
-	const [composerError, setComposerError] = useState("");
-	const hydrated = useRef(false);
-	const initialPromptSent = useRef(false);
-	const detail = useQuery({
-		queryKey: ["chat", "conversation", conversationId],
-		queryFn: () => fetchJson<ChatDetail>(`/api/chat/conversations/${conversationId}`),
-		refetchInterval: (query) =>
-			query.state.data?.attachments.some((item) => ["uploading", "processing"].includes(item.status)) ? 1_500 : false,
-		staleTime: 5_000,
-	});
-	const transport = useMemo(
-		() =>
-			new DefaultChatTransport({
-				api: `/api/chat/conversations/${conversationId}/messages`,
-				prepareSendMessagesRequest({ messages }) {
-					return { body: { message: messages.at(-1) } };
-				},
-			}),
-		[conversationId],
-	);
-	const chat = useChat<ChatUIMessage>({
-		generateId: () => crypto.randomUUID(),
-		id: conversationId,
-		messages: detail.data?.messages ?? [],
-		onFinish: () => {
-			void detail.refetch();
-			void queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
-		},
-		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-		transport,
-	});
-	useEffect(() => {
-		if (!detail.data || hydrated.current) return;
-		chat.setMessages(detail.data.messages);
-		hydrated.current = true;
-	}, [chat, detail.data]);
-	useEffect(() => {
-		if (
-			!initialPrompt?.trim() ||
-			!detail.data ||
-			initialPromptSent.current ||
-			detail.data.messages.length > 0
-		) {
-			return;
-		}
-		initialPromptSent.current = true;
-		void chat.sendMessage({ text: initialPrompt.trim() });
-	}, [chat, detail.data, initialPrompt]);
-	const isBusy = chat.status === "submitted" || chat.status === "streaming" || Object.keys(uploadState).length > 0;
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [uploadState, setUploadState] = useState<
+    Record<string, { name: string; progress: number; status: string }>
+  >({});
+  const [composerError, setComposerError] = useState("");
+  const [mode, setMode] = useState<ChatMode>("investigate");
+  const [thinkingMode, setThinkingMode] = useState<ChatThinkingMode>("deep");
+  const [contextOpen, setContextOpen] = useState(false);
+  const hydrated = useRef(false);
+  const initialPromptSent = useRef(false);
+  const detail = useQuery({
+    queryKey: ["chat", "conversation", conversationId],
+    queryFn: () =>
+      fetchJson<ChatDetail>(`/api/chat/conversations/${conversationId}`),
+    refetchInterval: (query) =>
+      query.state.data?.attachments.some((item) =>
+        ["uploading", "processing"].includes(item.status),
+      )
+        ? 1_500
+        : false,
+    staleTime: 5_000,
+  });
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `/api/chat/conversations/${conversationId}/messages`,
+        prepareSendMessagesRequest({ messages }) {
+          const message = messages.at(-1);
+          const metadata = message?.metadata as ChatUIMessage["metadata"];
+          return {
+            body: {
+              message,
+              mode: metadata?.mode ?? mode,
+              thinkingMode: metadata?.thinkingMode ?? thinkingMode,
+            },
+          };
+        },
+      }),
+    [conversationId, mode, thinkingMode],
+  );
+  const chat = useChat<ChatUIMessage>({
+    generateId: () => crypto.randomUUID(),
+    id: conversationId,
+    messages: detail.data?.messages ?? [],
+    onFinish: () => {
+      void detail.refetch();
+      void queryClient.invalidateQueries({
+        queryKey: ["chat", "conversations"],
+      });
+    },
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    transport,
+  });
+  const sendChatMessage = useCallback(
+    (text: string) =>
+      chat.sendMessage({
+        metadata: { mode, thinkingMode },
+        text,
+      }),
+    [chat, mode, thinkingMode],
+  );
+  useEffect(() => {
+    if (!detail.data || hydrated.current) return;
+    chat.setMessages(detail.data.messages);
+    hydrated.current = true;
+  }, [chat, detail.data]);
+  useEffect(() => {
+    if (
+      !initialPrompt?.trim() ||
+      !detail.data ||
+      initialPromptSent.current ||
+      detail.data.messages.length > 0
+    ) {
+      return;
+    }
+    initialPromptSent.current = true;
+    void sendChatMessage(initialPrompt.trim());
+  }, [detail.data, initialPrompt, sendChatMessage]);
+  const isBusy =
+    chat.status === "submitted" ||
+    chat.status === "streaming" ||
+    Object.keys(uploadState).length > 0;
 
-	async function submit(input: { files: FileUIPart[]; text: string }) {
-		if (detail.data?.readOnly) return;
-		setComposerError("");
-		const attachmentIds: string[] = [];
-		try {
-		for (const part of input.files.slice(0, 5)) {
-			const blob = await fetch(part.url).then((response) => response.blob());
-			const key = crypto.randomUUID();
-			setUploadState((current) => ({ ...current, [key]: { name: part.filename ?? "Tệp", progress: 0, status: "Đang chuẩn bị" } }));
-			try {
-				const prepared = await fetchJson<{
-					attachment: AttachmentRow;
-					upload: { headers?: Record<string, string>; signedUrl: string; token?: string };
-				}>(`/api/chat/conversations/${conversationId}/attachments`, {
-					body: JSON.stringify({ contentType: inferContentType(part.filename, part.mediaType || blob.type), fileName: part.filename, size: blob.size }),
-					headers: { "Content-Type": "application/json" },
-					method: "POST",
-				});
-				await uploadBlob(blob, prepared.upload, (progress) =>
-					setUploadState((current) => ({ ...current, [key]: { ...current[key]!, progress, status: "Đang tải lên Drive" } })),
-				);
-				await fetchJson(`/api/chat/conversations/${conversationId}/attachments/${prepared.attachment.id}/finalize`, { method: "POST" });
-				setUploadState((current) => ({ ...current, [key]: { ...current[key]!, progress: 100, status: "Đang trích xuất nội dung" } }));
-				await waitUntilAttachmentReady(conversationId, prepared.attachment.id);
-				attachmentIds.push(prepared.attachment.id);
-			} finally {
-				setUploadState((current) => {
-					const next = { ...current };
-					delete next[key];
-					return next;
-				});
-			}
-		}
-		if (input.text.trim() || attachmentIds.length > 0) {
-			await chat.sendMessage({
-				metadata: { attachmentIds },
-				text: input.text.trim() || "Hãy phân tích các tệp đính kèm này.",
-			});
-		}
-		} catch (error) {
-			setComposerError(error instanceof Error ? error.message : "Không thể gửi tin nhắn hoặc xử lý tệp.");
-		}
-	}
+  async function submit(input: { files: FileUIPart[]; text: string }) {
+    if (detail.data?.readOnly) return;
+    setComposerError("");
+    const attachmentIds: string[] = [];
+    try {
+      for (const part of input.files.slice(0, 5)) {
+        const blob = await fetch(part.url).then((response) => response.blob());
+        const key = crypto.randomUUID();
+        setUploadState((current) => ({
+          ...current,
+          [key]: {
+            name: part.filename ?? "Tệp",
+            progress: 0,
+            status: "Đang chuẩn bị",
+          },
+        }));
+        try {
+          const prepared = await fetchJson<{
+            attachment: AttachmentRow;
+            upload: {
+              headers?: Record<string, string>;
+              signedUrl: string;
+              token?: string;
+            };
+          }>(`/api/chat/conversations/${conversationId}/attachments`, {
+            body: JSON.stringify({
+              contentType: inferContentType(
+                part.filename,
+                part.mediaType || blob.type,
+              ),
+              fileName: part.filename,
+              size: blob.size,
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
+          await uploadBlob(blob, prepared.upload, (progress) =>
+            setUploadState((current) => ({
+              ...current,
+              [key]: {
+                ...current[key]!,
+                progress,
+                status: "Đang tải lên Drive",
+              },
+            })),
+          );
+          await fetchJson(
+            `/api/chat/conversations/${conversationId}/attachments/${prepared.attachment.id}/finalize`,
+            { method: "POST" },
+          );
+          setUploadState((current) => ({
+            ...current,
+            [key]: {
+              ...current[key]!,
+              progress: 100,
+              status: "Đang trích xuất nội dung",
+            },
+          }));
+          await waitUntilAttachmentReady(
+            conversationId,
+            prepared.attachment.id,
+          );
+          attachmentIds.push(prepared.attachment.id);
+        } finally {
+          setUploadState((current) => {
+            const next = { ...current };
+            delete next[key];
+            return next;
+          });
+        }
+      }
+      if (input.text.trim() || attachmentIds.length > 0) {
+        await chat.sendMessage({
+          metadata: { attachmentIds, mode, thinkingMode },
+          text: input.text.trim() || "Hãy phân tích các tệp đính kèm này.",
+        });
+      }
+    } catch (error) {
+      setComposerError(
+        error instanceof Error
+          ? error.message
+          : "Không thể gửi tin nhắn hoặc xử lý tệp.",
+      );
+    }
+  }
 
-	if (detail.isPending) return <ChatLoading />;
-	if (detail.isError || !detail.data) return <ChatError message={detail.error?.message} onRetry={() => void detail.refetch()} />;
+  if (detail.isPending) return <ChatLoading />;
+  if (detail.isError || !detail.data)
+    return (
+      <ChatError
+        message={detail.error?.message}
+        onRetry={() => void detail.refetch()}
+      />
+    );
 
-	const { conversation, readOnly } = detail.data;
-	return (
-		<div className="grid min-h-[620px] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_260px] xl:grid-rows-[auto_minmax(0,1fr)_auto]">
-			<header className="flex min-w-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 xl:col-span-2">
-				<div className="min-w-0">
-					<div className="flex items-center gap-2">
-						<h2 className="truncate text-sm font-extrabold text-[var(--foreground)]">{conversation.title}</h2>
-						<span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--muted-strong)]">{readOnly ? "Chỉ đọc" : conversation.visibility === "workspace" ? "Workspace" : "Riêng tư"}</span>
-					</div>
-					<p className="mt-1 text-[10px] text-[var(--muted)]">{readOnly ? `Được chia sẻ bởi ${conversation.ownerDisplayName ?? "thành viên"}` : "Không nội dung nào được tự động xuất bản"}</p>
-				</div>
-				<ConversationActions conversation={conversation} readOnly={readOnly} onChanged={() => void Promise.all([detail.refetch(), queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] })])} onFork={(id) => router.push(`/chat/${id}`)} onDeleted={() => router.push("/chat")} />
-			</header>
+  const { conversation, readOnly } = detail.data;
+  return (
+    <div
+      className={`grid min-h-[620px] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] transition-[grid-template-columns] duration-300 ${contextOpen ? "xl:grid-cols-[minmax(0,1fr)_264px]" : "xl:grid-cols-[minmax(0,1fr)]"} xl:grid-rows-[auto_minmax(0,1fr)_auto]`}
+    >
+      <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5 xl:col-span-full">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-sm font-extrabold text-[var(--foreground)]">
+              {conversation.title}
+            </h2>
+            <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--muted-strong)]">
+              {readOnly
+                ? "Chỉ đọc"
+                : conversation.visibility === "workspace"
+                  ? "Workspace"
+                  : "Riêng tư"}
+            </span>
+          </div>
+          <p className="mt-1 text-[10px] text-[var(--muted)]">
+            {readOnly
+              ? `Được chia sẻ bởi ${conversation.ownerDisplayName ?? "thành viên"}`
+              : "Không nội dung nào được tự động xuất bản"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className={iconButtonClass}
+            onClick={() => setContextOpen((current) => !current)}
+            aria-expanded={contextOpen}
+            aria-label={contextOpen ? "Đóng bảng ngữ cảnh" : "Mở bảng ngữ cảnh"}
+            title="Ngữ cảnh và cấu hình"
+          >
+            {contextOpen ? (
+              <PanelRightClose size={14} />
+            ) : (
+              <PanelRightOpen size={14} />
+            )}
+          </button>
+          <ConversationActions
+            conversation={conversation}
+            readOnly={readOnly}
+            onChanged={() =>
+              void Promise.all([
+                detail.refetch(),
+                queryClient.invalidateQueries({
+                  queryKey: ["chat", "conversations"],
+                }),
+              ])
+            }
+            onFork={(id) => router.push(`/chat/${id}`)}
+            onDeleted={() => router.push("/chat")}
+          />
+        </div>
+      </header>
 
-			<Conversation className="min-h-0 bg-[var(--background)]">
-				<ConversationContent className="mx-auto w-full max-w-4xl gap-6 px-4 py-6 sm:px-6">
-					{chat.messages.length === 0 ? (
-						<ConversationEmptyState icon={<ShieldCheck size={24} />} title="Bắt đầu phân tích" description="Hỏi về bằng chứng, scan, chủ đề hoặc tải tài liệu nội bộ." />
-					) : (
-						chat.messages.map((message, index) => (
-							<ChatMessageView
-								addToolApprovalResponse={chat.addToolApprovalResponse}
-								isLast={index === chat.messages.length - 1}
-								key={message.id}
-								message={message}
-								onRegenerate={() => chat.regenerate({ messageId: message.id })}
-							/>
-						))
-					)}
-					{chat.status === "submitted" ? <div className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]"><LoaderCircle className="animate-spin" size={14} /> Đang kiểm tra dữ liệu và công cụ…</div> : null}
-				</ConversationContent>
-				<ConversationScrollButton />
-			</Conversation>
+      <Conversation className="min-h-0 bg-[var(--background)]">
+        <ConversationContent className="mx-auto w-full max-w-4xl gap-5 px-4 py-5 sm:px-6">
+          {chat.messages.length === 0 ? (
+            <ChatStart
+              mode={mode}
+              onSelectMode={setMode}
+              onSend={(value, selectedMode) =>
+                void chat.sendMessage({
+                  metadata: { mode: selectedMode, thinkingMode },
+                  text: value,
+                })
+              }
+            />
+          ) : (
+            chat.messages.map((message, index) => (
+              <ChatMessageView
+                addToolApprovalResponse={chat.addToolApprovalResponse}
+                isLast={index === chat.messages.length - 1}
+                key={message.id}
+                message={message}
+                onRegenerate={() => chat.regenerate({ messageId: message.id })}
+              />
+            ))
+          )}
+          {chat.status === "submitted" ? (
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
+              <LoaderCircle className="animate-spin" size={14} /> Đang kiểm tra
+              dữ liệu và công cụ…
+            </div>
+          ) : null}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-			<aside className="hidden min-h-0 border-l border-[var(--border)] bg-[var(--surface-soft)] xl:row-start-2 xl:block xl:overflow-y-auto">
-				<ContextRail
-					attachments={detail.data.attachments}
-					conversation={conversation}
-					conversationId={conversationId}
-					modelRuns={detail.data.modelRuns}
-					onChanged={() => void detail.refetch()}
-					onUsePreset={(instructions) => void chat.sendMessage({ text: instructions })}
-					readOnly={readOnly}
-				/>
-			</aside>
+      <aside
+        className={`${contextOpen ? "hidden xl:row-start-2 xl:block" : "hidden"} min-h-0 border-l border-[var(--border)] bg-[var(--surface-soft)] xl:overflow-y-auto`}
+      >
+        <ContextRail
+          attachments={detail.data.attachments}
+          conversation={conversation}
+          conversationId={conversationId}
+          modelRuns={detail.data.modelRuns}
+          onChanged={() => void detail.refetch()}
+          onUsePreset={(instructions) => void sendChatMessage(instructions)}
+          readOnly={readOnly}
+        />
+      </aside>
 
-			<div className="border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4 xl:col-start-1">
-				<details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden"><summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">Ngữ cảnh, mô hình và hoạt động</summary><ContextRail attachments={detail.data.attachments} conversation={conversation} conversationId={conversationId} modelRuns={detail.data.modelRuns} onChanged={() => void detail.refetch()} onUsePreset={(instructions) => void chat.sendMessage({ text: instructions })} readOnly={readOnly} /></details>
-				{Object.entries(uploadState).map(([key, item]) => (
-					<div key={key} className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-2.5">
-						<div className="flex items-center justify-between gap-3 text-[10px] font-bold text-[var(--muted-strong)]"><span className="truncate">{item.name} · {item.status}</span><span>{item.progress}%</span></div>
-						<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]"><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${item.progress}%` }} /></div>
-					</div>
-				))}
-				{readOnly ? (
-					<div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-soft)] p-3 text-xs text-[var(--muted-strong)]"><span>Chat chia sẻ ở chế độ chỉ đọc.</span><ConversationActions conversation={conversation} readOnly onChanged={() => undefined} onFork={(id) => router.push(`/chat/${id}`)} onDeleted={() => undefined} /></div>
-				) : (
-					<>
-						{composerError ? <p className="mb-2 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]" role="alert">{composerError}</p> : null}
-						<PromptInput accept={accept} globalDrop maxFiles={5} maxFileSize={25 * 1024 * 1024} multiple onError={(error) => setComposerError(error.message)} onSubmit={submit}>
-							<PromptInputHeader><SelectedPromptAttachments /></PromptInputHeader>
-							<PromptInputBody><PromptInputTextarea disabled={isBusy} placeholder="Hỏi về bằng chứng, scan, insight hoặc soạn bản nháp…" /></PromptInputBody>
-							<PromptInputFooter>
-								<PromptInputTools>
-									<PromptInputActionMenu><PromptInputActionMenuTrigger /><PromptInputActionMenuContent><PromptInputActionAddAttachments label="Tải tệp lên Tuturuuu Drive" /></PromptInputActionMenuContent></PromptInputActionMenu>
-									<span className="text-[9px] font-semibold text-[var(--muted)]">5 tệp · 25 MB/tệp</span>
-								</PromptInputTools>
-								<PromptInputSubmit disabled={isBusy} onStop={chat.stop} status={chat.status} />
-							</PromptInputFooter>
-						</PromptInput>
-						<Suggestions className="mt-2">
-							{["Tóm tắt rủi ro mới nhất", "Tìm bằng chứng liên quan", "Soạn phản hồi cần duyệt", "Tạo bài viết Zalo cần duyệt từ bằng chứng"].map((value) => <Suggestion key={value} suggestion={value} onClick={() => void chat.sendMessage({ text: value })} />)}
-						</Suggestions>
-					</>
-				)}
-			</div>
-		</div>
-	);
+      <div className="border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4 xl:col-start-1">
+        <details className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] xl:hidden">
+          <summary className="cursor-pointer px-3 py-2 text-[11px] font-extrabold">
+            Ngữ cảnh và cấu hình · {conversation.pinnedContext.length}
+          </summary>
+          <ContextRail
+            attachments={detail.data.attachments}
+            conversation={conversation}
+            conversationId={conversationId}
+            modelRuns={detail.data.modelRuns}
+            onChanged={() => void detail.refetch()}
+            onUsePreset={(instructions) => void sendChatMessage(instructions)}
+            readOnly={readOnly}
+          />
+        </details>
+        {Object.entries(uploadState).map(([key, item]) => (
+          <div
+            key={key}
+            className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-2.5"
+          >
+            <div className="flex items-center justify-between gap-3 text-[10px] font-bold text-[var(--muted-strong)]">
+              <span className="truncate">
+                {item.name} · {item.status}
+              </span>
+              <span>{item.progress}%</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+              <div
+                className="h-full rounded-full bg-[var(--brand)] transition-[width]"
+                style={{ width: `${item.progress}%` }}
+              />
+            </div>
+          </div>
+        ))}
+        {readOnly ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-soft)] p-3 text-xs text-[var(--muted-strong)]">
+            <span>Chat chia sẻ ở chế độ chỉ đọc.</span>
+            <ConversationActions
+              conversation={conversation}
+              readOnly
+              onChanged={() => undefined}
+              onFork={(id) => router.push(`/chat/${id}`)}
+              onDeleted={() => undefined}
+            />
+          </div>
+        ) : (
+          <>
+            {composerError ? (
+              <p
+                className="mb-2 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]"
+                role="alert"
+              >
+                {composerError}
+              </p>
+            ) : null}
+            <PromptInput
+              accept={accept}
+              globalDrop
+              maxFiles={5}
+              maxFileSize={25 * 1024 * 1024}
+              multiple
+              onError={(error) => setComposerError(error.message)}
+              onSubmit={submit}
+            >
+              <PromptInputHeader>
+                <SelectedPromptAttachments />
+              </PromptInputHeader>
+              <PromptInputBody>
+                <PromptInputTextarea
+                  disabled={isBusy}
+                  placeholder="Hỏi về bằng chứng, scan, insight hoặc soạn bản nháp…"
+                />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments label="Tải tệp lên Tuturuuu Drive" />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
+                  <ChatModeControl mode={mode} onChange={setMode} />
+                  <ThinkingModeControl
+                    mode={thinkingMode}
+                    onChange={setThinkingMode}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setContextOpen((current) => !current)}
+                    className="hidden h-7 items-center gap-1 rounded-md px-2 text-[9px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] sm:inline-flex"
+                    title="Mở ngữ cảnh đã ghim"
+                  >
+                    <ShieldCheck size={12} />{" "}
+                    {conversation.pinnedContext.length}
+                  </button>
+                </PromptInputTools>
+                <PromptInputSubmit
+                  disabled={isBusy}
+                  onStop={chat.stop}
+                  status={chat.status}
+                />
+              </PromptInputFooter>
+            </PromptInput>
+            <p className="mt-2 text-center text-[9px] text-[var(--muted)]">
+              AI có thể sai. Kiểm tra nguồn và phê duyệt mọi thay đổi nội bộ.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const chatModes: Array<{
+  description: string;
+  icon: typeof Search;
+  label: string;
+  starter: string;
+  value: ChatMode;
+}> = [
+  {
+    description: "Trả lời trực tiếp",
+    icon: Zap,
+    label: "Hỏi nhanh",
+    starter: "Tóm tắt những rủi ro mới nhất cần chú ý.",
+    value: "ask",
+  },
+  {
+    description: "Đối chiếu bằng chứng",
+    icon: Search,
+    label: "Điều tra",
+    starter: "Điều tra chủ đề nổi bật và đối chiếu các bằng chứng liên quan.",
+    value: "investigate",
+  },
+  {
+    description: "Nội dung cần duyệt",
+    icon: WandSparkles,
+    label: "Soạn thảo",
+    starter:
+      "Soạn một phản hồi có căn cứ, tự nhiên và để ở trạng thái cần duyệt.",
+    value: "draft",
+  },
+  {
+    description: "Phân tích chuyên sâu",
+    icon: FileText,
+    label: "Báo cáo",
+    starter:
+      "Lập báo cáo chuyên sâu về rủi ro, xu hướng và khuyến nghị hành động.",
+    value: "report",
+  },
+];
+
+function ChatStart({
+  mode,
+  onSelectMode,
+  onSend,
+}: {
+  mode: ChatMode;
+  onSelectMode: (mode: ChatMode) => void;
+  onSend: (value: string, mode: ChatMode) => void;
+}) {
+  return (
+    <div className="mx-auto my-auto w-full max-w-2xl py-8">
+      <div className="flex items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+          <Brain size={20} />
+        </span>
+        <div>
+          <h3 className="text-base font-extrabold text-[var(--foreground)]">
+            Trợ lý phân tích CyberShield35
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Chọn mục tiêu. Trợ lý sẽ tìm bằng chứng, sử dụng công cụ và xin xác
+            nhận trước mọi thay đổi.
+          </p>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        {chatModes.map((item) => {
+          const Icon = item.icon;
+          const selected = item.value === mode;
+          return (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => {
+                onSelectMode(item.value);
+                onSend(item.starter, item.value);
+              }}
+              className={`group rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"}`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon
+                  size={15}
+                  className={
+                    selected
+                      ? "text-[var(--accent-strong)]"
+                      : "text-[var(--muted-strong)]"
+                  }
+                />
+                <span className="text-xs font-extrabold text-[var(--foreground)]">
+                  {item.label}
+                </span>
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--muted)]">
+                {item.description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ChatModeControl({
+  mode,
+  onChange,
+}: {
+  mode: ChatMode;
+  onChange: (mode: ChatMode) => void;
+}) {
+  return (
+    <label className="relative inline-flex items-center">
+      <span className="sr-only">Chế độ Chat</span>
+      <select
+        value={mode}
+        onChange={(event) => onChange(event.target.value as ChatMode)}
+        className="h-7 appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-soft)] py-0 pl-2 pr-6 text-[9px] font-extrabold text-[var(--muted-strong)] outline-none focus:border-[var(--accent)]"
+      >
+        {chatModes.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-1.5 text-[var(--muted)]"
+        size={11}
+      />
+    </label>
+  );
+}
+
+function ThinkingModeControl({
+  mode,
+  onChange,
+}: {
+  mode: ChatThinkingMode;
+  onChange: (mode: ChatThinkingMode) => void;
+}) {
+  return (
+    <div
+      className="inline-flex h-7 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] p-0.5"
+      aria-label="Mức suy xét"
+    >
+      <button
+        type="button"
+        onClick={() => onChange("fast")}
+        className={`inline-flex items-center gap-1 rounded px-1.5 text-[9px] font-extrabold transition ${mode === "fast" ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"}`}
+        title="Nhanh: ít bước công cụ"
+      >
+        <Zap size={10} /> Nhanh
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("deep")}
+        className={`inline-flex items-center gap-1 rounded px-1.5 text-[9px] font-extrabold transition ${mode === "deep" ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted)]"}`}
+        title="Sâu: đối chiếu nhiều bước"
+      >
+        <Brain size={10} /> Sâu
+      </button>
+    </div>
+  );
 }
 
 function SelectedPromptAttachments() {
-	const attachments = usePromptInputAttachments();
-	if (attachments.files.length === 0) return null;
-	return (
-		<Attachments variant="inline">
-			{attachments.files.map((file) => (
-				<Attachment data={file} key={file.id} onRemove={() => attachments.remove(file.id)}>
-					<AttachmentPreview /><AttachmentInfo /><AttachmentRemove label="Bỏ tệp" />
-				</Attachment>
-			))}
-		</Attachments>
-	);
+  const attachments = usePromptInputAttachments();
+  if (attachments.files.length === 0) return null;
+  return (
+    <Attachments variant="inline">
+      {attachments.files.map((file) => (
+        <Attachment
+          data={file}
+          key={file.id}
+          onRemove={() => attachments.remove(file.id)}
+        >
+          <AttachmentPreview />
+          <AttachmentInfo />
+          <AttachmentRemove label="Bỏ tệp" />
+        </Attachment>
+      ))}
+    </Attachments>
+  );
 }
 
 function ChatMessageView({
-	addToolApprovalResponse,
-	isLast,
-	message,
-	onRegenerate,
+  addToolApprovalResponse,
+  isLast,
+  message,
+  onRegenerate,
 }: {
-	addToolApprovalResponse: (input: { approved: boolean; id: string }) => void | PromiseLike<void>;
-	isLast: boolean;
-	message: ChatUIMessage;
-	onRegenerate: () => Promise<void>;
+  addToolApprovalResponse: (input: {
+    approved: boolean;
+    id: string;
+  }) => void | PromiseLike<void>;
+  isLast: boolean;
+  message: ChatUIMessage;
+  onRegenerate: () => Promise<void>;
 }) {
-	const text = message.parts.filter((part) => part.type === "text").map((part) => part.text).join("\n");
-	return (
-		<Message from={message.role}>
-			<MessageContent>
-				{message.parts.map((part, index) => {
-					if (part.type === "text") return <MessageResponse key={`${message.id}-${index}`}>{part.text}</MessageResponse>;
-					if (part.type === "source-url") return <a className="text-xs font-bold text-[var(--accent-strong)] underline" href={part.url} key={part.sourceId}>Nguồn: {part.title ?? part.url}</a>;
-					if (isToolUIPart(part)) {
-						return (
-							<Tool defaultOpen={part.state === "approval-requested"} key={part.toolCallId}>
-								{part.type === "dynamic-tool" ? (
-									<ToolHeader state={part.state} title={toolLabel(getToolName(part))} toolName={part.toolName} type={part.type} />
-								) : (
-									<ToolHeader state={part.state} title={toolLabel(getToolName(part))} type={part.type} />
-								)}
-								<ToolContent>
-									<ToolInput input={part.input} />
-									<Confirmation approval={part.approval} state={part.state}>
-										<ConfirmationTitle>Cho phép Chat thực hiện thay đổi nội bộ này?</ConfirmationTitle>
-										<ConfirmationRequest>
-											<ConfirmationActions>
-												<ConfirmationAction variant="outline" onClick={() => addToolApprovalResponse({ approved: false, id: part.approval!.id })}>Từ chối</ConfirmationAction>
-												<ConfirmationAction onClick={() => addToolApprovalResponse({ approved: true, id: part.approval!.id })}>Phê duyệt</ConfirmationAction>
-											</ConfirmationActions>
-										</ConfirmationRequest>
-									</Confirmation>
-									<ToolOutput errorText={"errorText" in part ? part.errorText : undefined} output={"output" in part ? part.output : undefined} />
-								</ToolContent>
-							</Tool>
-						);
-					}
-					return null;
-				})}
-			</MessageContent>
-			<MessageActions className={message.role === "user" ? "justify-end" : ""}>
-				<MessageAction label="Sao chép" onClick={() => void navigator.clipboard.writeText(text)} tooltip="Sao chép"><Copy size={13} /></MessageAction>
-				{message.role === "assistant" && isLast ? <MessageAction label="Tạo lại" onClick={() => void onRegenerate()} tooltip="Tạo lại"><RefreshCw size={13} /></MessageAction> : null}
-			</MessageActions>
-		</Message>
-	);
+  const text = message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+  const toolParts = message.parts.filter(isToolUIPart);
+  const toolNeedsAttention = toolParts.some(
+    (part) =>
+      part.state === "approval-requested" ||
+      part.state === "input-streaming" ||
+      part.state === "input-available",
+  );
+  return (
+    <Message from={message.role}>
+      <MessageContent>
+        {message.parts.map((part, index) => {
+          if (part.type === "text")
+            return (
+              <MessageResponse key={`${message.id}-${index}`}>
+                {part.text}
+              </MessageResponse>
+            );
+          if (part.type === "reasoning")
+            return (
+              <details
+                className="group rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2"
+                key={`${message.id}-reasoning-${index}`}
+              >
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-extrabold text-[var(--muted-strong)]">
+                  <Brain size={13} className="text-[var(--accent-strong)]" />{" "}
+                  Cách trợ lý kiểm tra{" "}
+                  <ChevronDown
+                    size={12}
+                    className="ml-auto transition group-open:rotate-180"
+                  />
+                </summary>
+                <div className="mt-2 border-t border-[var(--border)] pt-2 text-[11px] leading-5 text-[var(--muted)]">
+                  <MessageResponse>{part.text}</MessageResponse>
+                </div>
+              </details>
+            );
+          if (part.type === "source-url")
+            return (
+              <a
+                className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-[10px] font-bold text-[var(--accent-strong)] transition hover:border-[var(--accent)]"
+                href={part.url}
+                key={part.sourceId}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileText size={13} />
+                <span className="truncate">{part.title ?? part.url}</span>
+              </a>
+            );
+          if (isToolUIPart(part)) return null;
+          return null;
+        })}
+        {toolParts.length ? (
+          <details
+            className="group overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-soft)]"
+            open={toolNeedsAttention || undefined}
+          >
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[10px] font-extrabold text-[var(--muted-strong)]">
+              <Wrench size={13} className="text-[var(--accent-strong)]" /> Hoạt
+              động công cụ{" "}
+              <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[8px]">
+                {toolParts.length}
+              </span>
+              <ChevronDown
+                size={12}
+                className="ml-auto transition group-open:rotate-180"
+              />
+            </summary>
+            <div className="space-y-2 border-t border-[var(--border)] p-2">
+              {toolParts.map((part) => (
+                <Tool
+                  defaultOpen={part.state === "approval-requested"}
+                  key={part.toolCallId}
+                >
+                  {part.type === "dynamic-tool" ? (
+                    <ToolHeader
+                      state={part.state}
+                      title={toolLabel(getToolName(part))}
+                      toolName={part.toolName}
+                      type={part.type}
+                    />
+                  ) : (
+                    <ToolHeader
+                      state={part.state}
+                      title={toolLabel(getToolName(part))}
+                      type={part.type}
+                    />
+                  )}
+                  <ToolContent>
+                    <ToolInput input={part.input} />
+                    <Confirmation approval={part.approval} state={part.state}>
+                      <ConfirmationTitle>
+                        Cho phép Chat thực hiện thay đổi nội bộ này?
+                      </ConfirmationTitle>
+                      <ConfirmationRequest>
+                        <ConfirmationActions>
+                          <ConfirmationAction
+                            variant="outline"
+                            onClick={() =>
+                              addToolApprovalResponse({
+                                approved: false,
+                                id: part.approval!.id,
+                              })
+                            }
+                          >
+                            Từ chối
+                          </ConfirmationAction>
+                          <ConfirmationAction
+                            onClick={() =>
+                              addToolApprovalResponse({
+                                approved: true,
+                                id: part.approval!.id,
+                              })
+                            }
+                          >
+                            Phê duyệt
+                          </ConfirmationAction>
+                        </ConfirmationActions>
+                      </ConfirmationRequest>
+                    </Confirmation>
+                    <ToolOutput
+                      errorText={
+                        "errorText" in part ? part.errorText : undefined
+                      }
+                      output={"output" in part ? part.output : undefined}
+                    />
+                  </ToolContent>
+                </Tool>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </MessageContent>
+      <MessageActions className={message.role === "user" ? "justify-end" : ""}>
+        <MessageAction
+          label="Sao chép"
+          onClick={() => void navigator.clipboard.writeText(text)}
+          tooltip="Sao chép"
+        >
+          <Copy size={13} />
+        </MessageAction>
+        {message.role === "assistant" && isLast ? (
+          <MessageAction
+            label="Tạo lại"
+            onClick={() => void onRegenerate()}
+            tooltip="Tạo lại"
+          >
+            <RefreshCw size={13} />
+          </MessageAction>
+        ) : null}
+      </MessageActions>
+    </Message>
+  );
 }
 
 function ContextRail({
-	attachments,
-	conversation,
-	conversationId,
-	modelRuns,
-	onChanged,
-	onUsePreset,
-	readOnly,
+  attachments,
+  conversation,
+  conversationId,
+  modelRuns,
+  onChanged,
+  onUsePreset,
+  readOnly,
 }: {
-	attachments: AttachmentRow[];
-	conversation: ConversationRow;
-	conversationId: string;
-	modelRuns: ChatDetail["modelRuns"];
-	onChanged: () => void;
-	onUsePreset: (instructions: string) => void;
-	readOnly: boolean;
+  attachments: AttachmentRow[];
+  conversation: ConversationRow;
+  conversationId: string;
+  modelRuns: ChatDetail["modelRuns"];
+  onChanged: () => void;
+  onUsePreset: (instructions: string) => void;
+  readOnly: boolean;
 }) {
-	return (
-		<div className="space-y-5 p-4">
-			<div><p className={railTitleClass}>Ngữ cảnh Chat</p><p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">Công cụ chỉ truy cập dữ liệu nội bộ và tệp trong Chat này.</p>{conversation.pinnedContext.length ? <div className="mt-2 flex flex-wrap gap-1.5">{conversation.pinnedContext.map((item) => <a key={`${item.type}:${item.id}`} href={item.href} className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[9px] font-bold text-[var(--accent-strong)]">{item.type} · {item.label}</a>)}</div> : <p className="mt-2 text-[10px] text-[var(--muted)]">Chưa ghim scan, evidence, draft hoặc bài viết.</p>}</div>
-			<ChatGenerationControls conversation={conversation} onChanged={onChanged} onUsePreset={onUsePreset} readOnly={readOnly} />
-			<div><p className={railTitleClass}>Tệp Tuturuuu Drive</p><div className="mt-2 space-y-2">{attachments.length ? attachments.map((item) => <div key={item.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5"><div className="flex items-start gap-2"><FileText className="mt-0.5 shrink-0" size={14} /><div className="min-w-0"><p className="truncate text-[11px] font-bold">{item.fileName}</p><p className="mt-1 text-[9px] text-[var(--muted)]">{attachmentStatus(item.status)} · {formatBytes(item.sizeBytes)}</p><div className="mt-2 flex gap-3"><button type="button" onClick={() => void openAttachment(conversationId, item.id)} className="text-[10px] font-bold text-[var(--accent-strong)]">Tải xuống</button>{item.status === "failed" ? <button type="button" onClick={() => void fetch(`/api/chat/conversations/${conversationId}/attachments/${item.id}`, { method: "POST" })} className="text-[10px] font-bold text-[var(--danger-strong)]">Thử lại</button> : null}</div></div></div></div>) : <p className="text-[10px] text-[var(--muted)]">Chưa có tệp.</p>}</div></div>
-			<div><p className={railTitleClass}>Model runs</p><div className="mt-2 space-y-2">{modelRuns.length ? modelRuns.slice(0, 5).map((run) => <div key={run.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5"><div className="flex items-center justify-between gap-2"><p className="truncate text-[10px] font-bold">{run.provider} · {run.model}</p><span className="text-[9px] font-bold text-[var(--muted)]">{run.status}</span></div><p className="mt-1 text-[9px] text-[var(--muted)]">{run.stepCount} bước · {(run.inputTokens ?? 0) + (run.outputTokens ?? 0)} token · {run.latencyMs ?? 0} ms</p></div>) : <p className="text-[10px] text-[var(--muted)]">Chưa có model run.</p>}</div></div>
-			<div className="rounded-lg bg-[var(--success-soft)] p-3 text-[10px] leading-5 text-[var(--success-strong)]"><ShieldCheck className="mb-2" size={15} />Mọi bản nháp và thay đổi xử lý đều cần xác nhận, có lịch sử và không được xuất bản tự động.</div>
-		</div>
-	);
+  return (
+    <div className="space-y-2 p-3">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className={railTitleClass}>Ngữ cảnh đã ghim</p>
+          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[9px] font-extrabold text-[var(--accent-strong)]">
+            {conversation.pinnedContext.length}
+          </span>
+        </div>
+        {conversation.pinnedContext.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {conversation.pinnedContext.map((item) => (
+              <a
+                key={`${item.type}:${item.id}`}
+                href={item.href}
+                className="max-w-full truncate rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[9px] font-bold text-[var(--accent-strong)]"
+              >
+                {item.type} · {item.label}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-[10px] leading-4 text-[var(--muted)]">
+            Chưa ghim dữ liệu. Công cụ vẫn có thể tìm trong workspace.
+          </p>
+        )}
+      </div>
+      <details className={railSectionClass} open>
+        <summary className={railSummaryClass}>
+          <SlidersHorizontal size={13} /> Mô hình và ngữ cảnh{" "}
+          <ChevronDown
+            size={12}
+            className="ml-auto transition group-open:rotate-180"
+          />
+        </summary>
+        <div className="border-t border-[var(--border)] p-3">
+          <ChatGenerationControls
+            conversation={conversation}
+            onChanged={onChanged}
+            onUsePreset={onUsePreset}
+            readOnly={readOnly}
+          />
+        </div>
+      </details>
+      <details className={railSectionClass}>
+        <summary className={railSummaryClass}>
+          <FileText size={13} /> Tệp Drive{" "}
+          <span className="text-[9px] text-[var(--muted)]">
+            {attachments.length}
+          </span>
+          <ChevronDown
+            size={12}
+            className="ml-auto transition group-open:rotate-180"
+          />
+        </summary>
+        <div className="space-y-2 border-t border-[var(--border)] p-2">
+          {attachments.length ? (
+            attachments.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-lg bg-[var(--surface-soft)] p-2.5"
+              >
+                <div className="flex items-start gap-2">
+                  <FileText className="mt-0.5 shrink-0" size={14} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-bold">
+                      {item.fileName}
+                    </p>
+                    <p className="mt-1 text-[9px] text-[var(--muted)]">
+                      {attachmentStatus(item.status)} ·{" "}
+                      {formatBytes(item.sizeBytes)}
+                    </p>
+                    <div className="mt-2 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void openAttachment(conversationId, item.id)
+                        }
+                        className="text-[10px] font-bold text-[var(--accent-strong)]"
+                      >
+                        Tải xuống
+                      </button>
+                      {item.status === "failed" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void fetch(
+                              `/api/chat/conversations/${conversationId}/attachments/${item.id}`,
+                              { method: "POST" },
+                            )
+                          }
+                          className="text-[10px] font-bold text-[var(--danger-strong)]"
+                        >
+                          Thử lại
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="p-2 text-[10px] text-[var(--muted)]">Chưa có tệp.</p>
+          )}
+        </div>
+      </details>
+      <details className={railSectionClass}>
+        <summary className={railSummaryClass}>
+          <Brain size={13} /> Hoạt động AI{" "}
+          <span className="text-[9px] text-[var(--muted)]">
+            {modelRuns.length}
+          </span>
+          <ChevronDown
+            size={12}
+            className="ml-auto transition group-open:rotate-180"
+          />
+        </summary>
+        <div className="space-y-2 border-t border-[var(--border)] p-2">
+          {modelRuns.length ? (
+            modelRuns.slice(0, 5).map((run) => (
+              <div
+                key={run.id}
+                className="rounded-lg bg-[var(--surface-soft)] p-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-[10px] font-bold">
+                    {run.provider} · {run.model}
+                  </p>
+                  <span className="text-[9px] font-bold text-[var(--muted)]">
+                    {run.status}
+                  </span>
+                </div>
+                <p className="mt-1 text-[9px] text-[var(--muted)]">
+                  {run.stepCount} bước ·{" "}
+                  {(run.inputTokens ?? 0) + (run.outputTokens ?? 0)} token ·{" "}
+                  {run.latencyMs ?? 0} ms
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="p-2 text-[10px] text-[var(--muted)]">
+              Chưa có hoạt động.
+            </p>
+          )}
+        </div>
+      </details>
+      <div className="rounded-lg bg-[var(--success-soft)] p-3 text-[10px] leading-5 text-[var(--success-strong)]">
+        <ShieldCheck className="mb-1.5" size={14} />
+        Thay đổi cần xác nhận. Chat không thể xuất bản ra ngoài.
+      </div>
+    </div>
+  );
 }
 
 function ChatGenerationControls({
-	conversation,
-	onChanged,
-	onUsePreset,
-	readOnly,
+  conversation,
+  onChanged,
+  onUsePreset,
+  readOnly,
 }: {
-	conversation: ConversationRow;
-	onChanged: () => void;
-	onUsePreset: (instructions: string) => void;
-	readOnly: boolean;
+  conversation: ConversationRow;
+  onChanged: () => void;
+  onUsePreset: (instructions: string) => void;
+  readOnly: boolean;
 }) {
-	const [saving, setSaving] = useState(false);
-	const [presetName, setPresetName] = useState("");
-	const [presetInstructions, setPresetInstructions] = useState("");
-	const [presetVisibility, setPresetVisibility] = useState<
-		"private" | "workspace"
-	>("private");
-	const [pinType, setPinType] = useState<
-		"scan" | "evidence" | "topic" | "draft" | "article"
-	>("evidence");
-	const [pinId, setPinId] = useState("");
-	const [pinLabel, setPinLabel] = useState("");
-	const models = useQuery({
-		queryKey: ["ai", "models"],
-		queryFn: () => fetchJson<{ defaultModel: string; models: string[] }>("/api/ai/models"),
-	});
-	const presets = useQuery({
-		queryKey: ["ai", "presets"],
-		queryFn: () =>
-			fetchJson<{
-				presets: Array<{
-					id: string;
-					instructions: string;
-					name: string;
-					visibility: "private" | "workspace";
-				}>;
-			}>("/api/ai/presets"),
-	});
-	async function patch(payload: Record<string, unknown>) {
-		setSaving(true);
-		try {
-			await fetchJson(`/api/chat/conversations/${conversation.id}`, {
-				body: JSON.stringify(payload),
-				headers: { "Content-Type": "application/json" },
-				method: "PATCH",
-			});
-			onChanged();
-		} finally {
-			setSaving(false);
-		}
-	}
-	async function createPreset() {
-		if (!presetName.trim() || !presetInstructions.trim()) return;
-		setSaving(true);
-		try {
-			await fetchJson("/api/ai/presets", {
-				body: JSON.stringify({
-					instructions: presetInstructions,
-					name: presetName,
-					visibility: presetVisibility,
-				}),
-				headers: { "Content-Type": "application/json" },
-				method: "POST",
-			});
-			setPresetName("");
-			setPresetInstructions("");
-			await presets.refetch();
-		} finally {
-			setSaving(false);
-		}
-	}
-	async function addPinnedContext() {
-		if (!pinId.trim() || !pinLabel.trim()) return;
-		await patch({
-			pinnedContext: [
-				...conversation.pinnedContext.filter(
-					(item) => !(item.type === pinType && item.id === pinId.trim()),
-				),
-				{
-					href: `/${pinType === "scan" ? "scans" : pinType === "evidence" ? "evidence" : pinType === "topic" ? "topics" : pinType === "draft" ? "drafts" : "articles"}/${pinId.trim()}`,
-					id: pinId.trim(),
-					label: pinLabel.trim(),
-					type: pinType,
-				},
-			],
-		});
-		setPinId("");
-		setPinLabel("");
-	}
-	return (
-		<div>
-			<div className="flex items-center gap-2">
-				<SlidersHorizontal size={12} />
-				<p className={railTitleClass}>Mô hình & cách trả lời</p>
-			</div>
-			<div className="mt-2 space-y-2">
-				<select
-					disabled={readOnly || saving}
-					value={conversation.model ?? models.data?.defaultModel ?? ""}
-					onChange={(event) => void patch({ model: event.target.value })}
-					className={railInputClass}
-				>
-					{models.data?.models.map((model) => <option key={model} value={model}>{model}</option>)}
-				</select>
-				<label className="block text-[9px] font-bold text-[var(--muted)]">
-					Độ sáng tạo · {(conversation.temperature / 100).toFixed(1)}
-					<input
-						type="range"
-						min={0}
-						max={200}
-						step={10}
-						disabled={readOnly || saving}
-						defaultValue={conversation.temperature}
-						onPointerUp={(event) => void patch({ temperature: Number(event.currentTarget.value) / 100 })}
-						className="mt-1 w-full"
-					/>
-				</label>
-				<select
-					disabled={readOnly || saving}
-					value={conversation.contextBudget}
-					onChange={(event) => void patch({ contextBudget: Number(event.target.value) })}
-					className={railInputClass}
-				>
-					<option value={16000}>Ngữ cảnh 16K</option>
-					<option value={32000}>Ngữ cảnh 32K</option>
-					<option value={64000}>Ngữ cảnh 64K</option>
-					<option value={128000}>Ngữ cảnh 128K</option>
-				</select>
-			</div>
-			<div className="mt-3 border-t border-[var(--border)] pt-3">
-				<p className="text-[9px] font-bold uppercase text-[var(--muted)]">Ghim ngữ cảnh</p>
-				<div className="mt-2 space-y-2">
-					{conversation.pinnedContext.map((item) => (
-						<div key={`${item.type}:${item.id}`} className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-[9px]">
-							<span className="truncate font-bold">{item.type} · {item.label}</span>
-							{!readOnly ? (
-								<button
-									type="button"
-									onClick={() => void patch({ pinnedContext: conversation.pinnedContext.filter((candidate) => candidate !== item) })}
-									className="text-[var(--danger-strong)]"
-									aria-label={`Bỏ ghim ${item.label}`}
-								>
-									×
-								</button>
-							) : null}
-						</div>
-					))}
-					{!readOnly ? (
-						<details>
-							<summary className="cursor-pointer text-[9px] font-bold text-[var(--accent-strong)]">Ghim ID mới</summary>
-							<div className="mt-2 space-y-2">
-								<select value={pinType} onChange={(event) => setPinType(event.target.value as typeof pinType)} className={railInputClass}>
-									<option value="evidence">Evidence</option>
-									<option value="scan">Scan</option>
-									<option value="topic">Chủ đề</option>
-									<option value="draft">Bản nháp</option>
-									<option value="article">Bài viết</option>
-								</select>
-								<input value={pinId} onChange={(event) => setPinId(event.target.value)} placeholder="ID chuẩn" className={railInputClass} />
-								<input value={pinLabel} onChange={(event) => setPinLabel(event.target.value)} placeholder="Nhãn dễ nhận biết" className={railInputClass} />
-								<button type="button" onClick={() => void addPinnedContext()} className={smallButtonClass}>Ghim ngữ cảnh</button>
-							</div>
-						</details>
-					) : null}
-				</div>
-			</div>
-			<div className="mt-3 border-t border-[var(--border)] pt-3">
-				<p className="text-[9px] font-bold uppercase text-[var(--muted)]">Preset lời nhắc</p>
-				<div className="mt-2 space-y-1.5">
-					{presets.data?.presets.slice(0, 5).map((preset) => (
-						<button
-							key={preset.id}
-							type="button"
-							disabled={readOnly}
-							onClick={() => onUsePreset(preset.instructions)}
-							className="flex w-full items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-left text-[9px] font-bold"
-						>
-							<span className="truncate">{preset.name}</span>
-							<span className="text-[8px] text-[var(--muted)]">{preset.visibility === "workspace" ? "Chung" : "Riêng"}</span>
-						</button>
-					))}
-				</div>
-				{!readOnly ? (
-					<details className="mt-2">
-						<summary className="cursor-pointer text-[9px] font-bold text-[var(--accent-strong)]">Tạo preset riêng</summary>
-						<div className="mt-2 space-y-2">
-							<input value={presetName} onChange={(event) => setPresetName(event.target.value)} placeholder="Tên preset" className={railInputClass} />
-							<textarea value={presetInstructions} onChange={(event) => setPresetInstructions(event.target.value)} rows={3} placeholder="Hướng dẫn tái sử dụng…" className={railInputClass} />
-							<select value={presetVisibility} onChange={(event) => setPresetVisibility(event.target.value as "private" | "workspace")} className={railInputClass}>
-								<option value="private">Riêng tư</option>
-								<option value="workspace">Chia sẻ workspace</option>
-							</select>
-							<button type="button" disabled={saving} onClick={() => void createPreset()} className={smallButtonClass}>Lưu preset</button>
-						</div>
-					</details>
-				) : null}
-			</div>
-		</div>
-	);
+  const [saving, setSaving] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetInstructions, setPresetInstructions] = useState("");
+  const [presetVisibility, setPresetVisibility] = useState<
+    "private" | "workspace"
+  >("private");
+  const [pinType, setPinType] = useState<
+    "scan" | "evidence" | "topic" | "draft" | "article"
+  >("evidence");
+  const [pinId, setPinId] = useState("");
+  const [pinLabel, setPinLabel] = useState("");
+  const models = useQuery({
+    queryKey: ["ai", "models"],
+    queryFn: () =>
+      fetchJson<{ defaultModel: string; models: string[] }>("/api/ai/models"),
+  });
+  const presets = useQuery({
+    queryKey: ["ai", "presets"],
+    queryFn: () =>
+      fetchJson<{
+        presets: Array<{
+          id: string;
+          instructions: string;
+          name: string;
+          visibility: "private" | "workspace";
+        }>;
+      }>("/api/ai/presets"),
+  });
+  async function patch(payload: Record<string, unknown>) {
+    setSaving(true);
+    try {
+      await fetchJson(`/api/chat/conversations/${conversation.id}`, {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function createPreset() {
+    if (!presetName.trim() || !presetInstructions.trim()) return;
+    setSaving(true);
+    try {
+      await fetchJson("/api/ai/presets", {
+        body: JSON.stringify({
+          instructions: presetInstructions,
+          name: presetName,
+          visibility: presetVisibility,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      setPresetName("");
+      setPresetInstructions("");
+      await presets.refetch();
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function addPinnedContext() {
+    if (!pinId.trim() || !pinLabel.trim()) return;
+    await patch({
+      pinnedContext: [
+        ...conversation.pinnedContext.filter(
+          (item) => !(item.type === pinType && item.id === pinId.trim()),
+        ),
+        {
+          href: `/${pinType === "scan" ? "scans" : pinType === "evidence" ? "evidence" : pinType === "topic" ? "topics" : pinType === "draft" ? "drafts" : "articles"}/${pinId.trim()}`,
+          id: pinId.trim(),
+          label: pinLabel.trim(),
+          type: pinType,
+        },
+      ],
+    });
+    setPinId("");
+    setPinLabel("");
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <SlidersHorizontal size={12} />
+        <p className={railTitleClass}>Mô hình & cách trả lời</p>
+      </div>
+      <div className="mt-2 space-y-2">
+        <select
+          disabled={readOnly || saving}
+          value={conversation.model ?? models.data?.defaultModel ?? ""}
+          onChange={(event) => void patch({ model: event.target.value })}
+          className={railInputClass}
+        >
+          {models.data?.models.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+        <label className="block text-[9px] font-bold text-[var(--muted)]">
+          Độ sáng tạo · {(conversation.temperature / 100).toFixed(1)}
+          <input
+            type="range"
+            min={0}
+            max={200}
+            step={10}
+            disabled={readOnly || saving}
+            defaultValue={conversation.temperature}
+            onPointerUp={(event) =>
+              void patch({
+                temperature: Number(event.currentTarget.value) / 100,
+              })
+            }
+            className="mt-1 w-full"
+          />
+        </label>
+        <select
+          disabled={readOnly || saving}
+          value={conversation.contextBudget}
+          onChange={(event) =>
+            void patch({ contextBudget: Number(event.target.value) })
+          }
+          className={railInputClass}
+        >
+          <option value={16000}>Ngữ cảnh 16K</option>
+          <option value={32000}>Ngữ cảnh 32K</option>
+          <option value={64000}>Ngữ cảnh 64K</option>
+          <option value={128000}>Ngữ cảnh 128K</option>
+        </select>
+      </div>
+      <div className="mt-3 border-t border-[var(--border)] pt-3">
+        <p className="text-[9px] font-bold uppercase text-[var(--muted)]">
+          Ghim ngữ cảnh
+        </p>
+        <div className="mt-2 space-y-2">
+          {conversation.pinnedContext.map((item) => (
+            <div
+              key={`${item.type}:${item.id}`}
+              className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-[9px]"
+            >
+              <span className="truncate font-bold">
+                {item.type} · {item.label}
+              </span>
+              {!readOnly ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void patch({
+                      pinnedContext: conversation.pinnedContext.filter(
+                        (candidate) => candidate !== item,
+                      ),
+                    })
+                  }
+                  className="text-[var(--danger-strong)]"
+                  aria-label={`Bỏ ghim ${item.label}`}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          ))}
+          {!readOnly ? (
+            <details>
+              <summary className="cursor-pointer text-[9px] font-bold text-[var(--accent-strong)]">
+                Ghim ID mới
+              </summary>
+              <div className="mt-2 space-y-2">
+                <select
+                  value={pinType}
+                  onChange={(event) =>
+                    setPinType(event.target.value as typeof pinType)
+                  }
+                  className={railInputClass}
+                >
+                  <option value="evidence">Evidence</option>
+                  <option value="scan">Scan</option>
+                  <option value="topic">Chủ đề</option>
+                  <option value="draft">Bản nháp</option>
+                  <option value="article">Bài viết</option>
+                </select>
+                <input
+                  value={pinId}
+                  onChange={(event) => setPinId(event.target.value)}
+                  placeholder="ID chuẩn"
+                  className={railInputClass}
+                />
+                <input
+                  value={pinLabel}
+                  onChange={(event) => setPinLabel(event.target.value)}
+                  placeholder="Nhãn dễ nhận biết"
+                  className={railInputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => void addPinnedContext()}
+                  className={smallButtonClass}
+                >
+                  Ghim ngữ cảnh
+                </button>
+              </div>
+            </details>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3 border-t border-[var(--border)] pt-3">
+        <p className="text-[9px] font-bold uppercase text-[var(--muted)]">
+          Preset lời nhắc
+        </p>
+        <div className="mt-2 space-y-1.5">
+          {presets.data?.presets.slice(0, 5).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              disabled={readOnly}
+              onClick={() => onUsePreset(preset.instructions)}
+              className="flex w-full items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-left text-[9px] font-bold"
+            >
+              <span className="truncate">{preset.name}</span>
+              <span className="text-[8px] text-[var(--muted)]">
+                {preset.visibility === "workspace" ? "Chung" : "Riêng"}
+              </span>
+            </button>
+          ))}
+        </div>
+        {!readOnly ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[9px] font-bold text-[var(--accent-strong)]">
+              Tạo preset riêng
+            </summary>
+            <div className="mt-2 space-y-2">
+              <input
+                value={presetName}
+                onChange={(event) => setPresetName(event.target.value)}
+                placeholder="Tên preset"
+                className={railInputClass}
+              />
+              <textarea
+                value={presetInstructions}
+                onChange={(event) => setPresetInstructions(event.target.value)}
+                rows={3}
+                placeholder="Hướng dẫn tái sử dụng…"
+                className={railInputClass}
+              />
+              <select
+                value={presetVisibility}
+                onChange={(event) =>
+                  setPresetVisibility(
+                    event.target.value as "private" | "workspace",
+                  )
+                }
+                className={railInputClass}
+              >
+                <option value="private">Riêng tư</option>
+                <option value="workspace">Chia sẻ workspace</option>
+              </select>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void createPreset()}
+                className={smallButtonClass}
+              >
+                Lưu preset
+              </button>
+            </div>
+          </details>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
-function ConversationActions({ conversation, onChanged, onDeleted, onFork, readOnly }: { conversation: ConversationRow; onChanged: () => void; onDeleted: () => void; onFork: (id: string) => void; readOnly: boolean }) {
-	const [renaming, setRenaming] = useState(false);
-	const [title, setTitle] = useState(conversation.title);
-	async function patch(payload: object) {
-		await fetchJson(`/api/chat/conversations/${conversation.id}`, { body: JSON.stringify(payload), headers: { "Content-Type": "application/json" }, method: "PATCH" });
-		onChanged();
-	}
-	if (readOnly) return <button type="button" onClick={async () => { const result = await fetchJson<{ conversation: ConversationRow }>(`/api/chat/conversations/${conversation.id}/fork`, { method: "POST" }); onFork(result.conversation.id); }} className={smallButtonClass}><GitFork size={13} /> Tạo bản riêng</button>;
-	return (
-		<div className="flex items-center gap-1">
-			{renaming ? <form className="flex items-center gap-1" onSubmit={(event) => { event.preventDefault(); if (title.trim()) void patch({ title: title.trim() }).then(() => setRenaming(false)); }}><input autoFocus value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} className="h-8 w-40 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs" /><button className={iconButtonClass} type="submit"><Pencil size={13} /></button></form> : <button type="button" title="Đổi tên" onClick={() => setRenaming(true)} className={iconButtonClass}><Pencil size={14} /></button>}
-			<button type="button" title="Chia sẻ workspace" onClick={() => void patch({ visibility: conversation.visibility === "workspace" ? "private" : "workspace" })} className={iconButtonClass}>{conversation.visibility === "workspace" ? <Users size={14} /> : <Share2 size={14} />}</button>
-			<button type="button" title="Lưu trữ" onClick={() => void patch({ archived: !conversation.archivedAt })} className={iconButtonClass}><Archive size={14} /></button>
-			<button type="button" title="Xóa" onClick={async () => { await fetchJson(`/api/chat/conversations/${conversation.id}`, { method: "DELETE" }); onDeleted(); }} className={iconButtonClass}><Trash2 size={14} /></button>
-		</div>
-	);
+function ConversationActions({
+  conversation,
+  onChanged,
+  onDeleted,
+  onFork,
+  readOnly,
+}: {
+  conversation: ConversationRow;
+  onChanged: () => void;
+  onDeleted: () => void;
+  onFork: (id: string) => void;
+  readOnly: boolean;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [title, setTitle] = useState(conversation.title);
+  async function patch(payload: object) {
+    await fetchJson(`/api/chat/conversations/${conversation.id}`, {
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+    onChanged();
+  }
+  if (readOnly)
+    return (
+      <button
+        type="button"
+        onClick={async () => {
+          const result = await fetchJson<{ conversation: ConversationRow }>(
+            `/api/chat/conversations/${conversation.id}/fork`,
+            { method: "POST" },
+          );
+          onFork(result.conversation.id);
+        }}
+        className={smallButtonClass}
+      >
+        <GitFork size={13} /> Tạo bản riêng
+      </button>
+    );
+  return (
+    <div className="flex items-center gap-1">
+      {renaming ? (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (title.trim())
+              void patch({ title: title.trim() }).then(() =>
+                setRenaming(false),
+              );
+          }}
+        >
+          <input
+            autoFocus
+            value={title}
+            maxLength={120}
+            onChange={(event) => setTitle(event.target.value)}
+            className="h-8 w-40 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs"
+          />
+          <button className={iconButtonClass} type="submit">
+            <Pencil size={13} />
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          title="Đổi tên"
+          onClick={() => setRenaming(true)}
+          className={iconButtonClass}
+        >
+          <Pencil size={14} />
+        </button>
+      )}
+      <button
+        type="button"
+        title="Chia sẻ workspace"
+        onClick={() =>
+          void patch({
+            visibility:
+              conversation.visibility === "workspace" ? "private" : "workspace",
+          })
+        }
+        className={iconButtonClass}
+      >
+        {conversation.visibility === "workspace" ? (
+          <Users size={14} />
+        ) : (
+          <Share2 size={14} />
+        )}
+      </button>
+      <button
+        type="button"
+        title="Lưu trữ"
+        onClick={() => void patch({ archived: !conversation.archivedAt })}
+        className={iconButtonClass}
+      >
+        <Archive size={14} />
+      </button>
+      <button
+        type="button"
+        title="Xóa"
+        onClick={async () => {
+          await fetchJson(`/api/chat/conversations/${conversation.id}`, {
+            method: "DELETE",
+          });
+          onDeleted();
+        }}
+        className={iconButtonClass}
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
 }
 
-async function waitUntilAttachmentReady(conversationId: string, attachmentId: string) {
-	for (let attempt = 0; attempt < 60; attempt += 1) {
-		const detail = await fetchJson<ChatDetail>(`/api/chat/conversations/${conversationId}`);
-		const attachment = detail.attachments.find((item) => item.id === attachmentId);
-		if (attachment?.status === "ready") return;
-		if (attachment?.status === "failed") throw new Error(attachment.errorMessage ?? "Không thể xử lý tệp");
-		await new Promise((resolve) => window.setTimeout(resolve, 1_000));
-	}
-	throw new Error("Xử lý tệp mất quá nhiều thời gian. Bạn có thể thử lại từ ngữ cảnh Chat.");
+async function waitUntilAttachmentReady(
+  conversationId: string,
+  attachmentId: string,
+) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const detail = await fetchJson<ChatDetail>(
+      `/api/chat/conversations/${conversationId}`,
+    );
+    const attachment = detail.attachments.find(
+      (item) => item.id === attachmentId,
+    );
+    if (attachment?.status === "ready") return;
+    if (attachment?.status === "failed")
+      throw new Error(attachment.errorMessage ?? "Không thể xử lý tệp");
+    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+  }
+  throw new Error(
+    "Xử lý tệp mất quá nhiều thời gian. Bạn có thể thử lại từ ngữ cảnh Chat.",
+  );
 }
 
-function uploadBlob(blob: Blob, upload: { headers?: Record<string, string>; signedUrl: string; token?: string }, onProgress: (progress: number) => void) {
-	return new Promise<void>((resolve, reject) => {
-		const xhr = new XMLHttpRequest();
-		xhr.open("PUT", upload.signedUrl);
-		for (const [key, value] of Object.entries(upload.headers ?? {})) xhr.setRequestHeader(key, value);
-		if (upload.token) xhr.setRequestHeader("Authorization", `Bearer ${upload.token}`);
-		xhr.upload.onprogress = (event) => onProgress(event.lengthComputable ? Math.round((event.loaded / event.total) * 100) : 0);
-		xhr.onerror = () => reject(new Error("Không thể tải tệp lên Tuturuuu Drive"));
-		xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Tải tệp thất bại (${xhr.status})`));
-		xhr.send(blob);
-	});
+function uploadBlob(
+  blob: Blob,
+  upload: {
+    headers?: Record<string, string>;
+    signedUrl: string;
+    token?: string;
+  },
+  onProgress: (progress: number) => void,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", upload.signedUrl);
+    for (const [key, value] of Object.entries(upload.headers ?? {}))
+      xhr.setRequestHeader(key, value);
+    if (upload.token)
+      xhr.setRequestHeader("Authorization", `Bearer ${upload.token}`);
+    xhr.upload.onprogress = (event) =>
+      onProgress(
+        event.lengthComputable
+          ? Math.round((event.loaded / event.total) * 100)
+          : 0,
+      );
+    xhr.onerror = () =>
+      reject(new Error("Không thể tải tệp lên Tuturuuu Drive"));
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`Tải tệp thất bại (${xhr.status})`));
+    xhr.send(blob);
+  });
 }
 
 function inferContentType(fileName?: string, candidate?: string) {
-	if (candidate && candidate !== "application/octet-stream") return candidate;
-	const extension = fileName?.split(".").pop()?.toLowerCase();
-	return ({
-		csv: "text/csv", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-		jpeg: "image/jpeg", jpg: "image/jpeg", json: "application/json", md: "text/markdown", pdf: "application/pdf",
-		png: "image/png", ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-		txt: "text/plain", webp: "image/webp", xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	} as Record<string, string>)[extension ?? ""] ?? "application/octet-stream";
+  if (candidate && candidate !== "application/octet-stream") return candidate;
+  const extension = fileName?.split(".").pop()?.toLowerCase();
+  return (
+    (
+      {
+        csv: "text/csv",
+        doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        jpeg: "image/jpeg",
+        jpg: "image/jpeg",
+        json: "application/json",
+        md: "text/markdown",
+        pdf: "application/pdf",
+        png: "image/png",
+        ppt: "application/vnd.ms-powerpoint",
+        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        txt: "text/plain",
+        webp: "image/webp",
+        xls: "application/vnd.ms-excel",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      } as Record<string, string>
+    )[extension ?? ""] ?? "application/octet-stream"
+  );
 }
 
-async function fetchJson<T = unknown>(url: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(url, { cache: "no-store", ...init });
-	const body = await response.json().catch(() => null);
-	if (!response.ok) throw new Error(body && typeof body === "object" && "error" in body ? String(body.error) : `Yêu cầu thất bại (${response.status})`);
-	return body as T;
+async function fetchJson<T = unknown>(
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(url, { cache: "no-store", ...init });
+  const body = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new Error(
+      body && typeof body === "object" && "error" in body
+        ? String(body.error)
+        : `Yêu cầu thất bại (${response.status})`,
+    );
+  return body as T;
 }
 
 async function openAttachment(conversationId: string, attachmentId: string) {
-	const result = await fetchJson<{ signedUrl: string }>(`/api/chat/conversations/${conversationId}/attachments/${attachmentId}`);
-	window.open(result.signedUrl, "_blank", "noopener,noreferrer");
+  const result = await fetchJson<{ signedUrl: string }>(
+    `/api/chat/conversations/${conversationId}/attachments/${attachmentId}`,
+  );
+  window.open(result.signedUrl, "_blank", "noopener,noreferrer");
 }
 
-function ChatLoading() { return <div className="grid min-h-[620px] place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></div>; }
-function ChatError({ message, onRetry }: { message?: string; onRetry: () => void }) { return <div className="grid min-h-[620px] place-items-center p-6 text-center"><div><p className="text-sm font-bold text-[var(--danger-strong)]">{message ?? "Không thể tải Chat."}</p><button type="button" onClick={onRetry} className={smallButtonClass}>Thử lại</button></div></div>; }
-function relativeTime(value: string) { const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000)); return minutes < 1 ? "Vừa xong" : minutes < 60 ? `${minutes} phút` : new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(new Date(value)); }
-function attachmentStatus(value: AttachmentRow["status"]) { return ({ pending_upload: "Chờ tải", uploading: "Đang tải", processing: "Đang xử lý", ready: "Sẵn sàng", failed: "Lỗi", deleting: "Đang xóa", deleted: "Đã xóa" } as const)[value]; }
-function formatBytes(value: number) { return value < 1024 * 1024 ? `${Math.ceil(value / 1024)} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`; }
-function toolLabel(value: string) { return ({ searchEvidence: "Tìm bằng chứng", getEvidence: "Đọc bằng chứng", listScans: "Danh sách scan", getScan: "Chi tiết scan", listTopics: "Chủ đề", getInsights: "Insight", searchAttachments: "Tìm trong tệp", createDraft: "Lưu bản nháp", createArticle: "Tạo bài viết", updateArticleDraft: "Cập nhật bài viết", listArticles: "Danh sách bài viết", getArticle: "Đọc bài viết", listZaloAccounts: "Zalo OA", runScanNow: "Quét ngay", createScanFromAttachment: "Tạo scan từ tệp", updateEvidenceTriage: "Cập nhật xử lý" } as Record<string, string>)[value] ?? value; }
+function ChatLoading() {
+  return (
+    <div className="grid min-h-[620px] place-items-center">
+      <LoaderCircle className="animate-spin text-[var(--brand)]" />
+    </div>
+  );
+}
+function ChatError({
+  message,
+  onRetry,
+}: {
+  message?: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="grid min-h-[620px] place-items-center p-6 text-center">
+      <div>
+        <p className="text-sm font-bold text-[var(--danger-strong)]">
+          {message ?? "Không thể tải Chat."}
+        </p>
+        <button type="button" onClick={onRetry} className={smallButtonClass}>
+          Thử lại
+        </button>
+      </div>
+    </div>
+  );
+}
+function relativeTime(value: string) {
+  const minutes = Math.max(
+    0,
+    Math.round((Date.now() - new Date(value).getTime()) / 60_000),
+  );
+  return minutes < 1
+    ? "Vừa xong"
+    : minutes < 60
+      ? `${minutes} phút`
+      : new Intl.DateTimeFormat("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+        }).format(new Date(value));
+}
+function attachmentStatus(value: AttachmentRow["status"]) {
+  return (
+    {
+      pending_upload: "Chờ tải",
+      uploading: "Đang tải",
+      processing: "Đang xử lý",
+      ready: "Sẵn sàng",
+      failed: "Lỗi",
+      deleting: "Đang xóa",
+      deleted: "Đã xóa",
+    } as const
+  )[value];
+}
+function formatBytes(value: number) {
+  return value < 1024 * 1024
+    ? `${Math.ceil(value / 1024)} KB`
+    : `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+function toolLabel(value: string) {
+  return (
+    (
+      {
+        searchEvidence: "Tìm bằng chứng",
+        getEvidence: "Đọc bằng chứng",
+        listScans: "Danh sách scan",
+        getScan: "Chi tiết scan",
+        listTopics: "Chủ đề",
+        getInsights: "Insight",
+        searchAttachments: "Tìm trong tệp",
+        createDraft: "Lưu bản nháp",
+        createArticle: "Tạo bài viết",
+        updateArticleDraft: "Cập nhật bài viết",
+        listArticles: "Danh sách bài viết",
+        getArticle: "Đọc bài viết",
+        listZaloAccounts: "Zalo OA",
+        runScanNow: "Quét ngay",
+        createScanFromAttachment: "Tạo scan từ tệp",
+        updateEvidenceTriage: "Cập nhật xử lý",
+      } as Record<string, string>
+    )[value] ?? value
+  );
+}
 
-const iconButtonClass = "inline-flex size-8 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]";
-const smallButtonClass = "inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold text-[var(--muted-strong)]";
-const railTitleClass = "text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
-const railInputClass = "w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-[10px] outline-none focus:border-[var(--accent)]";
+const iconButtonClass =
+  "inline-flex size-8 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]";
+const smallButtonClass =
+  "inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[10px] font-bold text-[var(--muted-strong)]";
+const railTitleClass =
+  "text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
+const railInputClass =
+  "w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-[10px] outline-none focus:border-[var(--accent)]";
+const railSectionClass =
+  "group overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]";
+const railSummaryClass =
+  "flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-[10px] font-extrabold text-[var(--muted-strong)]";

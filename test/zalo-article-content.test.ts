@@ -94,4 +94,30 @@ describe("Zalo article content preparation", () => {
 				"Nội dung tiếng Việt vẫn giữ nguyên dấu.\n\nThông tin đã được đối chiếu.",
 		});
 	});
+
+	test("keeps Zalo paragraphs separated and removes a redundant lead headline", () => {
+		const prepared = prepareZaloArticleContent({
+			author: "CyberShield35",
+			blocks: [
+				{
+					content:
+						"THÔNG CÁO BÁO CHÍ KỲ HỌP THỨ 10 CỦA ỦY BAN KIỂM TRA TRUNG ƯƠNG\nNgày 30/7/2026, tại Hà Nội.\nViệc kiểm tra đã đưa ra những kết luận quan trọng.\n\nCác nội dung tiếp theo được trình bày rõ ràng.",
+					id: "body",
+					type: "text",
+				},
+			],
+			commentsEnabled: true,
+			coverUrl: null,
+			description: "Báo cáo tóm tắt nội dung kỳ họp và các kết luận liên quan.",
+			title: "Các kết luận đáng chú ý từ kỳ họp thứ 10",
+		});
+
+		expect(prepared.blocks[0]).toMatchObject({
+			content:
+				"Ngày 30/7/2026, tại Hà Nội.\n\nViệc kiểm tra đã đưa ra những kết luận quan trọng.\n\nCác nội dung tiếp theo được trình bày rõ ràng.",
+		});
+		expect(prepared.blocks[0]?.type === "text" && prepared.blocks[0].content).not.toContain(
+			"TRUNG ƯƠNGNgày",
+		);
+	});
 });

@@ -57,7 +57,27 @@ export const articleAiOutputSchema = z.object({
 	title: z.string().trim().min(1).max(110),
 });
 
+export const reportAiOutputSchema = z.object({
+	title: z.string().trim().min(1).max(180),
+	executiveSummary: z.string().trim().min(80).max(5_000),
+	sections: z
+		.array(
+			z.object({
+				heading: z.string().trim().min(1).max(180),
+				content: z.string().trim().min(80).max(12_000),
+				evidenceIds: z.array(z.string().trim().min(1).max(120)).max(50),
+			}),
+		)
+		.min(1)
+		.max(12),
+	keyFindings: z.array(z.string().trim().min(1).max(1_000)).min(1).max(12),
+	recommendations: z.array(z.string().trim().min(1).max(1_000)).max(12),
+	limitations: z.array(z.string().trim().min(1).max(1_000)).max(12),
+	reviewNotes: z.array(z.string().trim().min(1).max(1_000)).max(12),
+});
+
 export type ArticleAiOutput = z.infer<typeof articleAiOutputSchema>;
+export type ReportAiOutput = z.infer<typeof reportAiOutputSchema>;
 
 export type AnalysisOutput = z.infer<typeof analysisOutputSchema>;
 export type CounterArgumentOutput = z.infer<typeof counterArgumentOutputSchema>;

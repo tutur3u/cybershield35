@@ -15,7 +15,7 @@ export function Dialog({
 	description?: string;
 	onClose: () => void;
 	open: boolean;
-	size?: "normal" | "wide";
+	size?: "full" | "normal" | "wide";
 	title: string;
 }) {
 	if (!open) return null;
@@ -31,7 +31,11 @@ export function Dialog({
 				role="dialog"
 				aria-labelledby="dashboard-dialog-title"
 				className={`max-h-[92vh] w-full overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-2xl ${
-					size === "wide" ? "max-w-3xl" : "max-w-lg"
+					size === "full"
+						? "max-w-6xl"
+						: size === "wide"
+							? "max-w-3xl"
+							: "max-w-lg"
 				}`}
 				onClick={(event) => event.stopPropagation()}
 			>
