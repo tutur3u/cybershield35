@@ -453,32 +453,33 @@ export async function generateInDepthReport(options: {
       sourceLabel: item.sourceLabel?.slice(0, 300) ?? null,
       summary: item.summary?.slice(0, 400) ?? null,
     }));
+  const reportPrompt = JSON.stringify({
+    analysis: {
+      claims: options.analysis.claims.slice(0, 12).map((claim) => ({
+        ...claim,
+        claim: claim.claim.slice(0, 600),
+        stance: claim.stance.slice(0, 300),
+      })),
+      riskFlags: options.analysis.riskFlags.slice(0, 12),
+      riskLevel: options.analysis.riskLevel,
+      sentiment: options.analysis.sentiment,
+      stanceSummary: options.analysis.stanceSummary.slice(0, 2_000),
+      summary: options.analysis.summary.slice(0, 4_000),
+      topicClusters: options.analysis.topicClusters.slice(0, 12),
+    },
+    depth: options.depth,
+    draftBody: options.draftBody?.slice(0, 1_500),
+    evidence: compactEvidence,
+    reportTemplate: options.report,
+    scan: options.scan,
+    task: deep
+      ? "Soạn báo cáo chuyên sâu hoàn chỉnh. Mở đầu bằng tóm tắt điều hành; phát triển đầy đủ từng mục; đối chiếu bằng chứng; phân tích tác động; nêu phát hiện chính, giới hạn và khuyến nghị có thứ tự ưu tiên. Mục tiêu khoảng 1.800-2.800 từ nếu dữ liệu đủ."
+      : "Soạn báo cáo hoàn chỉnh, rõ ràng, có căn cứ, gồm tóm tắt điều hành, các mục được yêu cầu, phát hiện chính, giới hạn và khuyến nghị. Mục tiêu khoảng 1.000-1.600 từ nếu dữ liệu đủ.",
+  });
   const reportStream = streamText({
     model: runtime.model,
     system: `${system} Trả về văn bản thuần, không JSON, không Markdown và không dùng dấu sao để định dạng. Dùng tiêu đề mục viết hoa trên dòng riêng.`,
-    prompt: JSON.stringify({
-      analysis: {
-        claims: options.analysis.claims.slice(0, 12).map((claim) => ({
-          ...claim,
-          claim: claim.claim.slice(0, 600),
-          stance: claim.stance.slice(0, 300),
-        })),
-        riskFlags: options.analysis.riskFlags.slice(0, 12),
-        riskLevel: options.analysis.riskLevel,
-        sentiment: options.analysis.sentiment,
-        stanceSummary: options.analysis.stanceSummary.slice(0, 2_000),
-        summary: options.analysis.summary.slice(0, 4_000),
-        topicClusters: options.analysis.topicClusters.slice(0, 12),
-      },
-      depth: options.depth,
-      draftBody: options.draftBody?.slice(0, 1_500),
-      evidence: compactEvidence,
-      reportTemplate: options.report,
-      scan: options.scan,
-      task: deep
-        ? "Soạn báo cáo chuyên sâu hoàn chỉnh. Mở đầu bằng tóm tắt điều hành; phát triển đầy đủ từng mục; đối chiếu bằng chứng; phân tích tác động; nêu phát hiện chính, giới hạn và khuyến nghị có thứ tự ưu tiên. Mục tiêu khoảng 1.800-2.800 từ nếu dữ liệu đủ."
-        : "Soạn báo cáo hoàn chỉnh, rõ ràng, có căn cứ, gồm tóm tắt điều hành, các mục được yêu cầu, phát hiện chính, giới hạn và khuyến nghị. Mục tiêu khoảng 1.000-1.600 từ nếu dữ liệu đủ.",
-    }),
+    prompt: stripAiPromptEmoji(reportPrompt),
   });
   const plainTextReport = await reportStream.text;
   const content = cleanDraftContent(plainTextReport).slice(0, 12_000);
@@ -506,6 +507,13 @@ export async function generateInDepthReport(options: {
     ],
     title: options.report.title,
   };
+}
+
+function stripAiPromptEmoji(value: string) {
+  // Tuturuuu's external-app gateway intentionally limits emoji density. Source
+  // posts can contain many decorative emoji, which are irrelevant to report
+  // analysis and could otherwise cause the entire generation request to fail.
+  return value.replace(/\p{Extended_Pictographic}|\uFE0F|\u20E3/gu, "");
 }
 
 function riskRank(value: string | null | undefined) {

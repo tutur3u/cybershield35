@@ -52,6 +52,8 @@ describe("AI report output", () => {
     expect(generation).toContain("toSorted");
     expect(generation).toContain("riskRank");
     expect(generation).toContain("options.analysis.claims.slice(0, 12)");
+    expect(generation).toContain("stripAiPromptEmoji(reportPrompt)");
+    expect(generation).toContain("\\p{Extended_Pictographic}");
     const reportFunction = generation.slice(
       generation.indexOf("export async function generateInDepthReport"),
       generation.indexOf("export async function generateArticleRevision"),
