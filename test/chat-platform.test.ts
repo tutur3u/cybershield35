@@ -69,6 +69,12 @@ describe("first-class Chat platform", () => {
     );
     expect(route).toContain('activeTools: ["getInsights"]');
     expect(route).toContain('"getInsights"');
+    expect(route).toContain(
+      "compactGroundingContext(await getIntelligenceOverview())",
+    );
+    expect(route).toContain(
+      "không được tạo ID, liên kết, nguồn hay sự kiện khác",
+    );
   });
 
   test("keeps all generated content internal and human reviewed", () => {

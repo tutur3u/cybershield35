@@ -23,6 +23,7 @@ import {
   type ChatUIMessage,
 } from "@/lib/chat/types";
 import { adminDb } from "@/lib/db/client";
+import { getIntelligenceOverview } from "@/lib/dashboard/intelligence-server";
 import { chatAttachments, chatModelRuns } from "@/lib/db/schema";
 import { getInteractiveModelRuntime } from "@/lib/llm/generation";
 
@@ -74,6 +75,9 @@ export async function POST(
     const actor = actorFromAuth(auth);
     const incoming = input.message as ChatUIMessage;
     const requiresGrounding = shouldRequireGrounding(input.mode, incoming);
+    const groundingContext = requiresGrounding
+      ? compactGroundingContext(await getIntelligenceOverview())
+      : null;
     const storedIncoming = await persistChatMessage(
       conversationId,
       incoming,
@@ -129,6 +133,9 @@ export async function POST(
         conversation.pinnedContext.length
           ? `Ngữ cảnh được ghim: ${JSON.stringify(conversation.pinnedContext)}`
           : "Không có ngữ cảnh được ghim.",
+        groundingContext
+          ? `Dữ liệu workspace đã được máy chủ truy xuất cho lượt này: ${JSON.stringify(groundingContext)}. Chỉ dùng dữ liệu này hoặc kết quả công cụ thực sự trả về; không được tạo ID, liên kết, nguồn hay sự kiện khác.`
+          : "Không có dữ liệu workspace được truy xuất trước cho lượt này.",
       ].join("\n"),
       temperature: conversation.temperature / 100,
       model: runtime.model,
@@ -280,6 +287,32 @@ function shouldRequireGrounding(
   return /\b(mới nhất|hiện tại|gần đây|hôm nay|workspace|bằng chứng|scan|rủi ro|chủ đề|bài viết|bản nháp|zalo)\b/u.test(
     text,
   );
+}
+
+function compactGroundingContext(
+  overview: Awaited<ReturnType<typeof getIntelligenceOverview>>,
+) {
+  return {
+    actions: overview.actions.slice(0, 6).map((item) => ({
+      body: item.body.slice(0, 500),
+      href: item.href,
+      label: item.label,
+      severity: item.severity,
+    })),
+    generatedAt: overview.generatedAt,
+    kpis: overview.kpis.slice(0, 10),
+    readiness: overview.readiness,
+    topClaims: overview.topClaims.slice(0, 6).map((item) => ({
+      ...item,
+      claim: item.claim.slice(0, 700),
+    })),
+    topEvidence: overview.topEvidence.slice(0, 6).map((item) => ({
+      ...item,
+      quote: item.quote.slice(0, 700),
+      summary: item.summary.slice(0, 500),
+    })),
+    topTopics: overview.topTopics.slice(0, 8),
+  };
 }
 
 function trimMessagesToBudget(
