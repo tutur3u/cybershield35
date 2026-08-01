@@ -719,7 +719,7 @@ function ConversationWorkspace({
                     <PromptInputActionMenuTrigger
                       aria-label="Đính kèm tệp"
                       className="size-8 rounded-lg border border-transparent text-[var(--muted-strong)] hover:border-[var(--border)] hover:bg-[var(--surface-soft)]"
-                      tooltip="Đính kèm tệp"
+                      title="Đính kèm tệp"
                     >
                       <Paperclip size={14} />
                     </PromptInputActionMenuTrigger>

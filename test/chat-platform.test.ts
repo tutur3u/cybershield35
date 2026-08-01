@@ -103,6 +103,7 @@ describe("first-class Chat platform", () => {
     expect(workspace).toContain("Enter để gửi · Shift + Enter để xuống dòng");
     expect(workspace).toContain("Hỏi về bằng chứng, lần quét, chủ đề");
     expect(workspace).toContain('aria-label="Đính kèm tệp"');
+    expect(workspace).toContain('title="Đính kèm tệp"');
     expect(workspace).toContain('aria-label="Chọn mục tiêu trò chuyện"');
   });
 
