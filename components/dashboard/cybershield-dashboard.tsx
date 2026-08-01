@@ -7,6 +7,7 @@ import {
 	type Dispatch,
 	type SetStateAction,
 	useCallback,
+	useEffect,
 	useMemo,
 	useState,
 } from "react";
@@ -56,6 +57,11 @@ import type {
 	TopicCluster,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
+import {
+	parseStoredReportTemplates,
+	REPORT_TEMPLATE_STORAGE_KEY,
+	serializeStoredReportTemplates,
+} from "@/lib/domain/report-template-storage";
 import {
 	dashboardInitialDataQueryOptions,
 	scanDetailQueryOptions,
@@ -278,6 +284,7 @@ export function CyberShieldDashboard({
 		useState<ReportSpec | null>(null);
 	const [customReports, setCustomReports] = useState<ReportSpec[]>([]);
 	const [hiddenReportKinds, setHiddenReportKinds] = useState<string[]>([]);
+	const [reportTemplatesHydrated, setReportTemplatesHydrated] = useState(false);
 	const chatMessages: ChatMessage[] = initialChatMessages;
 	const isChatting = false;
 	const [scanEditDialogOpen, setScanEditDialogOpen] = useState(false);
@@ -338,6 +345,35 @@ export function CyberShieldDashboard({
 		],
 		[customReports, hiddenReportKinds],
 	);
+
+	useEffect(() => {
+		const timeoutId = window.setTimeout(() => {
+			try {
+				const stored = parseStoredReportTemplates(
+					window.localStorage.getItem(REPORT_TEMPLATE_STORAGE_KEY),
+				);
+				setCustomReports(stored.customReports);
+				setHiddenReportKinds(stored.hiddenReportKinds);
+			} catch {
+				// Storage can be unavailable in privacy-restricted browser contexts.
+			}
+			setReportTemplatesHydrated(true);
+		}, 0);
+
+		return () => window.clearTimeout(timeoutId);
+	}, []);
+
+	useEffect(() => {
+		if (!reportTemplatesHydrated) return;
+		try {
+			window.localStorage.setItem(
+				REPORT_TEMPLATE_STORAGE_KEY,
+				serializeStoredReportTemplates(customReports, hiddenReportKinds),
+			);
+		} catch {
+			// The report workflow still works in-memory when storage is unavailable.
+		}
+	}, [customReports, hiddenReportKinds, reportTemplatesHydrated]);
 
 	function invalidateDashboardQueries(scanIdToInvalidate = activeScanId) {
 		void scanIdToInvalidate;
@@ -453,7 +489,7 @@ export function CyberShieldDashboard({
 				);
 			}
 			if (selectedReport?.kind === report.kind) setReportDialogOpen(false);
-			setNotice("Đã xóa preset báo cáo.");
+			setNotice("Đã xóa mẫu báo cáo.");
 		},
 		onCreateEvidence: () => {
 			setEvidenceBeingEdited(null);
@@ -584,7 +620,7 @@ export function CyberShieldDashboard({
 				...current,
 				{ ...values, kind: createCustomReportKind() },
 			]);
-			setNotice("Đã tạo preset báo cáo.");
+			setNotice("Đã tạo mẫu báo cáo.");
 			return;
 		}
 
@@ -602,7 +638,7 @@ export function CyberShieldDashboard({
 				{ ...nextReport, kind: createCustomReportKind() },
 			]);
 		}
-		setNotice("Đã cập nhật preset báo cáo.");
+		setNotice("Đã cập nhật mẫu báo cáo.");
 	};
 
 	return (

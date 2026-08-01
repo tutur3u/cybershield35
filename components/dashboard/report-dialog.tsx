@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardCopy, FileBarChart } from "lucide-react";
+import { CheckCircle2, ClipboardCopy, Database, FileBarChart, LockKeyhole } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
@@ -55,8 +55,8 @@ export function ReportDialog({
 		<Dialog
 			open={open}
 			onClose={onClose}
-			title={`Chuẩn bị báo cáo: ${report.title}`}
-			description="Bản xem trước chỉ dùng dữ liệu đang hiển thị trong dashboard và không tự động xuất bản."
+			title={`Xem trước báo cáo: ${report.title}`}
+			description="Kiểm tra nội dung và dữ liệu đầu vào trước khi tải file. Không có nội dung nào được tự động đăng tải."
 			size="wide"
 		>
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
@@ -72,6 +72,18 @@ export function ReportDialog({
 						<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
 							{report.description}
 						</p>
+					</div>
+					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+						<p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.02em] text-[var(--muted)]"><Database size={14} /> Dữ liệu được dùng</p>
+						<div className="mt-2 space-y-2 text-[11px] font-semibold leading-4 text-[var(--muted-strong)]">
+							<p className="flex items-start gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-[var(--success-strong)]" /> Lượt quét: {selectedScan?.title ?? "chưa chọn"}</p>
+							<p className="flex items-start gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-[var(--success-strong)]" /> {evidence.length} bằng chứng liên quan</p>
+							<p className="flex items-start gap-2"><CheckCircle2 size={13} className="mt-0.5 shrink-0 text-[var(--success-strong)]" /> Bản nháp: {draft ? "đã có" : "chưa có"}</p>
+						</div>
+					</div>
+					<div className="flex items-start gap-2 rounded-lg bg-[var(--accent-soft)] p-3 text-[11px] font-semibold leading-4 text-[var(--accent-strong)]">
+						<LockKeyhole size={14} className="mt-0.5 shrink-0" />
+						<span>Tải file chỉ lưu về thiết bị của bạn; không xuất bản lên Zalo OA hoặc mạng xã hội.</span>
 					</div>
 					<PrimaryButton onClick={copyReport}>
 						<ClipboardCopy size={15} /> Sao chép
@@ -110,8 +122,8 @@ function buildReportText({
 		`CyberShield 35 - ${report.title}`,
 		`Scan: ${selectedScan?.title ?? "Chưa chọn"}`,
 		`Nguồn: ${selectedScan?.sourceLabel ?? "Nguồn công khai"}`,
-		`Trạng thái: ${selectedScan?.status ?? "chưa có scan live"}`,
-		`Mức rủi ro: ${analysis.riskLevel}`,
+		`Trạng thái: ${reportScanStatus(selectedScan?.status)}`,
+		`Mức rủi ro: ${reportRiskLabel(analysis.riskLevel)}`,
 		"",
 		"Tóm tắt phân tích",
 		analysis.summary,
@@ -135,4 +147,20 @@ function buildReportText({
 	];
 
 	return lines.join("\n");
+}
+
+function reportScanStatus(status?: DashboardScan["status"]) {
+	if (status === "completed") return "Hoàn tất";
+	if (status === "failed") return "Thất bại";
+	if (status === "running") return "Đang xử lý";
+	if (status === "retrying") return "Đang thử lại";
+	if (status === "queued") return "Đang chờ";
+	return "Chưa có dữ liệu";
+}
+
+function reportRiskLabel(risk: string) {
+	if (risk === "high") return "Cao";
+	if (risk === "medium") return "Trung bình";
+	if (risk === "low") return "Thấp";
+	return risk;
 }

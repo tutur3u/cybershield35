@@ -181,15 +181,25 @@ export function IntelligenceReportsWorkbench({
 	const overview = overviewQuery.data;
 
 	return (
-		<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
+		<div className="space-y-4">
 			<ReportReadinessPanel
 				overview={overview}
 				onCreateReport={onCreateReport}
-				className="h-full"
 			/>
-			<CriticalEvidencePanel evidence={overview?.topEvidence} />
-			<ClaimGraphPanel claims={overview?.topClaims} />
-			<TopicMomentumPanel topics={overview?.topTopics} />
+			<details className="group rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+				<summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-[13px] font-bold text-[var(--foreground)] marker:content-none">
+					<span>
+						Dữ liệu hỗ trợ quyết định
+						<span className="mt-1 block text-[11px] font-semibold leading-4 text-[var(--muted)]">Mở khi cần kiểm tra bằng chứng, claim và xu hướng chủ đề trước khi xuất báo cáo.</span>
+					</span>
+					<ArrowRight size={15} className="shrink-0 transition group-open:rotate-90" />
+				</summary>
+				<div className="grid min-w-0 gap-4 border-t border-[var(--divider)] p-4 xl:grid-cols-2">
+					<CriticalEvidencePanel evidence={overview?.topEvidence} />
+					<ClaimGraphPanel claims={overview?.topClaims} />
+					<div className="xl:col-span-2"><TopicMomentumPanel topics={overview?.topTopics} /></div>
+				</div>
+			</details>
 		</div>
 	);
 }
@@ -500,8 +510,8 @@ function ReportReadinessPanel({
 	return (
 		<Panel className={className}>
 			<PanelHeader
-				title="Độ sẵn sàng báo cáo điều hành"
-				description="Độ sẵn sàng dựa trên draft đã duyệt, bằng chứng và citation coverage."
+				title="Kiểm tra dữ liệu trước khi xuất"
+				description="Các chỉ số giúp biết lượt quét nào đã có đủ dữ liệu và bản nháp được người vận hành duyệt."
 				action={
 					onCreateReport ? (
 						<button
@@ -509,15 +519,15 @@ function ReportReadinessPanel({
 							onClick={onCreateReport}
 							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							<FileBarChart size={14} /> Mẫu báo cáo
+							<FileBarChart size={14} /> Tạo mẫu riêng
 						</button>
 					) : null
 				}
 			/>
 			<div className="grid min-w-0 gap-3 p-4 md:grid-cols-4">
 				<ReadinessMetric
-					help="Scan sẵn sàng báo cáo là scan đã hoàn tất và có bản nháp được duyệt trong khoảng rollup."
-					label="Báo cáo sẵn sàng"
+					help="Một lượt quét được tính là sẵn sàng khi đã hoàn tất và có bản nháp được người vận hành duyệt."
+					label="Lượt quét sẵn sàng"
 					value={readiness?.readyReports ?? 0}
 				/>
 				<ReadinessMetric
@@ -526,14 +536,14 @@ function ReportReadinessPanel({
 					value={readiness?.approvedDrafts ?? 0}
 				/>
 				<ReadinessMetric
-					help="Bao gồm tất cả bản nháp phản hồi đã tạo."
-					label="Bản nháp"
+					help="Tổng số bản nháp phản hồi đã tạo trong khoảng thời gian đang xem."
+					label="Tổng bản nháp"
 					value={readiness?.draftCount ?? 0}
 				/>
 				<ReadinessMetric
-					help="Độ phủ citation so sánh bản nháp đã duyệt với tổng bản nháp sẵn có."
-					label="Độ phủ citation"
-					value={`${readiness?.citationCoverage ?? 0}%`}
+					help="Tỷ lệ được tính bằng số bản nháp đã duyệt chia cho tổng số bản nháp trong khoảng thời gian đang xem."
+					label="Tỷ lệ đã duyệt"
+					value={`${readiness?.approvedDraftRate ?? 0}%`}
 				/>
 			</div>
 		</Panel>
@@ -668,8 +678,8 @@ function ReadinessMetric({
 	return (
 		<DashboardTooltip content={help}>
 			<div className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<p className="truncate text-[11px] font-bold text-[var(--muted)]">{label}</p>
-				<p className="mt-2 truncate text-[22px] font-bold text-[var(--foreground)]">
+				<p className="flex min-h-8 items-start gap-1.5 text-[11px] font-bold leading-4 text-[var(--muted)]">{label}<Info size={12} className="mt-0.5 shrink-0" /></p>
+				<p className="mt-1 break-words text-[22px] font-bold text-[var(--foreground)]">
 					{typeof value === "number" ? value.toLocaleString("vi-VN") : value}
 				</p>
 			</div>

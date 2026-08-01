@@ -597,7 +597,7 @@ export type IntelligenceActivityRow = {
 
 export type IntelligenceReadiness = {
 	approvedDrafts: number;
-	citationCoverage: number;
+	approvedDraftRate: number;
 	draftCount: number;
 	label: string;
 	readyReports: number;

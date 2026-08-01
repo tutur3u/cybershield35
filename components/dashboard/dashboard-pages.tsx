@@ -4,9 +4,13 @@ import {
 	ArrowRight,
 	CheckCircle2,
 	Database,
+	Download,
 	Edit3,
+	Eye,
 	FileBarChart,
 	FileText,
+	Info,
+	LockKeyhole,
 	MessageSquareText,
 	Plus,
 	Radar,
@@ -207,27 +211,84 @@ export function CounterArgumentsPage(props: DashboardPageProps) {
 }
 
 export function ReportsPage(props: DashboardPageProps) {
+	const selectedScanId = props.selectedScan?.id ?? "";
+	const hasSelectedScan = Boolean(props.selectedScan);
+
 	return (
 		<div className="flex min-h-[calc(100vh-7rem)] flex-col gap-5">
 			<PageHeader
 				icon={FileBarChart}
 				title="Báo cáo"
-				description="Các chế độ xuất báo cáo phục vụ trao đổi nội bộ và điều phối."
+				description="Tạo bản xem trước có cấu trúc từ một lượt quét, sau đó tải xuống để trao đổi và điều phối nội bộ."
 				actions={
 					<SecondaryButton onClick={props.onCreateReport}>
-						<Plus size={14} /> Tạo preset
+						<Plus size={14} /> Tạo mẫu riêng
 					</SecondaryButton>
 				}
 			/>
-			<IntelligenceReportsWorkbench onCreateReport={props.onCreateReport} />
+			<Panel>
+				<div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)] lg:p-5">
+					<div>
+						<div className="flex items-center gap-2">
+							<span className="grid size-8 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+								<FileBarChart size={16} />
+							</span>
+							<div>
+								<h2 className="text-[14px] font-bold text-[var(--foreground)]">Quy trình tạo báo cáo</h2>
+								<p className="text-[12px] leading-5 text-[var(--muted)]">Ba bước, luôn có bản xem trước trước khi tải file.</p>
+							</div>
+						</div>
+						<div className="mt-4 grid gap-2 sm:grid-cols-3">
+							<ReportStep icon={Database} label="Chọn dữ liệu" value="Một lượt quét làm ngữ cảnh chính" />
+							<ReportStep icon={FileText} label="Chọn mẫu" value="Quyết định các mục trong báo cáo" />
+							<ReportStep icon={Download} label="Xem trước & tải" value="Word, PDF hoặc bản đọc âm thanh" />
+						</div>
+					</div>
+					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+						<label className="block">
+							<span className="text-[11px] font-bold uppercase tracking-[0.02em] text-[var(--muted)]">1. Dữ liệu dùng cho báo cáo</span>
+							<select
+								value={selectedScanId}
+								onChange={(event) => props.onSelectScan(event.target.value)}
+								className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[13px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+							>
+								<option value="">Chọn một lượt quét...</option>
+								{props.scans.map((scan) => (
+									<option key={scan.id} value={scan.id}>
+										{scan.title} · {scan.createdAt.slice(0, 10)} · {reportScanStatus(scan.status)}
+									</option>
+								))}
+							</select>
+						</label>
+						<div className="mt-3 flex items-start gap-2 rounded-md bg-[var(--accent-soft)] p-3 text-[11px] font-semibold leading-5 text-[var(--accent-strong)]">
+							<LockKeyhole size={15} className="mt-0.5 shrink-0" />
+							<span>Chỉ tạo bản xem trước và file tải xuống. Thao tác này không đăng bài, không gửi ra ngoài và không sửa dữ liệu nguồn.</span>
+						</div>
+					</div>
+				</div>
+			</Panel>
+
+			<section aria-labelledby="report-template-heading">
+				<div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+					<div>
+						<h2 id="report-template-heading" className="text-[15px] font-bold text-[var(--foreground)]">2. Chọn mẫu báo cáo</h2>
+						<p className="mt-1 text-[12px] text-[var(--muted)]">Mẫu chỉ quyết định bố cục; dữ liệu vẫn lấy từ lượt quét đã chọn.</p>
+					</div>
+					<span className="rounded-md bg-[var(--surface-soft)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--muted-strong)]">
+						{props.reports.length} mẫu khả dụng
+					</span>
+				</div>
 			<div className="grid items-stretch gap-4 md:grid-cols-3">
 				{props.reports.map((report) => (
 					<Panel key={report.kind} className="h-full">
 						<div className="flex h-full flex-col p-4">
-							<FileText className="text-[var(--accent)]" size={22} />
-							<h2 className="mt-3 text-[14px] font-bold text-[var(--foreground)]">
+							<div className="flex items-start justify-between gap-3">
+								<span className="grid size-9 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]"><FileText size={18} /></span>
+								<span className="rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-bold text-[var(--muted)]">{report.kind.startsWith("custom-") ? "Mẫu riêng" : "Mẫu chuẩn"}</span>
+							</div>
+							<h3 className="mt-3 text-[14px] font-bold text-[var(--foreground)]">
 								{report.title}
-							</h2>
+							</h3>
 							<p className="mt-2 text-[12px] leading-5 text-[var(--muted)]">
 								{report.description}
 							</p>
@@ -239,31 +300,41 @@ export function ReportsPage(props: DashboardPageProps) {
 									</li>
 								))}
 							</ul>
+							<p className="mt-3 line-clamp-2 text-[11px] font-semibold leading-4 text-[var(--muted)]">
+								Dữ liệu: {props.selectedScan?.title ?? "chưa chọn lượt quét"}
+							</p>
 							<div className="mt-4 flex flex-wrap gap-2">
-								<SecondaryButton onClick={() => props.onPrepareReport(report)}>
-									<FileBarChart size={14} /> Chuẩn bị báo cáo
+								<SecondaryButton disabled={!hasSelectedScan} onClick={() => props.onPrepareReport(report)}>
+									<Eye size={14} /> Xem trước & xuất file
 								</SecondaryButton>
 								<button
 									type="button"
 									onClick={() => props.onEditReport(report)}
 									className="grid size-10 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
-									aria-label="Chỉnh preset báo cáo"
+									aria-label={report.kind.startsWith("custom-") ? "Chỉnh mẫu báo cáo" : "Tùy chỉnh thành mẫu riêng"}
+									title={report.kind.startsWith("custom-") ? "Chỉnh mẫu báo cáo" : "Tùy chỉnh thành mẫu riêng"}
 								>
 									<Edit3 size={14} />
 								</button>
-								<button
+								{report.kind.startsWith("custom-") ? <button
 									type="button"
 									onClick={() => props.onDeleteReport(report)}
 									className="grid size-10 place-items-center rounded-md border border-[var(--danger-border)] text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)]"
-									aria-label="Xóa preset báo cáo"
+									aria-label="Xóa mẫu báo cáo"
+									title="Xóa mẫu báo cáo"
 								>
 									<Trash2 size={14} />
-								</button>
+								</button> : null}
 							</div>
+							{!hasSelectedScan ? <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--warning-strong)]"><Info size={13} /> Chọn dữ liệu ở bước 1 để tiếp tục.</p> : null}
 						</div>
 					</Panel>
 				))}
 			</div>
+				<p className="mt-3 text-[11px] text-[var(--muted)]">Mẫu riêng được lưu trên trình duyệt hiện tại và không thay đổi dữ liệu gốc.</p>
+			</section>
+
+			<IntelligenceReportsWorkbench />
 			<div className="grid min-w-0 flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
 				<AnalysisSummary analysis={props.analysis} className="h-full" />
 				<Panel className="h-full">
@@ -289,6 +360,18 @@ export function ReportsPage(props: DashboardPageProps) {
 	);
 }
 
+function ReportStep({ icon: Icon, label, value }: { icon: typeof Database; label: string; value: string }) {
+	return (
+		<div className="flex gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+			<span className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--accent-strong)]"><Icon size={14} /></span>
+			<div className="min-w-0">
+				<p className="text-[12px] font-bold text-[var(--foreground)]">{label}</p>
+				<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">{value}</p>
+			</div>
+		</div>
+	);
+}
+
 function ReportReadiness({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="grid min-h-12 min-w-0 gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 sm:grid-cols-[minmax(86px,0.8fr)_minmax(0,1.2fr)] sm:items-center sm:gap-3">
@@ -306,6 +389,15 @@ function reportDraftStatus(status?: string) {
 	if (status === "approved") return "Đã duyệt";
 	if (status === "rejected") return "Từ chối";
 	return "Cần duyệt";
+}
+
+function reportScanStatus(status: DashboardScan["status"]) {
+	if (status === "completed") return "Hoàn tất";
+	if (status === "failed") return "Thất bại";
+	if (status === "running") return "Đang xử lý";
+	if (status === "retrying") return "Đang thử lại";
+	if (status === "queued") return "Đang chờ";
+	return "Chưa rõ";
 }
 
 function reportRiskLabel(risk?: string) {

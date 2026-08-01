@@ -732,8 +732,8 @@ function ReportPresetDialogContent({
 		<Dialog
 			open={true}
 			onClose={onClose}
-			title={report ? "Chỉnh preset báo cáo" : "Tạo preset báo cáo"}
-			description="Preset quyết định cấu trúc bản xem trước xuất từ dữ liệu đang chọn."
+			title={report ? "Chỉnh mẫu báo cáo" : "Tạo mẫu báo cáo riêng"}
+			description="Mẫu chỉ xác định tên và các mục trong bản xem trước; không đăng bài hoặc thay đổi dữ liệu nguồn."
 			size="wide"
 		>
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
@@ -756,6 +756,7 @@ function ReportPresetDialogContent({
 					</label>
 					<label className="block">
 						<FieldLabel>Các phần</FieldLabel>
+						<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">Nhập một mục trên mỗi dòng. Các mục này sẽ xuất hiện theo đúng thứ tự trong báo cáo.</p>
 						<textarea
 							value={sections}
 							onChange={(event) => setSections(event.target.value)}
@@ -766,11 +767,12 @@ function ReportPresetDialogContent({
 				<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<FileText className="text-[var(--accent)]" size={22} />
 					<p className="mt-3 text-[13px] font-bold text-[var(--foreground)]">
-						{title.trim() || "Preset báo cáo"}
+						{title.trim() || "Mẫu báo cáo riêng"}
 					</p>
 					<p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
 						{description.trim() || "Mô tả sẽ hiển thị trong thẻ báo cáo."}
 					</p>
+					<p className="mt-3 rounded-md bg-[var(--surface-soft)] p-2 text-[10px] font-semibold leading-4 text-[var(--muted)]">Mẫu được lưu trên trình duyệt hiện tại. Bạn vẫn chọn dữ liệu riêng cho mỗi lần xuất.</p>
 				</div>
 			</div>
 			<div className="mt-4">
@@ -784,7 +786,7 @@ function ReportPresetDialogContent({
 					}
 					onClick={submitAndClose}
 				>
-					<Save size={15} /> Lưu preset
+					<Save size={15} /> Lưu mẫu báo cáo
 				</PrimaryButton>
 			</div>
 		</Dialog>

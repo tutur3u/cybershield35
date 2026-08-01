@@ -92,10 +92,9 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 	);
 	const readiness: IntelligenceReadiness = {
 		approvedDrafts: totals.approvedDrafts,
-		citationCoverage:
-			totals.evidenceCount > 0
-				? Math.round((totals.approvedDrafts / Math.max(1, totals.draftCount)) * 100)
-				: 0,
+		approvedDraftRate: Math.round(
+			(totals.approvedDrafts / Math.max(1, totals.draftCount)) * 100,
+		),
 		draftCount: totals.draftCount,
 		label:
 			totals.reportReadyCount > 0
@@ -784,13 +783,13 @@ function buildKpis(
 			value: totals.claimCount.toLocaleString("vi-VN"),
 		},
 		{
-			description: "Báo cáo có bản nháp đã duyệt và độ phủ bằng chứng.",
-			help: "Chỉ báo sẵn sàng cho briefing điều hành; tăng khi bản nháp đã duyệt có trích dẫn bằng chứng đã lưu.",
+			description: "Lượt quét đã hoàn tất và có bản nháp được người vận hành duyệt.",
+			help: "Chỉ báo sẵn sàng cho báo cáo nội bộ; tỷ lệ đi kèm là số bản nháp đã duyệt trên tổng số bản nháp.",
 			href: "/reports",
 			id: "report-readiness",
 			label: "Sẵn sàng báo cáo",
 			tone: readiness.readyReports > 0 ? "success" : "warning",
-			trendLabel: `${readiness.citationCoverage}% phủ citation`,
+			trendLabel: `${readiness.approvedDraftRate}% bản nháp đã duyệt`,
 			value: readiness.readyReports.toLocaleString("vi-VN"),
 		},
 	];
