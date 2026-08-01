@@ -454,7 +454,6 @@ export async function generateInDepthReport(options: {
       summary: item.summary?.slice(0, 400) ?? null,
     }));
   const { text: plainTextReport } = await generateText({
-    maxOutputTokens: deep ? 2_800 : 2_000,
     model: runtime.model,
     system: `${system} Trả về văn bản thuần, không JSON, không Markdown và không dùng dấu sao để định dạng. Dùng tiêu đề mục viết hoa trên dòng riêng.`,
     prompt: JSON.stringify({
