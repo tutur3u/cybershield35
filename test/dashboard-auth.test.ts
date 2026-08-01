@@ -1354,6 +1354,29 @@ describe("dashboard auth gate", () => {
 		}
 	});
 
+	test("member assignment uses the CyberShield35 product name outside auth", () => {
+		const triageSheet = readFileSync(
+			"components/dashboard/evidence-triage-sheet.tsx",
+			"utf8",
+		);
+		const triageRoute = readFileSync(
+			"app/api/evidence/[id]/triage/route.ts",
+			"utf8",
+		);
+		const loginLink = readFileSync(
+			"components/auth/tuturuuu-login-link.tsx",
+			"utf8",
+		);
+
+		expect(triageSheet).toContain("Chọn thành viên CyberShield35");
+		expect(triageSheet).not.toContain("Chọn thành viên Tuturuuu");
+		expect(triageRoute).toContain(
+			"Không thể xác minh thành viên CyberShield35",
+		);
+		expect(triageRoute).not.toContain("thành viên Tuturuuu");
+		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
+	});
+
 	test("account dropdown owns server settings and notification empty state", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const layoutShell = readFileSync(

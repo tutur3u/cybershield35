@@ -46,7 +46,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 					members = await fetchWorkspaceMembersForRequest(request);
 				} catch {
 					return Response.json(
-						{ error: "Không thể xác minh thành viên Tuturuuu. Các cập nhật khác vẫn có thể thực hiện." },
+						{ error: "Không thể xác minh thành viên CyberShield35. Các cập nhật khác vẫn có thể thực hiện." },
 						{ headers: authHeaders(auth), status: 503 },
 					);
 				}

@@ -164,7 +164,7 @@ export default function EvidenceTriageSheet({
 							</select>
 						) : (
 							<button type="button" onClick={() => setAssignmentOpen(true)} className={`${inputClass} text-left`}>
-								{triage.assigneeDisplayName ?? "Chọn thành viên Tuturuuu…"}
+								{triage.assigneeDisplayName ?? "Chọn thành viên CyberShield35"}
 							</button>
 						)}
 						{membersQuery.isError ? <p className="mt-2 text-xs font-semibold text-[var(--danger-strong)]">Không thể tải danh bạ. Các cập nhật khác vẫn khả dụng.</p> : null}
