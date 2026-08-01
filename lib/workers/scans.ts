@@ -30,7 +30,7 @@ import { detectSource } from "@/lib/domain/source-detection";
 import {
 	analyzeEvidence,
 	generateCounterArgumentWithEvidenceFallback,
-	reviseCounterArgument,
+	reviseCounterArgumentWithEvidenceFallback,
 } from "@/lib/llm/generation";
 import { runProvider } from "@/lib/providers";
 import {
@@ -1066,6 +1066,7 @@ export async function reviseDraftWithAi(
 	options: {
 		actor: { displayName: string | null; id: string };
 		instruction: string;
+		length?: "keep" | "slightly_longer" | "substantially_longer" | "shorter";
 		session?: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">;
 		tone: string;
 		voice: string;
@@ -1084,7 +1085,16 @@ export async function reviseDraftWithAi(
 		.where(eq(evidenceItems.scanJobId, draft.scanJobId))
 		.orderBy(desc(evidenceItems.createdAt))
 		.limit(8);
-	const output = await reviseCounterArgument({
+	const lengthGuidance = {
+		keep: draft.length,
+		slightly_longer:
+			"Dài hơn khoảng 20–35% so với bản hiện tại; bổ sung diễn giải trực tiếp từ bằng chứng và không lặp ý.",
+		substantially_longer:
+			"Dài hơn khoảng 50–70% so với bản hiện tại; phát triển lập luận theo bằng chứng, có chuyển ý tự nhiên và không thêm tuyên bố mới.",
+		shorter:
+			"Ngắn hơn khoảng 20–30% so với bản hiện tại; giữ đủ luận điểm và bằng chứng cốt lõi.",
+	} as const;
+	const output = await reviseCounterArgumentWithEvidenceFallback({
 		audience: draft.audience,
 		currentBody: draft.body,
 		evidence: evidence.map((item) => ({
@@ -1094,7 +1104,7 @@ export async function reviseDraftWithAi(
 		})),
 		instruction: options.instruction,
 		language: draft.language,
-		length: draft.length,
+		length: lengthGuidance[options.length ?? "keep"],
 		draftKind: draft.draftKind,
 		session: options.session,
 		tone: options.tone,

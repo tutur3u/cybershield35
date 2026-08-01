@@ -19,6 +19,7 @@ import {
 import {
 	generateCounterArgumentWithEvidenceFallback,
 	isContextReducibleAiError,
+	reviseCounterArgumentWithEvidenceFallback,
 } from "@/lib/llm/generation";
 
 describe("AI draft style", () => {
@@ -28,6 +29,39 @@ describe("AI draft style", () => {
 		expect(DRAFT_VOICES).toContain(DEFAULT_DRAFT_VOICE);
 		expect(DRAFT_TONE_OPTIONS.every((option) => option.description)).toBe(true);
 		expect(DRAFT_VOICE_OPTIONS.every((option) => option.description)).toBe(true);
+	});
+
+	test("retries an AI rewrite with the current evidence when the provider rejects a large context", async () => {
+		const attempts: string[][] = [];
+		const output = await reviseCounterArgumentWithEvidenceFallback(
+			{
+				audience: "Công chúng chung",
+				currentBody: "Bản nháp hiện tại",
+				draftKind: "counter_argument",
+				evidence: [
+					{ id: "current", quote: "Bằng chứng chính", summary: "Ý chính" },
+					{ id: "related", quote: "Bằng chứng phụ", summary: "Ngữ cảnh" },
+				],
+				instruction: "Viết dài hơn một chút",
+				language: "vi",
+				length: "Dài hơn khoảng 20–35%",
+				tone: "Điềm tĩnh, khách quan",
+				voice: DEFAULT_DRAFT_VOICE,
+			},
+			async (input) => {
+				attempts.push(input.evidence.map((item) => item.id));
+				if (input.evidence.length > 1) throw new Error("Bad Request");
+				return {
+					body: "Bản sửa dài hơn và có căn cứ.",
+					citations: [{ evidenceId: "current", label: "Bằng chứng chính" }],
+					safetyNotes: [],
+				};
+			},
+		);
+
+		expect(attempts).toEqual([["current", "related"], ["current"]]);
+		expect(output.body).toContain("dài hơn");
+		expect(output.safetyNotes.join(" ")).toContain("bằng chứng đang mở");
 	});
 
 	test("forces automatic drafts to natural Vietnamese defaults", () => {

@@ -5,6 +5,8 @@ import type {
 	ChatMessage,
 	DashboardScan,
 	DraftShape,
+	DraftRewriteLength,
+	DraftRewriteResult,
 	EvidenceView,
 	ScanDetail,
 	TrackedSourceView,
@@ -604,6 +606,7 @@ export async function updateDraftBody(options: {
 export async function rewriteDraftWithAi(options: {
 	draft: DraftShape;
 	instruction: string;
+	length: DraftRewriteLength;
 	tone: string;
 	voice: string;
 	setDraft: (draft: DraftShape) => void;
@@ -616,6 +619,7 @@ export async function rewriteDraftWithAi(options: {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				instruction: options.instruction,
+				length: options.length,
 				tone: options.tone,
 				voice: options.voice,
 			}),
@@ -633,14 +637,14 @@ export async function rewriteDraftWithAi(options: {
 		options.setNotice(
 			"AI đã cập nhật nội dung. Bản nháp cần được người vận hành duyệt lại.",
 		);
-		return updated;
+		return { draft: updated, error: null } satisfies DraftRewriteResult;
 	} catch (error) {
-		options.setNotice(
+		const message =
 			error instanceof Error
 				? error.message
-				: "Không thể chỉnh sửa bản nháp bằng AI",
-		);
-		return null;
+				: "Không thể chỉnh sửa bản nháp bằng AI";
+		options.setNotice(message);
+		return { draft: null, error: message } satisfies DraftRewriteResult;
 	}
 }
 

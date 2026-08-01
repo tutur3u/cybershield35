@@ -357,6 +357,17 @@ export type DraftShape = {
 	updatedAt?: string | Date;
 };
 
+export type DraftRewriteLength =
+	| "keep"
+	| "slightly_longer"
+	| "substantially_longer"
+	| "shorter";
+
+export type DraftRewriteResult = {
+	draft: DraftShape | null;
+	error: string | null;
+};
+
 export type EvidenceView = Array<
 	Partial<EvidenceItemRow> & {
 		id: string;

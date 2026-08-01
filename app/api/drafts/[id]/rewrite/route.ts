@@ -8,6 +8,9 @@ const paramsSchema = z.object({ id: z.uuid() }).strict();
 const bodySchema = z
 	.object({
 		instruction: z.string().trim().min(3).max(2_000),
+		length: z
+			.enum(["keep", "slightly_longer", "substantially_longer", "shorter"])
+			.default("keep"),
 		tone: z.string().trim().min(1).max(120),
 		voice: z.string().trim().min(1).max(120),
 	})
@@ -31,6 +34,7 @@ export async function POST(
 				id: auth.session.user.id,
 			},
 			instruction: input.instruction,
+			length: input.length,
 			session: auth.session,
 			tone: input.tone,
 			voice: input.voice,

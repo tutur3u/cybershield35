@@ -108,8 +108,13 @@ export type DashboardPageProps = {
 	) => Promise<boolean>;
 	onRewriteDraft: (
 		draft: DraftShape,
-		options: { instruction: string; tone: string; voice: string },
-	) => Promise<DraftShape | null>;
+		options: {
+			instruction: string;
+			length: import("@/components/dashboard/types").DraftRewriteLength;
+			tone: string;
+			voice: string;
+		},
+	) => Promise<import("@/components/dashboard/types").DraftRewriteResult>;
 	onSaveDraft: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	reports: ReportSpec[];
 };

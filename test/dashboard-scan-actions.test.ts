@@ -116,6 +116,7 @@ describe("dashboard scan actions", () => {
 		const result = await rewriteDraftWithAi({
 			draft,
 			instruction: "Viết ngắn gọn hơn",
+			length: "shorter",
 			tone: "Giải thích thân thiện",
 			voice: "Tự nhiên, gần gũi",
 			setDraft: (value) => {
@@ -124,13 +125,14 @@ describe("dashboard scan actions", () => {
 			setNotice: () => {},
 		});
 
-		expect(result?.body).toBe("Nội dung ngắn gọn hơn");
+		expect(result.draft?.body).toBe("Nội dung ngắn gọn hơn");
 		expect(updatedBody).toBe("Nội dung ngắn gọn hơn");
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/drafts/9f829684-0182-4824-aa8f-446448076d97/rewrite",
 			expect.objectContaining({
 				body: JSON.stringify({
 					instruction: "Viết ngắn gọn hơn",
+					length: "shorter",
 					tone: "Giải thích thân thiện",
 					voice: "Tự nhiên, gần gũi",
 				}),

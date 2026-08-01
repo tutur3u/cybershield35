@@ -15,6 +15,8 @@ import { useState } from "react";
 import type {
 	AnalysisView,
 	DashboardScan,
+	DraftRewriteLength,
+	DraftRewriteResult,
 	DraftShape,
 	ScanDetail,
 } from "@/components/dashboard/types";
@@ -106,8 +108,13 @@ export function DraftReview({
 	) => Promise<boolean>;
 	onRewrite: (
 		draft: DraftShape,
-		options: { instruction: string; tone: string; voice: string },
-	) => Promise<DraftShape | null>;
+		options: {
+			instruction: string;
+			length: DraftRewriteLength;
+			tone: string;
+			voice: string;
+		},
+	) => Promise<DraftRewriteResult>;
 	onSave: (draft: DraftShape, body: string) => Promise<DraftShape | null>;
 	scanId?: string;
 	sourceImageUrl?: string | null;
@@ -118,6 +125,8 @@ export function DraftReview({
 	const [editMode, setEditMode] = useState<"ai" | "manual" | null>(null);
 	const [editedBody, setEditedBody] = useState("");
 	const [instruction, setInstruction] = useState("");
+	const [rewriteLength, setRewriteLength] =
+		useState<DraftRewriteLength>("keep");
 	const [selectedTone, setSelectedTone] = useState<string>(DEFAULT_DRAFT_TONE);
 	const [selectedVoice, setSelectedVoice] =
 		useState<string>(DEFAULT_DRAFT_VOICE);
@@ -163,18 +172,22 @@ export function DraftReview({
 		if (!draft || isSaving || prompt.length < 3) return;
 		setIsSaving(true);
 		setFeedback("");
-		const updated = await onRewrite(draft, {
+		const result = await onRewrite(draft, {
 			instruction: prompt,
+			length: rewriteLength,
 			tone: selectedTone,
 			voice: selectedVoice,
 		});
+		const updated = result.draft;
 		if (updated) {
 			setEditedBody(cleanDraftContent(updated.body));
 			setInstruction("");
 			setEditMode(null);
 			setFeedback("AI đã cập nhật nội dung. Hãy kiểm tra và duyệt lại bản nháp.");
 		} else {
-			setFeedback("Không thể chỉnh sửa bằng AI. Vui lòng thử lại.");
+			setFeedback(
+				result.error ?? "Không thể chỉnh sửa bằng AI. Vui lòng thử lại.",
+			);
 		}
 		setIsSaving(false);
 	}
@@ -182,6 +195,7 @@ export function DraftReview({
 	function cancelEdit() {
 		setEditedBody(draft ? cleanDraftContent(draft.body) : "");
 		setInstruction("");
+		setRewriteLength("keep");
 		setEditMode(null);
 		setFeedback("");
 	}
@@ -283,6 +297,51 @@ export function DraftReview({
 									placeholder="Ví dụ: Viết ngắn gọn hơn, giữ giọng điềm tĩnh và làm rõ các luận điểm có bằng chứng."
 									className="w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-[13px] leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15"
 								/>
+								<div className="space-y-2">
+									<p className="text-[11px] font-bold text-[var(--muted-strong)]">
+										Độ dài sau khi sửa
+									</p>
+									<div
+										aria-label="Chọn độ dài bản nháp sau khi sửa"
+										className="flex flex-wrap gap-2"
+										role="group"
+									>
+										{([
+											["keep", "Giữ độ dài"],
+											["slightly_longer", "Dài hơn một chút"],
+											["substantially_longer", "Dài hơn rõ rệt"],
+											["shorter", "Ngắn gọn hơn"],
+										] as const).map(([value, label]) => (
+											<button
+												aria-pressed={rewriteLength === value}
+												className={`h-9 rounded-md border px-3 text-[11px] font-bold transition ${
+													rewriteLength === value
+														? "border-[var(--accent)] bg-[var(--accent)] text-white"
+														: "border-[var(--border)] bg-[var(--background)] text-[var(--muted-strong)] hover:border-[var(--accent)]"
+												}`}
+												key={value}
+												onClick={() => {
+													setRewriteLength(value);
+													if (
+														value === "slightly_longer" &&
+														!instruction.trim()
+													) {
+														setInstruction(
+															"Viết dài hơn một chút, bổ sung diễn giải có căn cứ và tránh lặp ý."
+														);
+													}
+												}}
+												type="button"
+											>
+												{label}
+											</button>
+										))}
+									</div>
+									<p className="text-[10px] leading-4 text-[var(--muted)]">
+										“Dài hơn một chút” tăng khoảng 20–35% và chỉ bổ sung ý có
+										trong bằng chứng.
+									</p>
+								</div>
 								<div className="grid gap-5 xl:grid-cols-2">
 									<DraftStylePicker
 										defaultValue={DEFAULT_DRAFT_TONE}
@@ -351,6 +410,7 @@ export function DraftReview({
 									setFeedback("");
 									setSelectedTone(draft.tone ?? DEFAULT_DRAFT_TONE);
 									setSelectedVoice(draft.voice ?? DEFAULT_DRAFT_VOICE);
+									setRewriteLength("keep");
 									setEditMode("ai");
 								}}
 							>

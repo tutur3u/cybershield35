@@ -342,6 +342,32 @@ export async function reviseCounterArgument(options: {
 	return output;
 }
 
+export async function reviseCounterArgumentWithEvidenceFallback(
+	options: Parameters<typeof reviseCounterArgument>[0],
+	revise: (
+		input: Parameters<typeof reviseCounterArgument>[0],
+	) => Promise<CounterArgumentOutput> = reviseCounterArgument,
+) {
+	try {
+		return await revise(options);
+	} catch (error) {
+		if (options.evidence.length < 2 || !isContextReducibleAiError(error)) {
+			throw error;
+		}
+		const output = await revise({
+			...options,
+			evidence: options.evidence.slice(0, 1),
+		});
+		return {
+			...output,
+			safetyNotes: [
+				...output.safetyNotes,
+				"Nhà cung cấp AI không xử lý được toàn bộ ngữ cảnh liên quan; bản sửa này chỉ dùng bằng chứng đang mở.",
+			],
+		};
+	}
+}
+
 export async function generateChatReply(
 	messages: ChatInputMessage[],
 ): Promise<ChatReplyOutput> {

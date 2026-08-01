@@ -595,7 +595,7 @@ export function CyberShieldDashboard({
 				setDraft,
 				setNotice,
 			});
-			if (updated) invalidateDashboardQueries(updated.scanJobId);
+			if (updated.draft) invalidateDashboardQueries(updated.draft.scanJobId);
 			return updated;
 		},
 		onSaveDraft: async (draftToSave, body) => {
