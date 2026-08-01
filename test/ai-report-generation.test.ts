@@ -43,11 +43,11 @@ describe("AI report output", () => {
     ).toThrow();
   });
 
-  test("bounds evidence context and retries with a compact grounded prompt", () => {
+  test("bounds evidence context and uses the gateway-compatible text path", () => {
     const generation = readFileSync("lib/llm/generation.ts", "utf8");
     expect(generation).toContain("const compactEvidence");
-    expect(generation).toContain("reportGenerationAttempt(false)");
-    expect(generation).toContain("reportGenerationAttempt(true)");
+    expect(generation).toContain("text: plainTextReport");
+    expect(generation).toContain("Trả về văn bản thuần, không JSON");
     expect(generation).toContain("toSorted");
     expect(generation).toContain("riskRank");
   });
