@@ -1,42 +1,52 @@
 import { z } from "zod";
 import { articleBlockSchema } from "@/lib/articles/schemas";
 
+export const analysisProofSchema = z.object({
+	confidence: z.number().min(0).max(1),
+	evidenceId: z.string().trim().min(1),
+	excerpt: z.string().trim().min(12).max(500),
+	limitation: z.string().trim().min(1).max(500).nullable(),
+	support: z.string().trim().min(12).max(800),
+});
+
 export const analysisOutputSchema = z.object({
 	riskLevel: z.enum(["low", "medium", "high"]),
-	summary: z.string(),
-	stanceSummary: z.string(),
+	summary: z.string().trim().min(1).max(5_000),
+	stanceSummary: z.string().trim().min(1).max(2_000),
 	topicClusters: z.array(
 		z.object({
-			name: z.string(),
-			count: z.number(),
-			trend: z.string(),
+			name: z.string().trim().min(1).max(160),
+			count: z.number().int().nonnegative(),
+			trend: z.string().trim().min(1).max(160),
 			riskLevel: z.enum(["low", "medium", "high"]),
 		}),
-	),
+	).max(12),
 	claims: z.array(
 		z.object({
-			claim: z.string(),
-			stance: z.string(),
+			claim: z.string().trim().min(1).max(1_500),
+			stance: z.string().trim().min(1).max(120),
 			confidence: z.number().min(0).max(1),
-			evidenceIds: z.array(z.string()),
-			rationale: z.string(),
+			evidenceIds: z.array(z.string().trim().min(1)).max(3),
+			proofs: z.array(analysisProofSchema).min(1).max(3),
+			rationale: z.string().trim().min(1).max(1_500),
 		}),
-	),
+	).max(12),
 	riskFlags: z.array(
 		z.object({
-			label: z.string(),
-			count: z.number(),
+			label: z.string().trim().min(1).max(180),
+			count: z.number().int().nonnegative(),
 			severity: z.enum(["low", "medium", "high"]),
 			confidence: z.number().min(0).max(1),
-			evidenceIds: z.array(z.string()),
-			rationale: z.string(),
+			evidenceIds: z.array(z.string().trim().min(1)).max(3),
+			proofs: z.array(analysisProofSchema).min(1).max(3),
+			rationale: z.string().trim().min(1).max(1_500),
 		}),
-	),
+	).max(10),
 	sentiment: z.object({
-		positive: z.number(),
-		neutral: z.number(),
-		negative: z.number(),
-		total: z.number(),
+		positive: z.number().int().nonnegative(),
+		neutral: z.number().int().nonnegative(),
+		negative: z.number().int().nonnegative(),
+		total: z.number().int().nonnegative(),
 	}),
 });
 
@@ -84,4 +94,5 @@ export type ArticleAiOutput = z.infer<typeof articleAiOutputSchema>;
 export type ReportAiOutput = z.infer<typeof reportAiOutputSchema>;
 
 export type AnalysisOutput = z.infer<typeof analysisOutputSchema>;
+export type AnalysisProof = z.infer<typeof analysisProofSchema>;
 export type CounterArgumentOutput = z.infer<typeof counterArgumentOutputSchema>;

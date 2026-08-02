@@ -291,8 +291,17 @@ export type ClaimView = {
 	claim: string;
 	confidence: number;
 	evidenceIds: string[];
+	proofs?: AnalysisProofView[];
 	rationale?: string;
 	stance: string;
+};
+
+export type AnalysisProofView = {
+	confidence: number;
+	evidenceId: string;
+	excerpt: string;
+	limitation: string | null;
+	support: string;
 };
 
 export type TopicView = {
@@ -320,6 +329,7 @@ export type RiskFlagView = {
 	count: number;
 	confidence?: number;
 	evidenceIds?: string[];
+	proofs?: AnalysisProofView[];
 	rationale?: string;
 	severity: RiskLevel;
 };

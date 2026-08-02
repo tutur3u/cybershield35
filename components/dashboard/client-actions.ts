@@ -378,6 +378,37 @@ export async function runScanRecord(options: {
 	}
 }
 
+export async function reviseScanAnalysis(options: {
+	scanId: string;
+	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
+	setNotice: (notice: string) => void;
+}) {
+	try {
+		const response = await fetch(
+			`/api/scans/${options.scanId}/analysis/revise`,
+			{ method: "POST" },
+		);
+		const payload = await response.json().catch(() => null);
+		if (!response.ok) {
+			throw new Error(
+				payload?.error ?? "Không thể phân tích và kiểm chứng lại bằng chứng.",
+			);
+		}
+		if (payload.detail) options.setDetail(payload.detail as ScanDetail);
+		options.setNotice(
+			`Đã phân tích lại và xác thực ${Number(payload.proofCount ?? 0).toLocaleString("vi-VN")} trích đoạn nguồn.`,
+		);
+		return true;
+	} catch (error) {
+		options.setNotice(
+			error instanceof Error
+				? error.message
+				: "Không thể phân tích và kiểm chứng lại bằng chứng.",
+		);
+		return false;
+	}
+}
+
 export type EvidenceMutationValues = {
 	author: string;
 	quote: string;

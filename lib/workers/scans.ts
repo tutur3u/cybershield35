@@ -32,6 +32,7 @@ import {
 	generateCounterArgumentWithEvidenceFallback,
 	reviseCounterArgumentWithEvidenceFallback,
 } from "@/lib/llm/generation";
+import type { AnalysisOutput } from "@/lib/llm/schemas";
 import { runProvider } from "@/lib/providers";
 import {
 	runtimeKeySummary,
@@ -704,30 +705,7 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			})),
 		);
 
-		await adminDb
-			.insert(analyses)
-			.values({
-				scanJobId: claimed.id,
-				riskLevel: analysis.riskLevel,
-				summary: analysis.summary,
-				stanceSummary: analysis.stanceSummary,
-				topicClusters: analysis.topicClusters,
-				claims: analysis.claims,
-				riskFlags: analysis.riskFlags,
-				sentiment: analysis.sentiment,
-			})
-			.onConflictDoUpdate({
-				target: analyses.scanJobId,
-				set: {
-					riskLevel: analysis.riskLevel,
-					summary: analysis.summary,
-					stanceSummary: analysis.stanceSummary,
-					topicClusters: analysis.topicClusters,
-					claims: analysis.claims,
-					riskFlags: analysis.riskFlags,
-					sentiment: analysis.sentiment,
-				},
-			});
+		await persistAnalysis(claimed.id, analysis);
 		await recordScanEvent({
 			eventType: "analysis_completed",
 			message: "Phân tích rủi ro và lập trường đã hoàn tất.",
@@ -817,6 +795,119 @@ async function processClaimedJob(claimed: ClaimedJob) {
 		await refreshIntelligenceRollupsBestEffort(`scan-failed:${claimed.id}`);
 		return { processed: true, scanId: claimed.id, error: message };
 	}
+}
+
+export async function reviseAnalysisForScan(
+	scanId: string,
+	actor: { displayName: string | null; id: string },
+) {
+	const [scan, evidence] = await Promise.all([
+		adminDb
+			.select({ id: scanJobs.id, status: scanJobs.status })
+			.from(scanJobs)
+			.where(eq(scanJobs.id, scanId))
+			.limit(1)
+			.then((rows) => rows[0] ?? null),
+		adminDb
+			.select()
+			.from(evidenceItems)
+			.where(eq(evidenceItems.scanJobId, scanId))
+			.orderBy(desc(evidenceItems.createdAt)),
+	]);
+	if (!scan) return null;
+	if (scan.status !== "completed") {
+		throw new Error("Chỉ có thể phân tích lại scan đã hoàn tất.");
+	}
+	if (!evidence.length) {
+		throw new Error("Scan chưa có bằng chứng để phân tích lại.");
+	}
+
+	await recordScanEvent({
+		eventType: "analysis_revision_started",
+		message: "Người vận hành yêu cầu phân tích lại và kiểm chứng từng trích đoạn.",
+		metadata: { actorId: actor.id, evidenceCount: evidence.length },
+		scanJobId: scanId,
+		stage: "analysis",
+		status: "running",
+	});
+
+	try {
+		const analysis = await analyzeEvidence(
+			evidence.map((item) => ({
+				id: item.id,
+				quote: item.quote,
+				riskLevel: item.riskLevel,
+				summary: item.summary,
+			})),
+		);
+		await persistAnalysis(scanId, analysis);
+		await syncTopicsForScan(scanId, analysis.topicClusters, evidence);
+
+		const proofCount = [...analysis.claims, ...analysis.riskFlags].reduce(
+			(total, item) => total + item.proofs.length,
+			0,
+		);
+		await writeAudit("scan_job", scanId, "analysis_revised", {
+			actorDisplayName: actor.displayName,
+			actorId: actor.id,
+			claimCount: analysis.claims.length,
+			proofCount,
+			riskFlagCount: analysis.riskFlags.length,
+		});
+		await recordScanEvent({
+			eventType: "analysis_revision_completed",
+			message: "Phân tích và các trích đoạn chứng minh đã được kiểm chứng lại.",
+			metadata: {
+				claimCount: analysis.claims.length,
+				proofCount,
+				riskFlagCount: analysis.riskFlags.length,
+			},
+			scanJobId: scanId,
+			stage: "analysis",
+			status: "completed",
+		});
+		await refreshIntelligenceRollupsBestEffort(`analysis-revised:${scanId}`);
+		return { analysis, evidenceCount: evidence.length, proofCount };
+	} catch (error) {
+		await recordScanEvent({
+			eventType: "analysis_revision_failed",
+			message: "Không thể hoàn tất lần kiểm chứng lại phân tích.",
+			metadata: {
+				errorType: error instanceof Error ? error.name : "UnknownError",
+			},
+			scanJobId: scanId,
+			stage: "analysis",
+			status: "failed",
+		});
+		throw error;
+	}
+}
+
+async function persistAnalysis(scanId: string, analysis: AnalysisOutput) {
+	await adminDb
+		.insert(analyses)
+		.values({
+			claims: analysis.claims,
+			riskFlags: analysis.riskFlags,
+			riskLevel: analysis.riskLevel,
+			scanJobId: scanId,
+			sentiment: analysis.sentiment,
+			stanceSummary: analysis.stanceSummary,
+			summary: analysis.summary,
+			topicClusters: analysis.topicClusters,
+		})
+		.onConflictDoUpdate({
+			target: analyses.scanJobId,
+			set: {
+				claims: analysis.claims,
+				riskFlags: analysis.riskFlags,
+				riskLevel: analysis.riskLevel,
+				sentiment: analysis.sentiment,
+				stanceSummary: analysis.stanceSummary,
+				summary: analysis.summary,
+				topicClusters: analysis.topicClusters,
+			},
+		});
 }
 
 export async function updateTrackedSourceLastScan(

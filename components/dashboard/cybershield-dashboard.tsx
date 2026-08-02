@@ -24,6 +24,7 @@ import {
 	deleteTrackedSourceRecord,
 	generateDraft,
 	reviewDraft,
+	reviseScanAnalysis,
 	rewriteDraftWithAi,
 	runScanRecord,
 	runManagedSchedulerJobNow,
@@ -533,6 +534,15 @@ export function CyberShieldDashboard({
 				setScans,
 			}).then((success) => {
 				if (success) invalidateDashboardQueries(scan.id);
+			}),
+		onReviseAnalysis: () =>
+			reviseScanAnalysis({
+				scanId: activeScanId,
+				setDetail,
+				setNotice,
+			}).then((success) => {
+				if (success) invalidateDashboardQueries(activeScanId);
+				return success;
 			}),
 		onCreateTrackedSource: (input) =>
 			createTrackedSourceRecord({

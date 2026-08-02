@@ -15,6 +15,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import type {
 	AnalysisView,
+	AnalysisProofView,
 	ClaimView,
 	EvidenceView,
 	RiskFlagView,
@@ -382,8 +383,15 @@ export function AlertPanel({
 										</span>
 									</DashboardTooltip>
 								</div>
-								<EvidenceLinkStatus resolution={resolution} />
-								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
+								<EvidenceLinkStatus
+									proofCount={row.proofs?.length ?? 0}
+									resolution={resolution}
+								/>
+								<EvidenceDeepLinks
+									evidence={relatedEvidence}
+									proofs={row.proofs}
+									scanId={scanId}
+								/>
 							</div>
 						);
 					})
@@ -438,8 +446,15 @@ export function RiskFlagPanel({
 									</div>
 									<RiskPill risk={flag.severity} />
 								</div>
-								<EvidenceLinkStatus resolution={resolution} />
-								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
+								<EvidenceLinkStatus
+									proofCount={flag.proofs?.length ?? 0}
+									resolution={resolution}
+								/>
+								<EvidenceDeepLinks
+									evidence={relatedEvidence}
+									proofs={flag.proofs}
+									scanId={scanId}
+								/>
 							</div>
 						);
 					})
@@ -503,6 +518,7 @@ export function ClaimEvidencePanel({
 								<EvidenceDeepLinks
 									evidence={citedEvidence}
 									emptyLabel="Bằng chứng trích dẫn chưa có trong dữ liệu đã tải."
+									proofs={claim.proofs}
 									scanId={scanId}
 								/>
 							</div>
@@ -735,10 +751,12 @@ function initialEvidencePage(
 function EvidenceDeepLinks({
 	emptyLabel = "Liên kết tự động đã được giữ lại vì chưa có bằng chứng hỗ trợ trực tiếp.",
 	evidence,
+	proofs = [],
 	scanId,
 }: {
 	emptyLabel?: string;
 	evidence: EvidenceView;
+	proofs?: AnalysisProofView[];
 	scanId?: string;
 }) {
 	if (!evidence.length) {
@@ -749,9 +767,15 @@ function EvidenceDeepLinks({
 		);
 	}
 
+	const proofByEvidenceId = new Map(
+		proofs.map((proof) => [proof.evidenceId, proof]),
+	);
+
 	return (
 		<div className="mt-3 grid min-w-0 gap-2">
-			{evidence.slice(0, 3).map((item, index) => (
+			{evidence.slice(0, 3).map((item, index) => {
+				const proof = proofByEvidenceId.get(item.id);
+				return (
 				<IntentPrefetchLink
 					key={item.id}
 					href={evidenceHref(item, scanId)}
@@ -764,13 +788,25 @@ function EvidenceDeepLinks({
 						<span className="block truncate text-[10px] font-bold uppercase tracking-[0.02em] text-[var(--muted)]">
 							{item.sourceLabel ?? "Nguồn công khai"}
 						</span>
-						<span className="mt-1 block overflow-hidden text-[11px] leading-4 text-[var(--foreground)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
-							{item.summary || item.quote || "Mở bằng chứng gốc"}
+						<span className="mt-1 block overflow-hidden text-[11px] leading-4 text-[var(--foreground)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+							{proof ? `“${proof.excerpt}”` : item.summary || item.quote || "Mở bằng chứng gốc"}
 						</span>
+						{proof ? (
+							<>
+								<span className="mt-2 block text-[10px] font-semibold leading-4 text-[var(--accent-strong)]">
+									Chứng minh: {proof.support}
+								</span>
+								<span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
+									Độ chắc chắn {Math.round(proof.confidence * 100)}%
+									{proof.limitation ? ` · Giới hạn: ${proof.limitation}` : " · Không có giới hạn đáng kể"}
+								</span>
+							</>
+						) : null}
 					</span>
 					<Link2 size={13} className="mt-1 shrink-0 text-[var(--muted)] transition group-hover:text-[var(--accent-strong)]" />
 				</IntentPrefetchLink>
-			))}
+				);
+			})}
 		</div>
 	);
 }
@@ -781,8 +817,10 @@ function evidenceHref(item: EvidenceView[number], scanId?: string) {
 }
 
 function EvidenceLinkStatus({
+	proofCount,
 	resolution,
 }: {
+	proofCount: number;
 	resolution: ReturnType<typeof resolveRiskFlagEvidence>;
 }) {
 	if (resolution.rejectedCitationCount > 0) {
@@ -797,7 +835,9 @@ function EvidenceLinkStatus({
 		return (
 			<p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--success-strong)]">
 				<CheckCircle2 size={13} />
-				{resolution.source === "cited"
+				{proofCount > 0
+					? `Đã xác thực ${proofCount} trích đoạn nguồn`
+					: resolution.source === "cited"
 					? "Đã kiểm tra trích dẫn trực tiếp"
 					: "Liên kết cũ đã được kiểm tra lại theo nội dung"}
 			</p>

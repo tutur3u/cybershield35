@@ -1,6 +1,6 @@
-import type { AnalysisOutput } from "@/lib/llm/schemas";
+import type { AnalysisOutput, AnalysisProof } from "@/lib/llm/schemas";
 
-type EvidenceForAnalysis = {
+export type EvidenceForAnalysis = {
 	id: string;
 	quote?: string | null;
 	summary?: string | null;
@@ -209,22 +209,65 @@ export function validateAnalysisEvidenceLinks(
 	analysis: AnalysisOutput,
 	evidence: EvidenceForAnalysis[],
 ): AnalysisOutput {
-	const evidenceIds = new Set(evidence.map((item) => item.id));
-	const claims = analysis.claims.map((claim) => ({
-		...claim,
-		evidenceIds: uniqueStrings(claim.evidenceIds).filter((id) =>
-			evidenceIds.has(id),
-		),
-	}));
+	const evidenceById = new Map(evidence.map((item) => [item.id, item]));
+	const claims = analysis.claims
+		.map((claim) => {
+			const proofs = validateProofs(claim.proofs, evidenceById);
+			return {
+				...claim,
+				evidenceIds: uniqueStrings(proofs.map((proof) => proof.evidenceId)),
+				proofs,
+			};
+		})
+		.filter((claim) => claim.proofs.length > 0);
 	const riskFlags = analysis.riskFlags
 		.map((flag) => {
-			const resolution = resolveRiskFlagEvidence(flag, evidence, evidence.length);
-			const linkedIds = resolution.evidence.map((item) => item.id);
-			return { ...flag, count: linkedIds.length, evidenceIds: linkedIds };
+			const proofs = validateProofs(flag.proofs, evidenceById, (item) =>
+				scoreRiskFlagEvidence(flag.label, item) > 0,
+			);
+			const linkedIds = uniqueStrings(proofs.map((proof) => proof.evidenceId));
+			return {
+				...flag,
+				count: linkedIds.length,
+				evidenceIds: linkedIds,
+				proofs,
+			};
 		})
-		.filter((flag) => flag.evidenceIds.length > 0);
+		.filter((flag) => flag.proofs.length > 0);
+	const seenTopics = new Set<string>();
+	const topicClusters = analysis.topicClusters
+		.filter((topic) => {
+			const key = normalizeAnalysisText(topic.name);
+			if (!key || seenTopics.has(key)) return false;
+			seenTopics.add(key);
+			return true;
+		})
+		.map((topic) => ({
+			...topic,
+			count: Math.min(evidence.length, topic.count),
+		}));
+	const sentiment = {
+		negative: analysis.sentiment.negative,
+		neutral: analysis.sentiment.neutral,
+		positive: analysis.sentiment.positive,
+		total:
+			analysis.sentiment.negative +
+			analysis.sentiment.neutral +
+			analysis.sentiment.positive,
+	};
 
-	return { ...analysis, claims, riskFlags };
+	return { ...analysis, claims, riskFlags, sentiment, topicClusters };
+}
+
+export function isProofExcerptGrounded(
+	proof: Pick<AnalysisProof, "excerpt">,
+	evidence: EvidenceForAnalysis,
+) {
+	const excerpt = normalizeProofText(proof.excerpt);
+	if (excerpt.length < 12) return false;
+	return [evidence.quote, evidence.summary].some(
+		(value) => value && normalizeProofText(value).includes(excerpt),
+	);
 }
 
 export function normalizeAnalysisText(value: string) {
@@ -249,6 +292,27 @@ function meaningfulTokens(value: string) {
 	return value
 		.split(" ")
 		.filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
+}
+
+function normalizeProofText(value: string) {
+	return value.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+function validateProofs(
+	proofs: AnalysisProof[],
+	evidenceById: Map<string, EvidenceForAnalysis>,
+	isCompatible: (evidence: EvidenceForAnalysis) => boolean = () => true,
+) {
+	const seenEvidence = new Set<string>();
+	return proofs.filter((proof) => {
+		if (seenEvidence.has(proof.evidenceId)) return false;
+		const item = evidenceById.get(proof.evidenceId);
+		if (!item || !isCompatible(item) || !isProofExcerptGrounded(proof, item)) {
+			return false;
+		}
+		seenEvidence.add(proof.evidenceId);
+		return true;
+	});
 }
 
 function uniqueStrings(values: string[]) {

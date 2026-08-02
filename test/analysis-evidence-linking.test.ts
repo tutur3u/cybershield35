@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	resolveRiskFlagEvidence,
+	isProofExcerptGrounded,
 	scoreRiskFlagEvidence,
 	validateAnalysisEvidenceLinks,
 } from "@/lib/domain/analysis-evidence";
@@ -95,6 +96,22 @@ describe("analysis evidence linking", () => {
 					claim: "Có cảnh báo an toàn trẻ em.",
 					confidence: 0.9,
 					evidenceIds: ["child", "missing"],
+					proofs: [
+						{
+							confidence: 0.9,
+							evidenceId: "child",
+							excerpt: "Một người đàn ông lạ mặt cố ý tiếp cận và dẫn một bé gái",
+							limitation: "Chưa có kết luận điều tra.",
+							support: "Trích đoạn mô tả trực tiếp hành vi tiếp cận một trẻ em.",
+						},
+						{
+							confidence: 0.5,
+							evidenceId: "missing",
+							excerpt: "Một trích đoạn không có nguồn tương ứng trong scan",
+							limitation: null,
+							support: "Liên kết này phải bị loại vì không có nguồn tương ứng.",
+						},
+					],
 					rationale: "Bài viết mô tả người lạ tiếp cận một bé gái.",
 					stance: "concerned",
 				},
@@ -105,6 +122,22 @@ describe("analysis evidence linking", () => {
 					count: 2,
 					evidenceIds: ["shipper", "child"],
 					label: "Mối lo ngại về an toàn trẻ em",
+					proofs: [
+						{
+							confidence: 0.7,
+							evidenceId: "shipper",
+							excerpt: "Cái kết ấm lòng cho anh shipper đánh rơi kiện hàng trên đường",
+							limitation: null,
+							support: "Liên kết sai chủ đề dù trích đoạn tồn tại trong nguồn.",
+						},
+						{
+							confidence: 0.9,
+							evidenceId: "child",
+							excerpt: "Một người đàn ông lạ mặt cố ý tiếp cận và dẫn một bé gái",
+							limitation: "Chưa có kết luận điều tra.",
+							support: "Trích đoạn mô tả trực tiếp hành vi tiếp cận một trẻ em.",
+						},
+					],
 					rationale: "Người lạ tiếp cận một bé gái.",
 					severity: "high",
 				},
@@ -120,5 +153,58 @@ describe("analysis evidence linking", () => {
 		expect(validated.claims[0]?.evidenceIds).toEqual(["child"]);
 		expect(validated.riskFlags[0]?.evidenceIds).toEqual(["child"]);
 		expect(validated.riskFlags[0]?.count).toBe(1);
+		expect(validated.riskFlags[0]?.proofs).toHaveLength(1);
+	});
+
+	test("requires every generated proof excerpt to exist in its cited source", () => {
+		expect(
+			isProofExcerptGrounded(
+				{ excerpt: "Một người đàn ông lạ mặt cố ý tiếp cận" },
+				childStory,
+			),
+		).toBe(true);
+		expect(
+			isProofExcerptGrounded(
+				{ excerpt: "Cơ quan chức năng đã xác nhận vụ bắt cóc" },
+				childStory,
+			),
+		).toBe(false);
+		expect(
+			isProofExcerptGrounded(
+				{ excerpt: "Mot nguoi dan ong la mat co y tiep can" },
+				childStory,
+			),
+		).toBe(false);
+	});
+
+	test("normalizes duplicate topics, impossible counts, and sentiment totals", () => {
+		const analysis: AnalysisOutput = {
+			riskLevel: "medium",
+			summary: "Tóm tắt",
+			stanceSummary: "Lập trường",
+			topicClusters: [
+				{
+					count: 99,
+					name: "An toàn trẻ em",
+					riskLevel: "high",
+					trend: "Tăng",
+				},
+				{
+					count: 1,
+					name: "AN TOÀN TRẺ EM",
+					riskLevel: "high",
+					trend: "Tăng",
+				},
+			],
+			claims: [],
+			riskFlags: [],
+			sentiment: { negative: 1, neutral: 2, positive: 3, total: 99 },
+		};
+
+		const validated = validateAnalysisEvidenceLinks(analysis, [childStory]);
+
+		expect(validated.topicClusters).toHaveLength(1);
+		expect(validated.topicClusters[0]?.count).toBe(1);
+		expect(validated.sentiment.total).toBe(6);
 	});
 });

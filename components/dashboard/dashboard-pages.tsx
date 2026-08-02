@@ -82,6 +82,7 @@ export type DashboardPageProps = {
 	onEditScan: (scan: DashboardScan) => void;
 	onDeleteScan: (scan: DashboardScan) => Promise<void>;
 	onRunScan: (scan: DashboardScan) => Promise<void>;
+	onReviseAnalysis: () => Promise<boolean>;
 	onCreateTrackedSource: (input: {
 		displayName: string;
 		url: string;

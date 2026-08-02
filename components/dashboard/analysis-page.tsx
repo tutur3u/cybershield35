@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowRight, Database } from "lucide-react";
+import { ArrowRight, Database, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import {
 	AlertPanel,
@@ -14,6 +15,22 @@ import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages"
 import { AnalysisSummary, PageHeader } from "@/components/dashboard/page-widgets";
 
 export function AnalysisPage(props: DashboardPageProps) {
+	const [isRevising, setIsRevising] = useState(false);
+
+	async function reviseAnalysis() {
+		const confirmed = window.confirm(
+			"Phân tích lại sẽ dùng bằng chứng đã lưu để thay thế kết quả hiện tại. Tiếp tục?",
+		);
+		if (!confirmed) return;
+
+		setIsRevising(true);
+		try {
+			await props.onReviseAnalysis();
+		} finally {
+			setIsRevising(false);
+		}
+	}
+
 	return (
 		<div className="space-y-5">
 			<PageHeader
@@ -21,12 +38,23 @@ export function AnalysisPage(props: DashboardPageProps) {
 				title="Phân tích thảo luận"
 				description="Mỗi nhận định rủi ro đi kèm lý do và bằng chứng hỗ trợ trực tiếp để kiểm tra."
 				actions={
-					<Link
-						href="/evidence"
-						className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-					>
-						Kho bằng chứng <ArrowRight size={14} />
-					</Link>
+					<div className="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							disabled={isRevising || !props.selectedScanId}
+							onClick={() => void reviseAnalysis()}
+							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							<RefreshCw size={14} className={isRevising ? "animate-spin" : ""} />
+							{isRevising ? "Đang kiểm chứng..." : "Phân tích lại"}
+						</button>
+						<Link
+							href="/evidence"
+							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
+						>
+							Kho bằng chứng <ArrowRight size={14} />
+						</Link>
+					</div>
 				}
 			/>
 			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
