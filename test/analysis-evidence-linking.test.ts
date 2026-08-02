@@ -207,4 +207,37 @@ describe("analysis evidence linking", () => {
 		expect(validated.topicClusters[0]?.count).toBe(1);
 		expect(validated.sentiment.total).toBe(6);
 	});
+
+	test("bounds recoverable LLM over-generation after grounding", () => {
+		const proof = {
+			confidence: 0.9,
+			evidenceId: "child",
+			excerpt: childStory.quote,
+			limitation: "L".repeat(700),
+			support: "S".repeat(1_000),
+		};
+		const analysis: AnalysisOutput = {
+			riskLevel: "high",
+			summary: "Tóm tắt",
+			stanceSummary: "Lập trường",
+			topicClusters: [],
+			claims: Array.from({ length: 15 }, (_, index) => ({
+				claim: `Nhận định ${index}`,
+				confidence: 0.9,
+				evidenceIds: ["child"],
+				proofs: [proof, proof, proof, proof],
+				rationale: "Có bằng chứng trực tiếp.",
+				stance: "concerned",
+			})),
+			riskFlags: [],
+			sentiment: { negative: 1, neutral: 0, positive: 0, total: 1 },
+		};
+
+		const validated = validateAnalysisEvidenceLinks(analysis, [childStory]);
+
+		expect(validated.claims).toHaveLength(12);
+		expect(validated.claims[0]?.proofs).toHaveLength(1);
+		expect(validated.claims[0]?.proofs[0]?.support).toHaveLength(800);
+		expect(validated.claims[0]?.proofs[0]?.limitation).toHaveLength(500);
+	});
 });

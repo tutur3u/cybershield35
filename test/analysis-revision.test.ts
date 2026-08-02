@@ -22,6 +22,7 @@ describe("analysis revision workflow", () => {
 		expect(worker).toContain('"analysis_revised"');
 		expect(worker).toContain("item.proofs.length");
 		expect(worker).toContain("persistAnalysis(scanId, analysis)");
+		expect(worker).toContain("NoObjectGeneratedError.isInstance(error)");
 	});
 
 	test("exposes a clear operator action and proof explanations", () => {

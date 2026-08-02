@@ -4,9 +4,9 @@ import { articleBlockSchema } from "@/lib/articles/schemas";
 export const analysisProofSchema = z.object({
 	confidence: z.number().min(0).max(1),
 	evidenceId: z.string().trim().min(1),
-	excerpt: z.string().trim().min(12).max(500),
-	limitation: z.string().trim().min(1).max(500).nullable(),
-	support: z.string().trim().min(12).max(800),
+	excerpt: z.string(),
+	limitation: z.string().nullable(),
+	support: z.string(),
 });
 
 export const analysisOutputSchema = z.object({
@@ -20,28 +20,28 @@ export const analysisOutputSchema = z.object({
 			trend: z.string().trim().min(1).max(160),
 			riskLevel: z.enum(["low", "medium", "high"]),
 		}),
-	).max(12),
+	),
 	claims: z.array(
 		z.object({
 			claim: z.string().trim().min(1).max(1_500),
 			stance: z.string().trim().min(1).max(120),
 			confidence: z.number().min(0).max(1),
-			evidenceIds: z.array(z.string().trim().min(1)).max(3),
-			proofs: z.array(analysisProofSchema).min(1).max(3),
+			evidenceIds: z.array(z.string().trim().min(1)),
+			proofs: z.array(analysisProofSchema).min(1),
 			rationale: z.string().trim().min(1).max(1_500),
 		}),
-	).max(12),
+	),
 	riskFlags: z.array(
 		z.object({
 			label: z.string().trim().min(1).max(180),
 			count: z.number().int().nonnegative(),
 			severity: z.enum(["low", "medium", "high"]),
 			confidence: z.number().min(0).max(1),
-			evidenceIds: z.array(z.string().trim().min(1)).max(3),
-			proofs: z.array(analysisProofSchema).min(1).max(3),
+			evidenceIds: z.array(z.string().trim().min(1)),
+			proofs: z.array(analysisProofSchema).min(1),
 			rationale: z.string().trim().min(1).max(1_500),
 		}),
-	).max(10),
+	),
 	sentiment: z.object({
 		positive: z.number().int().nonnegative(),
 		neutral: z.number().int().nonnegative(),

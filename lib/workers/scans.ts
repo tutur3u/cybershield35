@@ -1,3 +1,4 @@
+import { NoObjectGeneratedError } from "ai";
 import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
@@ -869,11 +870,18 @@ export async function reviseAnalysisForScan(
 		await refreshIntelligenceRollupsBestEffort(`analysis-revised:${scanId}`);
 		return { analysis, evidenceCount: evidence.length, proofCount };
 	} catch (error) {
+		const objectError = NoObjectGeneratedError.isInstance(error) ? error : null;
 		await recordScanEvent({
 			eventType: "analysis_revision_failed",
 			message: "Không thể hoàn tất lần kiểm chứng lại phân tích.",
 			metadata: {
+				...(objectError?.cause instanceof Error
+					? { causeType: objectError.cause.name }
+					: {}),
 				errorType: error instanceof Error ? error.name : "UnknownError",
+				...(objectError?.finishReason
+					? { finishReason: objectError.finishReason }
+					: {}),
 			},
 			scanJobId: scanId,
 			stage: "analysis",

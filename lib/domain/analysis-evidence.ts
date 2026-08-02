@@ -211,16 +211,21 @@ export function validateAnalysisEvidenceLinks(
 ): AnalysisOutput {
 	const evidenceById = new Map(evidence.map((item) => [item.id, item]));
 	const claims = analysis.claims
+		.slice(0, 12)
 		.map((claim) => {
 			const proofs = validateProofs(claim.proofs, evidenceById);
 			return {
 				...claim,
+				claim: boundedText(claim.claim, 1_500),
 				evidenceIds: uniqueStrings(proofs.map((proof) => proof.evidenceId)),
 				proofs,
+				rationale: boundedText(claim.rationale, 1_500),
+				stance: boundedText(claim.stance, 120),
 			};
 		})
 		.filter((claim) => claim.proofs.length > 0);
 	const riskFlags = analysis.riskFlags
+		.slice(0, 10)
 		.map((flag) => {
 			const proofs = validateProofs(flag.proofs, evidenceById, (item) =>
 				scoreRiskFlagEvidence(flag.label, item) > 0,
@@ -230,12 +235,15 @@ export function validateAnalysisEvidenceLinks(
 				...flag,
 				count: linkedIds.length,
 				evidenceIds: linkedIds,
+				label: boundedText(flag.label, 180),
 				proofs,
+				rationale: boundedText(flag.rationale, 1_500),
 			};
 		})
 		.filter((flag) => flag.proofs.length > 0);
 	const seenTopics = new Set<string>();
 	const topicClusters = analysis.topicClusters
+		.slice(0, 12)
 		.filter((topic) => {
 			const key = normalizeAnalysisText(topic.name);
 			if (!key || seenTopics.has(key)) return false;
@@ -245,6 +253,8 @@ export function validateAnalysisEvidenceLinks(
 		.map((topic) => ({
 			...topic,
 			count: Math.min(evidence.length, topic.count),
+			name: boundedText(topic.name, 160),
+			trend: boundedText(topic.trend, 160),
 		}));
 	const sentiment = {
 		negative: analysis.sentiment.negative,
@@ -256,7 +266,15 @@ export function validateAnalysisEvidenceLinks(
 			analysis.sentiment.positive,
 	};
 
-	return { ...analysis, claims, riskFlags, sentiment, topicClusters };
+	return {
+		...analysis,
+		claims,
+		riskFlags,
+		sentiment,
+		stanceSummary: boundedText(analysis.stanceSummary, 2_000),
+		summary: boundedText(analysis.summary, 5_000),
+		topicClusters,
+	};
 }
 
 export function isProofExcerptGrounded(
@@ -304,15 +322,29 @@ function validateProofs(
 	isCompatible: (evidence: EvidenceForAnalysis) => boolean = () => true,
 ) {
 	const seenEvidence = new Set<string>();
-	return proofs.filter((proof) => {
-		if (seenEvidence.has(proof.evidenceId)) return false;
-		const item = evidenceById.get(proof.evidenceId);
-		if (!item || !isCompatible(item) || !isProofExcerptGrounded(proof, item)) {
-			return false;
-		}
-		seenEvidence.add(proof.evidenceId);
-		return true;
-	});
+	return proofs
+		.filter((proof) => {
+			if (seenEvidence.has(proof.evidenceId)) return false;
+			const item = evidenceById.get(proof.evidenceId);
+			if (!item || !isCompatible(item) || !isProofExcerptGrounded(proof, item)) {
+				return false;
+			}
+			seenEvidence.add(proof.evidenceId);
+			return true;
+		})
+		.slice(0, 3)
+		.map((proof) => ({
+			...proof,
+			excerpt: boundedText(proof.excerpt, 500),
+			limitation: proof.limitation
+				? boundedText(proof.limitation, 500)
+				: null,
+			support: boundedText(proof.support, 800),
+		}));
+}
+
+function boundedText(value: string, maxLength: number) {
+	return value.trim().slice(0, maxLength);
 }
 
 function uniqueStrings(values: string[]) {
