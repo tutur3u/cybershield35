@@ -20,6 +20,8 @@ import {
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
+	const startedAt = Date.now();
+	const requestId = request.headers.get("x-vercel-id");
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
 		return Response.json({ error: auth.error }, { status: auth.status });
@@ -56,8 +58,19 @@ export async function POST(request: Request) {
 				}
 				results.push({ id, ok: true });
 			} catch (error) {
+				const message = publicErrorMessage(error, "Thao tác không thành công.");
+				console.error(
+					JSON.stringify({
+						action: input.action,
+						articleId: id,
+						level: "error",
+						message,
+						msg: "article_bulk_item_failed",
+						requestId,
+					}),
+				);
 				results.push({
-					error: publicErrorMessage(error, "Thao tác không thành công."),
+					error: message,
 					id,
 					ok: false,
 				});
@@ -65,9 +78,28 @@ export async function POST(request: Request) {
 		}
 
 		const succeeded = results.filter((result) => result.ok).length;
+		const failed = results.length - succeeded;
+		console.log(
+			JSON.stringify({
+				action: input.action,
+				durationMs: Date.now() - startedAt,
+				failed,
+				level: "info",
+				msg: "article_bulk_completed",
+				requestId,
+				succeeded,
+			}),
+		);
 		return Response.json(
 			{
-				failed: results.length - succeeded,
+				...(failed
+					? {
+							error:
+								results.find((result) => !result.ok)?.error ??
+								"Thao tác không thành công.",
+						}
+					: {}),
+				failed,
 				results,
 				succeeded,
 			},
@@ -77,6 +109,15 @@ export async function POST(request: Request) {
 			},
 		);
 	} catch (error) {
+		console.error(
+			JSON.stringify({
+				durationMs: Date.now() - startedAt,
+				level: "error",
+				message: publicErrorMessage(error, "Không thể xử lý các bài viết."),
+				msg: "article_bulk_failed",
+				requestId,
+			}),
+		);
 		if (error instanceof z.ZodError) {
 			return Response.json(
 				{ error: "Thao tác hàng loạt không hợp lệ." },

@@ -98,6 +98,7 @@ export function ArticlesWorkspace() {
 	const [selected, setSelected] = useState<Set<string>>(() => new Set());
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [bulkReviewStatus, setBulkReviewStatus] =
 		useState<ReviewStatus>("needs_review");
 	const [notice, setNotice] = useState<string | null>(null);
@@ -225,6 +226,7 @@ export function ArticlesWorkspace() {
 	) {
 		if (!selectedIds.length) return;
 		setNotice(null);
+		if (action === "delete") setDeleteError(null);
 		try {
 			const result = await bulkMutation.mutateAsync({
 				action,
@@ -240,9 +242,10 @@ export function ArticlesWorkspace() {
 			setDeleteOpen(false);
 			await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
 		} catch (error) {
-			setNotice(
-				error instanceof Error ? error.message : "Không thể xử lý bài viết.",
-			);
+			const message =
+				error instanceof Error ? error.message : "Không thể xử lý bài viết.";
+			if (action === "delete") setDeleteError(message);
+			else setNotice(message);
 		}
 	}
 
@@ -610,7 +613,13 @@ export function ArticlesWorkspace() {
 					});
 				}}
 			/>
-			<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+			<Dialog
+				open={deleteOpen}
+				onOpenChange={(open) => {
+					setDeleteOpen(open);
+					if (!open) setDeleteError(null);
+				}}
+			>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Xóa {selectedIds.length} bài viết?</DialogTitle>
@@ -619,6 +628,15 @@ export function ArticlesWorkspace() {
 							nháp hoặc bài đăng tương ứng cũng bị xóa khỏi Zalo OA. Thao
 							tác này không thể hoàn tác.
 						</DialogDescription>
+						{deleteError ? (
+							<div
+								role="alert"
+								aria-live="assertive"
+								className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-[11px] font-semibold text-[var(--danger-strong)]"
+							>
+								{deleteError}
+							</div>
+						) : null}
 					</DialogHeader>
 					<DialogFooter>
 						<DialogClose asChild>
@@ -632,7 +650,7 @@ export function ArticlesWorkspace() {
 						<button
 							type="button"
 							onClick={() => void runBulk("delete")}
-							disabled={bulkBusy === "delete"}
+							disabled={Boolean(bulkBusy)}
 							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--danger)] px-3 text-[11px] font-bold text-white disabled:opacity-50"
 						>
 							{bulkBusy === "delete" ? (

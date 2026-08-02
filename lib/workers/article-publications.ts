@@ -325,19 +325,34 @@ export async function removeRemoteArticle(
 	if (!article?.remoteArticleId || !article.targetOaConnectionId) {
 		throw new Error("Bài viết chưa được đồng bộ với Zalo.");
 	}
-	const [activeJob] = await adminDb
+	const cancelledJobs = await adminDb
+		.update(articlePublicationJobs)
+		.set({
+			errorMessage: "Đã hủy để xóa bài viết",
+			lockedAt: null,
+			status: "cancelled",
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(articlePublicationJobs.articleId, articleId),
+				inArray(articlePublicationJobs.status, ["queued", "retrying"]),
+			),
+		)
+		.returning({ id: articlePublicationJobs.id });
+	const [runningJob] = await adminDb
 		.select({ id: articlePublicationJobs.id })
 		.from(articlePublicationJobs)
 		.where(
 			and(
 				eq(articlePublicationJobs.articleId, articleId),
-				inArray(articlePublicationJobs.status, ["queued", "running", "retrying"]),
+				eq(articlePublicationJobs.status, "running"),
 			),
 		)
 		.limit(1);
-	if (activeJob) {
+	if (runningJob) {
 		throw new Error(
-			"Bài viết đang có thao tác Zalo chờ xử lý. Hãy hủy lịch hoặc đợi thao tác hoàn tất.",
+			"Bài viết đang được xử lý trên Zalo. Hãy đợi thao tác hoàn tất rồi xóa lại.",
 		);
 	}
 
@@ -370,6 +385,7 @@ export async function removeRemoteArticle(
 			entityType: "article",
 			payload: {
 				actorId: actor.id,
+				cancelledJobIds: cancelledJobs.map((job) => job.id),
 				remoteArticleId: article.remoteArticleId,
 				removedAt: removedAt.toISOString(),
 			},

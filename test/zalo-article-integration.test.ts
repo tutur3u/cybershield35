@@ -120,12 +120,26 @@ describe("Zalo OA security and article contract", () => {
 			"app/api/articles/bulk/route.ts",
 			"utf8",
 		);
+		const workspace = readFileSync(
+			"components/dashboard/articles-workspace.tsx",
+			"utf8",
+		);
+		const publications = readFileSync(
+			"lib/workers/article-publications.ts",
+			"utf8",
+		);
 
 		expect(schema).toContain('autoSyncDrafts: boolean("auto_sync_drafts")');
 		expect(automation).toContain("!defaultOa.autoSyncDrafts");
 		expect(automation).toContain('"sync_hidden"');
 		expect(bulkRoute).toContain('"set_review_status"');
 		expect(bulkRoute).toContain("removeRemoteArticle");
+		expect(bulkRoute).toContain('msg: "article_bulk_item_failed"');
+		expect(bulkRoute).toContain('msg: "article_bulk_completed"');
+		expect(publications).toContain('status: "cancelled"');
+		expect(publications).toContain('eq(articlePublicationJobs.status, "running")');
+		expect(workspace).toContain('role="alert"');
+		expect(workspace).toContain("{deleteError}");
 		expect(bulkRoute).not.toContain('"publish"');
 	});
 
