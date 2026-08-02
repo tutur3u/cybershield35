@@ -416,11 +416,9 @@ function RelatedEvidenceRow({ item }: { item: RelatedEvidenceItem }) {
 				</p>
 			</div>
 			<div className="flex flex-wrap items-center gap-2 sm:justify-end">
-				{item.sharedTopics[0] ? (
-					<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
-						#{item.sharedTopics[0]}
-					</span>
-				) : null}
+				<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
+					{item.relevance >= 0.98 ? "Cùng sự kiện" : "Liên quan ngữ nghĩa"}
+				</span>
 				<span className="rounded-md bg-[var(--success-soft)] px-2 py-1 text-[10px] font-extrabold text-[var(--success-strong)]">
 					{Math.round(item.relevance * 100)}% phù hợp
 				</span>

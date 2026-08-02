@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 export const EVIDENCE_EMBEDDING_DIMENSIONS = 768;
 export const EVIDENCE_EMBEDDING_MODEL = "google/gemini-embedding-2";
 export const LOCAL_EVIDENCE_EMBEDDING_MODEL = "local/vietnamese-event-hash-v1";
-export const LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE = 0.28;
+export const LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE = 0.5;
 export const RELATED_EVIDENCE_MIN_RELEVANCE = 0.72;
 
 const stopWords = new Set([

@@ -5,6 +5,7 @@ import {
 	EVIDENCE_EMBEDDING_DIMENSIONS,
 	EVIDENCE_EMBEDDING_MODEL,
 	LOCAL_EVIDENCE_EMBEDDING_MODEL,
+	LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE,
 	RELATED_EVIDENCE_MIN_RELEVANCE,
 	evidenceSemanticHash,
 	evidenceSemanticText,
@@ -35,6 +36,7 @@ describe("evidence semantic relationships", () => {
 		expect(EVIDENCE_EMBEDDING_MODEL).toBe("google/gemini-embedding-2");
 		expect(EVIDENCE_EMBEDDING_DIMENSIONS).toBe(768);
 		expect(LOCAL_EVIDENCE_EMBEDDING_MODEL).toStartWith("local/");
+		expect(LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE).toBeGreaterThanOrEqual(0.5);
 		expect(RELATED_EVIDENCE_MIN_RELEVANCE).toBeGreaterThanOrEqual(0.7);
 	});
 
