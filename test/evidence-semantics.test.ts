@@ -68,6 +68,8 @@ describe("evidence semantic relationships", () => {
 		expect(migration).toContain("USING hnsw");
 		expect(migration).toContain("halfvec_cosine_ops");
 		expect(worker).toContain("tuturuuuAllowsEmbeddingModel");
+		expect(worker).toContain("model.id === EVIDENCE_EMBEDDING_MODEL");
+		expect(worker).not.toContain('tuturuuu?.type === "embedding"');
 		expect(worker).toContain("batch.map(localEvidenceEmbedding)");
 		expect(worker).not.toContain("GOOGLE_GENERATIVE_AI_API_KEY");
 	});

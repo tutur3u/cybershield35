@@ -140,14 +140,10 @@ async function tuturuuuAllowsEmbeddingModel(
 		});
 		if (!response.ok) return true;
 		const body = (await response.json()) as {
-			data?: Array<{ id?: string; tuturuuu?: { type?: string } }>;
+			data?: Array<{ id?: string }>;
 		};
 		return Boolean(
-			body.data?.some(
-				(model) =>
-					model.id === EVIDENCE_EMBEDDING_MODEL &&
-					model.tuturuuu?.type === "embedding",
-			),
+			body.data?.some((model) => model.id === EVIDENCE_EMBEDDING_MODEL),
 		);
 	} catch {
 		return true;
