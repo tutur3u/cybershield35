@@ -33,6 +33,7 @@ const CONCEPT_PATTERNS = {
 		"tiep can tre",
 	],
 	trafficViolation: [
+		"giao thong",
 		"vi pham giao thong",
 		"vi pham atgt",
 		"an toan giao thong",
@@ -213,13 +214,16 @@ export function validateAnalysisEvidenceLinks(
 	const claims = analysis.claims
 		.slice(0, 12)
 		.map((claim) => {
-			const proofs = validateProofs(claim.proofs, evidenceById);
+			const proofs = validateProofs(claim.proofs, evidenceById, (item) =>
+				isConclusionCompatible(claim.claim, item),
+			);
 			return {
 				...claim,
 				claim: boundedText(claim.claim, 1_500),
+				confidence: proofConfidence(proofs),
 				evidenceIds: uniqueStrings(proofs.map((proof) => proof.evidenceId)),
 				proofs,
-				rationale: boundedText(claim.rationale, 1_500),
+				rationale: proofRationale(proofs, 1_500),
 				stance: boundedText(claim.stance, 120),
 			};
 		})
@@ -233,11 +237,12 @@ export function validateAnalysisEvidenceLinks(
 			const linkedIds = uniqueStrings(proofs.map((proof) => proof.evidenceId));
 			return {
 				...flag,
+				confidence: proofConfidence(proofs),
 				count: linkedIds.length,
 				evidenceIds: linkedIds,
 				label: boundedText(flag.label, 180),
 				proofs,
-				rationale: boundedText(flag.rationale, 1_500),
+				rationale: proofRationale(proofs, 1_500),
 			};
 		})
 		.filter((flag) => flag.proofs.length > 0);
@@ -336,11 +341,53 @@ function validateProofs(
 		.map((proof) => ({
 			...proof,
 			excerpt: boundedText(proof.excerpt, 500),
-			limitation: proof.limitation
-				? boundedText(proof.limitation, 500)
-				: null,
+			limitation: proofLimitation(
+				proof,
+				evidenceById.get(proof.evidenceId),
+			),
 			support: boundedText(proof.support, 800),
 		}));
+}
+
+function isConclusionCompatible(
+	conclusion: string,
+	evidence: EvidenceForAnalysis,
+) {
+	const conclusionConcepts = detectConcepts(normalizeAnalysisText(conclusion));
+	if (!conclusionConcepts.length) return true;
+	const evidenceConcepts = detectConcepts(
+		normalizeAnalysisText(
+			[evidence.quote, evidence.summary].filter(Boolean).join(" "),
+		),
+	);
+	return conclusionConcepts.some((concept) => evidenceConcepts.includes(concept));
+}
+
+function proofConfidence(proofs: AnalysisProof[]) {
+	if (!proofs.length) return 0;
+	return proofs.reduce((sum, proof) => sum + proof.confidence, 0) / proofs.length;
+}
+
+function proofLimitation(
+	proof: AnalysisProof,
+	evidence: EvidenceForAnalysis | undefined,
+) {
+	if (proof.limitation) return boundedText(proof.limitation, 500);
+	const support = normalizeAnalysisText(proof.support);
+	const source = normalizeAnalysisText(
+		[evidence?.quote, evidence?.summary].filter(Boolean).join(" "),
+	);
+	if (support.includes("bat coc") && !source.includes("bat coc")) {
+		return "Nguồn mô tả hành vi tiếp cận hoặc dẫn trẻ đi, chưa xác nhận ý định bắt cóc.";
+	}
+	return null;
+}
+
+function proofRationale(proofs: AnalysisProof[], maxLength: number) {
+	return boundedText(
+		proofs.map((proof) => proof.support.trim()).filter(Boolean).join(" "),
+		maxLength,
+	);
 }
 
 function boundedText(value: string, maxLength: number) {

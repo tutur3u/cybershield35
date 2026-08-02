@@ -151,9 +151,80 @@ describe("analysis evidence linking", () => {
 		]);
 
 		expect(validated.claims[0]?.evidenceIds).toEqual(["child"]);
+		expect(validated.claims[0]?.rationale).toBe(
+			"Trích đoạn mô tả trực tiếp hành vi tiếp cận một trẻ em.",
+		);
 		expect(validated.riskFlags[0]?.evidenceIds).toEqual(["child"]);
 		expect(validated.riskFlags[0]?.count).toBe(1);
 		expect(validated.riskFlags[0]?.proofs).toHaveLength(1);
+		expect(validated.riskFlags[0]?.rationale).toBe(
+			"Trích đoạn mô tả trực tiếp hành vi tiếp cận một trẻ em.",
+		);
+	});
+
+	test("removes concept-incompatible claim proofs and derives missing caveats", () => {
+		const analysis: AnalysisOutput = {
+			riskLevel: "high",
+			summary: "Tóm tắt",
+			stanceSummary: "Lập trường",
+			topicClusters: [],
+			claims: [
+				{
+					claim: "Có sự cố giao thông nghiêm trọng.",
+					confidence: 0.9,
+					evidenceIds: ["traffic", "child"],
+					proofs: [
+						{
+							confidence: 0.8,
+							evidenceId: "traffic",
+							excerpt: trafficViolationStory.quote,
+							limitation: null,
+							support: "Nguồn mô tả trực tiếp hành vi vi phạm giao thông.",
+						},
+						{
+							confidence: 0.9,
+							evidenceId: "child",
+							excerpt: childStory.quote,
+							limitation: null,
+							support: "Nguồn này không liên quan đến giao thông.",
+						},
+					],
+					rationale: "Nhiều bằng chứng hỗ trợ.",
+					stance: "concerned",
+				},
+			],
+			riskFlags: [
+				{
+					confidence: 0.9,
+					count: 1,
+					evidenceIds: ["child"],
+					label: "Mối lo ngại về an toàn trẻ em",
+					proofs: [
+						{
+							confidence: 0.9,
+							evidenceId: "child",
+							excerpt: childStory.quote,
+							limitation: null,
+							support: "Thông tin này cho thấy ý định bắt cóc trẻ em.",
+						},
+					],
+					rationale: "Nhiều sự việc đã được xác nhận.",
+					severity: "high",
+				},
+			],
+			sentiment: { negative: 1, neutral: 0, positive: 0, total: 1 },
+		};
+
+		const validated = validateAnalysisEvidenceLinks(analysis, [
+			trafficViolationStory,
+			childStory,
+		]);
+
+		expect(validated.claims[0]?.evidenceIds).toEqual(["traffic"]);
+		expect(validated.claims[0]?.confidence).toBe(0.8);
+		expect(validated.riskFlags[0]?.proofs[0]?.limitation).toContain(
+			"chưa xác nhận ý định bắt cóc",
+		);
 	});
 
 	test("requires every generated proof excerpt to exist in its cited source", () => {
