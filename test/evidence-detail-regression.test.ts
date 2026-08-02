@@ -32,12 +32,15 @@ describe("evidence detail routing regression", () => {
 		expect(widgets).toContain("Tải thêm bài viết");
 	});
 
-	test("shows exact evidence identity and paginated related evidence", () => {
+	test("shows exact evidence identity and semantically related evidence", () => {
 		const details = read("components/dashboard/evidence-details-page.tsx");
 		const timeline = read("components/dashboard/evidence-timeline.tsx");
 
 		expect(details).toContain("data-evidence-id={evidence.id}");
-		expect(details).toContain("enableInfinite");
+		expect(details).toContain("Bằng chứng liên quan");
+		expect(details).toContain("kết quả yếu hoặc trùng lặp được ẩn");
+		expect(details).toContain("relatedEvidenceQueryOptions");
+		expect(details).not.toContain("Bằng chứng cùng scan");
 		expect(details).toContain("Mở bảng xử lý");
 		expect(details).toContain("Mức ưu tiên kết hợp tín hiệu");
 		expect(details).toContain("Hình ảnh gốc được giữ lại");

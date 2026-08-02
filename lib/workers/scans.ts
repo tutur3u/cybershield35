@@ -28,6 +28,7 @@ import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
 import { resolveDraftGenerationStyle } from "@/lib/domain/draft-style";
 import { detectSource } from "@/lib/domain/source-detection";
+import { invalidateEvidenceSemanticProfile } from "@/lib/workers/evidence-semantics";
 import {
 	analyzeEvidence,
 	generateCounterArgumentWithEvidenceFallback,
@@ -553,6 +554,14 @@ export async function updateEvidence(id: string, input: UpdateEvidenceInput) {
 		.returning();
 
 	if (!item) return null;
+	if (
+		input.author !== undefined ||
+		input.quote !== undefined ||
+		input.sourceLabel !== undefined ||
+		input.summary !== undefined
+	) {
+		await invalidateEvidenceSemanticProfile(id);
+	}
 	await writeAudit("evidence_item", id, "updated", {});
 	await syncExistingAnalysisTopicsForScan(item.scanJobId);
 	await refreshIntelligenceRollupsBestEffort(`evidence-updated:${id}`);

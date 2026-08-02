@@ -9,6 +9,7 @@ const appTables = [
 	"tracked_sources",
 	"provider_runs",
 	"evidence_items",
+	"evidence_semantic_profiles",
 	"evidence_triage",
 	"evidence_triage_notes",
 	"analyses",

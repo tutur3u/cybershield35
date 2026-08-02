@@ -3,6 +3,7 @@ import "server-only";
 import {
 	and,
 	asc,
+	cosineDistance,
 	desc,
 	eq,
 	gt,
@@ -11,6 +12,7 @@ import {
 	inArray,
 	isNull,
 	lt,
+	ne,
 	or,
 	sql,
 	type SQL,
@@ -21,6 +23,7 @@ import { z } from "zod";
 import type {
 	EvidenceTriageNoteView,
 	EvidenceTriageView,
+	RelatedEvidenceResponse,
 	TimelineFilters,
 	TimelineHead,
 	TimelinePage,
@@ -35,6 +38,7 @@ import { adminDb } from "@/lib/db/client";
 import {
 	auditEvents,
 	evidenceItems,
+	evidenceSemanticProfiles,
 	evidenceTopics,
 	evidenceTriage,
 	evidenceTriageNotes,
@@ -43,6 +47,7 @@ import {
 	topics,
 	type EvidenceTriageStatus,
 } from "@/lib/db/schema";
+import { RELATED_EVIDENCE_MIN_RELEVANCE } from "@/lib/domain/evidence-semantics";
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
@@ -207,6 +212,83 @@ export async function getTimelinePostById(
 	evidenceId: string,
 ): Promise<TimelinePost | null> {
 	return getCachedTimelinePostById(evidenceId);
+}
+
+export async function listRelatedEvidence(
+	evidenceId: string,
+	limit = 6,
+): Promise<RelatedEvidenceResponse> {
+	const targetRows = await adminDb
+		.select({
+			embedding: evidenceSemanticProfiles.embedding,
+			model: evidenceSemanticProfiles.model,
+			updatedAt: evidenceSemanticProfiles.updatedAt,
+		})
+		.from(evidenceSemanticProfiles)
+		.where(eq(evidenceSemanticProfiles.evidenceItemId, evidenceId))
+		.limit(1);
+	const target = targetRows[0];
+	if (!target) {
+		return {
+			generatedAt: null,
+			items: [],
+			model: null,
+			profileReady: false,
+		};
+	}
+
+	const distance = cosineDistance(
+		evidenceSemanticProfiles.embedding,
+		target.embedding,
+	);
+	const relevance = sql<number>`1 - (${distance})`.mapWith(Number);
+	const rows = await adminDb
+		.select({ ...timelinePostSelection, relevance })
+		.from(evidenceSemanticProfiles)
+		.innerJoin(
+			evidenceItems,
+			eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId),
+		)
+		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
+		.where(
+			and(
+				ne(evidenceItems.id, evidenceId),
+				sql`${distance} <= ${1 - RELATED_EVIDENCE_MIN_RELEVANCE}`,
+			),
+		)
+		.orderBy(distance, desc(effectivePublishedAt))
+		.limit(Math.max(limit * 4, 24));
+	const topicMap = await topicsForEvidence(rows.map((row) => row.id));
+	const targetTopics = new Set((await topicsForEvidence([evidenceId])).get(evidenceId) ?? []);
+	const seenUrls = new Set<string>();
+	const seenQuotes = new Set<string>();
+	const items = [];
+	for (const row of rows) {
+		const normalizedQuote = row.quote.trim().toLocaleLowerCase("vi");
+		if (
+			(row.sourceUrl && seenUrls.has(row.sourceUrl)) ||
+			seenQuotes.has(normalizedQuote)
+		) {
+			continue;
+		}
+		if (row.sourceUrl) seenUrls.add(row.sourceUrl);
+		seenQuotes.add(normalizedQuote);
+		const topicSlugs = topicMap.get(row.id) ?? [];
+		items.push({
+			...mapTimelinePost(row, topicSlugs),
+			relevance: Math.max(0, Math.min(1, Number(row.relevance))),
+			sharedTopics: topicSlugs.filter((slug) => targetTopics.has(slug)),
+		});
+		if (items.length >= limit) break;
+	}
+
+	return {
+		generatedAt: target.updatedAt.toISOString(),
+		items,
+		model: target.model,
+		profileReady: true,
+	};
 }
 
 async function getCachedTimelinePostById(

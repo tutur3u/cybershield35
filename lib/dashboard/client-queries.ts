@@ -17,6 +17,7 @@ import type {
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	OperationsOverview,
+	RelatedEvidenceResponse,
 	ScanDetail,
 	TopicDetailView,
 	TopicsPage,
@@ -300,6 +301,16 @@ export function evidenceDetailQueryOptions(evidenceId: string) {
 	});
 }
 
+export function relatedEvidenceQueryOptions(evidenceId: string) {
+	return queryOptions({
+		enabled: Boolean(evidenceId),
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: () => fetchRelatedEvidence(evidenceId),
+		queryKey: dashboardQueryKeys.relatedEvidence(evidenceId),
+		staleTime: timelineQueryStaleTimeMs,
+	});
+}
+
 export function workspaceMembersQueryOptions() {
 	return queryOptions({
 		gcTime: dashboardQueryGcTimeMs,
@@ -366,6 +377,14 @@ async function fetchEvidenceDetail(evidenceId: string): Promise<TimelinePost> {
 	);
 	if (!payload.evidence) throw new Error("Không tìm thấy bằng chứng này.");
 	return payload.evidence;
+}
+
+async function fetchRelatedEvidence(
+	evidenceId: string,
+): Promise<RelatedEvidenceResponse> {
+	return fetchJson<RelatedEvidenceResponse>(
+		`/api/evidence/${encodeURIComponent(evidenceId)}/related`,
+	);
 }
 
 export async function fetchDashboardScansPage({

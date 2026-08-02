@@ -526,6 +526,26 @@ export type TimelinePost = IntelligenceEvidenceRow & {
 	triage: EvidenceTriageView;
 };
 
+export type RelatedEvidenceItem = TimelinePost & {
+	relevance: number;
+	sharedTopics: string[];
+};
+
+export type RelatedEvidenceResponse = {
+	generatedAt: string | null;
+	items: RelatedEvidenceItem[];
+	model: string | null;
+	profileReady: boolean;
+};
+
+export type EvidenceSemanticRebuildResult = {
+	failed: number;
+	generated: number;
+	model: string;
+	skipped: number;
+	total: number;
+};
+
 export type TimelinePage = IntelligencePage<TimelinePost> & {
 	refreshedAt: string;
 	total: number;

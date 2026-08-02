@@ -4,6 +4,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	halfvec,
 	pgEnum,
 	pgTable,
 	text,
@@ -347,6 +348,26 @@ export const evidenceItems = pgTable(
 			table.publishedAt,
 			table.id,
 		),
+	],
+);
+
+export const evidenceSemanticProfiles = pgTable(
+	"evidence_semantic_profiles",
+	{
+		evidenceItemId: uuid("evidence_item_id")
+			.primaryKey()
+			.references(() => evidenceItems.id, { onDelete: "cascade" }),
+		contentHash: text("content_hash").notNull(),
+		embedding: halfvec("embedding", { dimensions: 768 }).notNull(),
+		model: text("model").notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		index("evidence_semantic_profiles_embedding_hnsw_idx").using(
+			"hnsw",
+			table.embedding.op("halfvec_cosine_ops"),
+		),
+		index("evidence_semantic_profiles_updated_idx").on(table.updatedAt),
 	],
 );
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowLeft,
+	BrainCircuit,
 	CalendarClock,
 	Database,
 	ExternalLink,
@@ -10,6 +11,7 @@ import {
 	Gauge,
 	MessageSquareText,
 	Radar,
+	RefreshCw,
 	Scale,
 	ShieldAlert,
 	ShieldCheck,
@@ -19,14 +21,15 @@ import {
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { EvidencePanel } from "@/components/dashboard/analysis-widgets";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import {
 	intelligenceProviderLabel,
 } from "@/components/dashboard/intelligence-workspace-shared";
 import { PageHeader } from "@/components/dashboard/page-header";
 import type {
+	EvidenceSemanticRebuildResult,
 	EvidenceTriageView,
+	RelatedEvidenceItem,
 	TimelinePost,
 } from "@/components/dashboard/types";
 import {
@@ -34,7 +37,10 @@ import {
 	PanelHeader,
 	RiskPill,
 } from "@/components/dashboard/ui-primitives";
-import { evidenceDetailQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	evidenceDetailQueryOptions,
+	relatedEvidenceQueryOptions,
+} from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 
@@ -60,6 +66,15 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 	const [triageOpen, setTriageOpen] = useState(false);
 	const [draftOpen, setDraftOpen] = useState(false);
 	const evidenceQuery = useQuery(evidenceDetailQueryOptions(evidenceId ?? ""));
+	const relatedQuery = useQuery(relatedEvidenceQueryOptions(evidenceId ?? ""));
+	const rebuildMutation = useMutation({
+		mutationFn: rebuildSemanticProfiles,
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.relatedEvidence(evidenceId ?? ""),
+			});
+		},
+	});
 	const evidence = evidenceQuery.data;
 	const assessment = evidence
 		? assessEvidenceRisk({
@@ -224,11 +239,26 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 				</div>
 			</div>
 
-			<EvidencePanel
-				enableInfinite
-				evidence={[]}
-				limit={8}
-				scanId={evidence.scanId}
+			<RelatedEvidencePanel
+				error={relatedQuery.error}
+				generatedAt={relatedQuery.data?.generatedAt ?? null}
+				items={relatedQuery.data?.items ?? []}
+				model={relatedQuery.data?.model ?? null}
+				onRebuild={() => {
+					if (
+						window.confirm(
+							"Xếp hạng lại toàn bộ bằng chứng bằng Gemini Embedding 2? Quá trình có thể mất vài phút.",
+						)
+					) {
+						rebuildMutation.mutate();
+					}
+				}}
+				onRetry={() => void relatedQuery.refetch()}
+				pending={relatedQuery.isPending}
+				profileReady={relatedQuery.data?.profileReady ?? false}
+				rebuildError={rebuildMutation.error}
+				rebuildPending={rebuildMutation.isPending}
+				rebuildResult={rebuildMutation.data}
 			/>
 
 			{triageOpen ? (
@@ -242,6 +272,166 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 			{draftOpen ? <EvidenceDraftSheet open post={evidence} onOpenChange={setDraftOpen} /> : null}
 		</div>
 	);
+}
+
+function RelatedEvidencePanel({
+	error,
+	generatedAt,
+	items,
+	model,
+	onRebuild,
+	onRetry,
+	pending,
+	profileReady,
+	rebuildError,
+	rebuildPending,
+	rebuildResult,
+}: {
+	error: Error | null;
+	generatedAt: string | null;
+	items: RelatedEvidenceItem[];
+	model: string | null;
+	onRebuild: () => void;
+	onRetry: () => void;
+	pending: boolean;
+	profileReady: boolean;
+	rebuildError: Error | null;
+	rebuildPending: boolean;
+	rebuildResult?: EvidenceSemanticRebuildResult;
+}) {
+	return (
+		<Panel>
+			<PanelHeader
+				title={`Bằng chứng liên quan${items.length ? ` (${items.length})` : ""}`}
+				description="So khớp theo sự kiện và ý nghĩa trên toàn bộ kho dữ liệu; kết quả yếu hoặc trùng lặp được ẩn."
+				action={
+					<button
+						type="button"
+						disabled={rebuildPending}
+						onClick={onRebuild}
+						className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-wait disabled:opacity-60"
+					>
+						<RefreshCw
+							className={rebuildPending ? "animate-spin" : ""}
+							size={13}
+						/>
+						{rebuildPending ? "Đang xếp hạng…" : "Xếp hạng lại toàn bộ"}
+					</button>
+				}
+			/>
+			<div className="border-b border-[var(--divider)] px-4 py-3 text-[11px] leading-5 text-[var(--muted)]">
+				<span className="inline-flex items-center gap-1.5 font-bold text-[var(--muted-strong)]">
+					<BrainCircuit size={13} /> Gemini Embedding 2
+				</span>
+				<span className="mx-2">·</span>
+				{generatedAt
+					? `Cập nhật ${formatPublished(generatedAt)}`
+					: "Chưa có hồ sơ ngữ nghĩa"}
+				{model ? <span className="sr-only">Mô hình {model}</span> : null}
+			</div>
+			{rebuildResult ? (
+				<p
+					className="border-b border-[var(--divider)] bg-[var(--success-soft)] px-4 py-2 text-xs font-semibold text-[var(--success-strong)]"
+					role="status"
+				>
+					Đã cập nhật {rebuildResult.generated.toLocaleString("vi-VN")}/
+					{rebuildResult.total.toLocaleString("vi-VN")} bằng chứng
+					{rebuildResult.failed ? ` · ${rebuildResult.failed} lỗi` : ""}.
+				</p>
+			) : null}
+			{rebuildError ? (
+				<p
+					className="border-b border-[var(--divider)] bg-[var(--danger-soft)] px-4 py-2 text-xs font-semibold text-[var(--danger-strong)]"
+					role="alert"
+				>
+					{rebuildError.message}
+				</p>
+			) : null}
+			<div className="divide-y divide-[var(--divider)] px-4">
+				{pending ? (
+					<p className="py-8 text-center text-sm text-[var(--muted)]">
+						Đang tìm mối liên hệ có ý nghĩa…
+					</p>
+				) : error ? (
+					<div className="py-8 text-center">
+						<p className="text-sm text-[var(--danger-strong)]">
+							Không thể tải bằng chứng liên quan.
+						</p>
+						<button
+							type="button"
+							onClick={onRetry}
+							className="mt-3 text-xs font-bold text-[var(--accent-strong)]"
+						>
+							Thử lại
+						</button>
+					</div>
+				) : items.length ? (
+					items.map((item) => <RelatedEvidenceRow item={item} key={item.id} />)
+				) : (
+					<div className="py-9 text-center">
+						<p className="text-sm font-bold text-[var(--foreground)]">
+							{profileReady
+								? "Không có bằng chứng đủ liên quan"
+								: "Cần xếp hạng kho bằng chứng"}
+						</p>
+						<p className="mx-auto mt-1 max-w-xl text-xs leading-5 text-[var(--muted)]">
+							{profileReady
+								? "Hệ thống chủ động ẩn kết quả có độ tương đồng thấp thay vì lấp đầy danh sách bằng nội dung không phù hợp."
+								: "Chạy xếp hạng để tạo liên kết ngữ nghĩa cho mọi bằng chứng hiện có."}
+						</p>
+					</div>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
+function RelatedEvidenceRow({ item }: { item: RelatedEvidenceItem }) {
+	return (
+		<IntentPrefetchLink
+			href={`/evidence/${item.id}`}
+			className="grid gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+		>
+			<div className="min-w-0">
+				<p className="line-clamp-2 text-[13px] font-semibold leading-6 text-[var(--foreground)]">
+					{item.quote}
+				</p>
+				<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
+					{item.sourceLabel ?? item.author ?? "Nguồn công khai"} ·{" "}
+					{formatPublished(item.publishedAt ?? item.createdAt)}
+				</p>
+			</div>
+			<div className="flex flex-wrap items-center gap-2 sm:justify-end">
+				{item.sharedTopics[0] ? (
+					<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
+						#{item.sharedTopics[0]}
+					</span>
+				) : null}
+				<span className="rounded-md bg-[var(--success-soft)] px-2 py-1 text-[10px] font-extrabold text-[var(--success-strong)]">
+					{Math.round(item.relevance * 100)}% phù hợp
+				</span>
+			</div>
+		</IntentPrefetchLink>
+	);
+}
+
+async function rebuildSemanticProfiles(): Promise<EvidenceSemanticRebuildResult> {
+	const response = await fetch("/api/evidence/semantic/rebuild", {
+		body: JSON.stringify({ force: true }),
+		headers: { "Content-Type": "application/json" },
+		method: "POST",
+	});
+	const body = await response.json().catch(() => null);
+	if (!response.ok) {
+		throw new Error(
+			body && typeof body === "object" && "error" in body
+				? typeof body.error === "string"
+					? body.error
+					: "Không thể xếp hạng lại bằng chứng."
+				: "Không thể xếp hạng lại bằng chứng.",
+		);
+	}
+	return body as EvidenceSemanticRebuildResult;
 }
 
 function Metric({ icon: Icon, label, value }: { icon: typeof Gauge; label: string; value: string }) {
