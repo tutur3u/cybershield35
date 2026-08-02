@@ -1909,7 +1909,7 @@ describe("dashboard auth gate", () => {
 		expect(types).toContain("evidenceIds: string[]");
 		expect(dashboard).toContain("claims: []");
 		expect(dashboard).toContain("claims: isClaimArray(input.claims)");
-		expect(widgets).toContain("function relatedEvidenceForFlag");
+		expect(widgets).toContain("resolveRiskFlagEvidence");
 		expect(widgets).toContain("function EvidenceDeepLinks");
 		expect(widgets).toContain("evidenceHref(item, scanId)");
 		expect(widgets).toContain("href={evidenceHref(item, scanId)}");

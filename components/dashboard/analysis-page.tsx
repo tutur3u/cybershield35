@@ -19,7 +19,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={Database}
 				title="Phân tích thảo luận"
-				description="Chủ đề, lập trường, cảm xúc, rủi ro và bằng chứng chuẩn hóa."
+				description="Mỗi nhận định rủi ro đi kèm lý do và bằng chứng hỗ trợ trực tiếp để kiểm tra."
 				actions={
 					<Link
 						href="/evidence"

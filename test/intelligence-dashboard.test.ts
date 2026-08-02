@@ -180,6 +180,7 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(rollups).toContain("refreshTopicRollups");
 		expect(rollups).toContain("refreshClaimIndex");
 		expect(rollups).toContain("parsed <= 1 ? parsed * 100 : parsed");
+		expect(rollups).not.toContain(": evidenceIdsForScan");
 		expect(backfillScript).toContain("loadLocalEnvFile");
 		expect(backfillScript).toContain("adminSqlClient.end");
 	});

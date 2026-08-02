@@ -427,7 +427,6 @@ function normalizeClaimsForAnalysis(
 		| undefined,
 ) {
 	if (!Array.isArray(analysis.claims)) return [];
-	const evidenceIdsForScan = context?.evidenceIds ?? [];
 	const sourceLabels = context?.sourceLabels ?? [];
 	const topicSlugs = context?.topicSlugs ?? [];
 
@@ -435,9 +434,7 @@ function normalizeClaimsForAnalysis(
 		.map((candidate, index) => {
 			const claim = normalizeClaim(candidate);
 			if (!claim.claim) return null;
-			const evidenceIds = claim.evidenceIds.length
-				? claim.evidenceIds
-				: evidenceIdsForScan;
+			const evidenceIds = claim.evidenceIds;
 			const claimKey = stableClaimKey(analysis.id, claim.claim, index);
 
 			return {

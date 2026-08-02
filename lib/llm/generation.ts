@@ -6,6 +6,7 @@ import type { EvidenceItemRow } from "@/lib/db/schema";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
+import { validateAnalysisEvidenceLinks } from "@/lib/domain/analysis-evidence";
 import {
   draftWritingBriefForMode,
   type DraftGenerationMode,
@@ -178,13 +179,17 @@ export async function analyzeEvidence(
   const { output } = await generateText({
     model,
     output: Output.object({ schema: analysisOutputSchema }),
-    system: `You are an evidence-grounded civic information analyst. Return Vietnamese analysis only. Distinguish facts, interpretations, and missing context. Write summaries in fluent, idiomatic Vietnamese without mechanical openings or bureaucratic filler. Do not infer identity, do not recommend automated posting, and cite only provided evidence IDs. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
+    system: `You are a meticulous evidence-grounded civic information analyst. Return Vietnamese analysis only. Distinguish facts, interpretations, and missing context. Write summaries in fluent, idiomatic Vietnamese without mechanical openings or bureaucratic filler. Do not infer identity or intent, and do not recommend automated posting.
+
+For every claim and risk flag, cite only the exact provided evidence IDs that directly support that specific conclusion. First classify what event each evidence item actually describes, then construct conclusions. Apply a counterfactual check: if an item could be removed without weakening the specific conclusion, or describes a different event/category, do not cite it. Shared severity, location, sentiment, or incidental words are never sufficient. Never pad citation lists or counts; each risk flag count must equal the number of unique evidenceIds. Explain the direct logical relationship in rationale and lower confidence when context is incomplete. Omit a risk flag when no item directly supports it.
+
+Important distinctions: a shipper recovering a package dropped on a road is not evidence of a serious traffic violation unless the text describes an actual unlawful driving behavior or collision. An unknown adult approaching or leading away a child is a child-safety concern, not a traffic violation merely because it happened near a road. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
     prompt: JSON.stringify({
-      task: "Analyze public topic discussion, claims, stance, risk flags, and sentiment.",
+      task: "Analyze public topic discussion, claims, stance, risk flags, and sentiment. Audit every evidence-to-conclusion link for direct semantic support before returning it.",
       evidence,
     }),
   });
-  return output;
+  return validateAnalysisEvidenceLinks(output, evidence);
 }
 
 export type CounterArgumentGenerationOptions = {

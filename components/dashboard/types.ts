@@ -291,6 +291,7 @@ export type ClaimView = {
 	claim: string;
 	confidence: number;
 	evidenceIds: string[];
+	rationale?: string;
 	stance: string;
 };
 
@@ -317,6 +318,9 @@ export type TopicsPage = {
 export type RiskFlagView = {
 	label: string;
 	count: number;
+	confidence?: number;
+	evidenceIds?: string[];
+	rationale?: string;
 	severity: RiskLevel;
 };
 

@@ -19,6 +19,7 @@ export const analysisOutputSchema = z.object({
 			stance: z.string(),
 			confidence: z.number().min(0).max(1),
 			evidenceIds: z.array(z.string()),
+			rationale: z.string(),
 		}),
 	),
 	riskFlags: z.array(
@@ -26,6 +27,9 @@ export const analysisOutputSchema = z.object({
 			label: z.string(),
 			count: z.number(),
 			severity: z.enum(["low", "medium", "high"]),
+			confidence: z.number().min(0).max(1),
+			evidenceIds: z.array(z.string()),
+			rationale: z.string(),
 		}),
 	),
 	sentiment: z.object({

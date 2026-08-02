@@ -1,6 +1,15 @@
 "use client";
 
-import { ArrowRight, Edit3, Layers3, Link2, Quote, Trash2 } from "lucide-react";
+import {
+	ArrowRight,
+	CheckCircle2,
+	CircleAlert,
+	Edit3,
+	Layers3,
+	Link2,
+	Quote,
+	Trash2,
+} from "lucide-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
@@ -18,6 +27,7 @@ import {
 } from "@/lib/dashboard/client-queries";
 import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import { resolveRiskFlagEvidence } from "@/lib/domain/analysis-evidence";
 import {
 	DashboardTooltip,
 	Panel,
@@ -331,7 +341,7 @@ export function AlertPanel({
 		<Panel className={`flex flex-col ${className}`}>
 			<PanelHeader
 				title="Cảnh báo ưu tiên"
-				description="Mỗi cảnh báo mở tới bằng chứng đang chống lưng cho nhận định."
+				description="Chỉ hiện bài hỗ trợ trực tiếp; trùng mức rủi ro hoặc từ ngữ tình cờ không được tính."
 			/>
 			<div
 				className="grid flex-1 gap-3 p-4"
@@ -343,7 +353,8 @@ export function AlertPanel({
 			>
 				{flags.length ? (
 					flags.map((row) => {
-						const relatedEvidence = relatedEvidenceForFlag(row, evidence);
+						const resolution = resolveRiskFlagEvidence(row, evidence);
+						const relatedEvidence = resolution.evidence;
 						return (
 							<div
 								key={row.label}
@@ -356,16 +367,22 @@ export function AlertPanel({
 										</p>
 										<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
 											{relatedEvidence.length
-												? `${relatedEvidence.length} bằng chứng đã liên kết`
-												: "Chưa tìm thấy bằng chứng khớp trong dữ liệu đã tải"}
+												? `${relatedEvidence.length} bằng chứng hỗ trợ trực tiếp`
+												: "Không có bằng chứng hỗ trợ trực tiếp"}
 										</p>
+										{row.rationale ? (
+											<p className="mt-2 text-[11px] leading-5 text-[var(--muted-strong)]">
+												{row.rationale}
+											</p>
+										) : null}
 									</div>
-									<DashboardTooltip content="Số tín hiệu hoặc mẫu bằng chứng được LLM gắn với cảnh báo này.">
+									<DashboardTooltip content="Số bằng chứng trực tiếp còn lại sau khi kiểm tra liên kết ngữ nghĩa.">
 										<span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--danger-soft)] text-[11px] font-bold text-[var(--danger-strong)]">
-											{row.count}
+											{relatedEvidence.length}
 										</span>
 									</DashboardTooltip>
 								</div>
+								<EvidenceLinkStatus resolution={resolution} />
 								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
 							</div>
 						);
@@ -391,12 +408,13 @@ export function RiskFlagPanel({
 		<Panel>
 			<PanelHeader
 				title="Cờ rủi ro từ LLM"
-				description="Đọc từng cờ cùng bằng chứng liên quan trước khi ưu tiên xử lý."
+				description="Mở nội dung và lý do liên kết trước khi ưu tiên xử lý."
 			/>
 			<div className="space-y-3 p-4">
 				{analysis.riskFlags.length ? (
 					analysis.riskFlags.map((flag) => {
-						const relatedEvidence = relatedEvidenceForFlag(flag, evidence);
+						const resolution = resolveRiskFlagEvidence(flag, evidence);
+						const relatedEvidence = resolution.evidence;
 						return (
 							<div
 								key={flag.label}
@@ -408,11 +426,19 @@ export function RiskFlagPanel({
 											{flag.label}
 										</p>
 										<p className="mt-1 text-[11px] text-[var(--muted)]">
-											{flag.count} bằng chứng liên quan theo phân tích
+											{relatedEvidence.length
+												? `${relatedEvidence.length} bằng chứng hỗ trợ trực tiếp`
+												: "Chưa có bằng chứng đủ phù hợp để liên kết"}
 										</p>
+										{flag.rationale ? (
+											<p className="mt-2 text-[11px] leading-5 text-[var(--muted-strong)]">
+												{flag.rationale}
+											</p>
+										) : null}
 									</div>
 									<RiskPill risk={flag.severity} />
 								</div>
+								<EvidenceLinkStatus resolution={resolution} />
 								<EvidenceDeepLinks evidence={relatedEvidence} scanId={scanId} />
 							</div>
 						);
@@ -468,6 +494,12 @@ export function ClaimEvidencePanel({
 								<p className="mt-2 break-words text-[13px] leading-6 text-[var(--foreground)]">
 									{claim.claim}
 								</p>
+								{claim.rationale ? (
+									<p className="mt-2 rounded-md bg-[var(--surface-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--muted-strong)]">
+										<span className="font-bold text-[var(--foreground)]">Vì sao: </span>
+										{claim.rationale}
+									</p>
+								) : null}
 								<EvidenceDeepLinks
 									evidence={citedEvidence}
 									emptyLabel="Bằng chứng trích dẫn chưa có trong dữ liệu đã tải."
@@ -701,7 +733,7 @@ function initialEvidencePage(
 }
 
 function EvidenceDeepLinks({
-	emptyLabel = "Chưa có bằng chứng liên quan trong dữ liệu đã tải.",
+	emptyLabel = "Liên kết tự động đã được giữ lại vì chưa có bằng chứng hỗ trợ trực tiếp.",
 	evidence,
 	scanId,
 }: {
@@ -718,20 +750,26 @@ function EvidenceDeepLinks({
 	}
 
 	return (
-		<div className="mt-3 flex min-w-0 flex-wrap gap-2">
+		<div className="mt-3 grid min-w-0 gap-2">
 			{evidence.slice(0, 3).map((item, index) => (
-				<DashboardTooltip
+				<IntentPrefetchLink
 					key={item.id}
-					content={item.summary || item.quote || "Mở bằng chứng gốc"}
+					href={evidenceHref(item, scanId)}
+					className="group grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-2.5 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
 				>
-						<IntentPrefetchLink
-							href={evidenceHref(item, scanId)}
-						className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
-					>
-						<Link2 size={12} className="shrink-0" />
-						<span className="truncate">Bằng chứng {index + 1}</span>
-						</IntentPrefetchLink>
-				</DashboardTooltip>
+					<span className="grid size-6 shrink-0 place-items-center rounded bg-[var(--accent-soft)] text-[10px] font-bold text-[var(--accent-strong)]">
+						{index + 1}
+					</span>
+					<span className="min-w-0">
+						<span className="block truncate text-[10px] font-bold uppercase tracking-[0.02em] text-[var(--muted)]">
+							{item.sourceLabel ?? "Nguồn công khai"}
+						</span>
+						<span className="mt-1 block overflow-hidden text-[11px] leading-4 text-[var(--foreground)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+							{item.summary || item.quote || "Mở bằng chứng gốc"}
+						</span>
+					</span>
+					<Link2 size={13} className="mt-1 shrink-0 text-[var(--muted)] transition group-hover:text-[var(--accent-strong)]" />
+				</IntentPrefetchLink>
 			))}
 		</div>
 	);
@@ -742,60 +780,30 @@ function evidenceHref(item: EvidenceView[number], scanId?: string) {
 	return `/evidence/${item.id}${selectedScanId ? `?scanId=${selectedScanId}` : ""}`;
 }
 
-function relatedEvidenceForFlag(flag: RiskFlagView, evidence: EvidenceView) {
-	const scored = evidence
-		.map((item) => ({
-			item,
-			score:
-				scoreTextMatch(flag.label, item) +
-				(item.riskLevel === flag.severity ? 12 : 0),
-		}))
-		.filter((row) => row.score > 0)
-		.sort((a, b) => b.score - a.score);
-
-	if (scored.length) {
-		return uniqueEvidence(scored.map((row) => row.item)).slice(
-			0,
-			Math.max(1, Math.min(3, flag.count)),
+function EvidenceLinkStatus({
+	resolution,
+}: {
+	resolution: ReturnType<typeof resolveRiskFlagEvidence>;
+}) {
+	if (resolution.rejectedCitationCount > 0) {
+		return (
+			<p className="mt-3 flex items-start gap-1.5 rounded-md bg-[var(--warning-soft)] px-2.5 py-2 text-[10px] font-semibold leading-4 text-[var(--warning-strong)]">
+				<CircleAlert size={13} className="mt-0.5 shrink-0" />
+				Đã loại {resolution.rejectedCitationCount} liên kết không hỗ trợ trực tiếp cho cảnh báo này.
+			</p>
 		);
 	}
-
-	return evidence
-		.filter((item) => item.riskLevel === flag.severity)
-		.slice(0, Math.max(1, Math.min(3, flag.count)));
-}
-
-function scoreTextMatch(label: string, item: EvidenceView[number]) {
-	const tokens = textTokens(label);
-	if (!tokens.length) return 0;
-	const haystack = textTokens(
-		[
-			item.quote,
-			item.summary,
-			item.sourceLabel,
-			item.author,
-			item.stance,
-			item.sentiment,
-		]
-			.filter(Boolean)
-			.join(" "),
-	);
-	return tokens.reduce((score, token) => score + (haystack.includes(token) ? 4 : 0), 0);
-}
-
-function textTokens(value: string) {
-	return normalizeText(value)
-		.split(" ")
-		.filter((token) => token.length >= 3);
-}
-
-function normalizeText(value: string) {
-	return value
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, " ")
-		.trim();
+	if (resolution.evidence.length) {
+		return (
+			<p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--success-strong)]">
+				<CheckCircle2 size={13} />
+				{resolution.source === "cited"
+					? "Đã kiểm tra trích dẫn trực tiếp"
+					: "Liên kết cũ đã được kiểm tra lại theo nội dung"}
+			</p>
+		);
+	}
+	return null;
 }
 
 function uniqueEvidence(evidence: EvidenceView) {
