@@ -244,15 +244,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 				generatedAt={relatedQuery.data?.generatedAt ?? null}
 				items={relatedQuery.data?.items ?? []}
 				model={relatedQuery.data?.model ?? null}
-				onRebuild={() => {
-					if (
-						window.confirm(
-							"Xếp hạng lại toàn bộ bằng chứng bằng Gemini Embedding 2? Quá trình có thể mất vài phút.",
-						)
-					) {
-						rebuildMutation.mutate();
-					}
-				}}
+				onRebuild={() => rebuildMutation.mutate()}
 				onRetry={() => void relatedQuery.refetch()}
 				pending={relatedQuery.isPending}
 				profileReady={relatedQuery.data?.profileReady ?? false}
@@ -299,16 +291,38 @@ function RelatedEvidencePanel({
 	rebuildPending: boolean;
 	rebuildResult?: EvidenceSemanticRebuildResult;
 }) {
+	const [confirming, setConfirming] = useState(false);
 	return (
 		<Panel>
 			<PanelHeader
 				title={`Bằng chứng liên quan${items.length ? ` (${items.length})` : ""}`}
 				description="So khớp theo sự kiện và ý nghĩa trên toàn bộ kho dữ liệu; kết quả yếu hoặc trùng lặp được ẩn."
-				action={
+				action={confirming ? (
+					<div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Xác nhận xếp hạng lại">
+						<span className="text-[11px] font-semibold text-[var(--muted)]">Có thể mất vài phút</span>
+						<button
+							type="button"
+							onClick={() => setConfirming(false)}
+							className="inline-flex min-h-9 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]"
+						>
+							Hủy
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setConfirming(false);
+								onRebuild();
+							}}
+							className="inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-[11px] font-extrabold text-white"
+						>
+							Xác nhận
+						</button>
+					</div>
+				) : (
 					<button
 						type="button"
 						disabled={rebuildPending}
-						onClick={onRebuild}
+						onClick={() => setConfirming(true)}
 						className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-wait disabled:opacity-60"
 					>
 						<RefreshCw
@@ -317,7 +331,7 @@ function RelatedEvidencePanel({
 						/>
 						{rebuildPending ? "Đang xếp hạng…" : "Xếp hạng lại toàn bộ"}
 					</button>
-				}
+				)}
 			/>
 			<div className="border-b border-[var(--divider)] px-4 py-3 text-[11px] leading-5 text-[var(--muted)]">
 				<span className="inline-flex items-center gap-1.5 font-bold text-[var(--muted-strong)]">
