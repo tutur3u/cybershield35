@@ -90,6 +90,8 @@ describe("Zalo OA security and article contract", () => {
 		expect(workspace).toContain("IntersectionObserver");
 		expect(workspace).toContain("Tải thêm bài viết");
 		expect(workspace).toContain("mergeArticlePages");
+		expect(workspace).toContain("setDeletedCatalogIds");
+		expect(workspace).toContain("!deleted.articleIds.has(article.id)");
 		expect(clientQueries).toContain("infiniteQueryOptions");
 		expect(clientQueries).toContain("getNextPageParam");
 		expect(clientQueries).toContain(

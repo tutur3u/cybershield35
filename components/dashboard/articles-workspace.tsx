@@ -100,6 +100,10 @@ export function ArticlesWorkspace() {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const [deletedCatalogIds, setDeletedCatalogIds] = useState(() => ({
+		articleIds: new Set<string>(),
+		remoteArticleIds: new Set<string>(),
+	}));
 	const [bulkReviewStatus, setBulkReviewStatus] =
 		useState<ReviewStatus>("needs_review");
 	const [notice, setNotice] = useState<string | null>(null);
@@ -115,8 +119,8 @@ export function ArticlesWorkspace() {
 	);
 
 	const catalog = useMemo(
-		() => buildCatalog(catalogData),
-		[catalogData],
+		() => buildCatalog(catalogData, deletedCatalogIds),
+		[catalogData, deletedCatalogIds],
 	);
 	const oaOptions = useMemo(
 		() =>
@@ -263,6 +267,13 @@ export function ArticlesWorkspace() {
 						articleIds,
 						remoteArticleIds,
 					});
+				setDeletedCatalogIds((current) => ({
+					articleIds: new Set([...current.articleIds, ...articleIds]),
+					remoteArticleIds: new Set([
+						...current.remoteArticleIds,
+						...remoteArticleIds,
+					]),
+				}));
 				queryClient.setQueryData(
 					articleQueryKeys.catalog("local", 10),
 					removeDeleted,
@@ -1080,7 +1091,13 @@ function mergeArticlePages(
 	};
 }
 
-function buildCatalog(data: ArticleCatalogData | undefined): CatalogArticle[] {
+function buildCatalog(
+	data: ArticleCatalogData | undefined,
+	deleted: {
+		articleIds: ReadonlySet<string>;
+		remoteArticleIds: ReadonlySet<string>;
+	},
+): CatalogArticle[] {
 	if (!data) return [];
 	const remoteById = new Map(
 		data.zaloArticles.map((article) => [article.remoteArticleId, article]),
@@ -1090,28 +1107,34 @@ function buildCatalog(data: ArticleCatalogData | undefined): CatalogArticle[] {
 			article.remoteArticleId ? [article.remoteArticleId] : [],
 		),
 	);
-	const local = data.articles.map(({ article, oaDisplayName }) => {
-		const remote = article.remoteArticleId
-			? remoteById.get(article.remoteArticleId)
-			: undefined;
-		return {
-			articleId: article.id,
-			coverUrl: article.coverUrl ?? remote?.coverUrl ?? null,
-			date: article.updatedAt,
-			description: article.description,
-			href: `/articles/${article.id}`,
-			id: `cs35:${article.id}`,
-			metrics: remote?.metrics ?? null,
-			oaDisplayName: oaDisplayName ?? "Chưa chọn Zalo OA",
-			origin: "cs35" as const,
-			publicationStatus: article.publicationStatus,
-			reviewStatus: article.reviewStatus,
-			scheduledAt: article.scheduledAt,
-			title: article.title || "Bài viết chưa đặt tên",
-		};
-	});
+	const local = data.articles
+		.filter(({ article }) => !deleted.articleIds.has(article.id))
+		.map(({ article, oaDisplayName }) => {
+			const remote = article.remoteArticleId
+				? remoteById.get(article.remoteArticleId)
+				: undefined;
+			return {
+				articleId: article.id,
+				coverUrl: article.coverUrl ?? remote?.coverUrl ?? null,
+				date: article.updatedAt,
+				description: article.description,
+				href: `/articles/${article.id}`,
+				id: `cs35:${article.id}`,
+				metrics: remote?.metrics ?? null,
+				oaDisplayName: oaDisplayName ?? "Chưa chọn Zalo OA",
+				origin: "cs35" as const,
+				publicationStatus: article.publicationStatus,
+				reviewStatus: article.reviewStatus,
+				scheduledAt: article.scheduledAt,
+				title: article.title || "Bài viết chưa đặt tên",
+			};
+		});
 	const remoteOnly = data.zaloArticles
-		.filter((article) => !localRemoteIds.has(article.remoteArticleId))
+		.filter(
+			(article) =>
+				!localRemoteIds.has(article.remoteArticleId) &&
+				!deleted.remoteArticleIds.has(article.remoteArticleId),
+		)
 		.map((article) => ({
 			articleId: null,
 			coverUrl: article.coverUrl,
