@@ -45,6 +45,7 @@ describe("evidence detail routing regression", () => {
 		expect(relatedDetails).toContain("Vì sao liên quan");
 		expect(relatedDetails).toContain("relationshipLabel(item.relationship)");
 		expect(relatedDetails).toContain("item.reasons.map");
+		expect(relatedDetails).toContain('items.length > 1 ? "lg:grid-cols-2"');
 		expect(details).toContain("relatedEvidenceQueryOptions");
 		expect(details).toContain("requestSemanticRebuild(force)");
 		expect(details).toContain("force = false");

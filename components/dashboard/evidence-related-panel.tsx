@@ -97,7 +97,9 @@ export function RelatedEvidencePanel({
 				) : error ? (
 					<ErrorState onRetry={onRetry} />
 				) : items.length ? (
-					<div className="grid gap-3 lg:grid-cols-2">
+					<div
+						className={`grid gap-3 ${items.length > 1 ? "lg:grid-cols-2" : ""}`}
+					>
 						{items.map((item) => (
 							<RelatedEvidenceCard item={item} key={item.id} />
 						))}
