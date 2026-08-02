@@ -34,15 +34,21 @@ describe("evidence detail routing regression", () => {
 
 	test("shows exact evidence identity and semantically related evidence", () => {
 		const details = read("components/dashboard/evidence-details-page.tsx");
+		const relatedDetails = read(
+			"components/dashboard/evidence-related-panel.tsx",
+		);
 		const timeline = read("components/dashboard/evidence-timeline.tsx");
 
 		expect(details).toContain("data-evidence-id={evidence.id}");
-		expect(details).toContain("Bằng chứng liên quan");
-		expect(details).toContain("kết quả yếu hoặc trùng lặp được ẩn");
+		expect(relatedDetails).toContain("Bằng chứng liên quan");
+		expect(relatedDetails).toContain("kết quả yếu hoặc trùng lặp được ẩn");
+		expect(relatedDetails).toContain("Vì sao liên quan");
+		expect(relatedDetails).toContain("relationshipLabel(item.relationship)");
+		expect(relatedDetails).toContain("item.reasons.map");
 		expect(details).toContain("relatedEvidenceQueryOptions");
 		expect(details).toContain("requestSemanticRebuild(force)");
 		expect(details).toContain("force = false");
-		expect(details).not.toContain("Bằng chứng cùng scan");
+		expect(`${details}${relatedDetails}`).not.toContain("Bằng chứng cùng scan");
 		expect(details).toContain("Mở bảng xử lý");
 		expect(details).toContain("Mức ưu tiên kết hợp tín hiệu");
 		expect(details).toContain("Hình ảnh gốc được giữ lại");

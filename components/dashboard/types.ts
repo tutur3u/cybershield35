@@ -527,7 +527,10 @@ export type TimelinePost = IntelligenceEvidenceRow & {
 };
 
 export type RelatedEvidenceItem = TimelinePost & {
+	reasons: string[];
 	relevance: number;
+	relationship: "same_event" | "strongly_related" | "related";
+	semanticSimilarity: number;
 	sharedTopics: string[];
 };
 

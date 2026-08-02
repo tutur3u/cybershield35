@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { revalidateDashboardIntelligence } from "@/lib/dashboard/cache-invalidation";
 import { rebuildEvidenceSemanticProfiles } from "@/lib/workers/evidence-semantics";
 
 export const maxDuration = 300;
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
 	try {
 		const input = requestSchema.parse(await request.json());
 		const result = await rebuildEvidenceSemanticProfiles(auth.session, input);
+		if (result.generated > 0) revalidateDashboardIntelligence("evidence");
 		return Response.json(result, { headers: authHeaders(auth) });
 	} catch (error) {
 		if (error instanceof z.ZodError) {

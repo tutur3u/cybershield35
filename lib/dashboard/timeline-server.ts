@@ -23,6 +23,7 @@ import { z } from "zod";
 import type {
 	EvidenceTriageNoteView,
 	EvidenceTriageView,
+	RelatedEvidenceItem,
 	RelatedEvidenceResponse,
 	TimelineFilters,
 	TimelineHead,
@@ -51,6 +52,7 @@ import {
 	LOCAL_EVIDENCE_EMBEDDING_MODEL,
 	LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE,
 	RELATED_EVIDENCE_MIN_RELEVANCE,
+	rankEvidenceRelationship,
 } from "@/lib/domain/evidence-semantics";
 
 const DEFAULT_LIMIT = 30;
@@ -222,13 +224,37 @@ export async function listRelatedEvidence(
 	evidenceId: string,
 	limit = 6,
 ): Promise<RelatedEvidenceResponse> {
+	return getCachedRelatedEvidence(evidenceId, limit);
+}
+
+async function getCachedRelatedEvidence(
+	evidenceId: string,
+	limit: number,
+): Promise<RelatedEvidenceResponse> {
+	"use cache";
+	cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
+	cacheTag(
+		DASHBOARD_INTELLIGENCE_TAG,
+		dashboardIntelligenceTag("evidence"),
+	);
+
 	const targetRows = await adminDb
 		.select({
+			author: evidenceItems.author,
+			createdAt: evidenceItems.createdAt,
 			embedding: evidenceSemanticProfiles.embedding,
 			model: evidenceSemanticProfiles.model,
+			publishedAt: evidenceItems.publishedAt,
+			quote: evidenceItems.quote,
+			sourceUrl: evidenceItems.sourceUrl,
+			summary: evidenceItems.summary,
 			updatedAt: evidenceSemanticProfiles.updatedAt,
 		})
 		.from(evidenceSemanticProfiles)
+		.innerJoin(
+			evidenceItems,
+			eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId),
+		)
 		.where(eq(evidenceSemanticProfiles.evidenceItemId, evidenceId))
 		.limit(1);
 	const target = targetRows[0];
@@ -245,13 +271,14 @@ export async function listRelatedEvidence(
 		evidenceSemanticProfiles.embedding,
 		target.embedding,
 	);
-	const relevance = sql<number>`1 - (${distance})`.mapWith(Number);
+	const semanticSimilarity = sql<number>`1 - (${distance})`.mapWith(Number);
 	const minimumRelevance =
 		target.model === LOCAL_EVIDENCE_EMBEDDING_MODEL
 			? LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE
 			: RELATED_EVIDENCE_MIN_RELEVANCE;
+	const candidateFloor = Math.max(0.5, minimumRelevance - 0.14);
 	const rows = await adminDb
-		.select({ ...timelinePostSelection, relevance })
+		.select({ ...timelinePostSelection, semanticSimilarity })
 		.from(evidenceSemanticProfiles)
 		.innerJoin(
 			evidenceItems,
@@ -263,32 +290,69 @@ export async function listRelatedEvidence(
 			and(
 				ne(evidenceItems.id, evidenceId),
 				eq(evidenceSemanticProfiles.model, target.model),
-				sql`${distance} <= ${1 - minimumRelevance}`,
+				sql`${distance} <= ${1 - candidateFloor}`,
 			),
 		)
 		.orderBy(distance, desc(effectivePublishedAt))
-		.limit(Math.max(limit * 4, 24));
+		.limit(Math.max(limit * 12, 72));
 	const topicMap = await topicsForEvidence(rows.map((row) => row.id));
-	const targetTopics = new Set((await topicsForEvidence([evidenceId])).get(evidenceId) ?? []);
+	const targetTopicSlugs =
+		(await topicsForEvidence([evidenceId])).get(evidenceId) ?? [];
+	const targetTopics = new Set(targetTopicSlugs);
+	const rankedRows = rows
+		.map((row) => {
+			const topicSlugs = topicMap.get(row.id) ?? [];
+			const post = mapTimelinePost(row, topicSlugs);
+			const rank = rankEvidenceRelationship(
+				{
+					author: target.author,
+					publishedAt: (target.publishedAt ?? target.createdAt).toISOString(),
+					quote: target.quote,
+					sourceUrl: target.sourceUrl,
+					summary: target.summary,
+					topicSlugs: targetTopicSlugs,
+				},
+				{
+					author: post.author,
+					publishedAt: post.publishedAt ?? post.createdAt,
+					quote: post.quote,
+					sourceUrl: post.sourceUrl,
+					summary: post.summary,
+					topicSlugs,
+				},
+				Number(row.semanticSimilarity),
+			);
+			return {
+				...post,
+				reasons: rank.reasons,
+				relevance: rank.score,
+				relationship: rank.relationship,
+				semanticSimilarity: rank.semanticSimilarity,
+				sharedTopics: topicSlugs.filter((slug) => targetTopics.has(slug)),
+			} satisfies RelatedEvidenceItem;
+		})
+		.filter((item) => item.relevance >= minimumRelevance)
+		.toSorted(
+			(left, right) =>
+				right.relevance - left.relevance ||
+				right.semanticSimilarity - left.semanticSimilarity ||
+				new Date(right.publishedAt ?? right.createdAt).getTime() -
+					new Date(left.publishedAt ?? left.createdAt).getTime(),
+		);
 	const seenUrls = new Set<string>();
 	const seenQuotes = new Set<string>();
-	const items = [];
-	for (const row of rows) {
-		const normalizedQuote = row.quote.trim().toLocaleLowerCase("vi");
+	const items: RelatedEvidenceItem[] = [];
+	for (const item of rankedRows) {
+		const normalizedQuote = item.quote.trim().toLocaleLowerCase("vi");
 		if (
-			(row.sourceUrl && seenUrls.has(row.sourceUrl)) ||
+			(item.sourceUrl && seenUrls.has(item.sourceUrl)) ||
 			seenQuotes.has(normalizedQuote)
 		) {
 			continue;
 		}
-		if (row.sourceUrl) seenUrls.add(row.sourceUrl);
+		if (item.sourceUrl) seenUrls.add(item.sourceUrl);
 		seenQuotes.add(normalizedQuote);
-		const topicSlugs = topicMap.get(row.id) ?? [];
-		items.push({
-			...mapTimelinePost(row, topicSlugs),
-			relevance: Math.max(0, Math.min(1, Number(row.relevance))),
-			sharedTopics: topicSlugs.filter((slug) => targetTopics.has(slug)),
-		});
+		items.push(item);
 		if (items.length >= limit) break;
 	}
 

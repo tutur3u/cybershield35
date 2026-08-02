@@ -10,6 +10,7 @@ import {
 	evidenceSemanticHash,
 	evidenceSemanticText,
 	localEvidenceEmbedding,
+	rankEvidenceRelationship,
 } from "@/lib/domain/evidence-semantics";
 
 const input = {
@@ -23,9 +24,61 @@ const input = {
 describe("evidence semantic relationships", () => {
 	test("grounds embeddings in the concrete event fields", () => {
 		const text = evidenceSemanticText(input);
-		expect(text).toContain("sự kiện, chủ thể, hành vi và mối lo ngại cụ thể");
+		expect(text).toStartWith("Sự kiện:");
 		expect(text).toContain(input.quote);
 		expect(text).toContain(input.summary);
+		expect(text).not.toContain(input.author);
+		expect(text).not.toContain(input.sourceLabel);
+	});
+
+	test("does not duplicate summaries that are already a quote prefix", () => {
+		const text = evidenceSemanticText({
+			...input,
+			quote: `${input.summary} Nội dung bổ sung.`,
+		});
+		expect(text).not.toContain("Diễn giải:");
+	});
+
+	test("reranks concrete event matches above same-source contextual similarity", () => {
+		const target = relationshipInput(
+			"Quán cho một cháu sạc xe điện, sau đó cháu tiện tay lấy luôn chiếc nón của chủ quán.",
+			"Vụ lấy nón tại quán ở BMT.",
+		);
+		const sameContext = relationshipInput(
+			"Khách sạc xe điện hơn một giờ tại quán cà phê rồi phàn nàn vì bị phụ thu.",
+			"Tranh cãi phụ thu sạc xe tại quán ở BMT.",
+		);
+		const sharedTheft = relationshipInput(
+			"Một người vào cửa hàng rồi tiện tay lấy chiếc mũ bảo hiểm của chủ quán.",
+			"Vụ lấy mũ bảo hiểm tại cửa hàng.",
+		);
+
+		const contextualRank = rankEvidenceRelationship(target, sameContext, 0.85);
+		const theftRank = rankEvidenceRelationship(target, sharedTheft, 0.78);
+
+		expect(theftRank.score).toBeGreaterThan(contextualRank.score);
+		expect(theftRank.reasons).toContain("Cùng hành vi trộm cắp");
+		expect(contextualRank.relationship).not.toBe("same_event");
+	});
+
+	test("recognizes exact cross-scan copies and suppresses conflicting incidents", () => {
+		const target = relationshipInput(
+			"Người đàn ông lạ mặt tiếp cận và dẫn một bé gái đi nơi khác.",
+			"Cảnh báo an toàn trẻ em tại Ea Kao.",
+		);
+		const exactCopy = { ...target, sourceUrl: "https://example.com/copy" };
+		const traffic = relationshipInput(
+			"Tài xế vượt đèn đỏ, gây va chạm giao thông nghiêm trọng.",
+			"Một vụ vi phạm an toàn giao thông.",
+		);
+
+		const exactRank = rankEvidenceRelationship(target, exactCopy, 1);
+		const trafficRank = rankEvidenceRelationship(target, traffic, 0.81);
+
+		expect(exactRank.relationship).toBe("same_event");
+		expect(exactRank.score).toBe(1);
+		expect(exactRank.reasons).toContain("Nội dung trùng khớp");
+		expect(trafficRank.score).toBeLessThan(RELATED_EVIDENCE_MIN_RELEVANCE);
 	});
 
 	test("uses a stable content hash and a strict relevance floor", () => {
@@ -63,6 +116,9 @@ describe("evidence semantic relationships", () => {
 		const migration = readFileSync("drizzle/0018_violet_wrecker.sql", "utf8");
 		expect(server).toContain("cosineDistance");
 		expect(server).toContain("RELATED_EVIDENCE_MIN_RELEVANCE");
+		expect(server).toContain("getCachedRelatedEvidence");
+		expect(server).toContain("cacheLife({ stale: 60");
+		expect(server).toContain("rankEvidenceRelationship");
 		expect(server).toContain("ne(evidenceItems.id, evidenceId)");
 		expect(migration).toContain("CREATE EXTENSION IF NOT EXISTS vector");
 		expect(migration).toContain("USING hnsw");
@@ -84,4 +140,15 @@ describe("evidence semantic relationships", () => {
 
 function cosine(left: number[], right: number[]) {
 	return left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0);
+}
+
+function relationshipInput(quote: string, summary: string) {
+	return {
+		author: "example-fanpage",
+		publishedAt: "2026-08-01T13:26:32.000Z",
+		quote,
+		sourceUrl: null,
+		summary,
+		topicSlugs: [],
+	};
 }

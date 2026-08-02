@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowLeft,
-	BrainCircuit,
 	CalendarClock,
 	Database,
 	ExternalLink,
@@ -11,7 +10,6 @@ import {
 	Gauge,
 	MessageSquareText,
 	Radar,
-	RefreshCw,
 	Scale,
 	ShieldAlert,
 	ShieldCheck,
@@ -22,6 +20,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import { RelatedEvidencePanel } from "@/components/dashboard/evidence-related-panel";
 import {
 	intelligenceProviderLabel,
 } from "@/components/dashboard/intelligence-workspace-shared";
@@ -29,7 +28,6 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import type {
 	EvidenceSemanticRebuildResult,
 	EvidenceTriageView,
-	RelatedEvidenceItem,
 	TimelinePost,
 } from "@/components/dashboard/types";
 import {
@@ -266,167 +264,6 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 	);
 }
 
-function RelatedEvidencePanel({
-	error,
-	generatedAt,
-	items,
-	model,
-	onRebuild,
-	onRetry,
-	pending,
-	profileReady,
-	rebuildError,
-	rebuildPending,
-	rebuildResult,
-}: {
-	error: Error | null;
-	generatedAt: string | null;
-	items: RelatedEvidenceItem[];
-	model: string | null;
-	onRebuild: () => void;
-	onRetry: () => void;
-	pending: boolean;
-	profileReady: boolean;
-	rebuildError: Error | null;
-	rebuildPending: boolean;
-	rebuildResult?: EvidenceSemanticRebuildResult;
-}) {
-	const [confirming, setConfirming] = useState(false);
-	return (
-		<Panel>
-			<PanelHeader
-				title={`Bằng chứng liên quan${items.length ? ` (${items.length})` : ""}`}
-				description="So khớp theo sự kiện và ý nghĩa trên toàn bộ kho dữ liệu; kết quả yếu hoặc trùng lặp được ẩn."
-				action={confirming ? (
-					<div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Xác nhận xếp hạng lại">
-						<span className="text-[11px] font-semibold text-[var(--muted)]">Có thể mất vài phút</span>
-						<button
-							type="button"
-							onClick={() => setConfirming(false)}
-							className="inline-flex min-h-9 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]"
-						>
-							Hủy
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								setConfirming(false);
-								onRebuild();
-							}}
-							className="inline-flex min-h-9 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-[11px] font-extrabold text-white"
-						>
-							Xác nhận
-						</button>
-					</div>
-				) : (
-					<button
-						type="button"
-						disabled={rebuildPending}
-						onClick={() => setConfirming(true)}
-						className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-wait disabled:opacity-60"
-					>
-						<RefreshCw
-							className={rebuildPending ? "animate-spin" : ""}
-							size={13}
-						/>
-						{rebuildPending ? "Đang xếp hạng…" : "Xếp hạng lại toàn bộ"}
-					</button>
-				)}
-			/>
-			<div className="border-b border-[var(--divider)] px-4 py-3 text-[11px] leading-5 text-[var(--muted)]">
-				<span className="inline-flex items-center gap-1.5 font-bold text-[var(--muted-strong)]">
-					<BrainCircuit size={13} /> {semanticEngineLabel(model)}
-				</span>
-				<span className="mx-2">·</span>
-				{generatedAt
-					? `Cập nhật ${formatPublished(generatedAt)}`
-					: "Chưa có hồ sơ ngữ nghĩa"}
-				{model ? <span className="sr-only">Mô hình {model}</span> : null}
-			</div>
-			{rebuildResult ? (
-				<p
-					className="border-b border-[var(--divider)] bg-[var(--success-soft)] px-4 py-2 text-xs font-semibold text-[var(--success-strong)]"
-					role="status"
-				>
-					Đã cập nhật {rebuildResult.generated.toLocaleString("vi-VN")}/
-					{rebuildResult.total.toLocaleString("vi-VN")} bằng chứng
-					{rebuildResult.failed ? ` · ${rebuildResult.failed} lỗi` : ""}.
-				</p>
-			) : null}
-			{rebuildError ? (
-				<p
-					className="border-b border-[var(--divider)] bg-[var(--danger-soft)] px-4 py-2 text-xs font-semibold text-[var(--danger-strong)]"
-					role="alert"
-				>
-					{rebuildError.message}
-				</p>
-			) : null}
-			<div className="divide-y divide-[var(--divider)] px-4">
-				{pending ? (
-					<p className="py-8 text-center text-sm text-[var(--muted)]">
-						Đang tìm mối liên hệ có ý nghĩa…
-					</p>
-				) : error ? (
-					<div className="py-8 text-center">
-						<p className="text-sm text-[var(--danger-strong)]">
-							Không thể tải bằng chứng liên quan.
-						</p>
-						<button
-							type="button"
-							onClick={onRetry}
-							className="mt-3 text-xs font-bold text-[var(--accent-strong)]"
-						>
-							Thử lại
-						</button>
-					</div>
-				) : items.length ? (
-					items.map((item) => <RelatedEvidenceRow item={item} key={item.id} />)
-				) : (
-					<div className="py-9 text-center">
-						<p className="text-sm font-bold text-[var(--foreground)]">
-							{profileReady
-								? "Không có bằng chứng đủ liên quan"
-								: "Cần xếp hạng kho bằng chứng"}
-						</p>
-						<p className="mx-auto mt-1 max-w-xl text-xs leading-5 text-[var(--muted)]">
-							{profileReady
-								? "Hệ thống chủ động ẩn kết quả có độ tương đồng thấp thay vì lấp đầy danh sách bằng nội dung không phù hợp."
-								: "Chạy xếp hạng để tạo liên kết ngữ nghĩa cho mọi bằng chứng hiện có."}
-						</p>
-					</div>
-				)}
-			</div>
-		</Panel>
-	);
-}
-
-function RelatedEvidenceRow({ item }: { item: RelatedEvidenceItem }) {
-	return (
-		<IntentPrefetchLink
-			href={`/evidence/${item.id}`}
-			className="grid gap-3 py-4 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-		>
-			<div className="min-w-0">
-				<p className="line-clamp-2 text-[13px] font-semibold leading-6 text-[var(--foreground)]">
-					{item.quote}
-				</p>
-				<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
-					{item.sourceLabel ?? item.author ?? "Nguồn công khai"} ·{" "}
-					{formatPublished(item.publishedAt ?? item.createdAt)}
-				</p>
-			</div>
-			<div className="flex flex-wrap items-center gap-2 sm:justify-end">
-				<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
-					{item.relevance >= 0.98 ? "Cùng sự kiện" : "Liên quan ngữ nghĩa"}
-				</span>
-				<span className="rounded-md bg-[var(--success-soft)] px-2 py-1 text-[10px] font-extrabold text-[var(--success-strong)]">
-					{Math.round(item.relevance * 100)}% phù hợp
-				</span>
-			</div>
-		</IntentPrefetchLink>
-	);
-}
-
 async function rebuildSemanticProfiles(): Promise<EvidenceSemanticRebuildResult> {
 	let force = true;
 	let lastResult: EvidenceSemanticRebuildResult | null = null;
@@ -491,12 +328,6 @@ function EvidenceDetailLoading() {
 
 function formatPublished(value: string) {
 	return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
-}
-
-function semanticEngineLabel(model: string | null) {
-	if (model === "google/gemini-embedding-2") return "Tuturuuu · Gemini Embedding 2";
-	if (model?.startsWith("local/")) return "So khớp ngữ nghĩa nội bộ";
-	return "Xếp hạng ngữ nghĩa riêng tư";
 }
 
 function sentimentLabel(value: string) { return ({ positive: "Tích cực", negative: "Tiêu cực", neutral: "Trung tính" } as Record<string, string>)[value] ?? value; }
