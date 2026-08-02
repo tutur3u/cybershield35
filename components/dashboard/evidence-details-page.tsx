@@ -428,8 +428,29 @@ function RelatedEvidenceRow({ item }: { item: RelatedEvidenceItem }) {
 }
 
 async function rebuildSemanticProfiles(): Promise<EvidenceSemanticRebuildResult> {
+	let force = true;
+	let lastResult: EvidenceSemanticRebuildResult | null = null;
+	for (let pass = 0; pass < 10; pass += 1) {
+		const result = await requestSemanticRebuild(force);
+		lastResult = result;
+		if (
+			result.failed === 0 &&
+			result.generated + result.skipped >= result.total
+		) {
+			return { ...result, generated: result.total, skipped: 0 };
+		}
+		if (result.generated === 0) return result;
+		force = false;
+	}
+	if (!lastResult) throw new Error("Không thể xếp hạng lại bằng chứng.");
+	return lastResult;
+}
+
+async function requestSemanticRebuild(
+	force: boolean,
+): Promise<EvidenceSemanticRebuildResult> {
 	const response = await fetch("/api/evidence/semantic/rebuild", {
-		body: JSON.stringify({ force: true }),
+		body: JSON.stringify({ force }),
 		headers: { "Content-Type": "application/json" },
 		method: "POST",
 	});

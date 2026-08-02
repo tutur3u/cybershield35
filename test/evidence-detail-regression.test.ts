@@ -40,6 +40,8 @@ describe("evidence detail routing regression", () => {
 		expect(details).toContain("Bằng chứng liên quan");
 		expect(details).toContain("kết quả yếu hoặc trùng lặp được ẩn");
 		expect(details).toContain("relatedEvidenceQueryOptions");
+		expect(details).toContain("requestSemanticRebuild(force)");
+		expect(details).toContain("force = false");
 		expect(details).not.toContain("Bằng chứng cùng scan");
 		expect(details).toContain("Mở bảng xử lý");
 		expect(details).toContain("Mức ưu tiên kết hợp tín hiệu");

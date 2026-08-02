@@ -18,6 +18,7 @@ import {
 } from "@/lib/domain/evidence-semantics";
 
 const EMBEDDING_BATCH_SIZE = 64;
+const MAX_BATCHES_PER_REBUILD_REQUEST = 7;
 // Tuturuuu meters one active AI Studio reservation per workspace. Keep corpus
 // rebuilds sequential so later batches do not race and get rejected while the
 // current embedding request is still settling.
@@ -80,7 +81,12 @@ export async function rebuildEvidenceSemanticProfiles(
 	const pending = options.force
 		? inputs
 		: inputs.filter((item) => existing.get(item.id) !== item.contentHash);
-	const batches = chunk(pending, EMBEDDING_BATCH_SIZE);
+	// Keep each request below Vercel's five-minute ceiling. The client resumes
+	// with force=false, so completed profiles form a durable checkpoint.
+	const batches = chunk(pending, EMBEDDING_BATCH_SIZE).slice(
+		0,
+		MAX_BATCHES_PER_REBUILD_REQUEST,
+	);
 	let failed = 0;
 	let generated = 0;
 
