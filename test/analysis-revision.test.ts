@@ -28,8 +28,9 @@ describe("analysis revision workflow", () => {
 		const page = read("components/dashboard/analysis-page.tsx");
 		const widgets = read("components/dashboard/analysis-widgets.tsx");
 		expect(page).toContain("Phân tích lại");
+		expect(page).toContain("Xác nhận phân tích lại");
 		expect(page).toContain("Đang kiểm chứng...");
-		expect(page).toContain("Phân tích lại sẽ dùng bằng chứng đã lưu");
+		expect(page).toContain("Dùng bằng chứng đã lưu và thay thế kết quả hiện tại.");
 		expect(widgets).toContain("Chứng minh:");
 		expect(widgets).toContain("Giới hạn:");
 		expect(widgets).toContain("Đã xác thực ${proofCount} trích đoạn nguồn");

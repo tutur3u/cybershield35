@@ -15,14 +15,11 @@ import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages"
 import { AnalysisSummary, PageHeader } from "@/components/dashboard/page-widgets";
 
 export function AnalysisPage(props: DashboardPageProps) {
+	const [isConfirmingRevision, setIsConfirmingRevision] = useState(false);
 	const [isRevising, setIsRevising] = useState(false);
 
 	async function reviseAnalysis() {
-		const confirmed = window.confirm(
-			"Phân tích lại sẽ dùng bằng chứng đã lưu để thay thế kết quả hiện tại. Tiếp tục?",
-		);
-		if (!confirmed) return;
-
+		setIsConfirmingRevision(false);
 		setIsRevising(true);
 		try {
 			await props.onReviseAnalysis();
@@ -42,12 +39,34 @@ export function AnalysisPage(props: DashboardPageProps) {
 						<button
 							type="button"
 							disabled={isRevising || !props.selectedScanId}
-							onClick={() => void reviseAnalysis()}
+							onClick={() =>
+								isConfirmingRevision
+									? void reviseAnalysis()
+									: setIsConfirmingRevision(true)
+							}
 							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<RefreshCw size={14} className={isRevising ? "animate-spin" : ""} />
-							{isRevising ? "Đang kiểm chứng..." : "Phân tích lại"}
+							{isRevising
+								? "Đang kiểm chứng..."
+								: isConfirmingRevision
+									? "Xác nhận phân tích lại"
+									: "Phân tích lại"}
 						</button>
+						{isConfirmingRevision && !isRevising ? (
+							<>
+								<span className="max-w-64 text-[11px] leading-4 text-[var(--muted)]">
+									Dùng bằng chứng đã lưu và thay thế kết quả hiện tại.
+								</span>
+								<button
+									type="button"
+									onClick={() => setIsConfirmingRevision(false)}
+									className="inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+								>
+									Hủy
+								</button>
+							</>
+						) : null}
 						<Link
 							href="/evidence"
 							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"
