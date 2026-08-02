@@ -23,7 +23,9 @@ const EMBEDDING_CONCURRENCY = 3;
 const embeddingResponseSchema = z.object({
 	data: z.array(
 		z.object({
-			embedding: z.array(z.number().finite()).length(EVIDENCE_EMBEDDING_DIMENSIONS),
+			embedding: z
+				.array(z.number().finite())
+				.min(EVIDENCE_EMBEDDING_DIMENSIONS),
 			index: z.number().int().nonnegative(),
 		}),
 	),
@@ -168,7 +170,6 @@ async function createTuturuuuEmbeddings(
 				"https://ai.tuturuuu.com/v1/embeddings",
 			{
 				body: JSON.stringify({
-					dimensions: EVIDENCE_EMBEDDING_DIMENSIONS,
 					input: inputs.map(evidenceSemanticText),
 					model: EVIDENCE_EMBEDDING_MODEL,
 				}),
@@ -197,10 +198,21 @@ async function createTuturuuuEmbeddings(
 		}
 		return parsed.data
 			.toSorted((left, right) => left.index - right.index)
-			.map((item) => item.embedding);
+			.map((item) => projectEmbedding(item.embedding));
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+function projectEmbedding(embedding: number[]) {
+	const projected = embedding.slice(0, EVIDENCE_EMBEDDING_DIMENSIONS);
+	const magnitude = Math.sqrt(
+		projected.reduce((sum, value) => sum + value * value, 0),
+	);
+	if (!Number.isFinite(magnitude) || magnitude === 0) {
+		throw new Error("Tuturuuu trả vector ngữ nghĩa không hợp lệ.");
+	}
+	return projected.map((value) => value / magnitude);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {

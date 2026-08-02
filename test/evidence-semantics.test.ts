@@ -71,6 +71,11 @@ describe("evidence semantic relationships", () => {
 		expect(worker).toContain("model.id === EVIDENCE_EMBEDDING_MODEL");
 		expect(worker).not.toContain('tuturuuu?.type === "embedding"');
 		expect(worker).toContain("batch.map(localEvidenceEmbedding)");
+		expect(worker).toContain("projectEmbedding(item.embedding)");
+		expect(worker).toContain(".min(EVIDENCE_EMBEDDING_DIMENSIONS)");
+		expect(worker).not.toContain(
+			"dimensions: EVIDENCE_EMBEDDING_DIMENSIONS",
+		);
 		expect(worker).not.toContain("GOOGLE_GENERATIVE_AI_API_KEY");
 	});
 });
