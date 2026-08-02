@@ -1,4 +1,8 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import {
+	infiniteQueryOptions,
+	type InfiniteData,
+	queryOptions,
+} from "@tanstack/react-query";
 
 import type { ZaloCatalogArticle } from "@/lib/zalo/article-catalog";
 
@@ -74,6 +78,25 @@ export function articleSettingsQueryOptions() {
 		queryKey: articleQueryKeys.settings(),
 		staleTime: 15 * 60_000,
 	});
+}
+
+export function removeDeletedArticlesFromCatalog(
+	data: InfiniteData<ArticleCatalogPage, string | null> | undefined,
+	deleted: { articleIds: ReadonlySet<string>; remoteArticleIds: ReadonlySet<string> },
+) {
+	if (!data) return data;
+	return {
+		...data,
+		pages: data.pages.map((page) => ({
+			...page,
+			articles: page.articles.filter(
+				({ article }) => !deleted.articleIds.has(article.id),
+			),
+			zaloArticles: page.zaloArticles.filter(
+				(article) => !deleted.remoteArticleIds.has(article.remoteArticleId),
+			),
+		})),
+	};
 }
 
 export async function fetchArticleJson<T>(

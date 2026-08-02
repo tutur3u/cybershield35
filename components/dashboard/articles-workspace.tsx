@@ -49,6 +49,7 @@ import {
 	articleQueryKeys,
 	articleSettingsQueryOptions,
 	fetchArticleJson,
+	removeDeletedArticlesFromCatalog,
 	type ArticleCatalogPage,
 	type ArticleSettings,
 	type LocalArticleListItem,
@@ -163,7 +164,11 @@ export function ArticlesWorkspace() {
 			articleIds: string[];
 			status?: ReviewStatus;
 		}) =>
-			postJson<{ failed: number; succeeded: number }>(
+			postJson<{
+				failed: number;
+				results: Array<{ error?: string; id: string; ok: boolean }>;
+				succeeded: number;
+			}>(
 				"/api/articles/bulk",
 				input,
 			),
@@ -240,7 +245,39 @@ export function ArticlesWorkspace() {
 			);
 			setSelected(new Set());
 			setDeleteOpen(false);
-			await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
+			if (action === "delete") {
+				const articleIds = new Set(
+					result.results.filter((item) => item.ok).map((item) => item.id),
+				);
+				const remoteArticleIds = new Set(
+					(catalogData?.articles ?? []).flatMap(({ article }) =>
+						articleIds.has(article.id) && article.remoteArticleId
+							? [article.remoteArticleId]
+							: [],
+					),
+				);
+				const removeDeleted = (
+					data: Parameters<typeof removeDeletedArticlesFromCatalog>[0],
+				) =>
+					removeDeletedArticlesFromCatalog(data, {
+						articleIds,
+						remoteArticleIds,
+					});
+				queryClient.setQueryData(
+					articleQueryKeys.catalog("local", 10),
+					removeDeleted,
+				);
+				queryClient.setQueryData(
+					articleQueryKeys.catalog("zalo", 10),
+					removeDeleted,
+				);
+				await queryClient.invalidateQueries({
+					queryKey: articleQueryKeys.all,
+					refetchType: "none",
+				});
+			} else {
+				await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
+			}
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : "Không thể xử lý bài viết.";

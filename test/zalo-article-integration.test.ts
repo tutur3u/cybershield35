@@ -113,6 +113,65 @@ describe("Zalo OA security and article contract", () => {
 		expect(store).toContain('revalidateTag(ARTICLE_CATALOG_TAG, "max")');
 	});
 
+	test("removes successfully deleted local and Zalo rows from the client cache", async () => {
+		const { removeDeletedArticlesFromCatalog } = await import(
+			"@/lib/articles/client-queries"
+		);
+		const localArticle = {
+			article: {
+				coverUrl: null,
+				createdAt: "2026-08-02T00:00:00.000Z",
+				description: "Temporary article",
+				id: "local-delete-id",
+				originDraftId: null,
+				publicationStatus: "hidden",
+				remoteArticleId: "remote-delete-id",
+				reviewStatus: "draft",
+				scheduledAt: null,
+				title: "Delete me",
+				updatedAt: "2026-08-02T00:00:00.000Z",
+			},
+			oaDisplayName: "Test OA",
+			oaId: "test-oa",
+		};
+		const remoteArticle = {
+			author: "CS35",
+			createdAt: null,
+			coverUrl: null,
+			description: "Temporary remote article",
+			metrics: { comments: 0, likes: 0, shares: 0, views: 0 },
+			oaConnectionId: "connection-id",
+			oaDisplayName: "Test OA",
+			oaId: "test-oa",
+			publishedAt: null,
+			publicationStatus: "remote_draft" as const,
+			remoteArticleId: "remote-delete-id",
+			title: "Delete me",
+			updatedAt: null,
+		};
+		const result = removeDeletedArticlesFromCatalog(
+			{
+				pageParams: [null],
+				pages: [
+					{
+						articles: [localArticle],
+						hasNextPage: false,
+						nextCursor: null,
+						zaloArticles: [remoteArticle],
+						zaloIssues: [],
+					},
+				],
+			},
+			{
+				articleIds: new Set(["local-delete-id"]),
+				remoteArticleIds: new Set(["remote-delete-id"]),
+			},
+		);
+
+		expect(result?.pages[0]?.articles).toEqual([]);
+		expect(result?.pages[0]?.zaloArticles).toEqual([]);
+	});
+
 	test("keeps automatic scan articles hidden and configurable", () => {
 		const automation = readFileSync("lib/articles/automation.ts", "utf8");
 		const schema = readFileSync("lib/db/schema.ts", "utf8");
