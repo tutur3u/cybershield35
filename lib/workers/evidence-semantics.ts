@@ -18,7 +18,10 @@ import {
 } from "@/lib/domain/evidence-semantics";
 
 const EMBEDDING_BATCH_SIZE = 64;
-const EMBEDDING_CONCURRENCY = 3;
+// Tuturuuu meters one active AI Studio reservation per workspace. Keep corpus
+// rebuilds sequential so later batches do not race and get rejected while the
+// current embedding request is still settling.
+const EMBEDDING_CONCURRENCY = 1;
 
 const embeddingResponseSchema = z.object({
 	data: z.array(

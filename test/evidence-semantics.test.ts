@@ -72,6 +72,7 @@ describe("evidence semantic relationships", () => {
 		expect(worker).not.toContain('tuturuuu?.type === "embedding"');
 		expect(worker).toContain("batch.map(localEvidenceEmbedding)");
 		expect(worker).toContain("projectEmbedding(item.embedding)");
+		expect(worker).toContain("const EMBEDDING_CONCURRENCY = 1");
 		expect(worker).toContain(".min(EVIDENCE_EMBEDDING_DIMENSIONS)");
 		expect(worker).not.toContain(
 			"dimensions: EVIDENCE_EMBEDDING_DIMENSIONS",
