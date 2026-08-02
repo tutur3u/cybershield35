@@ -10,8 +10,10 @@ import { evidenceItems, evidenceSemanticProfiles } from "@/lib/db/schema";
 import {
 	EVIDENCE_EMBEDDING_DIMENSIONS,
 	EVIDENCE_EMBEDDING_MODEL,
+	LOCAL_EVIDENCE_EMBEDDING_MODEL,
 	evidenceSemanticHash,
 	evidenceSemanticText,
+	localEvidenceEmbedding,
 	type EvidenceSemanticInput,
 } from "@/lib/domain/evidence-semantics";
 
@@ -59,12 +61,16 @@ export async function rebuildEvidenceSemanticProfiles(
 			})
 			.from(evidenceSemanticProfiles),
 	]);
+	const useTuturuuu = await tuturuuuAllowsEmbeddingModel(session);
+	const semanticModel = useTuturuuu
+		? EVIDENCE_EMBEDDING_MODEL
+		: LOCAL_EVIDENCE_EMBEDDING_MODEL;
 	const existing = new Map(
 		profiles.map((profile) => [profile.evidenceItemId, profile.contentHash]),
 	);
 	const inputs: ProfileInput[] = evidence.map((item) => ({
 		...item,
-		contentHash: evidenceSemanticHash(item),
+		contentHash: evidenceSemanticHash(item, semanticModel),
 	}));
 	const pending = options.force
 		? inputs
@@ -75,25 +81,27 @@ export async function rebuildEvidenceSemanticProfiles(
 
 	await runPool(batches, EMBEDDING_CONCURRENCY, async (batch) => {
 		try {
-			const embeddings = await createTuturuuuEmbeddings(session, batch);
+			const embeddings = useTuturuuu
+				? await createTuturuuuEmbeddings(session, batch)
+				: batch.map(localEvidenceEmbedding);
 			await adminDb.transaction(async (tx) => {
 				for (const [index, item] of batch.entries()) {
 					const embedding = embeddings[index];
-					if (!embedding) throw new Error("Tuturuuu trả thiếu embedding.");
+					if (!embedding) throw new Error("Thiếu vector ngữ nghĩa.");
 					await tx
 						.insert(evidenceSemanticProfiles)
 						.values({
 							contentHash: item.contentHash,
 							embedding,
 							evidenceItemId: item.id,
-							model: EVIDENCE_EMBEDDING_MODEL,
+							model: semanticModel,
 							updatedAt: new Date(),
 						})
 						.onConflictDoUpdate({
 							set: {
 								contentHash: item.contentHash,
 								embedding,
-								model: EVIDENCE_EMBEDDING_MODEL,
+								model: semanticModel,
 								updatedAt: new Date(),
 							},
 							target: evidenceSemanticProfiles.evidenceItemId,
@@ -113,10 +121,37 @@ export async function rebuildEvidenceSemanticProfiles(
 	return {
 		failed,
 		generated,
-		model: EVIDENCE_EMBEDDING_MODEL,
+		model: semanticModel,
 		skipped: evidence.length - pending.length,
 		total: evidence.length,
 	};
+}
+
+async function tuturuuuAllowsEmbeddingModel(
+	session: Pick<TuturuuuAdminSession, "accessToken" | "workspaceId">,
+) {
+	try {
+		const response = await fetch("https://ai.tuturuuu.com/v1/models", {
+			cache: "no-store",
+			headers: {
+				Authorization: `Bearer ${session.accessToken}`,
+				"X-Tuturuuu-Workspace-Id": session.workspaceId ?? "",
+			},
+		});
+		if (!response.ok) return true;
+		const body = (await response.json()) as {
+			data?: Array<{ id?: string; tuturuuu?: { type?: string } }>;
+		};
+		return Boolean(
+			body.data?.some(
+				(model) =>
+					model.id === EVIDENCE_EMBEDDING_MODEL &&
+					model.tuturuuu?.type === "embedding",
+			),
+		);
+	} catch {
+		return true;
+	}
 }
 
 export async function invalidateEvidenceSemanticProfile(evidenceId: string) {

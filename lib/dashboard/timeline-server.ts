@@ -47,7 +47,11 @@ import {
 	topics,
 	type EvidenceTriageStatus,
 } from "@/lib/db/schema";
-import { RELATED_EVIDENCE_MIN_RELEVANCE } from "@/lib/domain/evidence-semantics";
+import {
+	LOCAL_EVIDENCE_EMBEDDING_MODEL,
+	LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE,
+	RELATED_EVIDENCE_MIN_RELEVANCE,
+} from "@/lib/domain/evidence-semantics";
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
@@ -242,6 +246,10 @@ export async function listRelatedEvidence(
 		target.embedding,
 	);
 	const relevance = sql<number>`1 - (${distance})`.mapWith(Number);
+	const minimumRelevance =
+		target.model === LOCAL_EVIDENCE_EMBEDDING_MODEL
+			? LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE
+			: RELATED_EVIDENCE_MIN_RELEVANCE;
 	const rows = await adminDb
 		.select({ ...timelinePostSelection, relevance })
 		.from(evidenceSemanticProfiles)
@@ -254,7 +262,8 @@ export async function listRelatedEvidence(
 		.where(
 			and(
 				ne(evidenceItems.id, evidenceId),
-				sql`${distance} <= ${1 - RELATED_EVIDENCE_MIN_RELEVANCE}`,
+				eq(evidenceSemanticProfiles.model, target.model),
+				sql`${distance} <= ${1 - minimumRelevance}`,
 			),
 		)
 		.orderBy(distance, desc(effectivePublishedAt))

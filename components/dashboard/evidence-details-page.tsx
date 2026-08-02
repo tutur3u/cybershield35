@@ -335,7 +335,7 @@ function RelatedEvidencePanel({
 			/>
 			<div className="border-b border-[var(--divider)] px-4 py-3 text-[11px] leading-5 text-[var(--muted)]">
 				<span className="inline-flex items-center gap-1.5 font-bold text-[var(--muted-strong)]">
-					<BrainCircuit size={13} /> Gemini Embedding 2
+					<BrainCircuit size={13} /> {semanticEngineLabel(model)}
 				</span>
 				<span className="mx-2">·</span>
 				{generatedAt
@@ -472,6 +472,12 @@ function EvidenceDetailLoading() {
 
 function formatPublished(value: string) {
 	return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
+}
+
+function semanticEngineLabel(model: string | null) {
+	if (model === "google/gemini-embedding-2") return "Tuturuuu · Gemini Embedding 2";
+	if (model?.startsWith("local/")) return "So khớp ngữ nghĩa nội bộ";
+	return "Xếp hạng ngữ nghĩa riêng tư";
 }
 
 function sentimentLabel(value: string) { return ({ positive: "Tích cực", negative: "Tiêu cực", neutral: "Trung tính" } as Record<string, string>)[value] ?? value; }
