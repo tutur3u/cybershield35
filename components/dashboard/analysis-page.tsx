@@ -76,8 +76,8 @@ export function AnalysisPage(props: DashboardPageProps) {
 					</div>
 				}
 			/>
-			<div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-				<div className="space-y-5">
+			<div className="grid min-w-0 items-stretch gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+				<div className="min-w-0 space-y-5">
 					<AnalysisSummary analysis={props.analysis} />
 					<TopicPanel evidence={props.evidence} topics={props.topics} />
 					<RiskFlagPanel
@@ -86,7 +86,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 						scanId={props.selectedScanId}
 					/>
 				</div>
-				<div className="grid gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
+				<div className="grid min-w-0 gap-5 xl:grid-rows-[auto_minmax(0,1fr)]">
 					<SentimentAndStance analysis={props.analysis} className="h-full" />
 					<AlertPanel
 						flags={props.analysis.riskFlags}
@@ -95,7 +95,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 						className="h-full"
 					/>
 				</div>
-				<div className="xl:col-span-2">
+				<div className="min-w-0 xl:col-span-2">
 					<EvidencePanel
 						enableInfinite
 						evidence={props.evidence}

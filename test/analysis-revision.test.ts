@@ -32,6 +32,8 @@ describe("analysis revision workflow", () => {
 		expect(page).toContain("Xác nhận phân tích lại");
 		expect(page).toContain("Đang kiểm chứng...");
 		expect(page).toContain("Dùng bằng chứng đã lưu và thay thế kết quả hiện tại.");
+		expect(page).toContain("grid min-w-0 items-stretch");
+		expect(page).toContain("min-w-0 space-y-5");
 		expect(widgets).toContain("Chứng minh:");
 		expect(widgets).toContain("Giới hạn:");
 		expect(widgets).toContain("Đã xác thực ${proofCount} trích đoạn nguồn");
