@@ -76,7 +76,7 @@ export function CentralizedLoginScreen({
 						<PendingInvitationActions pendingInvitation={pendingInvitation} />
 					) : null}
 
-					{loginHref && !setupIncomplete && !scopeApprovalHref ? (
+					{scopeApprovalHref ? null : loginHref && !setupIncomplete ? (
 						<TuturuuuLoginLink href={loginHref} />
 					) : (
 						<button

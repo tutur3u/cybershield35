@@ -1128,6 +1128,7 @@ describe("dashboard auth gate", () => {
 		expect(withApproval).toContain("Hoàn tất kết nối");
 		expect(withApproval).not.toContain("Tiếp tục với Tuturuuu");
 		expect(withApproval).toContain("Tiếp tục thiết lập");
+		expect(withApproval).not.toContain("Đăng nhập chưa khả dụng");
 		expect(withApproval).not.toContain("Requested scope is not allowed for this app");
 		expect(withApproval).toContain(
 			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
