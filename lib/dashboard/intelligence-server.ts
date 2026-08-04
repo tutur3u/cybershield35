@@ -819,7 +819,7 @@ function buildActionItems({
 	if (totals.highRiskEvidenceCount > 0) {
 		actions.push({
 			body: `${totals.highRiskEvidenceCount} bằng chứng rủi ro cao cần được xem xét.`,
-			help: "Mở kho bằng chứng đã lọc để xác nhận citation trước khi dùng claim trong báo cáo.",
+			help: "Mở danh sách đã lọc để kiểm tra nguồn dẫn trước khi sử dụng trong bài viết.",
 			href: "/evidence?risk=high",
 			id: "review-high-risk-evidence",
 			label: "Duyệt bằng chứng rủi ro cao",
@@ -829,31 +829,31 @@ function buildActionItems({
 	if (topClaim) {
 		actions.push({
 			body: topClaim.claim,
-			help: "Claim này có rủi ro cao và đã liên kết bằng chứng. Mở để kiểm tra phần hỗ trợ hoặc tranh chấp.",
+			help: "Nhận định này có rủi ro cao và đã liên kết bằng chứng. Mở để kiểm tra thông tin hỗ trợ hoặc phản bác.",
 			href: topClaim.deepLink,
 			id: "inspect-top-claim",
-			label: "Kiểm tra claim ưu tiên",
+			label: "Kiểm tra nhận định ưu tiên",
 			severity: topClaim.riskLevel,
 		});
 	}
 	if (blockedProvider || blockedSource || totals.failedScanCount > 0) {
 		actions.push({
 			body: blockedProvider
-				? `${providerLabel(blockedProvider.provider)} đang bị chặn.`
+				? `${providerLabel(blockedProvider.provider)} đang bị gián đoạn.`
 				: blockedSource
-					? `${blockedSource.sourceLabel} có scan bị chặn.`
-					: `${totals.failedScanCount} scan bị lỗi.`,
-			help: "Mở sức khỏe nguồn/provider để chạy lại scan lỗi hoặc xử lý cấu hình provider.",
+					? `${blockedSource.sourceLabel} có lượt quét bị gián đoạn.`
+					: `${totals.failedScanCount} lượt quét gặp lỗi.`,
+			help: "Mở trạng thái nguồn để chạy lại lượt quét lỗi hoặc kiểm tra kết nối.",
 			href: "/sources?status=blocked",
 			id: "recover-pipeline",
-			label: "Khôi phục pipeline thu thập",
+			label: "Khôi phục việc thu thập",
 			severity: "medium" as RiskLevel,
 		});
 	}
 	if (!actions.length) {
 		actions.push({
-			body: "Không có ngoại lệ khẩn cấp trong cửa sổ rollup hiện tại.",
-			help: "Giữ lịch scan hoạt động và theo dõi động lượng chủ đề để phát hiện rủi ro mới.",
+			body: "Không có ngoại lệ khẩn cấp trong khoảng thời gian hiện tại.",
+			help: "Giữ lịch quét hoạt động và theo dõi xu hướng chủ đề để phát hiện rủi ro mới.",
 			href: "/topics",
 			id: "monitor-topic-momentum",
 			label: "Theo dõi động lượng chủ đề",
