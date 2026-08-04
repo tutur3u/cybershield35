@@ -97,6 +97,7 @@ describe("Facebook page policy", () => {
 			"Đốt lò phiên bản có định hướng nhắm vào các đối tượng khác phe.",
 			"Bài viết công kích Đảng Cộng sản và bộ máy chính quyền.",
 			"Cơ quan chức năng tháo dỡ biển hiệu và đình chỉ hoạt động.",
+			"Drone đánh trúng bãi biển đông người khiến nhiều người thiệt mạng.",
 		]) {
 			expect(assessEvidenceRisk({ text }).level, text).toBe("high");
 		}

@@ -61,6 +61,7 @@ const HIGH_IMPACT_PATTERNS: Array<[RegExp, string]> = [
 	[/\b(khoi to|truy to|xet xu|phat tu|thi hanh an|ket an)\b/u, "khởi tố hoặc xét xử"],
 	[/\b(khoi kien|bi kien|vu kien|kien ra toa|to cao)\b/u, "tranh chấp hoặc tố tụng"],
 	[/\b(an ninh trat tu|an ninh quoc gia|bao loan|bieu tinh|khung bo|xung dot|bao luc|vu khi|no sung)\b/u, "an ninh và trật tự công cộng"],
+	[/\b(thiet mang|tu vong|chet nguoi|thuong vong|chien tranh|quan su|drone|ten lua|khong kich|danh bom|oanh tac)\b/u, "thương vong hoặc xung đột quân sự"],
 	[/\b(tan cong mang|ro ri du lieu|danh sap|ha guc|chiem quyen|ma doc|lua dao)\b/u, "tấn công hoặc xâm hại"],
 	[/\b(tham nhung|nhan hoi lo|ky luat|cach chuc|bai nhiem|tu chuc|khung hoang chinh tri)\b/u, "biến động chính trị hoặc sai phạm nghiêm trọng"],
 	[/\b(dau da|khac phe|phe phai|dan ap|cuong che|giai tan|chong pha|phan dong|the luc thu dich|cong kich dang|cong kich nha nuoc)\b/u, "xung đột hoặc đối đầu chính trị"],
