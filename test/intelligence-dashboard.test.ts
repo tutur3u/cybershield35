@@ -36,6 +36,9 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(pkg.scripts["db:analyze-intelligence"]).toContain(
 			"scripts/analyze-intelligence-db.ts",
 		);
+		const rollups = read("lib/dashboard/intelligence-rollups.ts");
+		expect(rollups).toContain("evidence_risks");
+		expect(rollups).toContain("claimRiskLevel");
 	});
 
 	test("adds authenticated intelligence endpoints for overview and drilldowns", () => {

@@ -94,6 +94,9 @@ describe("Facebook page policy", () => {
 			"Công an bắt giữ đối tượng sau chuyên án bảo đảm an ninh trật tự.",
 			"Cơ quan điều tra khởi tố và bắt tạm giam bị can.",
 			"Doanh nghiệp bị kiện ra tòa sau vụ đánh sập hệ thống.",
+			"Đốt lò phiên bản có định hướng nhắm vào các đối tượng khác phe.",
+			"Bài viết công kích Đảng Cộng sản và bộ máy chính quyền.",
+			"Cơ quan chức năng tháo dỡ biển hiệu và đình chỉ hoạt động.",
 		]) {
 			expect(assessEvidenceRisk({ text }).level, text).toBe("high");
 		}

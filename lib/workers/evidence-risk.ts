@@ -85,8 +85,8 @@ async function alignAggregateRiskLevels() {
 			select
 				et.topic_id,
 				case
-					when bool_or(e.risk_level = 'high') then 'high'::risk_level
-					when bool_or(e.risk_level = 'medium') then 'medium'::risk_level
+					when count(*) filter (where e.risk_level = 'high') >= greatest(3, ceil(count(*) * 0.15)) then 'high'::risk_level
+					when count(*) filter (where e.risk_level in ('high', 'medium')) >= greatest(3, ceil(count(*) * 0.20)) then 'medium'::risk_level
 					else 'low'::risk_level
 				end as risk_level
 			from evidence_topics et

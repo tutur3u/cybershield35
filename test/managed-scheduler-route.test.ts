@@ -15,9 +15,11 @@ const reconcileFacebookPageSources = mock(async () => ({ reconciled: 3, total: 3
 const processNextJob = mock(async () => scanResults.shift() ?? { processed: false });
 const processNextAutomatedDraftJob = mock(async () => draftResults.shift() ?? { processed: false });
 const reassessStoredEvidenceRisk = mock(async () => ({ checked: 12, updated: 4 }));
+const refreshIntelligenceRollupsBestEffort = mock(async () => undefined);
 
 mock.module("server-only", () => ({}));
 mock.module("@/lib/dashboard/intelligence-server", () => ({ reconcileFacebookPageSources }));
+mock.module("@/lib/dashboard/intelligence-rollups", () => ({ refreshIntelligenceRollupsBestEffort }));
 mock.module("@/lib/workers/tracked-sources", () => ({ enqueueDueTrackedSources }));
 mock.module("@/lib/workers/scans", () => ({
 	heartbeat: async (serviceName: string, metadata: Record<string, unknown>) => {
@@ -50,6 +52,7 @@ beforeEach(() => {
 	processNextJob.mockClear();
 	processNextAutomatedDraftJob.mockClear();
 	reassessStoredEvidenceRisk.mockClear();
+	refreshIntelligenceRollupsBestEffort.mockClear();
 });
 
 afterEach(() => {
@@ -82,6 +85,7 @@ describe("daily scan orchestrator", () => {
 		expect(reconcileFacebookPageSources).toHaveBeenCalledTimes(1);
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
 		expect(reassessStoredEvidenceRisk).toHaveBeenCalledTimes(1);
+		expect(refreshIntelligenceRollupsBestEffort).toHaveBeenCalledTimes(1);
 		expect(heartbeats).toHaveLength(1);
 		expect(heartbeats[0]?.serviceName).toBe("vercel-cron:daily-scans");
 	});

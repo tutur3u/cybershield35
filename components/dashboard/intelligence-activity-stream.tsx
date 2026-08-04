@@ -34,7 +34,7 @@ export function IntelligenceActivityStream() {
 			/>
 			<Panel>
 				<PanelHeader
-					title="Nhật ký intelligence"
+					title="Hoạt động gần đây"
 					description="Các hoạt động gần đây được liên kết với lượt quét, bằng chứng và bài viết liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">

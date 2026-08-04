@@ -14,6 +14,7 @@ import {
 } from "@/lib/dashboard/cache-invalidation";
 import { adminDb } from "@/lib/db/client";
 import { reconcileFacebookPageSources } from "@/lib/dashboard/intelligence-server";
+import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import {
 	cronHeartbeats,
 	managedSchedulerIntegrations,
@@ -437,6 +438,8 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		}
 		if ("error" in result && result.error) failed += 1;
 	}
+
+	await refreshIntelligenceRollupsBestEffort("daily-orchestrator");
 
 	return {
 		automatedDraftIds,

@@ -294,15 +294,15 @@ export function useIntelligenceFiltersFromUrl(): [
 
 export function intelligenceProviderLabel(provider?: string | null) {
 	const labels: Record<string, string> = {
-		apify_facebook_comments: "Apify bình luận",
-		apify_facebook_groups: "Apify nhóm",
-		apify_facebook_posts: "Apify bài viết",
-		browser_use: "Browser Use",
-		firecrawl: "Firecrawl",
-		firecrawl_parse: "Firecrawl parse",
+		apify_facebook_comments: "Bình luận Facebook",
+		apify_facebook_groups: "Nhóm Facebook",
+		apify_facebook_posts: "Bài viết Facebook",
+		browser_use: "Trang web công khai",
+		firecrawl: "Website",
+		firecrawl_parse: "Website",
 		local_text: "Văn bản nội bộ",
 	};
-	return provider ? (labels[provider] ?? provider) : "Chưa có provider";
+	return provider ? (labels[provider] ?? "Nguồn dữ liệu khác") : "Chưa xác định kênh";
 }
 
 export function formatIntelligenceDate(value?: string | null) {

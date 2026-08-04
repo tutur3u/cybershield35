@@ -301,7 +301,7 @@ function TrendSvg({
 			<div className="flex flex-wrap gap-2 text-[11px] font-bold text-[var(--muted-strong)]">
 				<Legend color="var(--accent)" label="Bằng chứng" />
 				<Legend color="var(--danger-strong)" label="Rủi ro cao" />
-				<Legend color="var(--success-strong)" label="Scan" />
+				<Legend color="var(--success-strong)" label="Lượt quét" />
 			</div>
 		</div>
 	);
@@ -471,7 +471,7 @@ function ClaimRow({
 					{claim.claim}
 				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{claim.evidenceCount} bằng chứng - {claim.stance} - {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
+					{claim.evidenceCount} bằng chứng - {stanceLabel(claim.stance)} - {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{claim.evidenceHrefs.slice(0, 3).map((href, index) => (
@@ -532,7 +532,7 @@ function SourceRow({
 							href={source.lastScanHref}
 							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
-							Scan gần nhất
+							Lượt quét gần nhất
 						</IntentPrefetchLink>
 					) : null}
 				</div>
@@ -559,7 +559,7 @@ function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) 
 				</p>
 			</div>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-				{provider.avgDurationMs ? `${provider.avgDurationMs}ms trung bình` : "Chưa có thời lượng"}
+				{provider.avgDurationMs ? `${Math.max(1, Math.round(provider.avgDurationMs / 1_000))} giây trung bình` : "Chưa có thời lượng"}
 			</p>
 			<HealthBadge health={provider.health} />
 		</div>
@@ -636,6 +636,17 @@ function toneText(tone: IntelligenceKpi["tone"]) {
 		warning: "text-[var(--warning-strong)]",
 	};
 	return map[tone];
+}
+
+function stanceLabel(stance: string) {
+	const labels: Record<string, string> = {
+		neutral: "trung lập",
+		opposed: "phản biện",
+		opposing: "phản biện",
+		supported: "được củng cố",
+		supporting: "được củng cố",
+	};
+	return labels[stance] ?? "đang đánh giá";
 }
 
 const skeletonKpis: IntelligenceKpi[] = [

@@ -20,6 +20,7 @@ type ClaimCandidate = {
 
 type ScanContextRow = {
 	evidence_ids: string[] | null;
+	evidence_risks: Record<string, string> | null;
 	scan_job_id: string;
 	source_labels: string[] | null;
 	topic_slugs: string[] | null;
@@ -351,6 +352,7 @@ async function refreshClaimIndex() {
 			select
 				sj.id as scan_job_id,
 				coalesce(array_agg(distinct ei.id::text) filter (where ei.id is not null), '{}') as evidence_ids,
+				coalesce(jsonb_object_agg(ei.id::text, ei.risk_level) filter (where ei.id is not null), '{}'::jsonb) as evidence_risks,
 				coalesce(array_agg(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '{}') as source_labels,
 				coalesce(array_agg(distinct t.slug) filter (where t.slug is not null), '{}') as topic_slugs
 			from scan_jobs sj
@@ -365,6 +367,7 @@ async function refreshClaimIndex() {
 			row.scan_job_id,
 			{
 				evidenceIds: normalizeStringArray(row.evidence_ids),
+				evidenceRisks: normalizeRiskRecord(row.evidence_risks),
 				sourceLabels: normalizeStringArray(row.source_labels),
 				topicSlugs: normalizeStringArray(row.topic_slugs),
 			},
@@ -421,6 +424,7 @@ function normalizeClaimsForAnalysis(
 	context:
 		| {
 				evidenceIds: string[];
+				evidenceRisks: Record<string, "high" | "low" | "medium">;
 				sourceLabels: string[];
 				topicSlugs: string[];
 		  }
@@ -446,7 +450,7 @@ function normalizeClaimsForAnalysis(
 				deepLink: `/alerts?claim=${encodeURIComponent(claimKey)}`,
 				evidenceCount: evidenceIds.length,
 				evidenceIds,
-				riskLevel: analysis.riskLevel,
+				riskLevel: claimRiskLevel(evidenceIds, context?.evidenceRisks, analysis.riskLevel),
 				scanJobId: analysis.scanJobId,
 				sourceLabels,
 				stance: claim.stance,
@@ -473,6 +477,27 @@ function normalizeClaim(candidate: unknown) {
 	const stance = typeof record.stance === "string" ? record.stance : "neutral";
 
 	return { claim, confidence, evidenceIds, stance };
+}
+
+function claimRiskLevel(
+	evidenceIds: string[],
+	riskByEvidenceId: Record<string, "high" | "low" | "medium"> | undefined,
+	fallback: "high" | "low" | "medium",
+) {
+	const levels = evidenceIds.flatMap((id) => riskByEvidenceId?.[id] ?? []);
+	if (levels.includes("high")) return "high";
+	if (levels.includes("medium")) return "medium";
+	if (levels.includes("low")) return "low";
+	return fallback;
+}
+
+function normalizeRiskRecord(value: Record<string, string> | null) {
+	return Object.fromEntries(
+		Object.entries(value ?? {}).filter(
+			(entry): entry is [string, "high" | "low" | "medium"] =>
+				entry[1] === "high" || entry[1] === "medium" || entry[1] === "low",
+		),
+	);
 }
 
 function normalizeConfidence(value: unknown) {
