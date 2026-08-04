@@ -35,7 +35,7 @@ export function IntelligenceActivityStream() {
 			<Panel>
 				<PanelHeader
 					title="Nhật ký intelligence"
-					description="Hoạt động vận hành có liên kết đến scan, evidence và draft liên quan."
+					description="Các hoạt động gần đây được liên kết với lượt quét, bằng chứng và bài viết liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
 					{events.map((event) => (

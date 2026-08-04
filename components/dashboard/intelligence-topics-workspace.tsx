@@ -29,7 +29,7 @@ export function IntelligenceTopicsWorkspace() {
 			<Panel>
 				<PanelHeader
 					title="Chủ đề intelligence"
-					description="Mỗi chủ đề là một đối tượng vận hành: xu hướng, rủi ro, bằng chứng, claim và tác động báo cáo."
+					description="Theo dõi xu hướng, mức độ rủi ro, bằng chứng và các nhận định quan trọng theo từng chủ đề."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
 					{topics.map((topic) => (

@@ -768,11 +768,11 @@ function buildKpis(
 
 	return [
 		{
-			description: "Độ phủ scan đã hoàn tất trong khoảng thời gian đang xem.",
-			help: "Đo xem pipeline scan có tạo phân tích dùng được hay đang bị kẹt ở trạng thái chờ, chạy hoặc lỗi.",
+			description: "Các lượt quét đã hoàn tất trong khoảng thời gian đang xem.",
+			help: "Cho biết bao nhiêu lượt quét đã tạo ra kết quả có thể sử dụng và bao nhiêu lượt vẫn cần được xử lý.",
 			href: `/sources?status=completed`,
 			id: "scan-throughput",
-			label: "Thông lượng scan",
+			label: "Lượt quét đã xử lý",
 			tone: completion >= 80 ? "success" : completion >= 50 ? "warning" : "danger",
 			trendLabel: `${completion}% hoàn tất`,
 			value: totals.scanCount.toLocaleString("vi-VN"),
@@ -788,11 +788,11 @@ function buildKpis(
 			value: totals.highRiskEvidenceCount.toLocaleString("vi-VN"),
 		},
 		{
-			description: "Claim đã được lập chỉ mục với liên kết bằng chứng hỗ trợ.",
-			help: "Claim được trích xuất từ phân tích có cấu trúc và liên kết ngược về scan/bằng chứng để kiểm toán.",
+			description: "Các nhận định được liên kết với bằng chứng hỗ trợ.",
+			help: "Mỗi nhận định đều có thể đối chiếu với lượt quét và bằng chứng liên quan.",
 			href: "/alerts",
 			id: "claim-index",
-			label: "Chỉ mục claim",
+			label: "Nhận định đã ghi nhận",
 			tone: totals.claimCount > 0 ? "accent" : "neutral",
 			trendLabel: `${totals.evidenceCount} bằng chứng`,
 			value: totals.claimCount.toLocaleString("vi-VN"),

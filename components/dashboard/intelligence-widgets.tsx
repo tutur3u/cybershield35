@@ -271,7 +271,7 @@ function TrendSvg({
 				viewBox={`0 0 ${width} ${height}`}
 				className="h-56 w-full"
 				role="img"
-				aria-label="Biểu đồ xu hướng scan và bằng chứng"
+				aria-label="Biểu đồ xu hướng lượt quét và bằng chứng"
 			>
 				<polyline
 					points={points("evidence")}
@@ -644,7 +644,7 @@ const skeletonKpis: IntelligenceKpi[] = [
 		help: "Số lượt quét đã hoàn tất trong khoảng thời gian đã chọn.",
 		href: "/sources",
 		id: "loading-scans",
-		label: "Thông lượng scan",
+		label: "Lượt quét đã xử lý",
 		tone: "neutral",
 		trendLabel: "Đang tải",
 		value: "-",

@@ -26,10 +26,10 @@ export function IntelligenceTopicRowView({
 					{topic.name}
 				</p>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{topic.evidenceCount} bằng chứng - {topic.claimCount} claim - {topic.scanCount} scan
+					{topic.evidenceCount} bằng chứng - {topic.claimCount} nhận định - {topic.scanCount} lượt quét
 				</p>
 			</div>
-			<DashboardTooltip content="Động lượng kết hợp khối lượng bằng chứng, độ phủ scan và bằng chứng rủi ro cao.">
+			<DashboardTooltip content="Mức độ nổi bật được tính từ số lượng bằng chứng, phạm vi theo dõi và các dấu hiệu rủi ro cao.">
 				<span className="min-w-0 rounded-md bg-[var(--surface-soft)] px-2 py-1 text-center text-[11px] font-bold text-[var(--foreground)]">
 					{topic.momentumScore}/100
 				</span>

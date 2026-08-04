@@ -54,7 +54,7 @@ export function IntelligenceEvidenceRowView({
 						href={evidence.scanHref}
 						className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 					>
-						Mở scan
+						Mở lượt quét
 					</IntentPrefetchLink>
 					{evidence.originalPostHref ? (
 						<a
@@ -81,7 +81,7 @@ export function IntelligenceEvidenceRowView({
 						href={evidence.scanHref}
 						className="mt-1 inline-flex text-[var(--accent-strong)]"
 					>
-						Chi tiết scan <ArrowRight size={12} />
+						Chi tiết lượt quét <ArrowRight size={12} />
 					</IntentPrefetchLink>
 				</div>
 			)}

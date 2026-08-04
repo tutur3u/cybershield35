@@ -74,7 +74,7 @@ export function IntelligenceFilterBar({
 							startTransition(() => setFilter("query", value));
 						}, 250);
 					}}
-					placeholder="Tìm claim, bằng chứng, nguồn..."
+					placeholder="Tìm nhận định, bằng chứng, nguồn..."
 					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 				/>
 			</label>
