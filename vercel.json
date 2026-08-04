@@ -2,11 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/scans/process-queue",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/scans/enqueue-tracked-sources",
+      "path": "/api/cron/scans/run-daily",
       "schedule": "0 0 * * *"
     },
     {

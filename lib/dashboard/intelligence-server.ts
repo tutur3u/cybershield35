@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 
 import type {
@@ -19,6 +19,7 @@ import type {
 	IntelligenceTopicRow,
 } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
+import { ensureFacebookPageTracked } from "@/lib/workers/tracked-sources";
 import {
 	evidenceItems,
 	evidenceTopics,
@@ -112,7 +113,7 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 		}),
 		filters,
 		generatedAt: new Date().toISOString(),
-		kpis: buildKpis(totals, readiness),
+		kpis: buildKpis(totals),
 		providerHealth,
 		readiness,
 		sourceHealth: sourceHealth.items,
@@ -200,7 +201,7 @@ async function getCachedIntelligenceEvidence(
 		.leftJoin(topics, eq(topics.id, evidenceTopics.topicId))
 		.where(conditions.length ? and(...conditions) : undefined)
 		.groupBy(evidenceItems.id)
-		.orderBy(desc(evidenceItems.createdAt))
+		.orderBy(normalized.order === "oldest" ? asc(evidenceItems.createdAt) : desc(evidenceItems.createdAt))
 		.limit(pageLimit + 1)
 		.offset(offset);
 	const pageRows = rows.slice(0, pageLimit);
@@ -277,6 +278,7 @@ async function getCachedIntelligenceTopics(
 		.from(intelligenceTopicRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
 		.orderBy(
+			normalized.order === "oldest" ? asc(intelligenceTopicRollups.lastSeenAt) : desc(intelligenceTopicRollups.lastSeenAt),
 			desc(intelligenceTopicRollups.momentumScore),
 			desc(intelligenceTopicRollups.evidenceCount),
 		)
@@ -353,9 +355,9 @@ async function getCachedIntelligenceClaims(
 		.from(intelligenceClaimIndex)
 		.where(conditions.length ? and(...conditions) : undefined)
 		.orderBy(
+			normalized.order === "oldest" ? asc(intelligenceClaimIndex.updatedAt) : desc(intelligenceClaimIndex.updatedAt),
 			desc(intelligenceClaimIndex.riskLevel),
 			desc(intelligenceClaimIndex.confidence),
-			desc(intelligenceClaimIndex.updatedAt),
 		)
 		.limit(pageLimit + 1)
 		.offset(offset);
@@ -432,8 +434,8 @@ async function getCachedIntelligenceSources(
 		.from(intelligenceSourceRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
 		.orderBy(
+			normalized.order === "oldest" ? asc(intelligenceSourceRollups.lastScannedAt) : desc(intelligenceSourceRollups.lastScannedAt),
 			desc(intelligenceSourceRollups.highRiskEvidenceCount),
-			desc(intelligenceSourceRollups.lastScannedAt),
 		)
 		.limit(pageLimit + 1)
 		.offset(offset);
@@ -449,13 +451,6 @@ async function getCachedIntelligenceSources(
 export async function listIntelligenceFacebookPages(): Promise<
 	IntelligenceFacebookPageOption[]
 > {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(
-		DASHBOARD_INTELLIGENCE_TAG,
-		dashboardIntelligenceTag("facebook-pages"),
-	);
-
 	const facebookIdExpr = sql<string | null>`${evidenceItems.metadata}->>'facebookId'`;
 	const [evidenceRows, trackedRows, profiles, automationRows] = await Promise.all([
 		adminDb
@@ -588,11 +583,32 @@ export async function listIntelligenceFacebookPages(): Promise<
 		});
 	}
 
+	for (const page of pagesByKey.values()) {
+		if (page.trackedSourceId) continue;
+		const tracked = await ensureFacebookPageTracked({
+			displayName: page.label,
+			facebookPageId: page.facebookId,
+			pageKey: page.pageKey,
+			sourceUrl: page.sourceUrl,
+			username: page.username,
+		});
+		page.trackedSourceId = tracked.id;
+		page.sourceUrl = tracked.normalizedUrl;
+	}
+
 	return [...pagesByKey.values()].sort(
 		(left, right) =>
 			right.evidenceCount - left.evidenceCount ||
 			left.label.localeCompare(right.label, "vi"),
 	);
+}
+
+export async function reconcileFacebookPageSources() {
+	const pages = await listIntelligenceFacebookPages();
+	return {
+		reconciled: pages.filter((page) => Boolean(page.trackedSourceId)).length,
+		total: pages.length,
+	};
 }
 
 export async function listIntelligenceActivity({
@@ -636,7 +652,7 @@ async function getCachedIntelligenceActivity(
 		.select()
 		.from(intelligenceActivityRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
-		.orderBy(desc(intelligenceActivityRollups.occurredAt))
+		.orderBy(normalized.order === "oldest" ? asc(intelligenceActivityRollups.occurredAt) : desc(intelligenceActivityRollups.occurredAt))
 		.limit(pageLimit + 1)
 		.offset(offset);
 
@@ -740,7 +756,6 @@ function buildKpis(
 		highRiskEvidenceCount: number;
 		scanCount: number;
 	},
-	readiness: IntelligenceReadiness,
 ): IntelligenceKpi[] {
 	const completion =
 		totals.scanCount > 0
@@ -781,16 +796,6 @@ function buildKpis(
 			tone: totals.claimCount > 0 ? "accent" : "neutral",
 			trendLabel: `${totals.evidenceCount} bằng chứng`,
 			value: totals.claimCount.toLocaleString("vi-VN"),
-		},
-		{
-			description: "Lượt quét đã hoàn tất và có bản nháp được người vận hành duyệt.",
-			help: "Chỉ báo sẵn sàng cho báo cáo nội bộ; tỷ lệ đi kèm là số bản nháp đã duyệt trên tổng số bản nháp.",
-			href: "/reports",
-			id: "report-readiness",
-			label: "Sẵn sàng báo cáo",
-			tone: readiness.readyReports > 0 ? "success" : "warning",
-			trendLabel: `${readiness.approvedDraftRate}% bản nháp đã duyệt`,
-			value: readiness.readyReports.toLocaleString("vi-VN"),
 		},
 	];
 }
@@ -882,6 +887,7 @@ type NormalizedFilters = {
 	provider?: ProviderName;
 	query?: string;
 	risk?: RiskLevel | "all";
+	order: "newest" | "oldest";
 	source?: string;
 	status?: string;
 	timeRange: "7d" | "30d" | "90d" | "all";
@@ -894,6 +900,7 @@ function normalizeFilters(filters: IntelligenceFilters = {}): NormalizedFilters 
 		provider: normalizeProvider(filters.provider),
 		query: normalizeText(filters.query),
 		risk: normalizeRisk(filters.risk),
+		order: filters.order === "oldest" ? "oldest" : "newest",
 		source: normalizeText(filters.source),
 		status: normalizeText(filters.status),
 		timeRange: normalizeTimeRange(filters.timeRange),

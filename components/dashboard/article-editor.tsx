@@ -15,8 +15,6 @@ import {
 	FileClock,
 	ImagePlus,
 	LoaderCircle,
-	PanelRightClose,
-	PanelRightOpen,
 	Plus,
 	Radio,
 	RefreshCw,
@@ -48,7 +46,6 @@ import { Badge } from "@/components/ui/badge";
 import {
 	Collapsible,
 	CollapsibleContent,
-	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ExportActions } from "@/components/dashboard/export-actions";
 import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
@@ -155,6 +152,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const [targetOaConnectionId, setTargetOaConnectionId] = useState("");
 	const [busy, setBusy] = useState("");
 	const [notice, setNotice] = useState("");
+	const [publishToZalo, setPublishToZalo] = useState(false);
 	const [schedule, setSchedule] = useState("");
 	const [aiInstruction, setAiInstruction] = useState("");
 	const [tone, setTone] = useState("Điềm tĩnh, khách quan");
@@ -262,6 +260,23 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				action === "sync"
 					? "Đã đồng bộ bản ẩn. Hãy kiểm tra xem trước trước khi xuất bản."
 					: "Thao tác Zalo đã hoàn tất.",
+			);
+			await refresh();
+		});
+	}
+
+	async function publish() {
+		if (dirty && !(await save())) return;
+		await runAction("publish", async () => {
+			await fetchJson(`/api/articles/${articleId}/publish-internal`, { method: "POST" });
+			if (publishToZalo) {
+				await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
+				await fetchJson(`/api/articles/${articleId}/publish`, { method: "POST" });
+			}
+			setNotice(
+				publishToZalo
+					? "Bài viết đã được xuất bản và đồng bộ lên Zalo OA."
+					: "Bài viết đã được xuất bản nội bộ.",
 			);
 			await refresh();
 		});
@@ -431,7 +446,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 
 	const article = detail.data.article;
 	const canSync =
-		article.reviewStatus !== "rejected" &&
+		article.reviewStatus === "approved" &&
 		Boolean(targetOaConnectionId && draft.title && draft.description && draft.coverUrl) &&
 		draft.blocks.some(
 			(block) =>
@@ -497,7 +512,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						</p>
 					</div>
 				</div>
-				<div className="flex flex-wrap gap-2">
+			<div className="flex flex-wrap gap-2">
 					<button
 						type="button"
 						onClick={save}
@@ -507,50 +522,53 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						{busy === "save" ? <LoaderCircle className="animate-spin" size={14} /> : <Save size={14} />}
 						Lưu
 					</button>
-					<button
-						type="button"
-						onClick={() => review(article.reviewStatus === "approved" ? "needs_review" : "approved")}
-						disabled={Boolean(busy)}
-						className={article.reviewStatus === "approved" ? secondaryButton : primaryButton}
-					>
-						<Check size={14} />
-						{article.reviewStatus === "approved" ? "Yêu cầu duyệt lại" : "Phê duyệt"}
-					</button>
+				<button
+					type="button"
+					onClick={() => review("approved")}
+					disabled={Boolean(busy)}
+					className={primaryButton}
+				>
+					<Check size={14} />
+					Phê duyệt
+				</button>
+				<button
+					type="button"
+					onClick={() => review("rejected")}
+					disabled={Boolean(busy)}
+					className={secondaryButton}
+				>
+					Từ chối
+				</button>
 				</div>
 			</div>
 
-			<Collapsible open={railOpen} onOpenChange={setRailOpen}>
-				<div className="flex min-w-0 items-center gap-2 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
-					<Lifecycle article={article} synced={synced} />
-					<DashboardTooltip
-						content={
-							railOpen
-								? "Thu gọn bảng xem trước và xuất bản để tập trung biên tập."
-								: "Mở xem trước, trạng thái đồng bộ và các thao tác Zalo."
-						}
-					>
-						<CollapsibleTrigger
-							className={`${secondaryButton} shrink-0`}
-							aria-label={
-								railOpen
-									? "Thu gọn bảng điều khiển Zalo"
-									: "Mở bảng điều khiển Zalo"
-							}
-						>
-							{railOpen ? (
-								<PanelRightClose size={14} />
-							) : (
-								<PanelRightOpen size={14} />
-							)}
-							{railOpen ? "Thu gọn bảng Zalo" : "Mở bảng Zalo"}
-							<Badge
-								variant="outline"
-								className="ml-1 border-[var(--border)] bg-[var(--surface-soft)] text-[9px] text-[var(--muted-strong)]"
-							>
-								{publicationLabel(article.publicationStatus)}
-							</Badge>
-						</CollapsibleTrigger>
-					</DashboardTooltip>
+		<Collapsible open={false} onOpenChange={setRailOpen}>
+			<div className="sticky top-2 z-20 flex min-w-0 items-center gap-2 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 p-2 shadow-[var(--shadow-soft)] backdrop-blur">
+				<span className={reviewBadgeClass(article.reviewStatus)}>{reviewLabel(article.reviewStatus)}</span>
+				<label className="ml-auto inline-flex items-center gap-2 text-[11px] font-bold text-[var(--muted-strong)]">
+					<span>Đăng lên Zalo OA</span>
+					<input
+						type="checkbox"
+						checked={publishToZalo}
+						onChange={(event) => setPublishToZalo(event.target.checked)}
+						className="size-4 accent-[var(--accent)]"
+					/>
+				</label>
+				<button
+					type="button"
+					disabled={
+						article.reviewStatus !== "approved" ||
+						Boolean(busy) ||
+						!draft.title.trim() ||
+						!draft.blocks.some((block) => block.type === "text" ? Boolean(block.content.trim()) : Boolean(block.url)) ||
+						(publishToZalo && !canSync)
+					}
+					onClick={() => void publish()}
+					className={primaryButton}
+				>
+					{busy === "publish" ? <LoaderCircle size={14} className="animate-spin" /> : <Send size={14} />}
+					Xuất bản
+				</button>
 				</div>
 				{notice || article.lastError ? (
 					<div
@@ -619,21 +637,6 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 									placeholder="Tên đơn vị hoặc tác giả"
 								/>
 							</Field>
-							<Field label="Zalo OA đích">
-								<select
-									value={targetOaConnectionId}
-									onChange={(event) => setTargetOaConnectionId(event.target.value)}
-									className={inputClass}
-								>
-									<option value="">Chọn Zalo OA</option>
-									{accounts.data?.accounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.displayName}
-											{account.isDefault ? " · Mặc định" : ""}
-										</option>
-									))}
-								</select>
-							</Field>
 							<Field
 								label="Trích yếu"
 								count={`${draft.description.length}/${ZALO_EDITORIAL_DESCRIPTION_LIMIT}`}
@@ -650,19 +653,14 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 									placeholder="Một đến hai câu hoàn chỉnh tóm tắt nội dung bài; không lặp tiêu đề"
 								/>
 							</Field>
-							<Field label="URL ảnh bìa" className="sm:col-span-2">
-								<input
-									value={draft.coverUrl ?? ""}
-									onChange={(event) =>
-										setDraft({
-											...draft,
-											coverUrl: event.target.value || null,
-										})
-									}
-									className={inputClass}
-									placeholder="https://… (ảnh bìa Zalo tối đa 1 MB)"
-								/>
-							</Field>
+						<Field label="Ảnh bìa" className="sm:col-span-2">
+							<MediaUpload
+								articleId={articleId}
+								kind="cover"
+								onUploaded={(url) => setDraft({ ...draft, coverUrl: url })}
+								previewUrl={draft.coverUrl ?? null}
+							/>
+						</Field>
 						</div>
 					</Section>
 
@@ -706,7 +704,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					>
 						<div className="space-y-3">
 							{draft.blocks.map((block, index) => (
-								<BlockEditor
+							<BlockEditor
+								articleId={articleId}
 									key={block.id}
 									block={block}
 									index={index}
@@ -1309,34 +1308,6 @@ function ArticleContextPanel({
 	);
 }
 
-function Lifecycle({ article, synced }: { article: ArticleRow; synced: boolean }) {
-	const steps = [
-		{ done: true, label: "Bản nháp" },
-		{ done: article.reviewStatus === "approved", label: "Đã duyệt" },
-		{
-			done: Boolean(article.remoteArticleId && synced),
-			label: "Bản nháp Zalo · chưa đăng",
-		},
-		{
-			done: ["scheduled", "published"].includes(article.publicationStatus),
-			label: article.publicationStatus === "scheduled" ? "Đã lên lịch" : "Đã xuất bản",
-		},
-	];
-	return (
-		<ol className="flex min-w-max flex-1 items-center gap-2">
-			{steps.map((step, index) => (
-				<li key={step.label} className="flex items-center gap-2 whitespace-nowrap">
-					<span className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${step.done ? "bg-[var(--brand)] text-white" : "bg-[var(--surface-soft)] text-[var(--muted)]"}`}>
-						{step.done ? <Check size={12} /> : index + 1}
-					</span>
-					<span className="text-[10px] font-bold">{step.label}</span>
-					{index < steps.length - 1 ? <ChevronRight size={12} className="text-[var(--muted)]" /> : null}
-				</li>
-			))}
-		</ol>
-	);
-}
-
 function Section({
 	action,
 	children,
@@ -1385,6 +1356,7 @@ function Field({
 }
 
 function BlockEditor({
+	articleId,
 	block,
 	count,
 	index,
@@ -1392,6 +1364,7 @@ function BlockEditor({
 	onMove,
 	onRemove,
 }: {
+	articleId: string;
 	block: ArticleBlock;
 	count: number;
 	index: number;
@@ -1428,11 +1401,11 @@ function BlockEditor({
 				/>
 			) : (
 				<div className="space-y-2">
-					<input
-						value={block.url}
-						onChange={(event) => onChange({ ...block, url: event.target.value })}
-						className={inputClass}
-						placeholder="https://…"
+					<MediaUpload
+						articleId={articleId}
+						kind="inline"
+						onUploaded={(url) => onChange({ ...block, url })}
+						previewUrl={block.url || null}
 					/>
 					<input
 						value={block.caption ?? ""}
@@ -1447,6 +1420,63 @@ function BlockEditor({
 					) : null}
 				</div>
 			)}
+		</div>
+	);
+}
+
+function MediaUpload({
+	articleId,
+	kind,
+	onUploaded,
+	previewUrl,
+}: {
+	articleId: string;
+	kind: "cover" | "inline";
+	onUploaded: (url: string) => void;
+	previewUrl: string | null;
+}) {
+	const [uploading, setUploading] = useState(false);
+	const [error, setError] = useState("");
+
+	async function upload(file: File) {
+		setUploading(true);
+		setError("");
+		try {
+			const form = new FormData();
+			form.set("file", file, file.name);
+			form.set("kind", kind);
+			const response = await fetch(`/api/articles/${articleId}/media`, { body: form, method: "POST" });
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) throw new Error(payload?.error ?? "Không thể tải ảnh lên.");
+			onUploaded(String(payload.previewUrl));
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "Không thể tải ảnh lên.");
+		} finally {
+			setUploading(false);
+		}
+	}
+
+	return (
+		<div className="space-y-2">
+			<label className="flex min-h-20 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-strong)] bg-[var(--surface-soft)] px-4 text-[11px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)]">
+				{uploading ? <LoaderCircle size={15} className="animate-spin" /> : <ImagePlus size={15} />}
+				{uploading ? "Đang tải lên Tuturuuu CMS…" : "Chọn hoặc thả ảnh vào đây"}
+				<input
+					type="file"
+					accept="image/*"
+					disabled={uploading}
+					className="sr-only"
+					onChange={(event) => {
+						const file = event.target.files?.[0];
+						if (file) void upload(file);
+						event.target.value = "";
+					}}
+				/>
+			</label>
+			{error ? <p className="text-[10px] font-semibold text-[var(--danger-strong)]">{error}</p> : null}
+			{previewUrl && isImageUrl(previewUrl) ? (
+				<Image unoptimized width={960} height={540} src={previewUrl} alt="" className="max-h-56 w-full rounded-md object-cover" />
+			) : null}
 		</div>
 	);
 }
@@ -1582,20 +1612,6 @@ function operationLabel(operation: string) {
 			sync_hidden: "Đồng bộ bản nháp ẩn",
 			update_visible: "Cập nhật bài đã đăng",
 		}[operation] ?? operation
-	);
-}
-
-function publicationLabel(status: string) {
-	return (
-		{
-			failed: "Đồng bộ lỗi",
-			hidden: "Bản nháp Zalo · chưa đăng",
-			not_synced: "Chưa đồng bộ",
-			published: "Đã xuất bản",
-			publishing: "Đang xuất bản",
-			scheduled: "Đã lên lịch",
-			syncing: "Đang đồng bộ",
-		}[status] ?? status
 	);
 }
 

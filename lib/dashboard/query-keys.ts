@@ -28,6 +28,7 @@ export function intelligenceFiltersFromSearchParams(
 		risk:
 			(firstSearchParam(searchParams.risk) as IntelligenceFilters["risk"]) ??
 			defaultIntelligenceFilters.risk,
+		order: firstSearchParam(searchParams.sort) === "oldest" ? "oldest" : "newest",
 		source: firstSearchParam(searchParams.source),
 		status: firstSearchParam(searchParams.status),
 		timeRange:
@@ -47,6 +48,7 @@ export function serializeIntelligenceFilters(
 	if (filters.provider) params.provider = filters.provider;
 	if (filters.query) params.q = filters.query;
 	if (filters.risk && filters.risk !== "all") params.risk = filters.risk;
+	if (filters.order && filters.order !== "newest") params.sort = filters.order;
 	if (filters.source) params.source = filters.source;
 	if (filters.status) params.status = filters.status;
 	if (filters.timeRange) params.timeRange = filters.timeRange;

@@ -14,7 +14,7 @@ export function reviewAllowsArticleOperation(
 	reviewStatus: ArticleReviewStatus,
 	operation: ArticlePublicationOperation,
 ) {
-	if (operation === "sync_hidden") return reviewStatus !== "rejected";
+	void operation;
 	return reviewStatus === "approved";
 }
 

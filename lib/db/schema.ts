@@ -101,6 +101,12 @@ export const articleReviewStatusEnum = pgEnum("article_review_status", [
 	"rejected",
 ]);
 
+export const articleStateEnum = pgEnum("article_state", [
+	"draft",
+	"published",
+	"archived",
+]);
+
 export const articlePublicationStatusEnum = pgEnum(
 	"article_publication_status",
 	[
@@ -882,7 +888,7 @@ export const zaloOaConnections = pgTable(
 		}).notNull(),
 		scopes: jsonb("scopes").$type<string[]>().default([]).notNull(),
 		isDefault: boolean("is_default").default(false).notNull(),
-		autoSyncDrafts: boolean("auto_sync_drafts").default(true).notNull(),
+		autoSyncDrafts: boolean("auto_sync_drafts").default(false).notNull(),
 		status: text("status").default("connected").notNull(),
 		lastError: text("last_error"),
 		connectedByUserId: text("connected_by_user_id").notNull(),
@@ -927,6 +933,18 @@ export const articles = pgTable(
 		reviewStatus: articleReviewStatusEnum("review_status")
 			.default("draft")
 			.notNull(),
+		state: articleStateEnum("state").default("draft").notNull(),
+		draftKind: draftKindEnum("draft_kind"),
+		generationReason: text("generation_reason"),
+		tone: text("tone"),
+		voice: text("voice"),
+		audience: text("audience"),
+		language: text("language").default("vi").notNull(),
+		operatorNotes: text("operator_notes"),
+		citations: jsonb("citations").$type<unknown[]>().default([]).notNull(),
+		safetyNotes: jsonb("safety_notes").$type<unknown[]>().default([]).notNull(),
+		automationKey: text("automation_key"),
+		cmsEntryId: text("cms_entry_id"),
 		publicationStatus: articlePublicationStatusEnum("publication_status")
 			.default("not_synced")
 			.notNull(),
@@ -974,12 +992,19 @@ export const articles = pgTable(
 			table.updatedAt,
 		),
 		index("articles_review_updated_idx").on(table.reviewStatus, table.updatedAt),
+		index("articles_state_updated_idx").on(table.state, table.updatedAt),
+		uniqueIndex("articles_automation_key_unique")
+			.on(table.automationKey)
+			.where(sql`${table.automationKey} is not null`),
 		index("articles_oa_updated_idx").on(
 			table.targetOaConnectionId,
 			table.updatedAt,
 		),
 		index("articles_schedule_idx").on(table.publicationStatus, table.scheduledAt),
 		index("articles_remote_idx").on(table.remoteArticleId),
+		uniqueIndex("articles_origin_draft_unique")
+			.on(table.originDraftId)
+			.where(sql`${table.originDraftId} is not null`),
 	],
 );
 
@@ -1024,6 +1049,12 @@ export const articleMedia = pgTable(
 		drivePath: text("drive_path"),
 		storageProvider: text("storage_provider"),
 		sourceUrl: text("source_url"),
+		cmsAssetId: text("cms_asset_id"),
+		cmsEntryId: text("cms_entry_id"),
+		storagePath: text("storage_path"),
+		deliveryUrl: text("delivery_url"),
+		altText: text("alt_text"),
+		caption: text("caption"),
 		createdByUserId: text("created_by_user_id").notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},

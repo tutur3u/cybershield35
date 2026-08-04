@@ -1,4 +1,5 @@
 export type ManagedSchedulerCallbackOperation =
+	| "daily-scans"
 	| "enqueue-tracked-sources"
 	| "process-queue";
 
@@ -21,6 +22,9 @@ export function managedSchedulerCallbackFailureBody({
 }
 
 function callbackFailureMessage(operation: ManagedSchedulerCallbackOperation) {
+	if (operation === "daily-scans") {
+		return "CS35 could not complete the daily source scan. Check server logs, database connectivity, and provider configuration.";
+	}
 	if (operation === "enqueue-tracked-sources") {
 		return "CS35 could not enqueue tracked sources from the managed scheduler callback. Check CS35 server logs, database connectivity, and provider configuration.";
 	}

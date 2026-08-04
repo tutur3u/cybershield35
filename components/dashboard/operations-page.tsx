@@ -13,9 +13,7 @@ import {
 	Gauge,
 	Layers3,
 	MonitorCog,
-	Play,
 	RefreshCw,
-	RotateCcw,
 	Trash2,
 	TriangleAlert,
 	Workflow,
@@ -103,8 +101,8 @@ export function OperationsPage() {
 						<button type="button" onClick={() => void overviewQuery.refetch()} className={secondaryButtonClass}>
 							<RefreshCw size={14} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Làm mới
 						</button>
-						<button type="button" disabled={runMutation.isPending} onClick={() => runMutation.mutate("process-queue")} className={primaryButtonClass}>
-							<Play size={14} /> Xử lý hàng đợi
+						<button type="button" disabled={runMutation.isPending} onClick={() => runMutation.mutate("daily-scans")} className={primaryButtonClass}>
+							<RefreshCw size={14} className={runMutation.isPending ? "animate-spin" : ""} /> Quét nguồn ngay
 						</button>
 					</>
 				}
@@ -149,9 +147,7 @@ export function OperationsPage() {
 
 			<div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs font-semibold text-[var(--muted)]">
 				<span>{overview ? `Ảnh chụp lúc ${formatDate(overview.generatedAt)}` : "Đang tải dữ liệu vận hành…"}</span>
-				<div className="flex gap-2">
-					<button type="button" disabled={runMutation.isPending} onClick={() => runMutation.mutate("enqueue-tracked-sources")} className={secondaryButtonClass}><RotateCcw size={14} /> Xếp nguồn đến hạn</button>
-				</div>
+				<span>Quét tự động hằng ngày lúc 00:00 UTC</span>
 			</div>
 			<p aria-live="polite" className={`text-xs font-semibold ${runMutation.isError ? "text-[var(--danger-strong)]" : "text-[var(--success-strong)]"}`}>{notice}</p>
 		</div>
@@ -200,11 +196,11 @@ function operationsHealth(overview?: OperationsOverview) {
 	return { description: "Hàng đợi, scheduler và worker đang trong ngưỡng bình thường.", title: "Pipeline hoạt động ổn định", tone: "success" as const };
 }
 
-async function runSchedulerJob(jobKey: "enqueue-tracked-sources" | "process-queue") {
+async function runSchedulerJob(jobKey: "daily-scans") {
 	const response = await fetch(`/api/workspace/cron/jobs/${jobKey}/run-now`, { credentials: "same-origin", method: "POST" });
 	const payload = await response.json().catch(() => null);
 	if (!response.ok) throw new Error(payload?.error ?? "Không thể chạy job.");
-	return { message: jobKey === "process-queue" ? `Đã xử lý ${payload.processed ?? 0} scan.` : `Đã xếp hàng ${payload.enqueued ?? 0} scan.` };
+	return { message: `Đã xếp hàng ${payload.enqueued ?? 0} và xử lý ${payload.processed ?? 0} scan.` };
 }
 
 function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value)); }

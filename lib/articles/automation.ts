@@ -19,10 +19,6 @@ import {
 	zaloOaConnections,
 } from "@/lib/db/schema";
 import { generateArticleRevision } from "@/lib/llm/generation";
-import {
-	enqueueArticlePublication,
-	processArticlePublicationJob,
-} from "@/lib/workers/article-publications";
 
 const SYSTEM_ACTOR = {
 	displayName: "Tự động từ scan",
@@ -130,51 +126,9 @@ export async function prepareAndSyncAutomatedArticleDraft(input: {
 			)) ?? article;
 	}
 
-	if (article.reviewStatus === "rejected") {
-		return {
-			articleId: article.id,
-			preparationMode,
-			zaloStatus: "skipped_rejected",
-		} as const;
-	}
-	if (process.env.ZALO_OA_ENABLED !== "true") {
-		return {
-			articleId: article.id,
-			preparationMode,
-			zaloStatus: "local_feature_disabled",
-		} as const;
-	}
-	if (defaultOa && !defaultOa.autoSyncDrafts) {
-		return {
-			articleId: article.id,
-			preparationMode,
-			zaloStatus: "local_auto_sync_disabled",
-		} as const;
-	}
-	if (!article.targetOaConnectionId) {
-		return {
-			articleId: article.id,
-			preparationMode,
-			zaloStatus: "local_missing_oa",
-		} as const;
-	}
-	if (!article.coverUrl) {
-		return {
-			articleId: article.id,
-			preparationMode,
-			zaloStatus: "local_missing_cover",
-		} as const;
-	}
-
-	const job = await enqueueArticlePublication(
-		article.id,
-		"sync_hidden",
-		SYSTEM_ACTOR,
-	);
-	const result = await processArticlePublicationJob(job.id);
 	return {
 		articleId: article.id,
 		preparationMode,
-		zaloStatus: result?.status ?? "queued",
+		zaloStatus: "awaiting_explicit_approval",
 	} as const;
 }

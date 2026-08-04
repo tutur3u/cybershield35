@@ -26,6 +26,7 @@ import {
 	LayoutGrid,
 	LogOut,
 	MessageCircle,
+	MonitorCog,
 	Moon,
 	Menu,
 	Palette,
@@ -620,6 +621,15 @@ function AccountMenu({
 			>
 				<UserRound size={15} />
 				Hồ sơ tài khoản
+			</DropdownMenuItem>
+			<DropdownMenuItem
+				asChild
+				className={`mx-1 rounded-md px-3 py-2 text-[12px] font-bold text-[var(--muted-strong)] focus:bg-[var(--surface-soft)] focus:text-[var(--foreground)] ${dropdownItemFocusClass}`}
+			>
+				<IntentPrefetchLink href="/operations" onClick={onClose}>
+					<MonitorCog size={15} />
+					Vận hành hệ thống
+				</IntentPrefetchLink>
 			</DropdownMenuItem>
 			<DropdownMenuItem
 				onFocus={onPreloadSettings}

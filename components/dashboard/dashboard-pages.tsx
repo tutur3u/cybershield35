@@ -28,7 +28,6 @@ import {
 	DraftReview,
 	SourceDetail,
 } from "@/components/dashboard/counter-argument-widgets";
-import { IntelligenceReportsWorkbench } from "@/components/dashboard/intelligence-widgets";
 import {
 	AnalysisSummary,
 	PageHeader,
@@ -95,9 +94,8 @@ export type DashboardPageProps = {
 	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onRunSchedulerJob: (
 		jobKey:
-			| "enqueue-tracked-sources"
+			| "daily-scans"
 			| "process-article-publications"
-			| "process-queue",
 	) => Promise<void>;
 	onReview: (
 		draft: DraftShape,
@@ -288,7 +286,6 @@ export function ReportsPage(props: DashboardPageProps) {
 				<p className="mt-3 text-[11px] text-[var(--muted)]">Mẫu riêng được lưu trên trình duyệt hiện tại và không thay đổi dữ liệu gốc.</p>
 			</section>
 
-			<IntelligenceReportsWorkbench />
 			<div className="grid min-w-0 flex-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
 				<AnalysisSummary analysis={props.analysis} className="h-full" />
 				<Panel className="h-full">

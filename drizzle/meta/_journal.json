@@ -134,6 +134,34 @@
       "when": 1785660719745,
       "tag": "0018_violet_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785836719849,
+      "tag": "0019_panoramic_kree",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785836746908,
+      "tag": "0020_illegal_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785836888689,
+      "tag": "0021_low_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785836913097,
+      "tag": "0022_small_hex",
+      "breakpoints": true
     }
   ]
 }

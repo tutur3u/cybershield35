@@ -12,7 +12,7 @@ import {
 	toTrackedSourceSeed,
 	type TrackedSourceSeed,
 } from "@/lib/domain/tracked-sources";
-import { createScan } from "@/lib/workers/scans";
+import { createScan, processScanJobNow } from "@/lib/workers/scans";
 
 export async function listTrackedSources() {
 	return adminDb
@@ -28,6 +28,36 @@ export async function createTrackedSource(input: {
 	const seed = toTrackedSourceSeed(input.url, input.displayName);
 	const [source] = await upsertTrackedSource(seed);
 	if (!source) throw new Error("Failed to create tracked source");
+	return source;
+}
+
+export async function ensureFacebookPageTracked(input: {
+	displayName: string;
+	facebookPageId?: string | null;
+	pageKey: string;
+	sourceUrl?: string | null;
+	username?: string | null;
+}) {
+	const url =
+		input.sourceUrl ??
+		(input.username
+			? `https://www.facebook.com/${input.username}`
+			: input.facebookPageId
+				? `https://www.facebook.com/profile.php?id=${encodeURIComponent(input.facebookPageId)}`
+				: null);
+	if (!url) throw new Error("Fanpage chưa có định danh Facebook để theo dõi.");
+
+	const seed = toTrackedSourceSeed(url, input.displayName);
+	const [source] = await upsertTrackedSource({
+		...seed,
+		metadata: {
+			...seed.metadata,
+			facebookPageId: input.facebookPageId ?? null,
+			facebookPageKey: input.pageKey,
+			username: input.username ?? null,
+		},
+	});
+	if (!source) throw new Error("Không thể tạo nguồn theo dõi cho fanpage.");
 	return source;
 }
 
@@ -79,10 +109,20 @@ export async function scanTrackedSource(id: string) {
 	if (!source) return null;
 	if (!source.isActive) throw new Error("Tracked source is inactive");
 
-	const scan = await createScan({
-		input: source.normalizedUrl,
-		title: source.displayName,
-	});
+	const activeScan = source.lastScanJobId
+		? await adminDb
+				.select({ id: scanJobs.id, status: scanJobs.status })
+				.from(scanJobs)
+				.where(eq(scanJobs.id, source.lastScanJobId))
+				.limit(1)
+				.then((rows) => rows[0] ?? null)
+		: null;
+	const scan =
+		activeScan
+			? activeScan.status === "queued" || activeScan.status === "retrying" || activeScan.status === "running"
+				? { scanId: activeScan.id, status: activeScan.status }
+				: await createTrackedSourceScan(source)
+			: await createTrackedSourceScan(source);
 
 	const [updated] = await adminDb
 		.update(trackedSources)
@@ -95,7 +135,38 @@ export async function scanTrackedSource(id: string) {
 		.where(eq(trackedSources.id, source.id))
 		.returning();
 
-	return { source: updated ?? source, scan };
+	const processing = scan.status === "running"
+		? { processed: false }
+		: await processScanJobNow(scan.scanId);
+	const [finalScan] = await adminDb
+		.select({ id: scanJobs.id, status: scanJobs.status })
+		.from(scanJobs)
+		.where(eq(scanJobs.id, scan.scanId))
+		.limit(1);
+	const finalStatus = finalScan?.status ?? scan.status;
+	const [finalSource] = await adminDb
+		.update(trackedSources)
+		.set({
+			lastScanStatus: finalStatus,
+			lastScannedAt: new Date(),
+			updatedAt: new Date(),
+		})
+		.where(eq(trackedSources.id, source.id))
+		.returning();
+
+	return {
+		processing,
+		source: finalSource ?? updated ?? source,
+		scan: { scanId: scan.scanId, status: finalStatus },
+	};
+}
+
+async function createTrackedSourceScan(source: typeof trackedSources.$inferSelect) {
+	return createScan({
+		input: source.normalizedUrl,
+		title: source.displayName,
+		trigger: "tracked-source-manual",
+	});
 }
 
 export async function enqueueDueTrackedSources({

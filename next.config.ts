@@ -47,6 +47,16 @@ const nextConfig: NextConfig = {
 				}),
 	},
 	transpilePackages: ["@tuturuuu/ui", "@tuturuuu/icons", "@tuturuuu/utils"],
+	async redirects() {
+		return [
+			{ source: "/drafts", destination: "/articles", permanent: true },
+			{ source: "/topics", destination: "/intelligence?view=topics", permanent: true },
+			{ source: "/topics/:slug", destination: "/intelligence/topics/:slug", permanent: true },
+			{ source: "/analysis", destination: "/intelligence?view=overview", permanent: true },
+			{ source: "/alerts", destination: "/intelligence?view=alerts", permanent: true },
+			{ source: "/reports", destination: "/articles", permanent: true },
+		];
+	},
 	async headers() {
 		return [
 			{

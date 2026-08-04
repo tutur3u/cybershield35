@@ -325,6 +325,7 @@ export async function removeRemoteArticle(
 	if (!article?.remoteArticleId || !article.targetOaConnectionId) {
 		throw new Error("Bài viết chưa được đồng bộ với Zalo.");
 	}
+	validateOperation(article, "hide", new Date(), actor.id);
 	const cancelledJobs = await adminDb
 		.update(articlePublicationJobs)
 		.set({
@@ -514,11 +515,7 @@ function validateOperation(
 		);
 	}
 	if (!reviewAllowsArticleOperation(article.reviewStatus, operation)) {
-		throw new Error(
-			operation === "sync_hidden"
-				? "Bài viết đã bị từ chối nên không thể đồng bộ bản ẩn."
-				: "Bài viết phải được phê duyệt trước khi xuất bản.",
-		);
+		throw new Error("Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.");
 	}
 	if (!article.targetOaConnectionId) {
 		throw new Error("Hãy chọn Zalo OA đích.");

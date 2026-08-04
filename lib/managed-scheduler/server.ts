@@ -13,12 +13,12 @@ import {
 	revalidateDashboardTrackedSources,
 } from "@/lib/dashboard/cache-invalidation";
 import { adminDb } from "@/lib/db/client";
+import { reconcileFacebookPageSources } from "@/lib/dashboard/intelligence-server";
 import {
 	cronHeartbeats,
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
 import { processDueArticlePublications } from "@/lib/workers/article-publications";
-import { reconcileAutomatedHiddenArticles } from "@/lib/workers/article-reconciliation";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
@@ -27,7 +27,7 @@ import { logOperation } from "@/lib/operations/telemetry";
 const VERCEL_SCHEDULER_PROVIDER = "vercel-cron";
 const VERCEL_CRON_SECRET_MISSING = "VERCEL_CRON_SECRET_MISSING";
 const LEGACY_PROVIDER = "managed-scheduler";
-const BATCH_LIMIT = 3;
+const DAILY_DRAIN_LIMIT = 500;
 
 export const managedSchedulerJobPatchSchema = z
 	.object({
@@ -111,10 +111,7 @@ type ManagedSchedulerStatus = {
 };
 
 type CronJobDefinition = {
-	jobKey:
-		| "enqueue-tracked-sources"
-		| "process-article-publications"
-		| "process-queue";
+	jobKey: "daily-scans" | "process-article-publications";
 	legacyServiceName: string;
 	name: string;
 	schedule: string;
@@ -130,20 +127,12 @@ type CronExecutionResult = {
 
 const VERCEL_CRON_JOBS: CronJobDefinition[] = [
 	{
-		jobKey: "process-queue",
-		legacyServiceName: "managed-scheduler:process-queue",
-		name: "Managed scheduler process queue",
-		schedule: "*/30 * * * *",
-		scheduleDescription: "Mỗi 30 phút",
-		serviceName: "vercel-cron:process-queue",
-	},
-	{
-		jobKey: "enqueue-tracked-sources",
-		legacyServiceName: "managed-scheduler:enqueue-tracked-sources",
-		name: "Managed scheduler enqueue tracked sources",
+		jobKey: "daily-scans",
+		legacyServiceName: "managed-scheduler:daily-scans",
+		name: "Quét nguồn hằng ngày",
 		schedule: "0 0 * * *",
 		scheduleDescription: "Hằng ngày lúc 00:00 UTC",
-		serviceName: "vercel-cron:enqueue-tracked-sources",
+		serviceName: "vercel-cron:daily-scans",
 	},
 	{
 		jobKey: "process-article-publications",
@@ -310,13 +299,10 @@ async function runSchedulerJobResponse(
 function revalidateSchedulerDashboardCaches(jobKey: string, scanIds: string[]) {
 	try {
 		for (const scanId of scanIds) revalidateDashboardScan(scanId);
-		if (
-			jobKey === "enqueue-tracked-sources" ||
-			(jobKey === "process-queue" && scanIds.length > 0)
-		) {
+		if (jobKey === "daily-scans") {
 			revalidateDashboardTrackedSources();
+			revalidateDashboardIntelligence();
 		}
-		if (jobKey === "process-queue") revalidateDashboardIntelligence();
 		revalidateDashboardHealth();
 	} catch (error) {
 		// Direct worker/unit-test execution has no Next.js static-generation store.
@@ -418,27 +404,19 @@ async function writeSchedulerHeartbeat(
 
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
-		const reconciliation = await reconcileAutomatedHiddenArticles(25);
 		const publications = await processDueArticlePublications(5);
-		return { ...publications, reconciliation };
+		return publications;
 	}
 
-	if (job.jobKey === "enqueue-tracked-sources") {
-		const result = await enqueueDueTrackedSources();
-		return {
-			enqueued: result.enqueued,
-			recovered: result.recovered,
-			scanIds: result.scans.map((scan) => scan.scanId),
-			skipped: result.skipped,
-		};
-	}
+	const reconciliation = await reconcileFacebookPageSources();
+	const enqueued = await enqueueDueTrackedSources();
 
-	const scanIds: string[] = [];
+	const scanIds = enqueued.scans.map((scan) => scan.scanId);
 	const automatedDraftIds: string[] = [];
 	let failed = 0;
 	let processed = 0;
 
-	for (let index = 0; index < BATCH_LIMIT; index += 1) {
+	for (let index = 0; index < DAILY_DRAIN_LIMIT; index += 1) {
 		const result = await processNextJob();
 		if (!result.processed) break;
 
@@ -448,7 +426,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	}
 
 	let automatedDraftsProcessed = 0;
-	for (let index = 0; index < BATCH_LIMIT; index += 1) {
+	for (let index = 0; index < DAILY_DRAIN_LIMIT; index += 1) {
 		const result = await processNextAutomatedDraftJob();
 		if (!result.processed) break;
 		automatedDraftsProcessed += 1;
@@ -461,9 +439,13 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	return {
 		automatedDraftIds,
 		automatedDraftsProcessed,
+		enqueued: enqueued.enqueued,
 		failed,
 		processed,
+		reconciliation,
+		recovered: enqueued.recovered,
 		scanIds,
+		skipped: enqueued.skipped,
 	};
 }
 

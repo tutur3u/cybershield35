@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, desc, eq, inArray, isNull, lt, max, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, max, or } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
@@ -50,9 +50,19 @@ export async function listArticles() {
 export async function listArticlesPage(input: {
 	cursor?: string | null;
 	limit: number;
+	query?: string;
+	review?: "approved" | "draft" | "needs_review" | "rejected";
+	sort?: "title" | "updated_asc" | "updated_desc";
+	state?: "archived" | "draft" | "published";
 }) {
 	const limit = Math.min(25, Math.max(1, Math.floor(input.limit)));
-	const cursor = parseArticleListCursor(input.cursor);
+	const offset = normalizeOffsetCursor(input.cursor);
+	const conditions = [
+		input.query ? or(ilike(articles.title, `%${input.query}%`), ilike(articles.description, `%${input.query}%`), ilike(articles.author, `%${input.query}%`)) : undefined,
+		input.review ? eq(articles.reviewStatus, input.review) : undefined,
+		input.state ? eq(articles.state, input.state) : undefined,
+	].filter(Boolean);
+	const order = input.sort === "title" ? [asc(articles.title), asc(articles.id)] : input.sort === "updated_asc" ? [asc(articles.updatedAt), asc(articles.id)] : [desc(articles.updatedAt), desc(articles.id)];
 	const rows = await adminDb
 		.select({
 			article: articles,
@@ -64,36 +74,27 @@ export async function listArticlesPage(input: {
 			zaloOaConnections,
 			eq(articles.targetOaConnectionId, zaloOaConnections.id),
 		)
-		.where(
-			cursor
-				? or(
-						lt(articles.updatedAt, cursor.updatedAt),
-						and(
-							eq(articles.updatedAt, cursor.updatedAt),
-							lt(articles.id, cursor.id),
-						),
-					)
-				: undefined,
-		)
-		.orderBy(desc(articles.updatedAt), desc(articles.id))
-		.limit(limit + 1);
+		.where(conditions.length ? and(...conditions) : undefined)
+		.orderBy(...order)
+		.limit(limit + 1)
+		.offset(offset);
 	const hasNextPage = rows.length > limit;
 	const items = rows.slice(0, limit);
-	const last = items.at(-1)?.article;
 
 	return {
 		hasNextPage,
 		items,
-		nextCursor:
-			hasNextPage && last
-				? `${last.updatedAt.toISOString()}~${last.id}`
-				: null,
+		nextCursor: hasNextPage ? String(offset + limit) : null,
 	};
 }
 
 export async function getCachedArticlesPage(input: {
 	cursor?: string | null;
 	limit: number;
+	query?: string;
+	review?: "approved" | "draft" | "needs_review" | "rejected";
+	sort?: "title" | "updated_asc" | "updated_desc";
+	state?: "archived" | "draft" | "published";
 }) {
 	"use cache";
 	cacheLife({ expire: 300, revalidate: 30, stale: 30 });
@@ -105,14 +106,9 @@ function invalidateArticleCatalog() {
 	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 }
 
-function parseArticleListCursor(value?: string | null) {
-	if (!value) return null;
-	const separator = value.lastIndexOf("~");
-	if (separator <= 0) return null;
-	const updatedAt = new Date(value.slice(0, separator));
-	const id = value.slice(separator + 1);
-	if (Number.isNaN(updatedAt.getTime()) || !id) return null;
-	return { id, updatedAt };
+function normalizeOffsetCursor(value?: string | null) {
+	const parsed = Number(value ?? 0);
+	return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export async function getArticleDetail(id: string) {
@@ -163,6 +159,15 @@ export async function getArticleDetail(id: string) {
 	]);
 
 	return { ...row, evidence, jobs, versions };
+}
+
+export async function findArticleIdByOriginDraftId(originDraftId: string) {
+	const [article] = await adminDb
+		.select({ id: articles.id })
+		.from(articles)
+		.where(eq(articles.originDraftId, originDraftId))
+		.limit(1);
+	return article?.id ?? null;
 }
 
 export async function createArticle(
@@ -357,6 +362,75 @@ export async function setArticleReviewStatus(
 		});
 	}
 	return updated ?? null;
+}
+
+export async function publishArticleInternally(id: string, actor: ChatActor) {
+	const [updated] = await adminDb
+		.update(articles)
+		.set({
+			state: "published",
+			publishedAt: new Date(),
+			updatedAt: new Date(),
+			updatedByDisplayName: actor.displayName,
+			updatedByUserId: actor.id,
+		})
+		.where(and(eq(articles.id, id), eq(articles.reviewStatus, "approved")))
+		.returning();
+	if (!updated) {
+		throw new Error("Chỉ bài viết đã được phê duyệt mới có thể xuất bản.");
+	}
+	await adminDb.insert(auditEvents).values({
+		action: "article_published_internally",
+		entityId: id,
+		entityType: "article",
+		payload: { actorId: actor.id },
+	});
+	invalidateArticleCatalog();
+	return updated;
+}
+
+export async function importZaloArticle(
+	remote: {
+		author: string | null;
+		coverUrl: string | null;
+		description: string;
+		oaConnectionId: string;
+		remoteArticleId: string;
+		title: string;
+	},
+	actor: ChatActor,
+) {
+	const [existing] = await adminDb
+		.select()
+		.from(articles)
+		.where(eq(articles.remoteArticleId, remote.remoteArticleId))
+		.limit(1);
+	if (existing) return { article: existing, imported: false };
+	const created = await createArticle(
+		{
+			author: remote.author ?? "",
+			blocks: remote.description
+				? [{ content: remote.description, id: crypto.randomUUID(), type: "text" }]
+				: [],
+			commentsEnabled: true,
+			coverUrl: remote.coverUrl,
+			description: remote.description,
+			targetOaConnectionId: remote.oaConnectionId,
+			title: remote.title,
+		},
+		actor,
+	);
+	const [article] = await adminDb
+		.update(articles)
+		.set({
+			publicationStatus: "not_synced",
+			remoteArticleId: remote.remoteArticleId,
+			reviewStatus: "needs_review",
+			updatedAt: new Date(),
+		})
+		.where(eq(articles.id, created.id))
+		.returning();
+	return { article: article ?? created, imported: true };
 }
 
 export async function deleteLocalArticle(id: string, actor: ChatActor) {

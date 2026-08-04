@@ -14,6 +14,7 @@ export type LocalArticleListItem = {
 		id: string;
 		originDraftId: string | null;
 		publicationStatus: string;
+		state: string;
 		remoteArticleId: string | null;
 		reviewStatus: string;
 		scheduledAt: string | null;
@@ -40,15 +41,23 @@ export type ArticleSettings = {
 
 export const articleQueryKeys = {
 	all: ["articles"] as const,
-	catalog: (scope: "local" | "zalo", limit: number) =>
-		["articles", "catalog", scope, "infinite", limit] as const,
+	catalog: (scope: "local" | "zalo", limit: number, filters: ArticleListFilters = {}) =>
+		["articles", "catalog", scope, "infinite", limit, filters] as const,
 	detail: (articleId: string) => ["articles", "detail", articleId] as const,
 	settings: () => ["articles", "settings"] as const,
+};
+
+export type ArticleListFilters = {
+	q?: string;
+	review?: string;
+	sort?: "title" | "updated_asc" | "updated_desc";
+	state?: string;
 };
 
 export function articleCatalogInfiniteQueryOptions(
 	scope: "local" | "zalo",
 	limit = 10,
+	filters: ArticleListFilters = {},
 ) {
 	return infiniteQueryOptions({
 		gcTime: 60 * 60_000,
@@ -61,11 +70,15 @@ export function articleCatalogInfiniteQueryOptions(
 				scope,
 			});
 			if (pageParam) params.set("cursor", pageParam);
+			if (filters.q) params.set("q", filters.q);
+			if (filters.review && filters.review !== "all") params.set("review", filters.review);
+			if (filters.state && filters.state !== "all") params.set("state", filters.state);
+			if (filters.sort) params.set("sort", filters.sort);
 			return fetchArticleJson<ArticleCatalogPage>(
 				`/api/articles?${params.toString()}`,
 			);
 		},
-		queryKey: articleQueryKeys.catalog(scope, limit),
+		queryKey: articleQueryKeys.catalog(scope, limit, filters),
 		staleTime: scope === "zalo" ? 15 * 60_000 : 5 * 60_000,
 	});
 }

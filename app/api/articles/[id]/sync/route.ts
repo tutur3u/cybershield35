@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { articleIdSchema } from "@/lib/articles/schemas";
+import { publishArticleCmsMedia } from "@/lib/articles/cms-media";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
@@ -24,6 +25,7 @@ export async function POST(
 			"sync_hidden",
 			actorFromAuth(auth),
 		);
+		await publishArticleCmsMedia(id, auth.session);
 		const result = await processArticlePublicationJob(job.id);
 		return Response.json({ job: result }, { headers: authHeaders(auth) });
 	} catch (error) {

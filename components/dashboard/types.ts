@@ -412,6 +412,7 @@ export type IntelligenceFilters = {
 	provider?: string;
 	query?: string;
 	risk?: RiskLevel | "all";
+	order?: "newest" | "oldest";
 	source?: string;
 	status?: string;
 	timeRange?: IntelligenceTimeRange;

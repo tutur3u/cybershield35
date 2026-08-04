@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BarChart3, FileBarChart, Info, Play } from "lucide-react";
+import { ArrowRight, BarChart3, Info, Play } from "lucide-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import {
@@ -37,12 +37,10 @@ import {
 } from "@/components/dashboard/ui-primitives";
 
 type IntelligenceWidgetProps = {
-	onCreateReport?: () => void;
 	onOpenScan?: () => void;
 };
 
 export function ExecutiveIntelligenceDashboard({
-	onCreateReport,
 	onOpenScan,
 }: IntelligenceWidgetProps) {
 	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
@@ -78,11 +76,6 @@ export function ExecutiveIntelligenceDashboard({
 				/>
 				<ClaimGraphPanel claims={overview?.topClaims} />
 				<CriticalEvidencePanel evidence={overview?.topEvidence} />
-				<ReportReadinessPanel
-					overview={overview}
-					onCreateReport={onCreateReport}
-					className="xl:col-span-2"
-				/>
 			</div>
 		</div>
 	);
@@ -167,39 +160,6 @@ export function IntelligenceSourcesWorkspace({
 					) : null}
 				</div>
 			</Panel>
-		</div>
-	);
-}
-
-export function IntelligenceReportsWorkbench({
-	onCreateReport,
-}: {
-	onCreateReport?: () => void;
-}) {
-	const [filters] = useIntelligenceFiltersFromUrl();
-	const overviewQuery = useQuery(intelligenceOverviewQueryOptions(filters));
-	const overview = overviewQuery.data;
-
-	return (
-		<div className="space-y-4">
-			<ReportReadinessPanel
-				overview={overview}
-				onCreateReport={onCreateReport}
-			/>
-			<details className="group rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-				<summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-[13px] font-bold text-[var(--foreground)] marker:content-none">
-					<span>
-						Dữ liệu hỗ trợ quyết định
-						<span className="mt-1 block text-[11px] font-semibold leading-4 text-[var(--muted)]">Mở khi cần kiểm tra bằng chứng, claim và xu hướng chủ đề trước khi xuất báo cáo.</span>
-					</span>
-					<ArrowRight size={15} className="shrink-0 transition group-open:rotate-90" />
-				</summary>
-				<div className="grid min-w-0 gap-4 border-t border-[var(--divider)] p-4 xl:grid-cols-2">
-					<CriticalEvidencePanel evidence={overview?.topEvidence} />
-					<ClaimGraphPanel claims={overview?.topClaims} />
-					<div className="xl:col-span-2"><TopicMomentumPanel topics={overview?.topTopics} /></div>
-				</div>
-			</details>
 		</div>
 	);
 }
@@ -497,59 +457,6 @@ function CriticalEvidencePanel({
 	);
 }
 
-function ReportReadinessPanel({
-	className = "",
-	onCreateReport,
-	overview,
-}: {
-	className?: string;
-	onCreateReport?: () => void;
-	overview?: IntelligenceOverviewView;
-}) {
-	const readiness = overview?.readiness;
-	return (
-		<Panel className={className}>
-			<PanelHeader
-				title="Kiểm tra dữ liệu trước khi xuất"
-				description="Các chỉ số giúp biết lượt quét nào đã có đủ dữ liệu và bản nháp được người vận hành duyệt."
-				action={
-					onCreateReport ? (
-						<button
-							type="button"
-							onClick={onCreateReport}
-							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
-						>
-							<FileBarChart size={14} /> Tạo mẫu riêng
-						</button>
-					) : null
-				}
-			/>
-			<div className="grid min-w-0 gap-3 p-4 md:grid-cols-4">
-				<ReadinessMetric
-					help="Một lượt quét được tính là sẵn sàng khi đã hoàn tất và có bản nháp được người vận hành duyệt."
-					label="Lượt quét sẵn sàng"
-					value={readiness?.readyReports ?? 0}
-				/>
-				<ReadinessMetric
-					help="Bản nháp đã duyệt là bản nháp được người vận hành kiểm tra."
-					label="Bản nháp đã duyệt"
-					value={readiness?.approvedDrafts ?? 0}
-				/>
-				<ReadinessMetric
-					help="Tổng số bản nháp phản hồi đã tạo trong khoảng thời gian đang xem."
-					label="Tổng bản nháp"
-					value={readiness?.draftCount ?? 0}
-				/>
-				<ReadinessMetric
-					help="Tỷ lệ được tính bằng số bản nháp đã duyệt chia cho tổng số bản nháp trong khoảng thời gian đang xem."
-					label="Tỷ lệ đã duyệt"
-					value={`${readiness?.approvedDraftRate ?? 0}%`}
-				/>
-			</div>
-		</Panel>
-	);
-}
-
 function ClaimRow({
 	claim,
 	compact = false,
@@ -666,27 +573,6 @@ function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) 
 	);
 }
 
-function ReadinessMetric({
-	help,
-	label,
-	value,
-}: {
-	help: string;
-	label: string;
-	value: number | string;
-}) {
-	return (
-		<DashboardTooltip content={help}>
-			<div className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<p className="flex min-h-8 items-start gap-1.5 text-[11px] font-bold leading-4 text-[var(--muted)]">{label}<Info size={12} className="mt-0.5 shrink-0" /></p>
-				<p className="mt-1 break-words text-[22px] font-bold text-[var(--foreground)]">
-					{typeof value === "number" ? value.toLocaleString("vi-VN") : value}
-				</p>
-			</div>
-		</DashboardTooltip>
-	);
-}
-
 function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 	const labels: Record<IntelligenceHealthState, string> = {
 		attention: "Cần chú ý",
@@ -786,16 +672,6 @@ const skeletonKpis: IntelligenceKpi[] = [
 		href: "/alerts",
 		id: "loading-claims",
 		label: "Chỉ mục claim",
-		tone: "neutral",
-		trendLabel: "Đang tải",
-		value: "-",
-	},
-	{
-		description: "Đang tải độ sẵn sàng báo cáo.",
-		help: "Rollup được tải từ endpoint tổng quan intelligence.",
-		href: "/reports",
-		id: "loading-reports",
-		label: "Sẵn sàng báo cáo",
 		tone: "neutral",
 		trendLabel: "Đang tải",
 		value: "-",

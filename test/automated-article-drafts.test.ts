@@ -150,11 +150,11 @@ describe("automated article draft preparation", () => {
 		expect(content.title).not.toContain("🚨");
 	});
 
-	test("allows hidden review drafts but protects every public operation", () => {
+	test("requires approval for every Zalo operation", () => {
 		expect(reviewAllowsArticleOperation("needs_review", "sync_hidden")).toBe(
-			true,
+			false,
 		);
-		expect(reviewAllowsArticleOperation("draft", "sync_hidden")).toBe(true);
+		expect(reviewAllowsArticleOperation("draft", "sync_hidden")).toBe(false);
 		expect(reviewAllowsArticleOperation("rejected", "sync_hidden")).toBe(
 			false,
 		);
@@ -162,6 +162,7 @@ describe("automated article draft preparation", () => {
 			false,
 		);
 		expect(reviewAllowsArticleOperation("approved", "publish")).toBe(true);
+		expect(reviewAllowsArticleOperation("approved", "sync_hidden")).toBe(true);
 		expect(actorAllowsArticleOperation("system", "sync_hidden")).toBe(true);
 		expect(actorAllowsArticleOperation("system", "publish")).toBe(false);
 		expect(actorAllowsArticleOperation("system", "update_visible")).toBe(false);

@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe("Zalo OA security and article contract", () => {
-	test("offers a secure handoff from synchronized articles to Zalo OA Manager", () => {
+	test("keeps review and publishing actions inside the canonical editor", () => {
 		const editor = readFileSync(
 			"components/dashboard/article-editor.tsx",
 			"utf8",
@@ -35,37 +35,27 @@ describe("Zalo OA security and article contract", () => {
 			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/"',
 		);
 		expect(editor).toContain("Mở trong Zalo OA Manager");
-		expect(editor).toContain("Mở trực tiếp danh sách Nội dung → Bài viết");
 		expect(editor).toContain('target="_blank"');
 		expect(editor).toContain('rel="noopener noreferrer"');
 		expect(editor).toContain("if (!remoteArticleId)");
-		expect(editor.indexOf("<ZaloDashboardHandoff")).toBeLessThan(
-			editor.indexOf("!accounts.data?.enabled"),
-		);
-		expect(editor).toContain("const [railOpen, setRailOpen] = useState(false)");
-		expect(editor).toContain("Mở bảng điều khiển Zalo");
+		expect(editor).toContain("Phê duyệt");
+		expect(editor).toContain("Từ chối");
+		expect(editor).toContain("Đăng lên Zalo OA");
+		expect(editor).toContain('article.reviewStatus !== "approved"');
 	});
 
-	test("keeps CS35 and Zalo-only articles distinct in one compact catalog", () => {
+	test("keeps Zalo import outside the server-driven canonical article list", () => {
 		const workspace = readFileSync(
 			"components/dashboard/articles-workspace.tsx",
 			"utf8",
 		);
 
-		expect(workspace).toContain("Created on CS35");
-		expect(workspace).toContain("Zalo OA");
-		expect(workspace).toContain("Bản nháp Zalo · chưa đăng");
-		expect(workspace).toContain("localRemoteIds");
-		expect(workspace).toContain("Lọc theo nguồn tạo bài");
-		expect(workspace).toContain("Mới cập nhật trước");
-		expect(workspace).toContain("Cũ cập nhật trước");
-		expect(workspace).toContain("Sắp xếp theo tiêu đề");
-		expect(workspace).toContain(
-			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/"',
-		);
-		expect(workspace).toContain("Chọn tất cả bài CS35 đang hiển thị");
-		expect(workspace).toContain("Đồng bộ bản nháp ẩn");
-		expect(workspace).toContain("Bản nháp ẩn · chưa đăng");
+		expect(workspace).toContain("Nhập từ Zalo OA");
+		expect(workspace).toContain("/api/articles/import-zalo");
+		expect(workspace).toContain("Trạng thái duyệt");
+		expect(workspace).toContain("Xuất bản");
+		expect(workspace).not.toContain("Chọn tất cả bài CS35 đang hiển thị");
+		expect(workspace).not.toContain("Đồng bộ bản nháp ẩn");
 	});
 
 	test("loads the unified article catalog incrementally with a cached cursor", () => {
@@ -81,17 +71,10 @@ describe("Zalo OA security and article contract", () => {
 		const store = readFileSync("lib/articles/store.ts", "utf8");
 		const zaloCatalog = readFileSync("lib/zalo/articles.ts", "utf8");
 
-		expect(workspace).toContain(
-			'articleCatalogInfiniteQueryOptions("local")',
-		);
-		expect(workspace).toContain(
-			'articleCatalogInfiniteQueryOptions("zalo")',
-		);
+		expect(workspace).toContain('articleCatalogInfiniteQueryOptions("local", 12, filters)');
+		expect(workspace).toContain('articleCatalogInfiniteQueryOptions("zalo", 10)');
 		expect(workspace).toContain("IntersectionObserver");
-		expect(workspace).toContain("Tải thêm bài viết");
-		expect(workspace).toContain("mergeArticlePages");
-		expect(workspace).toContain("setDeletedCatalogIds");
-		expect(workspace).toContain("!deleted.articleIds.has(article.id)");
+		expect(workspace).toContain("Đang tải thêm");
 		expect(clientQueries).toContain("infiniteQueryOptions");
 		expect(clientQueries).toContain("getNextPageParam");
 		expect(clientQueries).toContain(
@@ -127,6 +110,7 @@ describe("Zalo OA security and article contract", () => {
 				id: "local-delete-id",
 				originDraftId: null,
 				publicationStatus: "hidden",
+				state: "draft",
 				remoteArticleId: "remote-delete-id",
 				reviewStatus: "draft",
 				scheduledAt: null,
@@ -174,34 +158,25 @@ describe("Zalo OA security and article contract", () => {
 		expect(result?.pages[0]?.zaloArticles).toEqual([]);
 	});
 
-	test("keeps automatic scan articles hidden and configurable", () => {
+	test("removes automatic draft synchronization and gates all Zalo operations", () => {
 		const automation = readFileSync("lib/articles/automation.ts", "utf8");
 		const schema = readFileSync("lib/db/schema.ts", "utf8");
-		const bulkRoute = readFileSync(
-			"app/api/articles/bulk/route.ts",
-			"utf8",
-		);
-		const workspace = readFileSync(
-			"components/dashboard/articles-workspace.tsx",
-			"utf8",
-		);
+		const policy = readFileSync("lib/articles/publication-policy.ts", "utf8");
 		const publications = readFileSync(
 			"lib/workers/article-publications.ts",
 			"utf8",
 		);
 
 		expect(schema).toContain('autoSyncDrafts: boolean("auto_sync_drafts")');
-		expect(automation).toContain("!defaultOa.autoSyncDrafts");
-		expect(automation).toContain('"sync_hidden"');
-		expect(bulkRoute).toContain('"set_review_status"');
-		expect(bulkRoute).toContain("removeRemoteArticle");
-		expect(bulkRoute).toContain('msg: "article_bulk_item_failed"');
-		expect(bulkRoute).toContain('msg: "article_bulk_completed"');
+		expect(schema).toContain(".default(false)");
+		expect(automation).toContain('zaloStatus: "awaiting_explicit_approval"');
+		expect(automation).not.toContain('"sync_hidden"');
+		expect(policy).toContain('return reviewStatus === "approved"');
+		expect(publications).toContain(
+			'validateOperation(article, "hide", new Date(), actor.id)',
+		);
 		expect(publications).toContain('status: "cancelled"');
 		expect(publications).toContain('eq(articlePublicationJobs.status, "running")');
-		expect(workspace).toContain('role="alert"');
-		expect(workspace).toContain("{deleteError}");
-		expect(bulkRoute).not.toContain('"publish"');
 	});
 
 	test("sanitizes database and provider failures before returning them", async () => {

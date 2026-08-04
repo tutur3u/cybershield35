@@ -215,7 +215,9 @@ function FacebookPageTrustPanel() {
 	const pagesQuery = useQuery(pagesQueryOptions);
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<FacebookPageClassification | "all">("all");
+	const [sort, setSort] = useState<"evidence" | "name">("evidence");
 	const [savingKeys, setSavingKeys] = useState<Set<string>>(() => new Set());
+	const [scanningKeys, setScanningKeys] = useState<Set<string>>(() => new Set());
 	const [feedbackByPage, setFeedbackByPage] = useState<
 		Record<string, PagePolicyFeedback>
 	>({});
@@ -229,7 +231,7 @@ function FacebookPageTrustPanel() {
 			page.username?.toLowerCase().includes(value) ||
 			page.facebookId?.toLowerCase().includes(value)
 		);
-	});
+	}).sort((left, right) => sort === "name" ? left.label.localeCompare(right.label, "vi") : right.evidenceCount - left.evidenceCount || left.label.localeCompare(right.label, "vi"));
 	const counts = pages.reduce(
 		(result, page) => {
 			result[page.classification] += 1;
@@ -329,6 +331,50 @@ function FacebookPageTrustPanel() {
 		}
 	}
 
+	async function scanNow(page: IntelligenceFacebookPageOption) {
+		setScanningKeys((current) => new Set(current).add(page.pageKey));
+		setFeedbackByPage((current) => ({
+			...current,
+			[page.pageKey]: { message: "Đang xếp hàng và quét fanpage…", tone: "info" },
+		}));
+		try {
+			const response = await fetch("/api/intelligence/facebook-pages/scan-now", {
+				body: JSON.stringify({
+					displayName: page.label,
+					facebookPageId: page.facebookId,
+					pageKey: page.pageKey,
+					sourceUrl: page.sourceUrl,
+					username: page.username,
+				}),
+				cache: "no-store",
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			});
+			const payload = await response.json().catch(() => null);
+			if (!response.ok) throw new Error(payload?.error ?? "Không thể quét fanpage.");
+			updateCachedPage(page.pageKey, { trackedSourceId: payload?.source?.id ?? page.trackedSourceId });
+			setFeedbackByPage((current) => ({
+				...current,
+				[page.pageKey]: {
+					message: payload?.scan?.status === "completed" ? "Quét đã hoàn tất. Bằng chứng mới đã sẵn sàng trên Dòng thời gian." : `Scan đang ở trạng thái ${payload?.scan?.status ?? "đang xử lý"}.`,
+					tone: payload?.scan?.status === "failed" ? "error" : "success",
+				},
+			}));
+			await pagesQuery.refetch();
+		} catch (error) {
+			setFeedbackByPage((current) => ({
+				...current,
+				[page.pageKey]: { message: error instanceof Error ? error.message : "Không thể quét fanpage.", tone: "error" },
+			}));
+		} finally {
+			setScanningKeys((current) => {
+				const next = new Set(current);
+				next.delete(page.pageKey);
+				return next;
+			});
+		}
+	}
+
 	function updateCachedPage(
 		pageKey: string,
 		patch: Partial<IntelligenceFacebookPageOption>,
@@ -343,13 +389,10 @@ function FacebookPageTrustPanel() {
 	}
 
 	function explainUnavailableAutomation(page: IntelligenceFacebookPageOption) {
-		const trackedOnly = page.pageKey.startsWith("tracked:");
 		setFeedbackByPage((current) => ({
 			...current,
 			[page.pageKey]: {
-				message: trackedOnly
-					? "Hãy quét ít nhất một bài từ nguồn này để CS35 nhận diện fanpage trước khi bật tự động."
-					: "Chọn “Đáng tin”, “Trung lập” hoặc “Có rủi ro” phía trên. CS35 sẽ bật tự động tạo bản nháp ngay sau khi lưu phân loại.",
+				message: "Chọn “Đáng tin”, “Trung lập” hoặc “Có rủi ro” phía trên. CS35 sẽ bật tự động tạo bản nháp ngay sau khi lưu phân loại.",
 				tone: "info",
 			},
 		}));
@@ -377,6 +420,10 @@ function FacebookPageTrustPanel() {
 					/>
 				</label>
 				<div className="flex flex-wrap gap-2">
+					<select aria-label="Sắp xếp fanpage" value={sort} onChange={(event) => setSort(event.target.value as "evidence" | "name")} className="h-9 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">
+						<option value="evidence">Nhiều bằng chứng</option>
+						<option value="name">Tên A-Z</option>
+					</select>
 					<PagePolicyFilter active={filter === "all"} label="Tất cả" value={pages.length} onClick={() => setFilter("all")} />
 					<PagePolicyFilter active={filter === "trusted"} label="Đáng tin" value={counts.trusted} onClick={() => setFilter("trusted")} />
 					<PagePolicyFilter active={filter === "neutral"} label="Trung lập" value={counts.neutral} onClick={() => setFilter("neutral")} />
@@ -395,6 +442,8 @@ function FacebookPageTrustPanel() {
 							key={page.pageKey}
 							page={page}
 							feedback={feedbackByPage[page.pageKey]}
+							onScanNow={() => scanNow(page)}
+							scanning={scanningKeys.has(page.pageKey)}
 							saving={savingKeys.has(page.pageKey)}
 							onAutomationUnavailable={() =>
 								explainUnavailableAutomation(page)
@@ -418,23 +467,25 @@ type PagePolicyFeedback = {
 function FacebookPagePolicyRow({
 	feedback,
 	onAutomationUnavailable,
+	onScanNow,
 	onSave,
 	page,
+	scanning,
 	saving,
 }: {
 	feedback?: PagePolicyFeedback;
 	onAutomationUnavailable: () => void;
+	onScanNow: () => Promise<void>;
 	onSave: (
 		patch: Partial<
 			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
 		>,
 	) => Promise<void>;
 	page: IntelligenceFacebookPageOption;
+	scanning: boolean;
 	saving: boolean;
 }) {
-	const trackedOnly = page.pageKey.startsWith("tracked:");
-	const automationUnavailable =
-		trackedOnly || page.classification === "uncategorized";
+	const automationUnavailable = page.classification === "uncategorized";
 	const automationStatus = automationUnavailable
 		? "Cần phân loại"
 		: page.autoDraftEnabled
@@ -471,6 +522,15 @@ function FacebookPagePolicyRow({
 					<span>{page.automation.completed} đã tạo</span>
 					{page.automation.failed ? <span className="text-[var(--danger-strong)]">{page.automation.failed} lỗi</span> : null}
 				</div>
+				<button
+					type="button"
+					disabled={scanning}
+					onClick={() => void onScanNow()}
+					className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[11px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-65"
+				>
+					{scanning ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={14} />}
+					{scanning ? "Đang quét" : "Quét ngay"}
+				</button>
 			</div>
 			<div className="space-y-2">
 				<div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -478,10 +538,10 @@ function FacebookPagePolicyRow({
 					<span>Chọn một</span>
 				</div>
 				<div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={`Phân loại ${page.label}`}>
-					<PagePolicyButton active={page.classification === "trusted"} disabled={saving || trackedOnly} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
-					<PagePolicyButton active={page.classification === "neutral"} disabled={saving || trackedOnly} icon={Scale} label="Trung lập" tone="neutral" onClick={() => onSave({ autoDraftEnabled: true, classification: "neutral" })} />
-					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving || trackedOnly} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
-					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving || trackedOnly} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
+					<PagePolicyButton active={page.classification === "trusted"} disabled={saving} icon={ShieldCheck} label="Đáng tin" tone="success" onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })} />
+					<PagePolicyButton active={page.classification === "neutral"} disabled={saving} icon={Scale} label="Trung lập" tone="neutral" onClick={() => onSave({ autoDraftEnabled: true, classification: "neutral" })} />
+					<PagePolicyButton active={page.classification === "at_risk"} disabled={saving} icon={ShieldAlert} label="Có rủi ro" tone="danger" onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })} />
+					<PagePolicyButton active={page.classification === "uncategorized"} disabled={saving} icon={Radar} label="Chưa rõ" tone="neutral" onClick={() => onSave({ autoDraftEnabled: false, classification: "uncategorized" })} />
 				</div>
 				<button
 					type="button"
@@ -562,16 +622,14 @@ function SourceAutomationPanel({
 	sources,
 }: {
 	onRunSchedulerJob: (
-		jobKey: "enqueue-tracked-sources" | "process-queue",
+		jobKey: "daily-scans",
 	) => Promise<void>;
 	scans: DashboardScan[];
 	sources: TrackedSourceView[];
 }) {
 	const schedulerQuery = useQuery(managedSchedulerQueryOptions());
 	const [detailsOpen, setDetailsOpen] = useState(false);
-	const [runningJob, setRunningJob] = useState<
-		"enqueue-tracked-sources" | "process-queue" | null
-	>(null);
+	const [runningJob, setRunningJob] = useState<"daily-scans" | null>(null);
 	const sourceStates = useMemo(
 		() => sources.map((source) => ({ source, state: sourceAutomationState(source) })),
 		[sources],
@@ -591,13 +649,10 @@ function SourceAutomationPanel({
 	);
 	const runningScans = scans.filter((scan) => scan.status === "running");
 	const status = schedulerQuery.data;
-	const enqueueJob = status?.jobs.find(
-		(job) => job.jobKey === "enqueue-tracked-sources",
-	);
-	const processJob = status?.jobs.find((job) => job.jobKey === "process-queue");
+	const dailyJob = status?.jobs.find((job) => job.jobKey === "daily-scans");
 	const schedulerBlocked = Boolean(status?.setupDisabledReason);
 
-	async function runJob(jobKey: "enqueue-tracked-sources" | "process-queue") {
+	async function runJob(jobKey: "daily-scans") {
 		setRunningJob(jobKey);
 		try {
 			await onRunSchedulerJob(jobKey);
@@ -611,7 +666,7 @@ function SourceAutomationPanel({
 		<Panel>
 			<PanelHeader
 				title="Tự động tái quét"
-				description="Vercel Cron xếp hàng nguồn theo dõi hằng ngày và xử lý hàng đợi mỗi 30 phút."
+				description="Một Vercel Cron hằng ngày đối soát nguồn, xếp hàng và xử lý toàn bộ pipeline scan."
 				action={
 					<button
 						type="button"
@@ -649,37 +704,24 @@ function SourceAutomationPanel({
 					/>
 				</div>
 				<div className="grid gap-3">
-					<CronJobRow job={enqueueJob} label="Xếp hàng nguồn theo dõi" />
-					<CronJobRow job={processJob} label="Xử lý hàng đợi scan" />
+					<CronJobRow job={dailyJob} label="Quét nguồn hằng ngày" />
 					{schedulerBlocked ? (
 						<div className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-soft)] px-3 py-2 text-[12px] font-semibold leading-5 text-[var(--warning-strong)]">
 							{status?.setupDisabledReason}
 						</div>
 					) : null}
-					<div className="grid gap-2 sm:grid-cols-2">
+					<div>
 						<button
 							type="button"
 							disabled={runningJob !== null}
-							onClick={() => void runJob("enqueue-tracked-sources")}
-							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+							onClick={() => void runJob("daily-scans")}
+							className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<RefreshCw
 								size={14}
-								className={runningJob === "enqueue-tracked-sources" ? "animate-spin" : ""}
+								className={runningJob === "daily-scans" ? "animate-spin" : ""}
 							/>
-							Xếp hàng ngay
-						</button>
-						<button
-							type="button"
-							disabled={runningJob !== null}
-							onClick={() => void runJob("process-queue")}
-							className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-						>
-							<Play
-								size={14}
-								className={runningJob === "process-queue" ? "animate-pulse" : ""}
-							/>
-							Xử lý ngay
+							Quét nguồn ngay
 						</button>
 					</div>
 				</div>
@@ -709,15 +751,14 @@ function SourceAutomationPanel({
 						<li>Không tạo scan trùng nếu nguồn đã quét trong vòng 1 giờ.</li>
 						<li>Không tạo scan mới khi nguồn còn scan đang chờ, chạy hoặc thử lại.</li>
 						<li>Scan cũ bị kẹt quá 12 giờ sẽ được đánh dấu lỗi và xếp hàng lại.</li>
-						<li>Job xử lý hàng đợi chạy mỗi 30 phút và lấy tối đa 3 scan mỗi lượt.</li>
+						<li>Job hằng ngày xử lý liên tục đến khi hàng đợi hiện tại trống.</li>
 					</ul>
 				</AutomationAccordion>
 			</div>
 			{detailsOpen ? (
 				<AutomationDetailsDialog
 					onClose={() => setDetailsOpen(false)}
-					enqueueJob={enqueueJob}
-					processJob={processJob}
+					enqueueJob={dailyJob}
 				/>
 			) : null}
 		</Panel>
@@ -1202,11 +1243,9 @@ function SourceStateBadge({ state }: { state: SourceAutomationState }) {
 function AutomationDetailsDialog({
 	enqueueJob,
 	onClose,
-	processJob,
 }: {
 	enqueueJob?: ManagedSchedulerJobView;
 	onClose: () => void;
-	processJob?: ManagedSchedulerJobView;
 }) {
 	return (
 		<div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
@@ -1238,19 +1277,18 @@ function AutomationDetailsDialog({
 					</button>
 				</div>
 				<div className="grid gap-3 p-4">
-					<CronJobRow job={enqueueJob} label="Xếp hàng nguồn theo dõi" />
-					<CronJobRow job={processJob} label="Xử lý hàng đợi scan" />
+					<CronJobRow job={enqueueJob} label="Quét nguồn hằng ngày" />
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 						<h3 className="text-[13px] font-bold text-[var(--foreground)]">
 							Vì sao có thể chưa thấy scan mới?
 						</h3>
 						<ul className="mt-2 space-y-2 text-[12px] font-semibold leading-5 text-[var(--muted-strong)]">
-							<li>Job xếp hàng chỉ chạy tự động một lần mỗi ngày lúc 00:00 UTC.</li>
+							<li>Job đối soát, xếp hàng và xử lý scan một lần mỗi ngày lúc 00:00 UTC.</li>
 							<li>Nguồn mới quét trong vòng 1 giờ sẽ được bỏ qua để chống trùng.</li>
 							<li>Nếu scan cũ vẫn đang chờ, chạy hoặc thử lại, nguồn sẽ không tạo scan mới.</li>
 							<li>Scan cũ bị kẹt quá 12 giờ sẽ được tự khôi phục ở lần xếp hàng kế tiếp.</li>
 							<li>
-								Nút “Xếp hàng ngay” kiểm tra cùng quy tắc nhưng chạy tức thì cho
+								Nút “Quét nguồn ngay” kiểm tra cùng quy tắc nhưng chạy tức thì cho
 								người vận hành.
 							</li>
 						</ul>

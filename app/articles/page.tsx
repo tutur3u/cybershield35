@@ -42,6 +42,7 @@ async function HydratedArticlesWorkspace() {
 				id: article.id,
 				originDraftId: article.originDraftId,
 				publicationStatus: article.publicationStatus,
+				state: article.state,
 				remoteArticleId: article.remoteArticleId,
 				reviewStatus: article.reviewStatus,
 				scheduledAt: article.scheduledAt?.toISOString() ?? null,

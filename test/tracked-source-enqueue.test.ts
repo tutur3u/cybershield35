@@ -52,6 +52,7 @@ mock.module("server-only", () => ({}));
 mock.module("@/lib/workers/scans", () => ({
 	createScan,
 	heartbeat: mock(async () => undefined),
+	processScanJobNow: mock(async () => ({ processed: true })),
 	processNextJob: mock(async () => ({ processed: false })),
 }));
 

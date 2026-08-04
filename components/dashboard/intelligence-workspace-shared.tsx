@@ -2,6 +2,7 @@
 
 import {
 	Activity,
+	ArrowDownAZ,
 	ChevronDown,
 	Filter,
 	Radar,
@@ -55,7 +56,7 @@ export function IntelligenceFilterBar({
 	);
 
 	return (
-		<div className="grid min-w-0 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] md:grid-cols-2 xl:grid-cols-[minmax(180px,1.2fr)_repeat(5,minmax(126px,0.75fr))]">
+		<div className="grid min-w-0 gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] md:grid-cols-2 xl:grid-cols-[minmax(180px,1.2fr)_repeat(6,minmax(126px,0.75fr))]">
 			<label className="relative min-w-0">
 				<Search
 					aria-hidden
@@ -77,6 +78,14 @@ export function IntelligenceFilterBar({
 					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 				/>
 			</label>
+			<FilterSelect
+				icon={ArrowDownAZ}
+				label="Sắp xếp"
+				value={filters.order ?? "newest"}
+				onChange={(value) => setFilter("order", value)}
+				options={[["newest", "Mới nhất"], ["oldest", "Cũ nhất"]]}
+				help="Sắp xếp kết quả theo thời điểm quan sát hoặc cập nhật."
+			/>
 			<FilterSelect
 				icon={Radar}
 				label="Fanpage"

@@ -1,9 +1,7 @@
-import { Suspense } from "react";
 
-import {
-	DashboardRoute,
-	DashboardRouteSkeleton,
-} from "@/components/dashboard/dashboard-route";
+import { permanentRedirect } from "next/navigation";
+
+import { findArticleIdByOriginDraftId } from "@/lib/articles/store";
 
 export const instant = true;
 export const prefetch = "allow-runtime";
@@ -15,21 +13,15 @@ export default function DraftDetailPage({
 	params: Promise<{ id: string }>;
 	searchParams: Promise<{ scanId?: string }>;
 }) {
-	return (
-		<Suspense fallback={<DashboardRouteSkeleton page="draft-detail" />}>
-			<DraftDetailRoute params={params} searchParams={searchParams} />
-		</Suspense>
-	);
+	return redirectDraftDetail(params, searchParams);
 }
 
-async function DraftDetailRoute({
-	params,
-	searchParams,
-}: {
-	params: Promise<{ id: string }>;
-	searchParams: Promise<{ scanId?: string }>;
-}) {
-	const [{ id }, { scanId }] = await Promise.all([params, searchParams]);
-
-	return <DashboardRoute draftId={id} page="draft-detail" scanId={scanId} />;
+async function redirectDraftDetail(
+	params: Promise<{ id: string }>,
+	searchParams: Promise<{ scanId?: string }>,
+) {
+	const [{ id }, query] = await Promise.all([params, searchParams]);
+	const articleId = await findArticleIdByOriginDraftId(id);
+	const suffix = query.scanId ? `?scanId=${encodeURIComponent(query.scanId)}` : "";
+	permanentRedirect(articleId ? `/articles/${articleId}${suffix}` : `/articles${suffix}`);
 }

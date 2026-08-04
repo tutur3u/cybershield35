@@ -123,9 +123,8 @@ export async function scanTrackedSource(options: {
 
 export async function runManagedSchedulerJobNow(options: {
 	jobKey:
-		| "enqueue-tracked-sources"
-		| "process-article-publications"
-		| "process-queue";
+		| "daily-scans"
+		| "process-article-publications";
 	setNotice: (notice: string) => void;
 }) {
 	try {
@@ -147,11 +146,9 @@ export async function runManagedSchedulerJobNow(options: {
 		}
 
 		const label =
-			options.jobKey === "enqueue-tracked-sources"
-				? "Đã xếp hàng các nguồn đến hạn."
-				: options.jobKey === "process-article-publications"
-					? "Đã xử lý hàng đợi xuất bản bài viết."
-					: "Đã xử lý hàng đợi scan.";
+			options.jobKey === "process-article-publications"
+				? "Đã xử lý hàng đợi xuất bản bài viết."
+				: "Đã hoàn tất lượt quét nguồn hằng ngày.";
 		options.setNotice(label);
 		return true;
 	} catch (error) {

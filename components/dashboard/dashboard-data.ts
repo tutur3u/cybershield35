@@ -1,16 +1,12 @@
 import {
 	Activity,
-	AlertTriangle,
-	BarChart3,
 	Database,
-	FileBarChart,
 	FileSearch,
 	History,
 	LayoutDashboard,
 	Layers3,
 	MessageCircle,
 	MessageSquareText,
-	MonitorCog,
 	Newspaper,
 	Radar,
 	UsersRound,
@@ -43,32 +39,21 @@ export const overviewNavItem: NavItem = {
 
 export const navSections: NavSection[] = [
 	{
-		id: "monitoring",
-		label: "Giám sát",
-		items: [
-			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
-			{ label: "Chủ đề", href: "/topics", icon: Layers3 },
-			{ label: "Phân tích", href: "/analysis", icon: BarChart3 },
-			{ label: "Cảnh báo", href: "/alerts", icon: AlertTriangle },
-		],
-	},
-	{
-		id: "operations",
-		label: "Thu thập & vận hành",
+		id: "workflow",
+		label: "Quy trình",
 		items: [
 			{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
-			{ label: "Vận hành hệ thống", href: "/operations", icon: MonitorCog },
-			{ label: "Nhật ký", href: "/audit", icon: History },
+			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
+			{ label: "Tình báo", href: "/intelligence", icon: Layers3 },
+			{ label: "Bài viết", href: "/articles", icon: Newspaper },
 		],
 	},
 	{
-		id: "response",
-		label: "Phản hồi",
+		id: "workspace",
+		label: "Không gian làm việc",
 		items: [
 			{ label: "Chat", href: "/chat", icon: MessageCircle },
-			{ label: "Bản nháp", href: "/drafts", icon: MessageSquareText },
-			{ label: "Bài viết", href: "/articles", icon: Newspaper },
-			{ label: "Báo cáo", href: "/reports", icon: FileBarChart },
+			{ label: "Nhật ký", href: "/audit", icon: History },
 		],
 	},
 	{

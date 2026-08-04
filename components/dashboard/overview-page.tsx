@@ -9,7 +9,6 @@ import type { DashboardScan } from "@/components/dashboard/types";
 import { SecondaryButton } from "@/components/dashboard/ui-primitives";
 
 export function OverviewPage({
-	onCreateReport,
 	onDeleteScan,
 	onEditScan,
 	onOpenDraft,
@@ -19,7 +18,6 @@ export function OverviewPage({
 	scans,
 	selectedScanId,
 }: {
-	onCreateReport: () => void;
 	onDeleteScan: (scan: DashboardScan) => Promise<void>;
 	onEditScan: (scan: DashboardScan) => void;
 	onOpenDraft: () => void;
@@ -46,10 +44,7 @@ export function OverviewPage({
 					</>
 				}
 			/>
-			<ExecutiveIntelligenceDashboard
-				onCreateReport={onCreateReport}
-				onOpenScan={onOpenScan}
-			/>
+			<ExecutiveIntelligenceDashboard onOpenScan={onOpenScan} />
 			<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)]">
 				<QueueCard
 					enableInfinite

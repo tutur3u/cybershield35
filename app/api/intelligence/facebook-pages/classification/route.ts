@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardIntelligence } from "@/lib/dashboard/cache-invalidation";
 import { updateFacebookPagePolicy } from "@/lib/workers/facebook-page-jobs";
+import { ensureFacebookPageTracked } from "@/lib/workers/tracked-sources";
 
 const bodySchema = z
 	.object({
@@ -38,6 +39,12 @@ export async function PATCH(request: Request) {
 				displayName: auth.session.user.displayName ?? null,
 				id: auth.session.user.id,
 			},
+		});
+		await ensureFacebookPageTracked({
+			displayName: body.displayName,
+			facebookPageId: body.facebookPageId,
+			pageKey: body.pageKey,
+			username: body.username,
 		});
 		revalidateDashboardIntelligence("facebook-pages");
 		revalidateDashboardIntelligence("timeline");

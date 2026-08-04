@@ -885,7 +885,6 @@ function renderPage(
 		default:
 			return (
 				<OverviewPage
-					onCreateReport={props.onCreateReport}
 					onDeleteScan={props.onDeleteScan}
 					onEditScan={props.onEditScan}
 					onOpenDraft={props.onOpenDraft}

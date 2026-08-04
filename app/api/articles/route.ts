@@ -27,9 +27,16 @@ export async function GET(request: Request) {
 		const limit = normalizePageSize(url.searchParams.get("limit"));
 		const scope = url.searchParams.get("scope");
 		if (scope === "local") {
+			const review = url.searchParams.get("review");
+			const state = url.searchParams.get("state");
+			const sort = url.searchParams.get("sort");
 			const local = await getCachedArticlesPage({
 				cursor: url.searchParams.get("cursor"),
 				limit,
+				query: url.searchParams.get("q")?.trim() || undefined,
+				review: review === "approved" || review === "draft" || review === "needs_review" || review === "rejected" ? review : undefined,
+				sort: sort === "title" || sort === "updated_asc" || sort === "updated_desc" ? sort : undefined,
+				state: state === "archived" || state === "draft" || state === "published" ? state : undefined,
 			});
 			return Response.json(
 				{

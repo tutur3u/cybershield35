@@ -23,6 +23,7 @@ const REQUESTED_SCOPES = [
 	"workspace:cron:write",
 	"workspace:drive:read",
 	"workspace:drive:write",
+	"external-projects:manage",
 	"users:profile:read",
 	"users:profile:write",
 ] as const;
