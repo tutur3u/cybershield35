@@ -75,17 +75,49 @@ describe("Facebook page policy", () => {
 		).toBeNull();
 	});
 
-	test("raises operational priority for content from an at-risk page", () => {
+	test("scores each item by its content instead of the page classification", () => {
 		const assessment = assessEvidenceRisk({
-			comments: 0,
-			shares: 0,
+			comments: 250,
+			shares: 80,
 			sourceClassification: "at_risk",
-			storedRisk: "low",
-			text: "Một bài viết chưa có tín hiệu lan truyền.",
+			storedRisk: "high",
+			text: "Nhà trường giảm học phí và trao học bổng cho sinh viên đạt điểm cao.",
+		});
+
+		expect(assessment.level).toBe("low");
+		expect(assessment.reasons.join(" ")).toContain("thành tích học tập");
+		expect(assessment.reasons.join(" ")).toContain("chấm theo nội dung");
+	});
+
+	test("treats enforcement, legal, and public-order events as high risk", () => {
+		for (const text of [
+			"Công an bắt giữ đối tượng sau chuyên án bảo đảm an ninh trật tự.",
+			"Cơ quan điều tra khởi tố và bắt tạm giam bị can.",
+			"Doanh nghiệp bị kiện ra tòa sau vụ đánh sập hệ thống.",
+		]) {
+			expect(assessEvidenceRisk({ text }).level, text).toBe("high");
+		}
+	});
+
+	test("keeps routine education and fee updates low risk", () => {
+		for (const text of [
+			"Học sinh đạt điểm cao trong kỳ thi và được tuyên dương.",
+			"Chính phủ công bố giảm học phí cho sinh viên trong năm học mới.",
+			"Trường trao học bổng và tổ chức lễ tốt nghiệp.",
+		]) {
+			expect(assessEvidenceRisk({ comments: 500, shares: 100, text }).level, text).toBe(
+				"low",
+			);
+		}
+	});
+
+	test("uses medium risk for important civic policy without a severe event", () => {
+		const assessment = assessEvidenceRisk({
+			text: "Quốc hội thảo luận dự luật mới và chính sách quản lý đô thị.",
 		});
 
 		expect(assessment.level).toBe("medium");
-		expect(assessment.reasons.join(" ")).toContain("nâng tối thiểu lên trung bình");
+		expect(assessment.reasons.join(" ")).toContain("vấn đề công");
 	});
 });
 

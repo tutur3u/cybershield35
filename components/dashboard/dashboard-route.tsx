@@ -181,7 +181,7 @@ const dashboardSkeletonCopy: Partial<
 	},
 	sources: {
 		description:
-			"Theo dõi nguồn, lịch tự động, hàng đợi scan và trạng thái provider trong một nơi.",
+			"Quản lý fanpage, quét nội dung mới và theo dõi kết quả trong một nơi.",
 		title: "Nguồn & Quét",
 	},
 };

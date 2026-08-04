@@ -3,7 +3,7 @@ import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton
 export default function Loading() {
 	return (
 		<DashboardPageSkeleton
-			description="Theo dõi nguồn, lịch tự động, hàng đợi scan và trạng thái provider."
+			description="Quản lý fanpage, quét nội dung mới và theo dõi kết quả trong một nơi."
 			title="Nguồn & Quét"
 		/>
 	);

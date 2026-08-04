@@ -1,5 +1,6 @@
 import { Firecrawl } from "firecrawl";
 
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
 
 import type { ProviderAdapter } from "./types";
@@ -14,6 +15,9 @@ export const runFirecrawl: ProviderAdapter = async (source) => {
 	const url = source.normalizedUrl ?? source.originalInput;
 	const result = await client.scrape(url, { formats: ["markdown"] });
 	const markdown = result.markdown ?? "";
+	const assessment = assessEvidenceRisk({
+		text: `${result.metadata?.title ?? ""}\n${result.metadata?.description ?? ""}\n${markdown}`,
+	});
 
 	return {
 		provider: "firecrawl",
@@ -39,8 +43,11 @@ export const runFirecrawl: ProviderAdapter = async (source) => {
 				engagement: {},
 				stance: "unknown",
 				sentiment: "neutral",
-				riskLevel: "medium",
-				metadata: { firecrawlMetadata: result.metadata ?? {} },
+				riskLevel: assessment.level,
+				metadata: {
+					firecrawlMetadata: result.metadata ?? {},
+					riskReasons: assessment.reasons,
+				},
 			},
 		],
 	};
@@ -59,6 +66,7 @@ export const runFirecrawlParse: ProviderAdapter = async (source) => {
 	};
 	const result = await client.parse(file, { formats: ["markdown"] });
 	const markdown = result.markdown ?? source.fileText;
+	const assessment = assessEvidenceRisk({ text: markdown });
 
 	return {
 		provider: "firecrawl_parse",
@@ -76,8 +84,8 @@ export const runFirecrawlParse: ProviderAdapter = async (source) => {
 				engagement: {},
 				stance: "unknown",
 				sentiment: "neutral",
-				riskLevel: "medium",
-				metadata: { mimeType: source.mimeType },
+				riskLevel: assessment.level,
+				metadata: { mimeType: source.mimeType, riskReasons: assessment.reasons },
 			},
 		],
 	};

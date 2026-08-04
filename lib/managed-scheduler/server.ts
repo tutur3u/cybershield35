@@ -19,6 +19,7 @@ import {
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
 import { processDueArticlePublications } from "@/lib/workers/article-publications";
+import { reassessStoredEvidenceRisk } from "@/lib/workers/evidence-risk";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
@@ -409,6 +410,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	}
 
 	const reconciliation = await reconcileFacebookPageSources();
+	const riskReassessment = await reassessStoredEvidenceRisk();
 	const enqueued = await enqueueDueTrackedSources();
 
 	const scanIds = enqueued.scans.map((scan) => scan.scanId);
@@ -443,6 +445,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		failed,
 		processed,
 		reconciliation,
+		riskReassessment,
 		recovered: enqueued.recovered,
 		scanIds,
 		skipped: enqueued.skipped,

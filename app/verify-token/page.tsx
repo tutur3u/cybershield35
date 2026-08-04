@@ -17,10 +17,10 @@ function VerifyTokenFallback() {
 				...
 			</span>
 			<h1 className="mt-5 text-[22px] font-bold leading-7">
-				Đang kết nối phiên
+				Đang hoàn tất kết nối
 			</h1>
 			<p className="mt-2 text-[13px] leading-5 text-[var(--muted)]">
-				Đang hoàn tất xác thực quản trị và chuyển về bảng điều khiển.
+				Bạn sẽ được chuyển về bảng điều khiển ngay khi kết nối sẵn sàng.
 			</p>
 		</>
 	);

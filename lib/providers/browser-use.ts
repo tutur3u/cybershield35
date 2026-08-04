@@ -1,6 +1,7 @@
 import { BrowserUse } from "browser-use-sdk/v3";
 import { z } from "zod";
 
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
 
 import type { ProviderAdapter } from "./types";
@@ -41,18 +42,26 @@ export const runBrowserUse: ProviderAdapter = async (source) => {
 		mode: "live",
 		credentialSource: credential.source,
 		raw: { sessionId: result.id, output: result.output },
-		evidence: items.map((item) => ({
-			sourceUrl: item.url ?? target,
-			sourceLabel: item.sourceLabel ?? "Social source",
-			author: null,
-			publishedAt: null,
-			quote: item.quote.slice(0, 1200),
-			summary: item.summary,
-			engagement: {},
-			stance: item.stance ?? "unknown",
-			sentiment: item.sentiment ?? "neutral",
-			riskLevel: "medium",
-			metadata: { browserUseSessionId: result.id },
-		})),
+		evidence: items.map((item) => {
+			const assessment = assessEvidenceRisk({
+				text: `${item.quote}\n${item.summary}`,
+			});
+			return {
+				sourceUrl: item.url ?? target,
+				sourceLabel: item.sourceLabel ?? "Nguồn công khai",
+				author: null,
+				publishedAt: null,
+				quote: item.quote.slice(0, 1200),
+				summary: item.summary,
+				engagement: {},
+				stance: item.stance ?? "unknown",
+				sentiment: item.sentiment ?? "neutral",
+				riskLevel: assessment.level,
+				metadata: {
+					browserUseSessionId: result.id,
+					riskReasons: assessment.reasons,
+				},
+			};
+		}),
 	};
 };

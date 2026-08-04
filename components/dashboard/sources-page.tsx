@@ -63,7 +63,7 @@ export function SourcesPage(props: DashboardPageProps) {
 			<PageHeader
 				icon={Radar}
 				title="Nguồn & Quét"
-				description="Theo dõi nguồn, lịch tự động, hàng đợi scan và trạng thái provider trong một nơi."
+				description="Quản lý fanpage, quét nội dung mới và theo dõi kết quả trong một nơi."
 				actions={
 					<SecondaryButton onClick={props.onOpenScan}>
 						<Plus size={14} /> Tạo scan mới
@@ -144,11 +144,11 @@ function SourceTabs({
 			value: "Tin cậy & rủi ro",
 		},
 		{
-			help: "Xem lịch Vercel Cron, nguồn đến hạn và chạy xếp hàng/xử lý thủ công.",
+			help: "Xem lịch quét hằng ngày, nguồn sắp đến hạn và chạy ngay khi cần.",
 			icon: CalendarClock,
 			key: "automation",
 			label: "Tự động",
-			value: "Vercel Cron",
+			value: "Hằng ngày",
 		},
 		{
 			help: "Quản lý fanpage/URL được theo dõi và bật tắt tái quét hằng ngày.",
@@ -158,10 +158,10 @@ function SourceTabs({
 			value: `${sourceCount.toLocaleString("vi-VN")} bật`,
 		},
 		{
-			help: "Xem toàn bộ scan, trạng thái xử lý và chạy lại các scan đang chờ/thử lại.",
+			help: "Xem các lượt quét, tiến độ xử lý và thử lại khi có lỗi.",
 			icon: ScrollText,
 			key: "queue",
-			label: "Hàng đợi scan",
+			label: "Lượt quét",
 			value: `${queueCount.toLocaleString("vi-VN")} đang chờ`,
 		},
 	];
@@ -666,7 +666,7 @@ function SourceAutomationPanel({
 		<Panel>
 			<PanelHeader
 				title="Tự động tái quét"
-				description="Một Vercel Cron hằng ngày đối soát nguồn, xếp hàng và xử lý toàn bộ pipeline scan."
+				description="Mỗi ngày, CS35 kiểm tra mọi nguồn đến hạn và hoàn tất các lượt quét đang chờ."
 				action={
 					<button
 						type="button"
@@ -729,13 +729,13 @@ function SourceAutomationPanel({
 			<div className="grid gap-3 border-t border-[var(--border)] p-4 lg:grid-cols-3">
 				<AutomationAccordion
 					title="Nguồn đến hạn"
-					description={`${dueSources.length.toLocaleString("vi-VN")} nguồn sẽ được xếp hàng khi chạy job.`}
+					description={`${dueSources.length.toLocaleString("vi-VN")} nguồn sẽ được đưa vào lượt quét tiếp theo.`}
 				>
 					<SourceStateList items={dueSources} emptyText="Không có nguồn đến hạn." />
 				</AutomationAccordion>
 				<AutomationAccordion
 					title="Nguồn đang được bỏ qua"
-					description="Các nguồn tắt, mới quét hoặc đang có scan chưa xong."
+					description="Các nguồn đã tắt, vừa quét hoặc đang được xử lý."
 				>
 					<SourceStateList
 						items={blockedSources}
@@ -748,10 +748,10 @@ function SourceAutomationPanel({
 				>
 					<ul className="space-y-2 text-[12px] font-semibold leading-5 text-[var(--muted-strong)]">
 						<li>Nguồn phải đang bật theo dõi.</li>
-						<li>Không tạo scan trùng nếu nguồn đã quét trong vòng 1 giờ.</li>
-						<li>Không tạo scan mới khi nguồn còn scan đang chờ, chạy hoặc thử lại.</li>
-						<li>Scan cũ bị kẹt quá 12 giờ sẽ được đánh dấu lỗi và xếp hàng lại.</li>
-						<li>Job hằng ngày xử lý liên tục đến khi hàng đợi hiện tại trống.</li>
+						<li>Không quét trùng nếu nguồn vừa được cập nhật trong vòng 1 giờ.</li>
+						<li>Không tạo lượt mới khi nguồn vẫn đang được xử lý.</li>
+						<li>Lượt quét bị gián đoạn quá 12 giờ sẽ tự động được thử lại.</li>
+						<li>Quá trình hằng ngày tiếp tục cho đến khi mọi nguồn đã hoàn tất.</li>
 					</ul>
 				</AutomationAccordion>
 			</div>

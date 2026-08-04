@@ -1,8 +1,11 @@
+import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+
 import type { ProviderAdapter } from "./types";
 
 export const runLocalText: ProviderAdapter = async (source) => {
 	const text = source.fileText ?? source.originalInput;
 	const excerpt = text.slice(0, 1200);
+	const assessment = assessEvidenceRisk({ text });
 
 	return {
 		provider: source.type === "file" ? "local_text" : "local_text",
@@ -23,8 +26,8 @@ export const runLocalText: ProviderAdapter = async (source) => {
 				engagement: {},
 				stance: "unknown",
 				sentiment: "neutral",
-				riskLevel: text.length > 3000 ? "medium" : "low",
-				metadata: { mimeType: source.mimeType },
+				riskLevel: assessment.level,
+				metadata: { mimeType: source.mimeType, riskReasons: assessment.reasons },
 			},
 		],
 	};

@@ -92,7 +92,6 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 		<AuthRequiredScreen
 			authDiagnostics={authDiagnostics}
 			configured={authDiagnostics.configured}
-			error="Authentication required"
 			loginHref={loginHref}
 			pendingInvitation={pendingInvitation}
 			pendingInvitationExpired={

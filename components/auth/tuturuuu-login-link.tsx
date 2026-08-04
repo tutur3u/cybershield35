@@ -34,7 +34,7 @@ export function TuturuuuLoginLink({ href }: { href: string }) {
 					/>
 				</span>
 			)}
-			{pending ? "Đang mở Tuturuuu..." : "Đăng nhập bằng Tuturuuu"}
+			{pending ? "Đang chuyển tiếp..." : "Tiếp tục với Tuturuuu"}
 		</a>
 	);
 }

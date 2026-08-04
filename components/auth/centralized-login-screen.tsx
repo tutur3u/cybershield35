@@ -68,7 +68,7 @@ export function CentralizedLoginScreen({
 							href={scopeApprovalHref}
 							className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-4 text-[13px] font-bold text-[var(--foreground)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
 						>
-							Duyệt quyền truy cập
+							Tiếp tục thiết lập
 						</a>
 					) : null}
 
@@ -76,7 +76,7 @@ export function CentralizedLoginScreen({
 						<PendingInvitationActions pendingInvitation={pendingInvitation} />
 					) : null}
 
-					{loginHref && !setupIncomplete ? (
+					{loginHref && !setupIncomplete && !scopeApprovalHref ? (
 						<TuturuuuLoginLink href={loginHref} />
 					) : (
 						<button
@@ -242,9 +242,9 @@ function loginCopy(
 	if (hasScopeApproval || reason === "scope") {
 		return {
 			description:
-				"Tài khoản cần được duyệt thêm quyền trước khi có thể mở bảng điều khiển.",
-			notice: error ?? "Duyệt quyền, sau đó quay lại đăng nhập để tiếp tục.",
-			title: "Cần duyệt quyền truy cập",
+				"Chỉ còn một bước để kết nối tài khoản và mở bảng điều khiển.",
+			notice: "Tuturuuu sẽ xác nhận quyền truy cập cần thiết rồi tự động đưa bạn trở lại CS35.",
+			title: "Hoàn tất kết nối",
 		};
 	}
 
@@ -290,9 +290,9 @@ function loginCopy(
 	if (reason === "invalid-link") {
 		return {
 			description:
-				"Liên kết xác thực không hợp lệ hoặc đã hết hạn. Bắt đầu lại từ Tuturuuu.",
-			notice: "Không có token nào được nhập hoặc lưu trong trình duyệt.",
-			title: "Liên kết đăng nhập không hợp lệ",
+				"Phiên kết nối đã hết hạn. Hãy bắt đầu lại để tiếp tục an toàn.",
+			notice: "Nội dung bạn đang làm vẫn được giữ nguyên.",
+			title: "Kết nối lại tài khoản",
 		};
 	}
 

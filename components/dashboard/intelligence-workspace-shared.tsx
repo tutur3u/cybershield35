@@ -118,24 +118,24 @@ export function IntelligenceFilterBar({
 					["medium", "Trung bình"],
 					["low", "Thấp"],
 				]}
-				help="Lọc theo mức rủi ro đã lưu trong evidence, claim hoặc activity."
+				help="Lọc nội dung theo mức độ cần ưu tiên."
 			/>
 			{showProvider ? (
 				<FilterSelect
 					icon={Radar}
-					label="Provider"
+					label="Kênh thu thập"
 					value={filters.provider ?? ""}
 					onChange={(value) => setFilter("provider", value)}
 					options={[
 						["", "Tất cả"],
-						["apify_facebook_posts", "Apify bài viết"],
-						["apify_facebook_comments", "Apify bình luận"],
-						["apify_facebook_groups", "Apify nhóm"],
-						["firecrawl", "Firecrawl"],
-						["browser_use", "Browser Use"],
+						["apify_facebook_posts", "Bài viết Facebook"],
+						["apify_facebook_comments", "Bình luận Facebook"],
+						["apify_facebook_groups", "Nhóm Facebook"],
+						["firecrawl", "Website"],
+						["browser_use", "Trang web công khai"],
 						["local_text", "Văn bản nội bộ"],
 					]}
-					help="Provider là adapter thu thập dữ liệu cho scan."
+					help="Chọn loại nguồn đã dùng để thu thập nội dung."
 				/>
 			) : null}
 			{showStatus ? (
@@ -151,7 +151,7 @@ export function IntelligenceFilterBar({
 						["blocked", "Bị chặn"],
 						["stale", "Cũ"],
 					]}
-					help="Trạng thái sức khỏe được tính từ lần quét gần nhất và lỗi provider."
+					help="Trạng thái được tính từ lần cập nhật gần nhất và các lỗi đang cần xử lý."
 				/>
 			) : null}
 		</div>

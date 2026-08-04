@@ -956,7 +956,7 @@ describe("dashboard auth gate", () => {
 		expect(source).toContain("Thiếu");
 		expect(source).toContain("loginHref");
 		expect(source).toContain("TuturuuuLoginLink");
-		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
+		expect(loginLink).toContain("Tiếp tục với Tuturuuu");
 		expect(source).toContain("AUTH_LOCAL_BYPASS");
 
 		expect(source).not.toContain('"use client"');
@@ -992,8 +992,8 @@ describe("dashboard auth gate", () => {
 		expect(loginLink).toContain("aria-busy={pending}");
 		expect(loginLink).toContain("Loader2");
 		expect(loginLink).toContain("animate-spin");
-		expect(loginLink).toContain("Đang mở Tuturuuu...");
-		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
+		expect(loginLink).toContain("Đang chuyển tiếp...");
+		expect(loginLink).toContain("Tiếp tục với Tuturuuu");
 	});
 
 	test("configured unauthenticated screen hides admin setup diagnostics", () => {
@@ -1019,7 +1019,7 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(markup).toContain("Đăng nhập để tiếp tục");
-		expect(markup).toContain("Đăng nhập bằng Tuturuuu");
+		expect(markup).toContain("Tiếp tục với Tuturuuu");
 		expect(markup).toContain("/brand-icons/tuturuuu.svg");
 		expect(markup).not.toContain("CyberShield 35");
 		expect(markup).not.toContain("lucide-shield");
@@ -1082,7 +1082,7 @@ describe("dashboard auth gate", () => {
 		expect(markup).toContain("CYBERSHIELD35_APP_SECRET");
 		expect(markup).toContain("Thiếu");
 		expect(markup).not.toContain("CYBERSHIELD35_SESSION_SECRET");
-		expect(markup).not.toContain("Đăng nhập bằng Tuturuuu");
+		expect(markup).not.toContain("Tiếp tục với Tuturuuu");
 	});
 
 	test("centralized login renders scope approval only when provided", () => {
@@ -1106,8 +1106,8 @@ describe("dashboard auth gate", () => {
 			}),
 		);
 		expect(withoutApproval).toContain("Đăng nhập để tiếp tục");
-		expect(withoutApproval).toContain("Đăng nhập bằng Tuturuuu");
-		expect(withoutApproval).not.toContain("Duyệt quyền truy cập");
+		expect(withoutApproval).toContain("Tiếp tục với Tuturuuu");
+		expect(withoutApproval).not.toContain("Tiếp tục thiết lập");
 		expect(withoutApproval).not.toContain("CyberShield 35");
 		expect(withoutApproval).not.toContain("lucide-shield");
 		expect(withoutApproval).not.toContain("Đã đăng xuất");
@@ -1125,9 +1125,10 @@ describe("dashboard auth gate", () => {
 					"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
 			}),
 		);
-		expect(withApproval).toContain("Cần duyệt quyền truy cập");
-		expect(withApproval).toContain("Đăng nhập bằng Tuturuuu");
-		expect(withApproval).toContain("Duyệt quyền truy cập");
+		expect(withApproval).toContain("Hoàn tất kết nối");
+		expect(withApproval).not.toContain("Tiếp tục với Tuturuuu");
+		expect(withApproval).toContain("Tiếp tục thiết lập");
+		expect(withApproval).not.toContain("Requested scope is not allowed for this app");
 		expect(withApproval).toContain(
 			"https://tuturuuu.com/vi/internal/infrastructure/external-apps/approve?appId=cybershield35",
 		);
@@ -1143,7 +1144,7 @@ describe("dashboard auth gate", () => {
 			}),
 		);
 		expect(withInvitation).toContain("Cần tải lại lời mời");
-		expect(withInvitation).toContain("Đăng nhập bằng Tuturuuu");
+		expect(withInvitation).toContain("Tiếp tục với Tuturuuu");
 		expect(withInvitation).not.toContain("Xem lời mời Tuturuuu");
 		expect(withInvitation).not.toContain("Chấp nhận lời mời");
 
@@ -1173,7 +1174,7 @@ describe("dashboard auth gate", () => {
 		);
 		expect(noAccess).toContain("Không có quyền truy cập");
 		expect(noAccess).toContain("chưa được cấp quyền truy cập");
-		expect(noAccess).toContain("Đăng nhập bằng Tuturuuu");
+		expect(noAccess).toContain("Tiếp tục với Tuturuuu");
 		expect(noAccess).not.toContain("Liên kết đăng nhập không hợp lệ");
 	});
 
@@ -1374,7 +1375,7 @@ describe("dashboard auth gate", () => {
 			"Không thể xác minh thành viên CyberShield35",
 		);
 		expect(triageRoute).not.toContain("thành viên Tuturuuu");
-		expect(loginLink).toContain("Đăng nhập bằng Tuturuuu");
+		expect(loginLink).toContain("Tiếp tục với Tuturuuu");
 	});
 
 	test("account dropdown owns server settings and notification empty state", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BarChart3, Info, Play } from "lucide-react";
+import { ArrowRight, Info, Play } from "lucide-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import {
@@ -52,7 +52,7 @@ export function ExecutiveIntelligenceDashboard({
 			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
 			{overviewQuery.isError ? (
 				<IntelligenceError
-					title="Không tải được intelligence rollup"
+					title="Không tải được tổng quan"
 					body={overviewQuery.error.message}
 				/>
 			) : null}
@@ -93,8 +93,8 @@ export function IntelligenceClaimsWorkspace() {
 			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
 			<Panel>
 				<PanelHeader
-					title="Đồ thị claim"
-					description="Claim, mức tin cậy, bằng chứng hỗ trợ và điều hướng xử lý."
+					title="Nhận định cần kiểm tra"
+					description="Mỗi nhận định đi kèm mức tin cậy và bằng chứng liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
 					{claims.map((claim) => (
@@ -107,7 +107,7 @@ export function IntelligenceClaimsWorkspace() {
 						/>
 					) : null}
 					{!claims.length && !claimsQuery.isPending ? (
-						<EmptyRow text="Chưa có claim phù hợp bộ lọc." />
+						<EmptyRow text="Chưa có nhận định phù hợp bộ lọc." />
 					) : null}
 				</div>
 			</Panel>
@@ -131,8 +131,8 @@ export function IntelligenceSourcesWorkspace({
 			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
 			<Panel>
 				<PanelHeader
-					title="Sức khỏe nguồn và pipeline"
-					description="Độ mới, chuỗi lỗi, trạng thái provider và liên kết vào chi tiết scan."
+					title="Trạng thái nguồn"
+					description="Theo dõi độ mới, lỗi gần đây và lần cập nhật gần nhất của từng nguồn."
 					action={
 						onOpenScan ? (
 							<button
@@ -140,7 +140,7 @@ export function IntelligenceSourcesWorkspace({
 								onClick={onOpenScan}
 								className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 							>
-								<Play size={14} /> Tạo scan
+								<Play size={14} /> Quét nguồn
 							</button>
 						) : null
 					}
@@ -222,14 +222,7 @@ function RiskTrendPanel({
 		<Panel className="h-full">
 			<PanelHeader
 				title="Xu hướng rủi ro và bằng chứng"
-				description="Khối lượng, bằng chứng rủi ro cao và độ phủ scan theo ngày."
-				action={
-					<DashboardTooltip content="Biểu đồ dùng SVG nhẹ từ rollup đã cache, không dùng thư viện chart nặng.">
-						<span className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]">
-							<BarChart3 size={13} /> Rollup
-						</span>
-					</DashboardTooltip>
-				}
+				description="Diễn biến nội dung và các vấn đề cần ưu tiên theo ngày."
 			/>
 			<div className="p-4">
 				{trends.length ? (
@@ -237,8 +230,8 @@ function RiskTrendPanel({
 				) : (
 					<div className="grid min-h-56 place-items-center rounded-md border border-dashed border-[var(--border)] text-center text-[12px] font-semibold text-[var(--muted)]">
 						{isLoading
-							? "Đang tải rollup..."
-							: "Chưa có trend. Chạy backfill hoặc tạo scan mới."}
+							? "Đang tải dữ liệu..."
+							: "Chưa có đủ dữ liệu. Hãy quét một nguồn để bắt đầu."}
 					</div>
 				)}
 			</div>
@@ -327,7 +320,7 @@ function ActionRoutingPanel({
 		<Panel className="h-full">
 			<PanelHeader
 				title="Ngoại lệ cần xử lý"
-				description="Ưu tiên từ rollup rủi ro, claim và pipeline."
+				description="Những nội dung có ảnh hưởng lớn hoặc cần được kiểm tra trước."
 				action={
 					onOpenScan ? (
 						<button
@@ -335,7 +328,7 @@ function ActionRoutingPanel({
 							onClick={onOpenScan}
 							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 						>
-							<Play size={14} /> Scan mới
+							<Play size={14} /> Quét nguồn
 						</button>
 					) : null
 				}
@@ -379,13 +372,13 @@ function TopicMomentumPanel({ topics }: { topics?: IntelligenceTopicRow[] }) {
 		<Panel className="h-full">
 			<PanelHeader
 				title="Động lượng chủ đề"
-				description="Chủ đề đang tăng về rủi ro, claim và evidence."
+				description="Các chủ đề đang nhận thêm sự chú ý hoặc tăng mức ảnh hưởng."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
 				{topics?.map((topic) => (
 					<IntelligenceTopicRowView key={topic.id} topic={topic} compact />
 				))}
-				{!topics?.length ? <EmptyRow text="Chưa có topic rollup." /> : null}
+				{!topics?.length ? <EmptyRow text="Chưa có chủ đề nổi bật." /> : null}
 			</div>
 		</Panel>
 	);
@@ -401,8 +394,8 @@ function SourceHealthPanel({
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Sức khỏe nguồn và provider"
-				description="Nguồn, adapter và freshness cần theo dõi."
+				title="Nguồn và kết nối dữ liệu"
+				description="Tình trạng cập nhật của nguồn và các kết nối đang sử dụng."
 			/>
 			<div className="grid gap-0 divide-y divide-[var(--divider)]">
 				{providers?.slice(0, 3).map((provider) => (
@@ -412,7 +405,7 @@ function SourceHealthPanel({
 					<SourceRow key={source.sourceId} source={source} compact />
 				))}
 				{!providers?.length && !sources?.length ? (
-					<EmptyRow text="Chưa có dữ liệu sức khỏe provider/source." />
+					<EmptyRow text="Chưa có dữ liệu trạng thái nguồn." />
 				) : null}
 			</div>
 		</Panel>
@@ -423,14 +416,14 @@ function ClaimGraphPanel({ claims }: { claims?: IntelligenceClaimRow[] }) {
 	return (
 		<Panel className="h-full">
 			<PanelHeader
-				title="Claim và lập luận"
-				description="Claim quan trọng, độ tin cậy và bằng chứng liên quan."
+				title="Nhận định và lập luận"
+				description="Nhận định quan trọng, độ tin cậy và bằng chứng liên quan."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
 				{claims?.map((claim) => (
 					<ClaimRow key={claim.id} claim={claim} compact />
 				))}
-				{!claims?.length ? <EmptyRow text="Chưa có claim index." /> : null}
+				{!claims?.length ? <EmptyRow text="Chưa có nhận định nổi bật." /> : null}
 			</div>
 		</Panel>
 	);
@@ -493,7 +486,7 @@ function ClaimRow({
 				</div>
 			</div>
 			{compact ? null : (
-				<DashboardTooltip content="Độ tin cậy là điểm có cấu trúc do pipeline phân tích trả về, chuẩn hóa từ 0 đến 100.">
+				<DashboardTooltip content="Mức độ bằng chứng hiện có hỗ trợ trực tiếp cho nhận định này.">
 					<span className="w-fit rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
 						{claim.confidence}% tin cậy
 					</span>
@@ -583,12 +576,12 @@ function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 		unseen: "Chưa thấy",
 	};
 	const help: Record<IntelligenceHealthState, string> = {
-		attention: "Đang chạy, retry hoặc cần người vận hành theo dõi.",
-		blocked: "Có lỗi gần đây. Mở scan hoặc provider để xử lý.",
+		attention: "Đang cập nhật hoặc cần được kiểm tra thêm.",
+		blocked: "Lần cập nhật gần đây gặp lỗi. Mở nguồn để thử lại.",
 		healthy: "Gần đây có dữ liệu thành công.",
-		stale: "Không có hoạt động mới trong ngưỡng freshness.",
+		stale: "Nguồn chưa có nội dung mới trong một khoảng thời gian.",
 		unknown: "Chưa đủ dữ liệu để xác định trạng thái.",
-		unseen: "Nguồn/provider chưa có lần chạy ghi nhận.",
+		unseen: "Nguồn hoặc kết nối chưa có lần cập nhật nào.",
 	};
 	const className: Record<IntelligenceHealthState, string> = {
 		attention: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
@@ -647,8 +640,8 @@ function toneText(tone: IntelligenceKpi["tone"]) {
 
 const skeletonKpis: IntelligenceKpi[] = [
 	{
-		description: "Đang tải rollup scan.",
-		help: "Rollup được tải từ endpoint tổng quan intelligence.",
+		description: "Đang tải các lượt quét.",
+		help: "Số lượt quét đã hoàn tất trong khoảng thời gian đã chọn.",
 		href: "/sources",
 		id: "loading-scans",
 		label: "Thông lượng scan",
@@ -657,8 +650,8 @@ const skeletonKpis: IntelligenceKpi[] = [
 		value: "-",
 	},
 	{
-		description: "Đang tải tư thế rủi ro.",
-		help: "Rollup được tải từ endpoint tổng quan intelligence.",
+		description: "Đang tải mức độ ưu tiên.",
+		help: "Tỷ lệ nội dung cần được xem xét trước.",
 		href: "/evidence",
 		id: "loading-risk",
 		label: "Tư thế rủi ro",
@@ -667,11 +660,11 @@ const skeletonKpis: IntelligenceKpi[] = [
 		value: "-",
 	},
 	{
-		description: "Đang tải claim.",
-		help: "Rollup được tải từ endpoint tổng quan intelligence.",
+		description: "Đang tải nhận định.",
+		help: "Các nhận định đã được liên kết với bằng chứng.",
 		href: "/alerts",
 		id: "loading-claims",
-		label: "Chỉ mục claim",
+		label: "Nhận định",
 		tone: "neutral",
 		trendLabel: "Đang tải",
 		value: "-",

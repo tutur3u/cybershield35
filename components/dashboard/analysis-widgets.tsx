@@ -415,7 +415,7 @@ export function RiskFlagPanel({
 	return (
 		<Panel>
 			<PanelHeader
-				title="Cờ rủi ro từ LLM"
+				title="Vấn đề cần ưu tiên"
 				description="Mở nội dung và lý do liên kết trước khi ưu tiên xử lý."
 			/>
 			<div className="space-y-3 p-4">
@@ -459,7 +459,7 @@ export function RiskFlagPanel({
 						);
 					})
 				) : (
-					<EmptyPanelText>Chưa có cờ rủi ro từ phân tích live.</EmptyPanelText>
+					<EmptyPanelText>Chưa phát hiện vấn đề cần ưu tiên.</EmptyPanelText>
 				)}
 			</div>
 		</Panel>
@@ -483,7 +483,7 @@ export function ClaimEvidencePanel({
 		<Panel className={className}>
 			<PanelHeader
 				title="Nhận định có bằng chứng"
-				description="Các claim của LLM chỉ đáng tin khi mở được bằng chứng đã trích dẫn."
+				description="Mỗi nhận định chỉ được hiển thị khi có bằng chứng liên quan để kiểm tra."
 			/>
 			<div className="divide-y divide-[var(--divider)] p-4">
 				{claims.length ? (
@@ -500,7 +500,7 @@ export function ClaimEvidencePanel({
 											{claim.stance}
 										</span>
 									</DashboardTooltip>
-									<DashboardTooltip content="Độ tin cậy của claim theo LLM, dựa trên bằng chứng đã trích dẫn.">
+									<DashboardTooltip content="Mức độ bằng chứng hiện có hỗ trợ trực tiếp cho nhận định này.">
 										<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold leading-none text-[var(--accent-strong)]">
 											{Math.round(claim.confidence * 100)}%
 										</span>
@@ -525,7 +525,7 @@ export function ClaimEvidencePanel({
 						);
 					})
 				) : (
-					<EmptyPanelText>Chưa có claim có cấu trúc từ phân tích live.</EmptyPanelText>
+					<EmptyPanelText>Chưa có nhận định đủ bằng chứng.</EmptyPanelText>
 				)}
 			</div>
 		</Panel>
@@ -632,7 +632,7 @@ export function EvidencePanel({
 						<button type="button" onClick={() => void evidenceQuery.refetch()} className="mt-3 inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]">Thử lại</button>
 					</div>
 				) : (
-					<EmptyPanelText>Chưa có bằng chứng. Tạo hoặc xử lý một scan live.</EmptyPanelText>
+					<EmptyPanelText>Chưa có bằng chứng. Hãy quét một nguồn để bắt đầu.</EmptyPanelText>
 				)}
 			</div>
 			{enableInfinite && scanId ? (

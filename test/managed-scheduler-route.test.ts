@@ -14,6 +14,7 @@ const enqueueDueTrackedSources = mock(async () => ({
 const reconcileFacebookPageSources = mock(async () => ({ reconciled: 3, total: 3 }));
 const processNextJob = mock(async () => scanResults.shift() ?? { processed: false });
 const processNextAutomatedDraftJob = mock(async () => draftResults.shift() ?? { processed: false });
+const reassessStoredEvidenceRisk = mock(async () => ({ checked: 12, updated: 4 }));
 
 mock.module("server-only", () => ({}));
 mock.module("@/lib/dashboard/intelligence-server", () => ({ reconcileFacebookPageSources }));
@@ -28,6 +29,7 @@ mock.module("@/lib/workers/draft-automation", () => ({ processNextAutomatedDraft
 mock.module("@/lib/workers/article-publications", () => ({
 	processDueArticlePublications: async () => ({ processed: 0 }),
 }));
+mock.module("@/lib/workers/evidence-risk", () => ({ reassessStoredEvidenceRisk }));
 mock.module("@/lib/db/client", () => ({
 	adminDb: { select: () => ({ from: async () => [] }) },
 }));
@@ -47,6 +49,7 @@ beforeEach(() => {
 	reconcileFacebookPageSources.mockClear();
 	processNextJob.mockClear();
 	processNextAutomatedDraftJob.mockClear();
+	reassessStoredEvidenceRisk.mockClear();
 });
 
 afterEach(() => {
@@ -73,10 +76,12 @@ describe("daily scan orchestrator", () => {
 			jobKey: "daily-scans",
 			processed: 1,
 			reconciliation: { reconciled: 3, total: 3 },
+			riskReassessment: { checked: 12, updated: 4 },
 			status: "success",
 		});
 		expect(reconcileFacebookPageSources).toHaveBeenCalledTimes(1);
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
+		expect(reassessStoredEvidenceRisk).toHaveBeenCalledTimes(1);
 		expect(heartbeats).toHaveLength(1);
 		expect(heartbeats[0]?.serviceName).toBe("vercel-cron:daily-scans");
 	});

@@ -54,14 +54,18 @@ describe("runBrowserUse", () => {
 			output: browserUseResult.output,
 		});
 		expect(result.evidence).toEqual([
-			expect.objectContaining({
+				expect.objectContaining({
 				sourceUrl: "https://example.com/thread",
 				sourceLabel: "Example thread",
 				quote: "Public quote about a policy topic",
 				summary: "A concise public discussion summary",
 				stance: "critical",
-				sentiment: "negative",
-				metadata: { browserUseSessionId: "session-123" },
+					sentiment: "negative",
+					riskLevel: "low",
+					metadata: expect.objectContaining({
+						browserUseSessionId: "session-123",
+						riskReasons: expect.any(Array),
+					}),
 			}),
 		]);
 	});
