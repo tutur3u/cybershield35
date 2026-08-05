@@ -487,12 +487,20 @@ function normalizeClaimsForAnalysis(
 	if (!Array.isArray(analysis.claims)) return [];
 	const sourceLabels = context?.sourceLabels ?? [];
 	const topicSlugs = context?.topicSlugs ?? [];
+	// The model cites evidence by whatever identifier it chose, which is often a
+	// shortened or invented string rather than a real row id. Linking those built
+	// URLs like /evidence/8d315204 that 404, and left every claim inheriting the
+	// analysis-level risk because no lookup ever matched.
+	const realEvidenceIds = new Set(context?.evidenceIds ?? []);
 
 	return analysis.claims
 		.map((candidate, index) => {
 			const claim = normalizeClaim(candidate);
 			if (!claim.claim) return null;
-			const evidenceIds = claim.evidenceIds;
+			const evidenceIds = resolveClaimEvidenceIds(
+				claim.evidenceIds,
+				realEvidenceIds,
+			);
 			const claimKey = stableClaimKey(analysis.id, claim.claim, index);
 
 			return {
@@ -531,6 +539,29 @@ function normalizeClaim(candidate: unknown) {
 	const stance = typeof record.stance === "string" ? record.stance : "neutral";
 
 	return { claim, confidence, evidenceIds, stance };
+}
+
+/**
+ * Keeps only citations that name evidence this analysis actually has.
+ *
+ * A prefix match is accepted because models routinely shorten a UUID; anything
+ * ambiguous or unmatched is dropped rather than turned into a dead link.
+ */
+function resolveClaimEvidenceIds(cited: string[], real: Set<string>) {
+	const resolved = new Set<string>();
+	for (const candidate of cited) {
+		const id = candidate.trim();
+		if (!id) continue;
+		if (real.has(id)) {
+			resolved.add(id);
+			continue;
+		}
+		const prefixMatches = [...real].filter((value) => value.startsWith(id));
+		if (prefixMatches.length === 1 && id.length >= 8) {
+			resolved.add(prefixMatches[0] as string);
+		}
+	}
+	return [...resolved];
 }
 
 function claimRiskLevel(
