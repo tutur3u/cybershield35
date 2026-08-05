@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { adminDb } from "@/lib/db/client";
 import { evidenceItems, scanJobEvents, scanJobs, sources } from "@/lib/db/schema";
@@ -118,8 +118,10 @@ export async function getScanProgress(
 		.where(
 			and(
 				eq(scanJobEvents.scanJobId, scanId),
+				// Typed comparison, not a raw template: a bare Date in `sql` leaves
+				// Postgres unable to infer the parameter type and the query fails.
 				job.startedAt
-					? sql`${scanJobEvents.occurredAt} >= ${job.startedAt}`
+					? gte(scanJobEvents.occurredAt, job.startedAt)
 					: undefined,
 			),
 		)

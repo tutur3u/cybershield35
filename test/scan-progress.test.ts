@@ -51,6 +51,13 @@ describe("scan progress is server-derived and resumable", () => {
 		}
 	});
 
+	test("the event window uses a typed comparison, not a raw sql template", () => {
+		// A bare Date interpolated into `sql` leaves Postgres unable to infer the
+		// parameter type, and the whole endpoint 503s.
+		expect(server).toContain("gte(scanJobEvents.occurredAt, job.startedAt)");
+		expect(server).not.toContain("sql`${scanJobEvents.occurredAt} >=");
+	});
+
 	test("progress reflects how far the pipeline got, not just the status", () => {
 		// A long provider step should still advance the bar, and a completed scan
 		// must read 100 rather than the capped in-flight maximum.
