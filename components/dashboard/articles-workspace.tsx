@@ -488,10 +488,14 @@ function ZaloStatusBadge({
 			label: "Đang đưa lên",
 		},
 	};
+	// Needing an approval explains any state where the article is not actually on
+	// Zalo — including `failed`, whose stored reason is usually the approval gate
+	// itself. Rendering that as "Đăng lỗi" reports a refusal to do something
+	// nobody asked for yet as though the publish had broken.
+	const liveOnZalo =
+		status === "published" || status === "hidden" || status === "publishing";
 	const awaitingReview =
-		status === "not_synced" &&
-		reviewStatus !== undefined &&
-		reviewStatus !== "approved";
+		!liveOnZalo && reviewStatus !== undefined && reviewStatus !== "approved";
 	const entry = awaitingReview
 		? {
 				className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",

@@ -12,6 +12,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Before committing and pushing CS35 changes, run `bun run build` and ensure it passes. Also run the relevant focused tests and lint for the touched area.
 
+## CS35 Commit Convention
+
+Commits in this repository use Conventional Commits: `type(scope): summary`.
+Types are `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, and
+`chore`; scope is the area touched, such as `articles`, `zalo`, `scans`,
+`intelligence`, `auth` or `deps`. Keep the summary in the imperative and under
+72 characters, then explain the why in the body.
+
 ## CS35 Shipping Flow
 
 For CS35 implementation work, commit and push the verified changes to `main` when the work is complete unless the user explicitly asks not to.

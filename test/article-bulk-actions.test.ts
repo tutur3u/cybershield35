@@ -84,4 +84,12 @@ describe("the articles list drives bulk actions", () => {
 		expect(workspace).toContain('reviewStatus !== "approved"');
 		expect(workspace).toContain("chưa được phê duyệt");
 	});
+
+	test("needing approval outranks a failure whose reason is that approval", () => {
+		// The stored error on an unapproved article is usually the approval gate
+		// itself. Showing "Đăng lỗi" reports a refusal to do something nobody asked
+		// for yet as though the publish had broken.
+		expect(workspace).toContain("const liveOnZalo =");
+		expect(workspace).toContain("!liveOnZalo && reviewStatus !== undefined");
+	});
 });
