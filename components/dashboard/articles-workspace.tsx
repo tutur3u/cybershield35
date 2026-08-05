@@ -93,6 +93,43 @@ export function ArticlesWorkspace() {
 		},
 	});
 
+	const cleanupMutation = useMutation({
+		mutationFn: (apply: boolean) =>
+			fetchArticleJson<{
+				apply: boolean;
+				failed: number;
+				removed: number;
+				scanned: number;
+			}>("/api/articles/zalo-hidden-cleanup", {
+				body: JSON.stringify({ apply }),
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			}),
+		onError: (error) => setBulkNotice(error.message),
+		onSuccess: async (data) => {
+			if (!data.apply) {
+				// Counted first, then confirmed: "remove 239 articles from Zalo" is a
+				// very different decision from "remove 2".
+				if (!data.scanned) {
+					setBulkNotice("Không còn bản ẩn CS35 nào trên Zalo OA.");
+					return;
+				}
+				if (
+					window.confirm(
+						`Gỡ ${data.scanned} bản ẩn CS35 khỏi Zalo OA? Bài đang hiển thị công khai và bài không do CS35 tạo sẽ không bị đụng tới.`,
+					)
+				) {
+					cleanupMutation.mutate(true);
+				}
+				return;
+			}
+			setBulkNotice(
+				`Đã gỡ ${data.removed}/${data.scanned} bản ẩn khỏi Zalo OA${data.failed ? `, ${data.failed} lỗi` : ""}.`,
+			);
+			await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
+		},
+	});
+
 	useEffect(() => {
 		const node = loadMoreRef.current;
 		if (!node || !hasNextPage || isFetchingNextPage) return;
@@ -114,8 +151,34 @@ export function ArticlesWorkspace() {
 				<Filter value={state} onChange={setState} label="Trạng thái đăng" options={[["all", "Tất cả"], ["draft", "Chưa đăng"], ["published", "Đã đăng"], ["archived", "Đã lưu trữ"]]} />
 				<Filter value={sort ?? "updated_desc"} onChange={(value) => setSort(value as ArticleListFilters["sort"])} label="Sắp xếp" options={[["updated_desc", "Mới cập nhật"], ["updated_asc", "Cũ cập nhật"], ["title", "Theo tiêu đề"]]} icon />
 				<button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"><FileDown size={14} /> Nhập từ Zalo</button>
+				<DashboardTooltip content="Gỡ các bản ẩn CS35 còn sót trên Zalo OA. Chỉ đụng tới bản ẩn do CS35 tạo; bài đang hiển thị và bài của OA không bị ảnh hưởng.">
+					<button
+						className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] disabled:opacity-60"
+						disabled={cleanupMutation.isPending}
+						onClick={() => cleanupMutation.mutate(false)}
+						type="button"
+					>
+						{cleanupMutation.isPending ? (
+							<LoaderCircle className="animate-spin" size={14} />
+						) : (
+							<EyeOff size={14} />
+						)}
+						Dọn bản ẩn Zalo
+					</button>
+				</DashboardTooltip>
 				<Link href="/articles/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[11px] font-bold text-white"><Plus size={14} /> Bài viết mới</Link>
 			</div>
+
+			{/* The bulk bar carries its own notice, but cleanup runs with nothing
+				selected — without this its result would never be seen. */}
+			{!selectedVisible.length && bulkNotice ? (
+				<p
+					aria-live="polite"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[12px] font-semibold text-[var(--muted-strong)]"
+				>
+					{bulkNotice}
+				</p>
+			) : null}
 
 			{selectedVisible.length ? (
 				<BulkActionBar
