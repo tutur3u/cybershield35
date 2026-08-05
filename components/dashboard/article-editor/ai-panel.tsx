@@ -1,44 +1,33 @@
 "use client";
 
-import { Bot, Check, LoaderCircle, Sparkles } from "lucide-react";
+import { Bot, Info, LoaderCircle, Wand2 } from "lucide-react";
 
+import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
 import type { ArticleContent } from "@/lib/articles/schemas";
 
+import {
+	AI_ACTION_GROUPS,
+	AI_ACTIONS,
+	AI_INSTRUCTION_HINTS,
+	AI_INTENTS,
+	AI_TONE_PRESETS,
+	AI_VOICE_PRESETS,
+	type AiAction,
+} from "./ai-actions";
 import {
 	Field,
 	inputClass,
 	modelLabel,
-	primaryButton,
 	Section,
-	secondaryButton,
-	smallButton,
 	textareaClass,
 } from "./shared";
-import type { AiProposal, EditorialIntent } from "./types";
-
-const INTENTS = [
-	[
-		"counter_argument",
-		"Phản bác quan điểm",
-		"Chỉ ra điểm chưa thuyết phục và lập luận đối chiếu",
-	],
-	["support", "Ủng hộ quan điểm", "Củng cố quan điểm bằng bằng chứng đã chọn"],
-	["balanced", "Trình bày cân bằng", "Nêu dữ kiện, khoảng trống và các góc nhìn"],
-] as const;
-
-const ACTIONS = [
-	["draft", "Viết bản đầu"],
-	["outline", "Tạo dàn ý"],
-	["rewrite", "Viết lại"],
-	["shorten", "Rút gọn"],
-	["expand", "Mở rộng"],
-	["title_description", "Tiêu đề & mô tả"],
-	["claim_check", "Kiểm tra luận điểm"],
-] as const;
+import type { EditorialIntent } from "./types";
 
 export function AiPanel({
 	busy,
+	draft,
 	editorialIntent,
+	evidenceCount,
 	instruction,
 	model,
 	models,
@@ -52,7 +41,9 @@ export function AiPanel({
 	voice,
 }: {
 	busy: string;
+	draft: ArticleContent;
 	editorialIntent: EditorialIntent;
+	evidenceCount: number;
 	instruction: string;
 	model: string;
 	models: { defaultModel: string; models: string[] } | undefined;
@@ -65,210 +56,234 @@ export function AiPanel({
 	tone: string;
 	voice: string;
 }) {
+	const hasBody = draft.blocks.some(
+		(block) => block.type === "text" && block.content.trim().length > 40,
+	);
+	const running = busy.startsWith("ai:");
+
 	return (
-		<Section
-			description="AI chỉ tạo đề xuất. Nội dung bài chỉ thay đổi khi bạn bấm Áp dụng."
-			icon={Bot}
-			title="Biên tập bằng AI"
-		>
-			<div className="grid gap-4">
+		<div className="space-y-4">
+			<Section
+				description={
+					evidenceCount
+						? `AI viết dựa trên ${evidenceCount} dẫn chứng đã gắn vào bài. Mọi đề xuất đều chờ bạn duyệt.`
+						: "Bài chưa gắn dẫn chứng nào — AI sẽ chỉ dựa trên nội dung bạn đã viết."
+				}
+				icon={Bot}
+				title="Trợ lý biên tập"
+			>
 				<Field
-					hint="Chọn hướng viết để AI không mặc định tóm tắt lại nguồn."
+					hint="Quyết định hướng lập luận của bài. Áp dụng cho mọi thao tác bên dưới."
 					label="Mục tiêu bài viết"
 				>
 					<div className="grid gap-2 sm:grid-cols-3">
-						{INTENTS.map(([value, label, description]) => (
+						{AI_INTENTS.map((intent) => (
 							<button
-								key={value}
+								key={intent.value}
 								type="button"
-								aria-pressed={editorialIntent === value}
-								onClick={() => onEditorialIntentChange(value)}
+								aria-pressed={editorialIntent === intent.value}
+								onClick={() => onEditorialIntentChange(intent.value)}
 								className={`rounded-lg border p-3 text-left transition ${
-									editorialIntent === value
+									editorialIntent === intent.value
 										? "border-[var(--brand)] bg-[var(--success-soft)] text-[var(--foreground)]"
 										: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
 								}`}
 							>
-								<span className="block text-[12px] font-bold">{label}</span>
+								<span className="block text-[12px] font-bold">{intent.label}</span>
 								<span className="mt-1 block text-[11px] leading-4 text-[var(--muted)]">
-									{description}
+									{intent.description}
 								</span>
 							</button>
 						))}
 					</div>
 				</Field>
-				<div className="grid gap-4 sm:grid-cols-2">
-					<Field hint="Cách bài viết thể hiện thái độ." label="Giọng điệu">
-						<input
-							value={tone}
-							onChange={(event) => onToneChange(event.target.value)}
-							className={inputClass}
-						/>
-					</Field>
-					<Field hint="Cảm giác khi đọc câu chữ." label="Văn phong">
-						<input
-							value={voice}
-							onChange={(event) => onVoiceChange(event.target.value)}
-							className={inputClass}
-						/>
-					</Field>
-				</div>
-				<Field hint="Dùng mô hình dùng chung của workspace." label="Mô hình AI">
-					<select
-						value={model || models?.defaultModel || ""}
-						onChange={(event) => onModelChange(event.target.value)}
-						className={inputClass}
-					>
-						{models?.models.map((item) => (
-							<option key={item} value={item}>
-								{modelLabel(item)}
-							</option>
-						))}
-					</select>
-				</Field>
-				<Field
-					hint="Không bắt buộc. Càng cụ thể thì đề xuất càng sát ý bạn."
-					label="Yêu cầu biên tập"
-				>
-					<textarea
-						value={instruction}
-						onChange={(event) => onInstructionChange(event.target.value)}
-						rows={3}
-						className={textareaClass}
-						placeholder="Ví dụ: Mở đầu gần gũi hơn, giữ nguyên mọi số liệu…"
-					/>
-				</Field>
-			</div>
-			<div className="mt-4 border-t border-[var(--border)] pt-4">
-				<p className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
-					Thao tác
-				</p>
-				<div className="mt-2 flex flex-wrap gap-2">
-					{ACTIONS.map(([action, label]) => (
-						<button
-							key={action}
-							type="button"
-							disabled={Boolean(busy)}
-							onClick={() => onAsk(action)}
-							className={smallButton}
-						>
-							{busy === `ai:${action}` ? (
-								<LoaderCircle size={13} className="animate-spin" />
-							) : (
-								<Sparkles size={13} />
-							)}
-							{label}
-						</button>
-					))}
-				</div>
-			</div>
-		</Section>
-	);
-}
+			</Section>
 
-export function AiProposalReview({
-	current,
-	onApply,
-	onReject,
-	pending,
-	proposal,
-}: {
-	current: ArticleContent;
-	onApply: () => void;
-	onReject: () => void;
-	pending: boolean;
-	proposal: AiProposal;
-}) {
-	return (
-		<div className="mt-4 rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4">
-			<div className="flex items-center justify-between gap-3">
-				<div>
-					<p className="text-[13px] font-bold text-[var(--accent-strong)]">
-						Đề xuất AI đang chờ duyệt
-					</p>
-					<p className="mt-1 text-[11px] text-[var(--muted)]">
-						Không thay đổi nội dung cho đến khi bạn chọn Áp dụng.
-					</p>
-				</div>
-				<Sparkles size={18} className="text-[var(--accent-strong)]" />
-			</div>
-			<div className="mt-3 grid gap-3 lg:grid-cols-2">
-				<ProposalColumn
-					body={textOf(current)}
-					label="Hiện tại"
-					title={current.title || "Chưa có tiêu đề"}
-				/>
-				<ProposalColumn
-					accent
-					body={textOf(proposal)}
-					label="Đề xuất"
-					title={proposal.title}
-				/>
-			</div>
-			{proposal.reviewNotes.length ? (
-				<ul className="mt-3 space-y-1 text-[11px] leading-5 text-[var(--muted-strong)]">
-					{proposal.reviewNotes.map((note) => (
-						<li key={note}>• {note}</li>
-					))}
-				</ul>
-			) : null}
-			<div className="mt-3 flex gap-2">
-				<button type="button" onClick={onApply} disabled={pending} className={primaryButton}>
-					{pending ? (
-						<LoaderCircle size={14} className="animate-spin" />
-					) : (
-						<Check size={14} />
-					)}
-					Áp dụng
-				</button>
-				<button
-					type="button"
-					onClick={onReject}
-					disabled={pending}
-					className={secondaryButton}
-				>
-					Bỏ qua
-				</button>
-			</div>
-		</div>
-	);
-}
-
-function ProposalColumn({
-	accent = false,
-	body,
-	label,
-	title,
-}: {
-	accent?: boolean;
-	body: string;
-	label: string;
-	title: string;
-}) {
-	return (
-		<div
-			className={`rounded-lg border bg-[var(--surface)] p-3 ${
-				accent ? "border-[var(--accent)]" : "border-[var(--border)]"
-			}`}
-		>
-			<p
-				className={`text-[10px] font-bold uppercase ${
-					accent ? "text-[var(--accent-strong)]" : "text-[var(--muted)]"
-				}`}
+			<Section
+				description="Chọn việc bạn muốn AI làm. Kết quả hiện ra để so sánh trước khi áp dụng."
+				icon={Wand2}
+				title="Thao tác"
 			>
-				{label}
-			</p>
-			<p className="mt-2 text-[12px] font-bold">{title}</p>
-			<p className="mt-1 line-clamp-[10] whitespace-pre-wrap text-[11px] leading-5 text-[var(--muted)]">
-				{body}
-			</p>
+				<div className="space-y-4">
+					{AI_ACTION_GROUPS.map((group) => {
+						const actions = AI_ACTIONS.filter(
+							(action) => action.group === group.id,
+						);
+						if (!actions.length) return null;
+						return (
+							<div key={group.id}>
+								<p className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
+									{group.label}
+								</p>
+								<div className="mt-2 grid gap-2 sm:grid-cols-2">
+									{actions.map((action) => (
+										<AiActionCard
+											action={action}
+											busy={busy === `ai:${action.key}`}
+											disabled={running || (action.requires === "body" && !hasBody)}
+											key={action.key}
+											onAsk={onAsk}
+											unavailableReason={
+												action.requires === "body" && !hasBody
+													? "Cần có nội dung trong bài trước khi dùng thao tác này."
+													: undefined
+											}
+										/>
+									))}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			</Section>
+
+			<Section
+				description="Không bắt buộc. Điều chỉnh khi bài cần một sắc thái riêng."
+				icon={Info}
+				title="Tùy chỉnh cách viết"
+			>
+				<div className="grid gap-4">
+					<div className="grid gap-4 sm:grid-cols-2">
+						<Field hint="Thái độ của bài viết." label="Giọng điệu">
+							<PresetInput
+								onChange={onToneChange}
+								options={AI_TONE_PRESETS}
+								value={tone}
+							/>
+						</Field>
+						<Field hint="Cảm giác khi đọc câu chữ." label="Văn phong">
+							<PresetInput
+								onChange={onVoiceChange}
+								options={AI_VOICE_PRESETS}
+								value={voice}
+							/>
+						</Field>
+					</div>
+					<Field
+						hint="Càng cụ thể, đề xuất càng sát ý bạn."
+						label="Yêu cầu riêng cho AI"
+					>
+						<textarea
+							value={instruction}
+							onChange={(event) => onInstructionChange(event.target.value)}
+							rows={3}
+							className={textareaClass}
+							placeholder="Ví dụ: Mở đầu gần gũi hơn, giữ nguyên mọi số liệu…"
+						/>
+						<span className="mt-2 flex flex-wrap gap-1.5">
+							{AI_INSTRUCTION_HINTS.map((hint) => (
+								<button
+									key={hint}
+									type="button"
+									onClick={() =>
+										onInstructionChange(
+											instruction ? `${instruction.trim()} ${hint}` : hint,
+										)
+									}
+									className="rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--muted-strong)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]"
+								>
+									+ {hint}
+								</button>
+							))}
+						</span>
+					</Field>
+					<Field hint="Dùng mô hình dùng chung của workspace." label="Mô hình AI">
+						<select
+							value={model || models?.defaultModel || ""}
+							onChange={(event) => onModelChange(event.target.value)}
+							className={inputClass}
+						>
+							{models?.models.map((item) => (
+								<option key={item} value={item}>
+									{modelLabel(item)}
+								</option>
+							))}
+						</select>
+					</Field>
+				</div>
+			</Section>
 		</div>
 	);
 }
 
-function textOf(content: ArticleContent) {
-	return content.blocks
-		.filter((block) => block.type === "text")
-		.map((block) => (block.type === "text" ? block.content : ""))
-		.join("\n\n");
+function AiActionCard({
+	action,
+	busy,
+	disabled,
+	onAsk,
+	unavailableReason,
+}: {
+	action: AiAction;
+	busy: boolean;
+	disabled: boolean;
+	onAsk: (action: string) => void;
+	unavailableReason?: string;
+}) {
+	const Icon = action.icon;
+	const card = (
+		<button
+			type="button"
+			disabled={disabled}
+			onClick={() => onAsk(action.key)}
+			className="flex w-full items-start gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition hover:border-[var(--brand)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-55"
+		>
+			<span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+				{busy ? (
+					<LoaderCircle size={14} className="animate-spin" />
+				) : (
+					<Icon size={14} />
+				)}
+			</span>
+			<span className="min-w-0">
+				<span className="block text-[12px] font-bold text-[var(--foreground)]">
+					{busy ? "Đang xử lý…" : action.label}
+				</span>
+				<span className="mt-0.5 block text-[11px] leading-4 text-[var(--muted)]">
+					{action.description}
+				</span>
+			</span>
+		</button>
+	);
+
+	if (!unavailableReason) return card;
+	return <DashboardTooltip content={unavailableReason}>{card}</DashboardTooltip>;
 }
+
+function PresetInput({
+	onChange,
+	options,
+	value,
+}: {
+	onChange: (value: string) => void;
+	options: string[];
+	value: string;
+}) {
+	return (
+		<span className="block">
+			<input
+				value={value}
+				onChange={(event) => onChange(event.target.value)}
+				className={inputClass}
+			/>
+			<span className="mt-2 flex flex-wrap gap-1.5">
+				{options.map((option) => (
+					<button
+						key={option}
+						type="button"
+						aria-pressed={value === option}
+						onClick={() => onChange(option)}
+						className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+							value === option
+								? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+								: "bg-[var(--surface-soft)] text-[var(--muted-strong)] hover:text-[var(--foreground)]"
+						}`}
+					>
+						{option}
+					</button>
+				))}
+			</span>
+		</span>
+	);
+}
+
+export { AiProposalReview } from "./ai-proposal-review";

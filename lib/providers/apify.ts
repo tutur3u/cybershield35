@@ -1,4 +1,5 @@
 import { ApifyClient } from "apify-client";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
@@ -96,9 +97,10 @@ function normalizeApifyItem(item: Record<string, unknown>, fallbackUrl: string) 
 		sourceLabel: "facebook.com",
 		author: author ?? null,
 		publishedAt: parseDate(pickString(item, ["date", "time"])),
-		quote: text?.slice(0, 1200) || "Không có nội dung văn bản rõ ràng.",
+		quote: (text ? fitTextToLimit(text, 1_200, { ellipsis: true }) : "") ||
+			"Không có nội dung văn bản rõ ràng.",
 		summary: text
-			? text.slice(0, 220)
+			? fitTextToLimit(text, 220, { preferredLength: 140 })
 			: "Bằng chứng từ nguồn Facebook công khai.",
 		engagement: { comments: comments ?? 0, shares: shares ?? 0, reactions },
 		stance: "unknown",

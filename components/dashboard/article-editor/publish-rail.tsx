@@ -9,7 +9,6 @@ import {
 	Eye,
 	EyeOff,
 	LoaderCircle,
-	Radio,
 	RefreshCw,
 	Send,
 	Trash2,
@@ -29,12 +28,15 @@ import {
 	Section,
 	secondaryButton,
 } from "./shared";
-import type { ArticleDetail, ReadinessItem } from "./types";
+import type { ArticleDetail, ReadinessItem, ZaloPublishTarget } from "./types";
 import { ZaloDashboardHandoff, ZaloPreview } from "./zalo-preview";
 
 export type PublishRailProps = {
 	accounts:
-		| { accounts: Array<{ displayName: string; id: string; oaId: string }>; enabled: boolean }
+		| {
+				accounts: Array<{ displayName: string; id: string; oaId: string }>;
+				enabled: boolean;
+		  }
 		| undefined;
 	busy: string;
 	detail: ArticleDetail;
@@ -47,7 +49,10 @@ export type PublishRailProps = {
 	onRemoveRemote: () => void;
 	onScheduleChange: (value: string) => void;
 	onSchedulePublish: () => void;
+	onPublishTargetChange: (value: ZaloPublishTarget) => void;
+	onSyncPreview: () => void;
 	onTargetOaChange: (value: string) => void;
+	publishTarget: ZaloPublishTarget;
 	readiness: ReadinessItem[];
 	schedule: string;
 	synced: boolean;
@@ -56,46 +61,37 @@ export type PublishRailProps = {
 
 export function PublishRail(props: PublishRailProps) {
 	const { article } = props.detail;
-	const canSync = props.readiness.every((item) => item.done);
+	const ready = props.readiness.every((item) => item.done);
+	const live = article.publicationStatus === "published";
 
 	return (
 		<aside className="min-w-0 space-y-4 xl:sticky xl:top-[8.5rem]">
-			<Section icon={Eye} title="Xem trước Zalo">
+			<Section
+				description="Đúng những gì người theo dõi Zalo OA sẽ nhìn thấy."
+				icon={Eye}
+				title="Xem trước"
+			>
 				<ZaloPreview
 					content={props.draft}
 					onCoverUnavailable={props.onCoverUnavailable}
 				/>
 			</Section>
 
-			<Section icon={Radio} title="Đồng bộ & xuất bản">
+			<Section icon={Send} title="Đăng lên Zalo OA">
 				{article.originDraftId ? (
 					<div className="mb-3 flex items-start gap-2 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-3">
 						<Bot size={15} className="mt-0.5 shrink-0 text-[var(--accent-strong)]" />
 						<p className="text-[11px] leading-4 text-[var(--muted-strong)]">
-							Bài được chuẩn bị tự động từ nội dung đã quét. Hệ thống chỉ đồng bộ ở trạng
-							thái ẩn; xuất bản công khai luôn cần phê duyệt và xác nhận tại đây.
+							Bài được soạn tự động từ nội dung đã quét. Việc đăng công khai luôn cần
+							người duyệt và xác nhận tại đây.
 						</p>
 					</div>
 				) : null}
 
-				{article.remoteArticleId ? (
-					<ZaloDashboardHandoff
-						oaDisplayName={props.detail.oaDisplayName}
-						oaId={props.detail.oaId}
-						publicationStatus={article.publicationStatus}
-						remoteArticleId={article.remoteArticleId}
-						synced={props.synced}
-					/>
-				) : null}
-
 				{!props.accounts?.enabled ? (
-					<div
-						className={`${
-							article.remoteArticleId ? "mt-3 " : ""
-						}rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3 text-[11px] leading-5 text-[var(--warning-strong)]`}
-					>
+					<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3 text-[11px] leading-5 text-[var(--warning-strong)]">
 						Kết nối Zalo OA đang tắt. Liên hệ quản trị viên workspace để bật tính năng
-						xuất bản.
+						đăng bài.
 					</div>
 				) : props.accounts.accounts.length === 0 ? (
 					<a
@@ -107,7 +103,7 @@ export function PublishRail(props: PublishRailProps) {
 				) : (
 					<div className="space-y-3">
 						{props.accounts.accounts.length > 1 ? (
-							<Field label="Tài khoản OA đích">
+							<Field label="Đăng lên tài khoản">
 								<select
 									value={props.targetOaConnectionId}
 									onChange={(event) => props.onTargetOaChange(event.target.value)}
@@ -123,64 +119,92 @@ export function PublishRail(props: PublishRailProps) {
 							</Field>
 						) : null}
 
-						<ReadinessChecklist items={props.readiness} />
+						<ZaloDashboardHandoff
+							oaDisplayName={props.detail.oaDisplayName}
+							oaId={props.detail.oaId}
+							publicationStatus={article.publicationStatus}
+							remoteArticleId={article.remoteArticleId}
+							synced={props.synced}
+						/>
 
-						<button
-							type="button"
-							disabled={!canSync || Boolean(props.busy)}
-							onClick={() => props.onPublishAction("sync")}
-							className={`${primaryButton} w-full`}
-						>
-							{props.busy === "sync" ? (
-								<LoaderCircle size={15} className="animate-spin" />
-							) : (
-								<RefreshCw size={15} />
-							)}
-							{article.remoteArticleId
-								? "Cập nhật bản ẩn trên Zalo"
-								: "Tạo bản ẩn trên Zalo"}
-						</button>
-						<p className="text-[11px] leading-4 text-[var(--muted)]">
-							Bước này chỉ tạo hoặc cập nhật bản ẩn. Bài chưa hiển thị công khai.
-						</p>
-
-						{article.remoteArticleId ? null : (
-							<ZaloDashboardHandoff
-								oaDisplayName={props.detail.oaDisplayName}
-								oaId={props.detail.oaId}
-								publicationStatus={article.publicationStatus}
-								remoteArticleId={article.remoteArticleId}
-								synced={props.synced}
-							/>
+						{live ? null : (
+							<Field
+								hint="Tương ứng trạng thái bài viết trong Zalo OA."
+								label="Trạng thái khi đăng"
+							>
+								<div className="grid grid-cols-2 gap-2">
+									<TargetButton
+										active={props.publishTarget === "public"}
+										description="Người theo dõi nhìn thấy ngay"
+										label="Hiển thị công khai"
+										onClick={() => props.onPublishTargetChange("public")}
+									/>
+									<TargetButton
+										active={props.publishTarget === "hidden"}
+										description="Chỉ quản trị viên OA thấy"
+										label="Ẩn trên Zalo"
+										onClick={() => props.onPublishTargetChange("hidden")}
+									/>
+								</div>
+							</Field>
 						)}
 
-						{article.publicationStatus === "published" && !props.synced ? (
-							<button
-								type="button"
-								disabled={Boolean(props.busy)}
-								onClick={() => props.onPublishAction("live-update")}
-								className={`${primaryButton} w-full`}
-							>
-								<Send size={15} /> Cập nhật bài đang hiển thị
-							</button>
+						<ReadinessChecklist items={props.readiness} />
+
+						{live ? (
+							<>
+								<button
+									type="button"
+									disabled={props.synced || Boolean(props.busy)}
+									onClick={() => props.onPublishAction("live-update")}
+									className={`${primaryButton} w-full`}
+								>
+									{props.busy === "live-update" ? (
+										<LoaderCircle size={15} className="animate-spin" />
+									) : (
+										<RefreshCw size={15} />
+									)}
+									{props.synced
+										? "Bài đang hiển thị là bản mới nhất"
+										: "Cập nhật bài đang hiển thị"}
+								</button>
+								<button
+									type="button"
+									onClick={() => props.onPublishAction("hide")}
+									disabled={Boolean(props.busy)}
+									className={dangerTextButton}
+								>
+									<EyeOff size={14} /> Gỡ bài khỏi Zalo OA
+								</button>
+							</>
 						) : (
-							<button
-								type="button"
-								disabled={
-									!props.synced ||
-									article.reviewStatus !== "approved" ||
-									!["hidden", "scheduled"].includes(article.publicationStatus) ||
-									Boolean(props.busy)
-								}
-								onClick={() => props.onPublishAction("publish")}
-								className={`${primaryButton} w-full`}
-							>
-								<Send size={15} /> Xuất bản công khai
-							</button>
+							<>
+								<button
+									type="button"
+									disabled={!ready || Boolean(props.busy)}
+									onClick={props.onSyncPreview}
+									className={`${secondaryButton} w-full`}
+								>
+									{props.busy === "sync" ? (
+										<LoaderCircle size={15} className="animate-spin" />
+									) : (
+										<Eye size={15} />
+									)}
+									Tạo bản xem trước ẩn trên Zalo
+								</button>
+								<p className="text-[11px] leading-4 text-[var(--muted)]">
+									Không bắt buộc. Dùng khi bạn muốn kiểm tra bài trên Zalo trước khi
+									hiển thị công khai. Nút “Đăng lên Zalo OA” ở đầu trang sẽ thực hiện
+									toàn bộ các bước.
+								</p>
+							</>
 						)}
 
 						<div className="border-t border-[var(--border)] pt-3">
-							<Field hint="Theo giờ trên máy của bạn." label="Lên lịch xuất bản">
+							<Field
+								hint="Theo giờ trên máy của bạn. Bài sẽ tự hiển thị vào thời điểm này."
+								label="Hẹn giờ đăng"
+							>
 								<input
 									type="datetime-local"
 									value={props.schedule}
@@ -199,7 +223,7 @@ export function PublishRail(props: PublishRailProps) {
 								onClick={props.onSchedulePublish}
 								className={`${secondaryButton} mt-2 w-full`}
 							>
-								<CalendarClock size={15} /> Xác nhận lịch xuất bản
+								<CalendarClock size={15} /> Xác nhận hẹn giờ
 							</button>
 							{article.publicationStatus === "scheduled" ? (
 								<button
@@ -211,18 +235,11 @@ export function PublishRail(props: PublishRailProps) {
 									Hủy lịch hiện tại
 								</button>
 							) : null}
-							{article.publicationStatus === "published" ? (
-								<button
-									type="button"
-									onClick={() => props.onPublishAction("hide")}
-									disabled={Boolean(props.busy)}
-									className={`${dangerTextButton} mt-2`}
-								>
-									<EyeOff size={14} /> Ẩn bài khỏi Zalo
-								</button>
-							) : null}
+						</div>
+
+						<div className="space-y-2 border-t border-[var(--border)] pt-3">
 							{article.remoteArticleId ? (
-								<div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+								<>
 									<button
 										type="button"
 										onClick={props.onRefreshRemote}
@@ -239,13 +256,13 @@ export function PublishRail(props: PublishRailProps) {
 									>
 										<Trash2 size={14} /> Xóa bản trên Zalo
 									</button>
-								</div>
+								</>
 							) : (
 								<button
 									type="button"
 									onClick={props.onDelete}
 									disabled={Boolean(props.busy)}
-									className={`${dangerTextButton} mt-3`}
+									className={dangerTextButton}
 								>
 									<Trash2 size={14} /> Xóa bài viết
 								</button>
@@ -277,7 +294,7 @@ export function PublishRail(props: PublishRailProps) {
 						))}
 					</div>
 				) : (
-					<p className="text-[12px] text-[var(--muted)]">Chưa có thao tác đồng bộ nào.</p>
+					<p className="text-[12px] text-[var(--muted)]">Chưa có thao tác nào.</p>
 				)}
 			</Section>
 
@@ -293,12 +310,50 @@ export function PublishRail(props: PublishRailProps) {
 	);
 }
 
+function TargetButton({
+	active,
+	description,
+	label,
+	onClick,
+}: {
+	active: boolean;
+	description: string;
+	label: string;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			aria-pressed={active}
+			onClick={onClick}
+			className={`rounded-lg border p-2.5 text-left transition ${
+				active
+					? "border-[var(--brand)] bg-[var(--success-soft)] text-[var(--foreground)]"
+					: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
+			}`}
+		>
+			<span className="block text-[12px] font-bold">{label}</span>
+			<span className="mt-0.5 block text-[11px] leading-4 text-[var(--muted)]">
+				{description}
+			</span>
+		</button>
+	);
+}
+
 function ReadinessChecklist({ items }: { items: ReadinessItem[] }) {
-	const remaining = items.filter((item) => !item.done).length;
+	const remaining = items.filter((item) => !item.done);
+	if (!remaining.length) {
+		return (
+			<p className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[12px] font-bold text-[var(--success-strong)]">
+				<Check size={14} /> Bài viết đã sẵn sàng đăng
+			</p>
+		);
+	}
+
 	return (
 		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3">
 			<p className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted-strong)]">
-				{remaining ? `Còn ${remaining} việc trước khi đồng bộ` : "Đã đủ điều kiện đồng bộ"}
+				Còn {remaining.length} việc trước khi đăng
 			</p>
 			<ul className="mt-2 space-y-1.5">
 				{items.map((item) => (

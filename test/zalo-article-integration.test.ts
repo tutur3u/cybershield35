@@ -64,7 +64,7 @@ describe("Zalo OA security and article contract", () => {
 		expect(workspace).toContain("Nhập từ Zalo OA");
 		expect(workspace).toContain("/api/articles/import-zalo");
 		expect(workspace).toContain("Trạng thái duyệt");
-		expect(workspace).toContain("Xuất bản");
+		expect(workspace).toContain("Trạng thái đăng");
 		expect(workspace).not.toContain("Chọn tất cả bài CS35 đang hiển thị");
 		expect(workspace).not.toContain("Đồng bộ bản nháp ẩn");
 	});

@@ -8,6 +8,11 @@ import { getArticleDetail } from "@/lib/articles/store";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { publicErrorMessage } from "@/lib/http/public-error";
 import { generateArticleRevision } from "@/lib/llm/generation";
+import { fitArticleHeadline } from "@/lib/llm/text-fitting";
+import {
+	ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+	ZALO_EDITORIAL_TITLE_LIMIT,
+} from "@/lib/zalo/article-content";
 
 export const maxDuration = 60;
 
@@ -41,6 +46,24 @@ export async function POST(
 			})),
 			session: auth.session,
 		});
+		// Models regularly overshoot the Zalo caps by a few words. Rewrite the
+		// headline to fit before the operator compares it, so the diff they review
+		// is the same text that would be stored.
+		const fitted = await fitArticleHeadline({
+			body: proposal.blocks
+				.filter((block) => block.type === "text")
+				.map((block) => (block.type === "text" ? block.content : ""))
+				.join("\n\n"),
+			description: proposal.description,
+			descriptionLimit: ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+			title: proposal.title,
+			titleLimit: ZALO_EDITORIAL_TITLE_LIMIT,
+		}).catch(() => null);
+		if (fitted) {
+			proposal.description = fitted.description;
+			proposal.title = fitted.title;
+		}
+
 		return Response.json(
 			{
 				proposal,

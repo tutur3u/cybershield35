@@ -1,4 +1,5 @@
 import { BrowserUse } from "browser-use-sdk/v3";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 import { z } from "zod";
 
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
@@ -51,7 +52,7 @@ export const runBrowserUse: ProviderAdapter = async (source) => {
 				sourceLabel: item.sourceLabel ?? "Nguồn công khai",
 				author: null,
 				publishedAt: null,
-				quote: item.quote.slice(0, 1200),
+				quote: fitTextToLimit(item.quote, 1_200, { ellipsis: true }),
 				summary: item.summary,
 				engagement: {},
 				stance: item.stance ?? "unknown",

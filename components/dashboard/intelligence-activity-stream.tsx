@@ -77,12 +77,31 @@ function ActivityRow({
 	compact: boolean;
 	event: IntelligenceActivityRow;
 }) {
+	// Compact rows sit in a narrow column beside other panels, so the badge shares
+	// the title line instead of being pushed onto a row of its own.
+	if (compact) {
+		return (
+			<IntentPrefetchLink
+				href={event.href}
+				className="block min-w-0 px-4 py-3 transition hover:bg-[var(--surface-soft)]"
+			>
+				<div className="flex min-w-0 items-start justify-between gap-3">
+					<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
+						{event.title}
+					</p>
+					<RiskPill risk={event.severity} />
+				</div>
+				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
+					{formatIntelligenceDate(event.occurredAt)} · {event.description}
+				</p>
+			</IntentPrefetchLink>
+		);
+	}
+
 	return (
 		<IntentPrefetchLink
 			href={event.href}
-			className={`grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:items-center ${
-				compact ? "" : "sm:grid-cols-[160px_minmax(0,1fr)_90px]"
-			}`}
+			className="grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[160px_minmax(0,1fr)_90px] sm:items-center"
 		>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
 				{formatIntelligenceDate(event.occurredAt)}

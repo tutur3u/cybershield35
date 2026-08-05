@@ -66,6 +66,14 @@ export type AiProposal = ArticleContent & { reviewNotes: string[] };
 
 export type EditorialIntent = "counter_argument" | "support" | "balanced";
 
+export type PublishStep = "preparing" | "syncing" | "publishing" | null;
+
+/**
+ * Which Zalo OA Content Article state the operator wants this article to land in.
+ * Maps to the Zalo article `status` field: `hidden` -> "hide", `public` -> "show".
+ */
+export type ZaloPublishTarget = "hidden" | "public";
+
 export type EditorNotice = { tone: "error" | "success"; text: string } | null;
 
 export type ReadinessItem = { done: boolean; hint: string; label: string };

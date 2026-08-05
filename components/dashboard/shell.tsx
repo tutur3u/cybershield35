@@ -281,7 +281,7 @@ export function Sidebar({
 															: null,
 													);
 												}}
-												className={`group flex h-7 w-full min-w-0 items-center justify-between rounded px-2 text-left text-[10px] font-semibold uppercase leading-none tracking-[0.05em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
+												className={`group flex h-8 w-full min-w-0 items-center justify-between rounded-md px-3 text-left text-[11px] font-bold leading-none tracking-[0.01em] text-[color:var(--muted)] transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--muted-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${collapsed ? "lg:hidden" : ""}`}
 											>
 												<span className="min-w-0 truncate whitespace-nowrap">
 													{section.label}
@@ -319,7 +319,7 @@ export function Sidebar({
 						className={`mt-auto border-t border-[var(--divider)] p-3 ${chatRoute && chatMenuOpen ? "hidden" : collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}
 					>
 						<div>
-							<p className="px-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[color:var(--muted)]">
+							<p className="px-3 text-[11px] font-bold tracking-[0.01em] text-[color:var(--muted)]">
 								Trợ giúp
 							</p>
 							<div className="mt-1 space-y-0.5">
@@ -362,21 +362,19 @@ function SidebarNavLink({
 		<IntentPrefetchLink
 			aria-current={active ? "page" : undefined}
 			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-9 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-left text-[12px] font-semibold transition before:absolute before:left-0 before:h-5 before:w-0.5 before:rounded-r-full before:bg-transparent before:transition-colors lg:h-10 lg:text-[12px] ${
-				collapsed
-					? "lg:justify-center lg:gap-0 lg:px-0"
-					: "lg:justify-start lg:gap-3 lg:px-3"
+			className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold outline-none transition before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-transparent before:transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
+				collapsed ? "lg:justify-center lg:gap-0 lg:px-0" : "justify-start"
 			} ${
 				active
-					? "bg-[var(--surface-soft)] text-[color:var(--brand-strong)] before:bg-[var(--brand)]"
+					? "bg-[var(--accent-soft)] text-[color:var(--accent-strong)] before:bg-[var(--accent)]"
 					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
 			}`}
 			href={item.href}
 			onClick={onNavigate}
 			title={collapsed ? item.label : undefined}
 		>
-			<item.icon aria-hidden className="shrink-0" size={16} strokeWidth={2} />
-			<span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>
+			<item.icon aria-hidden className="shrink-0" size={17} strokeWidth={2} />
+			<span className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}>
 				{item.label}
 			</span>
 		</IntentPrefetchLink>

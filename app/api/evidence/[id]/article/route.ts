@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
 	buildAutomatedArticleSeed,
+	fitArticleContentFields,
 	normalizeAutomatedArticleContent,
 } from "@/lib/articles/automation-content";
 import { createArticle, setArticleReviewStatus } from "@/lib/articles/store";
@@ -118,6 +119,10 @@ export async function POST(
 				// model is unavailable; the operator can still edit and publish.
 			}
 		}
+
+		// The seed title is lifted from the source post and routinely runs past the
+		// Zalo caps; rewrite it to fit rather than shipping a clipped fragment.
+		content = await fitArticleContentFields(content);
 
 		const [defaultOa] = await adminDb
 			.select({ id: zaloOaConnections.id })

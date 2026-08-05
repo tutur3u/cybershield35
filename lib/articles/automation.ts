@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import {
 	buildAutomatedArticleSeed,
+	fitArticleContentFields,
 	normalizeAutomatedArticleContent,
 } from "@/lib/articles/automation-content";
 import {
@@ -101,6 +102,10 @@ export async function prepareAndSyncAutomatedArticleDraft(input: {
 			// The evidence-grounded short draft remains a safe local fallback when
 			// unattended AI preparation is temporarily unavailable.
 		}
+
+		// Unattended drafts still have to read like finished editorial copy, so the
+		// headline is rewritten to fit instead of being cut at the cap.
+		content = await fitArticleContentFields(content);
 
 		article = await createArticle(
 			{

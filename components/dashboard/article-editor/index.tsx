@@ -1,6 +1,6 @@
 "use client";
 
-import { FileClock, LoaderCircle, Sparkles, Type } from "lucide-react";
+import { FileClock, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
 
 import { isRenderableImageUrl } from "@/components/dashboard/safe-image";
@@ -19,6 +19,7 @@ import { ComposePanel } from "./compose-panel";
 import { ArticleContextPanel } from "./context-panel";
 import { EditorHeader, EditorNoticeBar, editorStage } from "./editor-header";
 import { PublishRail } from "./publish-rail";
+import { ArticleEditorSkeleton } from "./skeleton";
 import type { ReadinessItem } from "./types";
 import { useArticleEditor } from "./use-article-editor";
 
@@ -27,18 +28,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const [railOpen, setRailOpen] = useState(true);
 	const { detail, draft } = editor;
 
-	if (detail.isPending || !draft) {
-		return (
-			<div className="grid min-h-[60vh] place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-				<div className="text-center">
-					<LoaderCircle size={28} className="mx-auto animate-spin text-[var(--brand)]" />
-					<p className="mt-3 text-sm font-semibold text-[var(--muted)]">
-						Đang mở bài viết…
-					</p>
-				</div>
-			</div>
-		);
-	}
+	if (detail.isPending || !draft) return <ArticleEditorSkeleton />;
 	if (detail.isError || !detail.data) {
 		return (
 			<div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-5 text-sm font-semibold text-[var(--danger-strong)]">
@@ -78,19 +68,13 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 			hint: "Bấm Phê duyệt sau khi rà soát nội dung.",
 			label: "Đã được phê duyệt",
 		},
-		{
-			done: article.state === "published",
-			hint: "Bấm Xuất bản để đưa bài vào kho nội dung trước khi đẩy lên Zalo.",
-			label: "Đã xuất bản nội bộ",
-		},
 	];
 	const synced = article.syncedContentHash === article.contentHash;
 	const blockers = [
 		article.reviewStatus === "approved" ? null : "Bài viết cần được phê duyệt.",
 		draft.title.trim() ? null : "Bài viết cần có tiêu đề.",
 		hasBody ? null : "Bài viết cần có ít nhất một khối nội dung.",
-		editor.publishToZalo &&
-		readiness.some((item) => !item.done && item.label !== "Đã xuất bản nội bộ")
+		readiness.some((item) => !item.done)
 			? "Chưa đủ điều kiện đăng lên Zalo OA — xem danh sách kiểm tra ở cột phải."
 			: null,
 	].filter((value): value is string => Boolean(value));
@@ -106,8 +90,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				onReview={(status) => void editor.review(status)}
 				onSave={() => void editor.save()}
 				onToggleRail={() => setRailOpen((value) => !value)}
-				onToggleZalo={editor.setPublishToZalo}
-				publishToZalo={editor.publishToZalo}
+				publishStep={editor.publishStep}
+				publishTarget={editor.publishTarget}
 				railOpen={railOpen}
 				stage={editorStage(article, synced)}
 				title={draft.title}
@@ -157,7 +141,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<TabsContent value="ai">
 							<AiPanel
 								busy={editor.busy}
+								draft={draft}
 								editorialIntent={editor.editorialIntent}
+								evidenceCount={detail.data.evidence.length}
 								instruction={editor.aiInstruction}
 								model={editor.model}
 								models={editor.models.data}
@@ -193,11 +179,14 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						onCoverUnavailable={editor.dropCover}
 						onDelete={() => void editor.deleteLocalArticle()}
 						onPublishAction={(action) => void editor.publishAction(action)}
+						onPublishTargetChange={editor.setPublishTarget}
+						onSyncPreview={() => void editor.syncPreview()}
 						onRefreshRemote={() => void editor.refreshFromZalo()}
 						onRemoveRemote={() => void editor.removeFromZalo()}
 						onScheduleChange={editor.setSchedule}
 						onSchedulePublish={() => void editor.schedulePublish()}
 						onTargetOaChange={editor.setTargetOaConnectionId}
+						publishTarget={editor.publishTarget}
 						readiness={readiness}
 						schedule={editor.schedule}
 						synced={synced}

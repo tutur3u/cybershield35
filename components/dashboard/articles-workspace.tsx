@@ -1,7 +1,20 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArrowDownAZ, FileDown, FileEdit, LoaderCircle, Newspaper, Plus, Search, Send } from "lucide-react";
+import {
+	AlertTriangle,
+	ArrowDownAZ,
+	CalendarClock,
+	EyeOff,
+	FileDown,
+	FileEdit,
+	Loader,
+	LoaderCircle,
+	Newspaper,
+	Plus,
+	Search,
+	Send,
+} from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
@@ -61,7 +74,7 @@ export function ArticlesWorkspace() {
 					<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tiêu đề, mô tả hoặc tác giả…" className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold outline-none focus:border-[var(--accent)]" />
 				</label>
 				<Filter value={review} onChange={setReview} label="Trạng thái duyệt" options={[["all", "Mọi trạng thái"], ["needs_review", "Cần duyệt"], ["approved", "Đã duyệt"], ["rejected", "Từ chối"], ["draft", "Bản nháp"]]} />
-				<Filter value={state} onChange={setState} label="Xuất bản" options={[["all", "Tất cả"], ["draft", "Chưa xuất bản"], ["published", "Đã xuất bản"], ["archived", "Đã lưu trữ"]]} />
+				<Filter value={state} onChange={setState} label="Trạng thái đăng" options={[["all", "Tất cả"], ["draft", "Chưa đăng"], ["published", "Đã đăng"], ["archived", "Đã lưu trữ"]]} />
 				<Filter value={sort ?? "updated_desc"} onChange={(value) => setSort(value as ArticleListFilters["sort"])} label="Sắp xếp" options={[["updated_desc", "Mới cập nhật"], ["updated_asc", "Cũ cập nhật"], ["title", "Theo tiêu đề"]]} icon />
 				<button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"><FileDown size={14} /> Nhập từ Zalo</button>
 				<Link href="/articles/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[11px] font-bold text-white"><Plus size={14} /> Bài viết mới</Link>
@@ -69,7 +82,7 @@ export function ArticlesWorkspace() {
 
 			<div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
 				<div className="grid grid-cols-[minmax(0,1fr)_110px_110px] gap-3 border-b border-[var(--border)] px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">
-					<span>Bài viết</span><span>Duyệt</span><span>Xuất bản</span>
+					<span>Bài viết</span><span>Duyệt</span><span>Trên Zalo OA</span>
 				</div>
 				{articles.map(({ article }) => (
 					<Link key={article.id} href={`/articles/${article.id}`} className="grid grid-cols-[minmax(0,1fr)_110px_110px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 hover:bg-[var(--surface-soft)]">
@@ -89,7 +102,7 @@ export function ArticlesWorkspace() {
 							<span className="min-w-0"><strong className="block truncate text-[12px] text-[var(--foreground)]">{article.title || "Bài viết chưa đặt tên"}</strong><span className="mt-1 block truncate text-[10px] font-semibold text-[var(--muted)]">{article.description || "Chưa có trích yếu"}</span><span className="mt-1 block text-[9px] text-[var(--muted)]">Cập nhật {formatDate(article.updatedAt)}</span></span>
 						</div>
 						<ReviewBadge status={article.reviewStatus} />
-						<PublishStateBadge state={article.state} />
+						<ZaloStatusBadge status={article.publicationStatus} />
 					</Link>
 				))}
 				{articlesQuery.isPending ? <div className="grid min-h-40 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div> : null}
@@ -119,25 +132,46 @@ function Filter({ icon, label, onChange, options, value }: { icon?: boolean; lab
 	return <label className="relative"><span className="sr-only">{label}</span>{icon ? <ArrowDownAZ size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" /> : null}<select value={value} onChange={(event) => onChange(event.target.value)} className={`h-10 min-w-36 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pr-7 text-[11px] font-bold outline-none focus:border-[var(--accent)] ${icon ? "pl-8" : "pl-3"}`}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
 }
 
-function PublishStateBadge({ state }: { state: string }) {
+/** Reflects where the article stands on the Zalo Official Account. */
+function ZaloStatusBadge({ status }: { status: string }) {
 	const config: Record<string, { className: string; icon: typeof Send; label: string }> = {
-		archived: {
-			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
-			icon: Archive,
-			label: "Lưu trữ",
+		failed: {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			icon: AlertTriangle,
+			label: "Đăng lỗi",
 		},
-		draft: {
+		hidden: {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			icon: EyeOff,
+			label: "Ẩn trên Zalo",
+		},
+		not_synced: {
 			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
 			icon: FileEdit,
-			label: "Chưa xuất bản",
+			label: "Chưa đăng",
 		},
 		published: {
 			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
 			icon: Send,
-			label: "Đã xuất bản",
+			label: "Đang hiển thị",
+		},
+		publishing: {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			icon: Loader,
+			label: "Đang đăng",
+		},
+		scheduled: {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			icon: CalendarClock,
+			label: "Đã hẹn giờ",
+		},
+		syncing: {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			icon: Loader,
+			label: "Đang đưa lên",
 		},
 	};
-	const entry = config[state] ?? config.draft!;
+	const entry = config[status] ?? config.not_synced!;
 	const Icon = entry.icon;
 	return (
 		<span

@@ -10,6 +10,8 @@ import { articleQueryKeys } from "@/lib/articles/client-queries";
 import { fetchJson } from "./shared";
 import type {
 	AiProposal,
+	PublishStep,
+	ZaloPublishTarget,
 	ArticleDetail,
 	EditorialIntent,
 	EditorNotice,
@@ -38,21 +40,28 @@ export function useArticleEditor(articleId: string) {
 				? 1_500
 				: false,
 	});
+	// Workspace-level configuration changes rarely; caching it keeps the editor from
+	// paying for two extra round trips on every open.
 	const accounts = useQuery({
-		queryKey: ["zalo", "accounts"],
+		gcTime: 30 * 60_000,
 		queryFn: () => fetchJson<ZaloAccountsResponse>("/api/integrations/zalo/accounts"),
+		queryKey: ["zalo", "accounts"],
+		staleTime: 5 * 60_000,
 	});
 	const models = useQuery({
-		queryKey: ["ai", "models"],
+		gcTime: 60 * 60_000,
 		queryFn: () =>
 			fetchJson<{ defaultModel: string; models: string[] }>("/api/ai/models"),
+		queryKey: ["ai", "models"],
+		staleTime: 30 * 60_000,
 	});
 
 	const [draft, setDraft] = useState<ArticleContent | null>(null);
 	const [targetOaConnectionId, setTargetOaConnectionId] = useState("");
 	const [busy, setBusy] = useState("");
 	const [notice, setNotice] = useState<EditorNotice>(null);
-	const [publishToZalo, setPublishToZalo] = useState(false);
+	const [publishStep, setPublishStep] = useState<PublishStep>(null);
+	const [publishTarget, setPublishTarget] = useState<ZaloPublishTarget>("public");
 	const [schedule, setSchedule] = useState("");
 	const [aiInstruction, setAiInstruction] = useState("");
 	const [tone, setTone] = useState("Điềm tĩnh, khách quan");
@@ -192,25 +201,64 @@ export function useArticleEditor(articleId: string) {
 		[articleId, dirty, refresh, runAction, save],
 	);
 
+	/**
+	 * Publishing means one thing to an operator: the article goes live on the Zalo
+	 * Official Account. The three server steps that make that happen — mark it
+	 * published in the catalog, push a hidden copy, then reveal it — run as a
+	 * single action with the current step reported as it goes.
+	 */
 	const publish = useCallback(async () => {
 		if (dirty && !(await save())) return;
+		const goingPublic = publishTarget === "public";
+		if (
+			!window.confirm(
+				goingPublic
+					? "Đăng bài viết này lên Zalo OA ngay bây giờ? Bài sẽ hiển thị công khai với người theo dõi."
+					: "Đưa bài viết này lên Zalo OA ở trạng thái ẩn? Chỉ quản trị viên OA nhìn thấy.",
+			)
+		) {
+			return;
+		}
 		await runAction("publish", async () => {
+			setPublishStep("preparing");
 			await fetchJson(`/api/articles/${articleId}/publish-internal`, {
 				method: "POST",
 			});
-			if (publishToZalo) {
-				await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
+			setPublishStep("syncing");
+			await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
+			if (goingPublic) {
+				setPublishStep("publishing");
 				await fetchJson(`/api/articles/${articleId}/publish`, { method: "POST" });
 			}
+			setPublishStep(null);
 			setNotice({
-				text: publishToZalo
-					? "Bài viết đã được xuất bản và đăng lên Zalo OA."
-					: "Bài viết đã được xuất bản nội bộ.",
+				text: goingPublic
+					? "Bài viết đã được đăng công khai trên Zalo OA."
+					: "Bài viết đã lên Zalo OA ở trạng thái ẩn.",
+				tone: "success",
+			});
+			await refresh();
+		}).finally(() => setPublishStep(null));
+	}, [articleId, dirty, publishTarget, refresh, runAction, save]);
+
+	/**
+	 * Preview path: pushes a hidden copy to Zalo without revealing it, so an editor
+	 * can check the real rendering before going live.
+	 */
+	const syncPreview = useCallback(async () => {
+		if (dirty && !(await save())) return;
+		await runAction("sync", async () => {
+			await fetchJson(`/api/articles/${articleId}/publish-internal`, {
+				method: "POST",
+			});
+			await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
+			setNotice({
+				text: "Đã tạo bản xem trước ẩn trên Zalo OA. Bài chưa hiển thị công khai.",
 				tone: "success",
 			});
 			await refresh();
 		});
-	}, [articleId, dirty, publishToZalo, refresh, runAction, save]);
+	}, [articleId, dirty, refresh, runAction, save]);
 
 	const schedulePublish = useCallback(async () => {
 		if (!schedule) {
@@ -402,7 +450,8 @@ export function useArticleEditor(articleId: string) {
 		proposal,
 		publish,
 		publishAction,
-		publishToZalo,
+		publishStep,
+		publishTarget,
 		refreshFromZalo,
 		removeFromZalo,
 		restore,
@@ -416,7 +465,8 @@ export function useArticleEditor(articleId: string) {
 		setModel,
 		setNotice,
 		setProposal,
-		setPublishToZalo,
+		setPublishTarget,
+		syncPreview,
 		setSchedule,
 		setTargetOaConnectionId,
 		setTone,

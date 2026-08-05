@@ -399,21 +399,67 @@ async function refreshActivityRollups(reason: string) {
 			a.entity_id,
 			a.action,
 			case
-				when a.action ilike '%failed%' or a.action ilike '%deleted%' then 'high'::risk_level
-				when a.action ilike '%updated%' or a.action ilike '%review%' then 'medium'::risk_level
+				when a.action in ('failed', 'article_deleted', 'deleted') then 'high'::risk_level
+				when a.action in (
+					'article_review_needs_review',
+					'review_status_updated',
+					'evidence_triage_updated',
+					'rescan_created'
+				) then 'medium'::risk_level
 				else 'low'::risk_level
 			end,
-			initcap(replace(a.action, '_', ' ')),
-			'Hoạt động vận hành đã được ghi lại để truy vết dashboard.',
+			case a.action
+				when 'created' then 'Đã tạo lượt quét'
+				when 'processed' then 'Đã quét xong nguồn'
+				when 'failed' then 'Lượt quét gặp lỗi'
+				when 'deleted' then 'Đã xóa lượt quét'
+				when 'rescan_created' then 'Đã tạo lượt quét lại'
+				when 'analysis_revised' then 'Đã cập nhật phân tích'
+				when 'draft_generated' then 'Đã soạn bản nháp phản hồi'
+				when 'draft_content_updated' then 'Đã sửa nội dung bản nháp'
+				when 'review_status_updated' then 'Đã cập nhật trạng thái duyệt'
+				when 'evidence_triage_updated' then 'Đã cập nhật xử lý nội dung'
+				when 'evidence_triage_note_added' then 'Đã thêm ghi chú xử lý'
+				when 'article_created' then 'Đã tạo bài viết'
+				when 'article_updated' then 'Đã sửa bài viết'
+				when 'article_deleted' then 'Đã xóa bài viết'
+				when 'article_review_needs_review' then 'Bài viết chờ duyệt'
+				when 'article_review_approved' then 'Đã phê duyệt bài viết'
+				when 'article_review_rejected' then 'Đã từ chối bài viết'
+				when 'article_sync_hidden_queued' then 'Đang chuẩn bị bản ẩn trên Zalo'
+				when 'article_synced_hidden' then 'Đã đồng bộ bản ẩn lên Zalo'
+				when 'article_published_internally' then 'Đã xuất bản bài viết'
+				when 'article_removed_from_zalo' then 'Đã gỡ bài khỏi Zalo'
+				when 'article_schedule_cancelled' then 'Đã hủy lịch đăng bài'
+				when 'article_evidence_added' then 'Đã gắn thêm dẫn chứng'
+				when 'article_headline_regenerated' then 'Đã chuẩn hóa tiêu đề bài viết'
+				when 'zalo_oa_connected' then 'Đã kết nối Zalo OA'
+				else initcap(replace(a.action, '_', ' '))
+			end,
+			case a.entity_type
+				when 'scan_job' then 'Diễn ra trong quá trình thu thập và phân tích nguồn.'
+				when 'evidence_item' then 'Thay đổi trên một bài viết trong dòng thời gian.'
+				when 'counter_argument_draft' then 'Thay đổi trên một bản nháp phản hồi.'
+				when 'article' then 'Thay đổi trên một bài viết của CyberShield35.'
+				when 'zalo_oa_connection' then 'Thay đổi trên kết nối Zalo OA.'
+				else 'Thay đổi được ghi lại để truy vết.'
+			end,
 			case
 				when a.entity_type = 'scan_job' then '/scans/' || a.entity_id::text
 				when a.entity_type = 'evidence_item' then '/evidence/' || a.entity_id::text
 				when a.entity_type = 'counter_argument_draft' then '/drafts/' || a.entity_id::text
+				when a.entity_type = 'article' then '/articles/' || a.entity_id::text
 				else '/audit'
 			end,
 			a.created_at,
 			jsonb_build_object('projectionReason', ${reason}::text)
 		from audit_events a
+		-- Reconciliation and bulk-normalization passes fire on hundreds of rows at a
+		-- time and would bury the events an operator actually needs to see.
+		where a.action not in (
+			'article_metadata_updated',
+			'article_headline_regenerated'
+		)
 		order by a.created_at desc
 		limit 250;
 	`;

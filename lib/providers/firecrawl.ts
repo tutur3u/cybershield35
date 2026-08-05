@@ -1,4 +1,5 @@
 import { Firecrawl } from "firecrawl";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
@@ -35,10 +36,15 @@ export const runFirecrawl: ProviderAdapter = async (source) => {
 				sourceLabel: new URL(url).hostname.replace(/^www\./, ""),
 				author: null,
 				publishedAt: null,
-				quote: markdown.slice(0, 1200) || result.metadata?.description || url,
+				quote:
+					fitTextToLimit(markdown, 1_200, { ellipsis: true }) ||
+					result.metadata?.description ||
+					url,
 				summary:
-					result.metadata?.description ??
-					markdown.slice(0, 220) ??
+					fitTextToLimit(result.metadata?.description ?? "", 220, {
+						preferredLength: 140,
+					}) ||
+					fitTextToLimit(markdown, 220, { preferredLength: 140 }) ||
 					"Nội dung web đã được trích xuất.",
 				engagement: {},
 				stance: "unknown",
@@ -79,8 +85,10 @@ export const runFirecrawlParse: ProviderAdapter = async (source) => {
 				sourceLabel: source.fileName ?? "Tệp tải lên",
 				author: null,
 				publishedAt: null,
-				quote: markdown.slice(0, 1200),
-				summary: markdown.slice(0, 220) || "Tệp đã được phân tích.",
+				quote: fitTextToLimit(markdown, 1_200, { ellipsis: true }),
+				summary:
+					fitTextToLimit(markdown, 220, { preferredLength: 140 }) ||
+					"Tệp đã được phân tích.",
 				engagement: {},
 				stance: "unknown",
 				sentiment: "neutral",

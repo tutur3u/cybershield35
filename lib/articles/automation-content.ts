@@ -1,7 +1,13 @@
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 import type { ArticleAiOutput } from "@/lib/llm/schemas";
-import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
+import { fitArticleHeadline } from "@/lib/llm/text-fitting";
+import {
+	prepareZaloArticleContent,
+	ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+	ZALO_EDITORIAL_TITLE_LIMIT,
+} from "@/lib/zalo/article-content";
 
 type AutomatedArticleEvidence = {
 	metadata: Record<string, unknown>;
@@ -66,6 +72,34 @@ export function normalizeAutomatedArticleContent(
 			normalizedBlocks,
 		),
 		title,
+	});
+}
+
+/**
+ * Final pass before an article is stored: asks the model to rewrite the title and
+ * excerpt so they fit Zalo's caps as complete sentences, instead of letting
+ * `prepareZaloArticleContent` shorten them mechanically.
+ */
+export async function fitArticleContentFields(
+	content: ArticleContent,
+): Promise<ArticleContent> {
+	const bodyText = content.blocks
+		.filter((block) => block.type === "text")
+		.map((block) => (block.type === "text" ? block.content : ""))
+		.join("\n\n");
+	const fitted = await fitArticleHeadline({
+		body: bodyText,
+		description: content.description,
+		descriptionLimit: ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+		title: content.title,
+		titleLimit: ZALO_EDITORIAL_TITLE_LIMIT,
+	}).catch(() => null);
+	if (!fitted) return content;
+
+	return prepareZaloArticleContent({
+		...content,
+		description: fitted.description,
+		title: fitted.title,
 	});
 }
 
@@ -225,8 +259,5 @@ function escapeRegExp(value: string) {
 }
 
 function truncateText(value: string, limit: number) {
-	if (value.length <= limit) return value;
-	const sliced = value.slice(0, limit - 1);
-	const lastSpace = sliced.lastIndexOf(" ");
-	return `${(lastSpace > limit * 0.6 ? sliced.slice(0, lastSpace) : sliced).trim()}…`;
+	return fitTextToLimit(value, limit, { ellipsis: true });
 }

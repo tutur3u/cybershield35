@@ -1,10 +1,11 @@
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 
 import type { ProviderAdapter } from "./types";
 
 export const runLocalText: ProviderAdapter = async (source) => {
 	const text = source.fileText ?? source.originalInput;
-	const excerpt = text.slice(0, 1200);
+	const excerpt = fitTextToLimit(text, 1_200, { ellipsis: true });
 	const assessment = assessEvidenceRisk({ text });
 
 	return {
@@ -22,7 +23,9 @@ export const runLocalText: ProviderAdapter = async (source) => {
 				author: null,
 				publishedAt: null,
 				quote: excerpt || "Không có nội dung.",
-				summary: excerpt.slice(0, 220) || "Nội dung văn bản cần phân tích.",
+				summary:
+					fitTextToLimit(excerpt, 220, { preferredLength: 140 }) ||
+					"Nội dung văn bản cần phân tích.",
 				engagement: {},
 				stance: "unknown",
 				sentiment: "neutral",

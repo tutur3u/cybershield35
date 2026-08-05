@@ -30,15 +30,20 @@ import {
 	StatusChip,
 	successButton,
 } from "./shared";
-import type { ArticleRow, EditorNotice } from "./types";
+import type {
+	ArticleRow,
+	EditorNotice,
+	PublishStep,
+	ZaloPublishTarget,
+} from "./types";
 
-const STEPS = [
-	"Soạn nội dung",
-	"Phê duyệt",
-	"Xuất bản nội bộ",
-	"Đồng bộ bản ẩn",
-	"Đăng công khai",
-];
+const STEPS = ["Soạn nội dung", "Phê duyệt", "Xem trước trên Zalo", "Đăng lên Zalo OA"];
+
+const PUBLISH_STEP_LABELS: Record<string, string> = {
+	preparing: "Đang chuẩn bị bài viết…",
+	publishing: "Đang hiển thị công khai…",
+	syncing: "Đang đưa lên Zalo OA…",
+};
 
 export function EditorHeader({
 	article,
@@ -49,8 +54,8 @@ export function EditorHeader({
 	onReview,
 	onSave,
 	onToggleRail,
-	onToggleZalo,
-	publishToZalo,
+	publishStep,
+	publishTarget,
 	railOpen,
 	stage,
 	title,
@@ -64,8 +69,8 @@ export function EditorHeader({
 	onReview: (status: string) => void;
 	onSave: () => void;
 	onToggleRail: () => void;
-	onToggleZalo: (value: boolean) => void;
-	publishToZalo: boolean;
+	publishStep: PublishStep;
+	publishTarget: ZaloPublishTarget;
 	railOpen: boolean;
 	stage: number;
 	title: string;
@@ -149,11 +154,11 @@ export function EditorHeader({
 					)}
 					<PublishButton
 						blockers={blockers}
-						busy={busy === "publish"}
 						disabled={Boolean(busy)}
 						onPublish={onPublish}
-						onToggleZalo={onToggleZalo}
-						publishToZalo={publishToZalo}
+						publishStep={publishStep}
+						publishTarget={publishTarget}
+						publishing={busy === "publish"}
 					/>
 					<button
 						type="button"
@@ -171,64 +176,65 @@ export function EditorHeader({
 	);
 }
 
+/**
+ * Publishing is a single idea for the operator — the article goes live on the Zalo
+ * Official Account — so it is a single button that narrates its own progress.
+ */
 function PublishButton({
 	blockers,
-	busy,
 	disabled,
 	onPublish,
-	onToggleZalo,
-	publishToZalo,
+	publishStep,
+	publishTarget,
+	publishing,
 }: {
 	blockers: string[];
-	busy: boolean;
 	disabled: boolean;
 	onPublish: () => void;
-	onToggleZalo: (value: boolean) => void;
-	publishToZalo: boolean;
+	publishStep: PublishStep;
+	publishTarget: ZaloPublishTarget;
+	publishing: boolean;
 }) {
 	const blocked = blockers.length > 0;
+	const label = publishing
+		? (publishStep && PUBLISH_STEP_LABELS[publishStep]) || "Đang đăng…"
+		: publishTarget === "public"
+			? "Đăng lên Zalo OA"
+			: "Đưa lên Zalo (ẩn)";
+
 	return (
-		<div className="flex items-stretch overflow-hidden rounded-lg border border-[var(--brand)]">
-			<DashboardTooltip
-				content={
-					blocked ? (
-						<div className="space-y-1">
-							<p className="font-bold">Chưa thể xuất bản:</p>
-							<ul className="list-disc space-y-1 pl-4">
-								{blockers.map((blocker) => (
-									<li key={blocker}>{blocker}</li>
-								))}
-							</ul>
-						</div>
-					) : publishToZalo ? (
-						"Xuất bản nội bộ rồi đồng bộ và đăng công khai lên Zalo OA."
-					) : (
-						"Xuất bản nội bộ trong CyberShield35. Chưa đăng lên Zalo OA."
-					)
-				}
+		<DashboardTooltip
+			content={
+				blocked ? (
+					<div className="space-y-1">
+						<p className="font-bold">Chưa thể đăng bài:</p>
+						<ul className="list-disc space-y-1 pl-4">
+							{blockers.map((blocker) => (
+								<li key={blocker}>{blocker}</li>
+							))}
+						</ul>
+					</div>
+				) : publishTarget === "public" ? (
+					"Đưa bài lên Zalo OA và hiển thị công khai với người theo dõi."
+				) : (
+					"Đưa bài lên Zalo OA ở trạng thái ẩn. Chọn trạng thái ở cột phải."
+				)
+			}
+		>
+			<button
+				type="button"
+				disabled={blocked || disabled}
+				onClick={onPublish}
+				className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				<button
-					type="button"
-					disabled={blocked || disabled}
-					onClick={onPublish}
-					className="inline-flex h-10 items-center gap-2 bg-[var(--brand)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{busy ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />}
-					Xuất bản
-				</button>
-			</DashboardTooltip>
-			<DashboardTooltip content="Bật để đồng thời đồng bộ và đăng công khai lên Zalo OA.">
-				<label className="inline-flex h-10 cursor-pointer items-center gap-2 border-l border-white/25 bg-[var(--brand)]/90 px-3 text-[11px] font-bold text-white">
-					<input
-						type="checkbox"
-						checked={publishToZalo}
-						onChange={(event) => onToggleZalo(event.target.checked)}
-						className="size-3.5 accent-white"
-					/>
-					Zalo OA
-				</label>
-			</DashboardTooltip>
-		</div>
+				{publishing ? (
+					<LoaderCircle size={15} className="animate-spin" />
+				) : (
+					<Send size={15} />
+				)}
+				{label}
+			</button>
+		</DashboardTooltip>
 	);
 }
 
@@ -309,9 +315,8 @@ export function editorStage(
 	>,
 	synced: boolean,
 ) {
-	if (article.publicationStatus === "published") return 5;
-	if (article.remoteArticleId && synced) return 4;
-	if (article.state === "published") return 3;
+	if (article.publicationStatus === "published") return 4;
+	if (article.remoteArticleId && synced) return 3;
 	if (article.reviewStatus === "approved") return 2;
 	return article.reviewStatus === "needs_review" ? 1 : 0;
 }

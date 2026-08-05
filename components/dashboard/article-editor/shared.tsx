@@ -251,19 +251,22 @@ export function reviewTone(status: string): StatusTone {
 export function publicationLabel(status: string) {
 	return (
 		{
-			draft: "Chưa xuất bản",
-			hidden: "Bản ẩn trên Zalo",
-			published: "Đang hiển thị",
-			publishing: "Đang xuất bản",
-			scheduled: "Đã lên lịch",
-			syncing: "Đang đồng bộ",
-		}[status] ?? status
+			failed: "Đăng thất bại",
+			hidden: "Đang ẩn trên Zalo",
+			not_synced: "Chưa đưa lên Zalo",
+			published: "Đang hiển thị trên Zalo",
+			publishing: "Đang đăng lên Zalo…",
+			scheduled: "Đã hẹn giờ đăng",
+			syncing: "Đang đưa lên Zalo…",
+		}[status] ?? "Chưa đưa lên Zalo"
 	);
 }
 
 export function publicationTone(status: string): StatusTone {
 	return (
 		({
+			failed: "danger",
+			hidden: "warning",
 			published: "success",
 			publishing: "accent",
 			scheduled: "accent",

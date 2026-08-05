@@ -1,5 +1,6 @@
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
+import { fitTextToLimit } from "@/lib/domain/text-fit";
 
 export const ZALO_EDITORIAL_TITLE_LIMIT = 110;
 export const ZALO_EDITORIAL_DESCRIPTION_LIMIT = 180;
@@ -21,7 +22,7 @@ export function prepareZaloArticleContent(
 		.map((block) => {
 			if (block.type === "image") {
 				const caption = block.caption
-					? sanitizeZaloText(block.caption, false).slice(0, 300).trim()
+					? fitTextToLimit(sanitizeZaloText(block.caption, false), 300)
 					: "";
 				return {
 					...(caption ? { caption } : {}),
@@ -39,7 +40,7 @@ export function prepareZaloArticleContent(
 		.filter((block) => block.type === "image" || Boolean(block.content));
 
 	return {
-		author: sanitizeZaloText(content.author, false).slice(0, 50).trim(),
+		author: fitTextToLimit(sanitizeZaloText(content.author, false), 50),
 		blocks,
 		commentsEnabled: content.commentsEnabled,
 		coverUrl: content.coverUrl ?? null,
@@ -63,7 +64,7 @@ export function prepareZaloTitle(value: string) {
 		.replace(/^["“”'‘’]+|["“”'‘’]+$/gu, "")
 		.replace(/\s+/gu, " ")
 		.trim();
-	return truncateAtWord(title, ZALO_EDITORIAL_TITLE_LIMIT)
+	return fitTextToLimit(title, ZALO_EDITORIAL_TITLE_LIMIT)
 		.replace(/[,:;–—-]+$/u, "")
 		.trim();
 }
@@ -160,25 +161,12 @@ function sanitizeZaloText(value: string, preserveParagraphs: boolean) {
 }
 
 function completeExcerpt(value: string) {
-	const sentences = value.match(/[^.!?]+[.!?]+(?:["”’)]*)/gu) ?? [];
-	let excerpt = "";
-	for (const sentence of sentences) {
-		const candidate = `${excerpt} ${sentence.trim()}`.trim();
-		if (candidate.length > ZALO_EDITORIAL_DESCRIPTION_LIMIT) break;
-		excerpt = candidate;
-		if (excerpt.length >= 90) break;
-	}
-	if (excerpt.length >= 20) return excerpt;
-
-	const firstSentence = (sentences[0] ?? value).trim();
-	const safeClause = firstSentence
-		.slice(0, ZALO_EDITORIAL_DESCRIPTION_LIMIT - 1)
-		.replace(/\s+\S*$/u, "")
-		.replace(/[,;:–—-][^,;:–—-]*$/u, "")
-		.replace(/[,:;–—\s-]+$/u, "")
-		.trim();
-	if (safeClause.length < 20) return "";
-	return `${safeClause}.`;
+	const fitted = fitTextToLimit(value, ZALO_EDITORIAL_DESCRIPTION_LIMIT, {
+		minLength: 20,
+		preferredLength: 90,
+	});
+	if (!fitted) return "";
+	return /[.!?…]$/u.test(fitted) ? fitted : `${fitted}.`;
 }
 
 function stripLeadingTitle(value: string, title: string) {
@@ -203,14 +191,6 @@ function comparableText(value: string) {
 		.normalize("NFKC")
 		.toLocaleLowerCase("vi-VN")
 		.replace(/[^\p{L}\p{N}]+/gu, " ")
-		.trim();
-}
-
-function truncateAtWord(value: string, limit: number) {
-	if (value.length <= limit) return value;
-	const sliced = value.slice(0, limit + 1);
-	const lastSpace = sliced.lastIndexOf(" ");
-	return (lastSpace > limit * 0.6 ? sliced.slice(0, lastSpace) : value.slice(0, limit))
 		.trim();
 }
 

@@ -26,6 +26,7 @@
     "db:backfill-intelligence": "bun --conditions react-server scripts/backfill-intelligence.ts",
     "db:backfill-topics": "bun --conditions react-server scripts/backfill-topics.ts",
     "db:reclassify-risk": "bun --conditions react-server scripts/reclassify-evidence-risk.ts",
+    "db:regenerate-headlines": "bun --conditions react-server scripts/regenerate-article-headlines.ts",
     "worker": "bun --conditions react-server scripts/worker.ts"
   },
   "dependencies": {
