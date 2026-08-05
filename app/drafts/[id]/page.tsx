@@ -4,7 +4,6 @@ import { permanentRedirect } from "next/navigation";
 import { findArticleIdByOriginDraftId } from "@/lib/articles/store";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function DraftDetailPage({
 	params,

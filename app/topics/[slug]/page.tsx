@@ -12,7 +12,6 @@ export const metadata = {
 };
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function TopicDetailPage({
 	params,

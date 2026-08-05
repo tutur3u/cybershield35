@@ -10,7 +10,6 @@ export async function logout(
 	setNotice("");
 	if (typeof window !== "undefined") {
 		// A hard navigation is required after the HttpOnly session cookie is cleared.
-		// eslint-disable-next-line @next/next/no-location-assign-relative-destination
 		window.location.assign(
 			new URL(loginHref ?? "/login", window.location.origin),
 		);

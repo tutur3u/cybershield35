@@ -7,7 +7,6 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { getWorkspaceMembersInitialData } from "@/lib/workspace-members/server-data";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function MembersPage() {
 	return (

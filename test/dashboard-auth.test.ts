@@ -1558,7 +1558,6 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("dashboard makes topics a first-class operational page", () => {
-		const data = readFileSync("components/dashboard/dashboard-data.ts", "utf8");
 		const types = readFileSync("components/dashboard/types.ts", "utf8");
 		const dashboard = readFileSync(
 			"components/dashboard/cybershield-dashboard.tsx",

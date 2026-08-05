@@ -9,7 +9,6 @@ import { getArticleDetail } from "@/lib/articles/store";
 import { getQueryClient } from "@/lib/query-client";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function ArticlePage({
 	params,

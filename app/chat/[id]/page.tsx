@@ -4,7 +4,6 @@ import { ChatWorkspaceLoader } from "@/components/dashboard/chat-workspace-loade
 import { QueryProvider } from "@/components/providers/query-provider";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function ChatConversationPage({
   params,

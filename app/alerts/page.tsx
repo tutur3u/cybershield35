@@ -12,7 +12,6 @@ import {
 import { getQueryClient } from "@/lib/query-client";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function AlertsPage({
 	searchParams,

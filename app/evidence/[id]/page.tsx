@@ -9,7 +9,6 @@ import {
 import { getTimelinePostById } from "@/lib/dashboard/timeline-server";
 
 export const instant = true;
-export const prefetch = "allow-runtime";
 
 export default function EvidenceDetailPage({
 	params,

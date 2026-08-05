@@ -40,6 +40,9 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
+    // Local git worktrees hold other repositories' source. Linting them buries
+    // this project's real findings under thousands of foreign ones.
+    ".worktrees/**",
   ]),
 ]);
 

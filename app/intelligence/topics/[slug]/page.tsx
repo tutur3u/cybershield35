@@ -1,1 +1,1 @@
-export { default, metadata, instant, prefetch } from "@/app/topics/[slug]/page";
+export { default, metadata, instant } from "@/app/topics/[slug]/page";
