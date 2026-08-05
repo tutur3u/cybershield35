@@ -5,26 +5,23 @@ import {
 	AlertTriangle,
 	ArrowDownAZ,
 	CalendarClock,
+	CheckCircle2,
+	Clock,
 	EyeOff,
 	FileDown,
-	FileEdit,
 	Loader,
 	LoaderCircle,
 	Newspaper,
 	Plus,
 	Search,
 	Send,
-	ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { SafeImage } from "@/components/dashboard/safe-image";
-import {
-	DashboardTooltip,
-	ReviewBadge,
-} from "@/components/dashboard/ui-primitives";
+import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
 import {
 	Dialog,
 	DialogContent,
@@ -215,7 +212,7 @@ export function ArticlesWorkspace() {
 			) : null}
 
 			<div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
-				<div className="grid grid-cols-[28px_minmax(0,1fr)_110px_110px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">
+				<div className="grid grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">
 					<DashboardTooltip
 						content={
 							allVisibleSelected
@@ -236,12 +233,12 @@ export function ArticlesWorkspace() {
 							type="checkbox"
 						/>
 					</DashboardTooltip>
-					<span>Bài viết</span><span>Duyệt</span><span>Trên Zalo OA</span>
+					<span>Bài viết</span><span>Trạng thái</span>
 				</div>
 				{articles.map(({ article }) => (
 					<div
 						key={article.id}
-						className={`grid grid-cols-[28px_minmax(0,1fr)_110px_110px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 ${
+						className={`grid grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 ${
 							selected.has(article.id)
 								? "bg-[var(--accent-soft)]"
 								: "hover:bg-[var(--surface-soft)]"
@@ -278,8 +275,7 @@ export function ArticlesWorkspace() {
 							/>
 							<span className="min-w-0"><strong className="block truncate text-[12px] text-[var(--foreground)]">{article.title || "Bài viết chưa đặt tên"}</strong><span className="mt-1 block truncate text-[10px] font-semibold text-[var(--muted)]">{article.description || "Chưa có trích yếu"}</span><span className="mt-1 block text-[9px] text-[var(--muted)]">Cập nhật {formatDate(article.updatedAt)}</span></span>
 						</Link>
-						<ReviewBadge status={article.reviewStatus} />
-						<ZaloStatusBadge
+						<ArticleStatusCell
 							reason={article.lastError}
 							reviewStatus={article.reviewStatus}
 							status={article.publicationStatus}
@@ -461,129 +457,190 @@ function Filter({ icon, label, onChange, options, value }: { icon?: boolean; lab
 }
 
 /**
- * Where the article stands on the Zalo Official Account, and what would move it.
+ * One column instead of two.
  *
- * "Chưa đăng" is the same word for two very different situations: an approved
- * article waiting to be pushed, and one that cannot go anywhere until somebody
- * reviews it. Every state now says which it is, so an editor is never left
- * guessing why nothing is happening.
+ * "Duyệt" and "Trên Zalo OA" were separate, so the reader had to combine them to
+ * answer the only question that matters — where is this article, and what does it
+ * need next. Worse, they contradicted each other constantly: "Chờ duyệt" beside
+ * "Chưa đăng" states the same fact twice, and an unapproved article showed a Zalo
+ * column that could only ever say "not there yet".
+ *
+ * The pipeline is linear, so it renders as one position on it: draft → chờ duyệt
+ * → đã duyệt → ẩn trên Zalo → đang hiển thị, with rejection and failure as the
+ * two ways off that path.
  */
-function ZaloStatusBadge({
+function ArticleStatusCell({
 	reason,
 	reviewStatus,
 	status,
 }: {
-	/** Why the last attempt failed. A red badge with no reason tells an editor
-	 * something is broken without telling them what to do about it. */
 	reason?: string | null;
-	reviewStatus?: string;
+	reviewStatus: string;
 	status: string;
 }) {
-	const config: Record<string, { className: string; icon: typeof Send; label: string }> = {
-		failed: {
-			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
-			icon: AlertTriangle,
-			label: "Đăng lỗi",
-		},
-		hidden: {
-			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
-			icon: EyeOff,
-			label: "Ẩn trên Zalo",
-		},
-		not_synced: {
-			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
-			icon: FileEdit,
-			label: "Chưa đăng",
-		},
-		published: {
-			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
-			icon: Send,
-			label: "Đang hiển thị",
-		},
-		publishing: {
-			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-			icon: Loader,
-			label: "Đang đăng",
-		},
-		scheduled: {
-			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-			icon: CalendarClock,
-			label: "Đã hẹn giờ",
-		},
-		syncing: {
-			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-			icon: Loader,
-			label: "Đang đưa lên",
-		},
-	};
-	// Needing an approval explains any state where the article is not actually on
-	// Zalo — including `failed`, whose stored reason is usually the approval gate
-	// itself. Rendering that as "Đăng lỗi" reports a refusal to do something
-	// nobody asked for yet as though the publish had broken.
-	const liveOnZalo =
-		status === "published" || status === "hidden" || status === "publishing";
-	const awaitingReview =
-		!liveOnZalo && reviewStatus !== undefined && reviewStatus !== "approved";
-	const entry = awaitingReview
-		? {
-				className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
-				icon: ShieldAlert,
-				label: reviewStatus === "rejected" ? "Đã từ chối" : "Chờ duyệt",
-			}
-		: (config[status] ?? config.not_synced!);
-	const Icon = entry.icon;
-	const badge = (
-		<span
-			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
-		>
-			<Icon size={11} />
-			{entry.label}
-		</span>
-	);
+	const step = articleStatusStep({ reason, reviewStatus, status });
 
 	return (
-		<DashboardTooltip content={zaloBadgeHelp({ awaitingReview, reason, reviewStatus, status })}>
-			{badge}
+		<DashboardTooltip
+			content={
+				<div className="space-y-1.5">
+					<p className="font-bold">{step.label}</p>
+					<p>{step.help}</p>
+					{step.next ? (
+						<p className="text-[10px] font-medium text-[var(--muted)]">
+							Tiếp theo: {step.next}
+						</p>
+					) : null}
+				</div>
+			}
+		>
+			<div className="flex min-w-0 items-center gap-2">
+				<span
+					className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${step.className}`}
+				>
+					<step.icon size={11} />
+					{step.label}
+				</span>
+				<StatusTrack index={step.index} tone={step.tone} />
+			</div>
 		</DashboardTooltip>
 	);
 }
 
-/** What this state means and what would move it forward. */
-function zaloBadgeHelp({
-	awaitingReview,
+/** Five dots for the five positions, so progress is legible without reading. */
+function StatusTrack({
+	index,
+	tone,
+}: {
+	index: number;
+	tone: "danger" | "progress" | "success" | "warning";
+}) {
+	const fill =
+		tone === "danger"
+			? "bg-[var(--danger-strong)]"
+			: tone === "success"
+				? "bg-[var(--success-strong)]"
+				: tone === "warning"
+					? "bg-[var(--warning-strong)]"
+					: "bg-[var(--accent)]";
+
+	return (
+		<span aria-hidden className="flex shrink-0 items-center gap-1">
+			{[0, 1, 2, 3, 4].map((dot) => (
+				<span
+					className={`h-1.5 w-1.5 rounded-full ${dot <= index ? fill : "bg-[var(--border-strong)]"}`}
+					key={dot}
+				/>
+			))}
+		</span>
+	);
+}
+
+function articleStatusStep({
 	reason,
 	reviewStatus,
 	status,
 }: {
-	awaitingReview: boolean;
 	reason?: string | null;
-	reviewStatus?: string;
+	reviewStatus: string;
 	status: string;
 }) {
-	if (awaitingReview) {
-		return reviewStatus === "rejected"
-			? "Bài đã bị từ chối nên không được đưa lên Zalo OA. Hãy chỉnh sửa rồi gửi duyệt lại."
-			: "Chưa lên Zalo OA vì bài chưa được phê duyệt. Mở bài, rà soát rồi bấm Phê duyệt trước khi đăng.";
-	}
+	const liveOnZalo =
+		status === "published" || status === "hidden" || status === "publishing";
 
-	switch (status) {
-		case "failed":
-			return (
-				reason?.trim() ||
-				"Lần đưa lên Zalo OA gần nhất thất bại. Mở bài để xem chi tiết và thử lại."
-			);
-		case "hidden":
-			return "Bản ẩn đã có trên Zalo OA, chỉ quản trị viên OA nhìn thấy. Bấm Đăng để hiển thị công khai.";
-		case "published":
-			return "Bài đang hiển thị công khai với người theo dõi Zalo OA.";
-		case "publishing":
-			return "Đang đưa bài lên hiển thị công khai trên Zalo OA.";
-		case "scheduled":
-			return "Đã hẹn giờ đăng. Bài sẽ tự hiển thị công khai vào thời điểm đã đặt.";
-		case "syncing":
-			return "Đang đồng bộ bản ẩn lên Zalo OA để rà soát trước khi đăng.";
-		default:
-			return "Bài đã được duyệt nhưng chưa có trên Zalo OA. Bấm Đăng lên Zalo OA để đưa bản ẩn lên.";
+	if (status === "published") {
+		return {
+			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+			help: "Bài đang hiển thị công khai với người theo dõi Zalo OA.",
+			icon: Send,
+			index: 4,
+			label: "Đang hiển thị",
+			next: null,
+			tone: "success" as const,
+		};
 	}
+	if (status === "publishing" || status === "syncing") {
+		return {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			help:
+				status === "publishing"
+					? "Đang đưa bài lên hiển thị công khai trên Zalo OA."
+					: "Đang đồng bộ bản ẩn lên Zalo OA.",
+			icon: Loader,
+			index: 3,
+			label: status === "publishing" ? "Đang đăng" : "Đang đưa lên",
+			next: "Chờ Zalo xác nhận",
+			tone: "progress" as const,
+		};
+	}
+	if (status === "scheduled") {
+		return {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			help: "Đã hẹn giờ. Bài sẽ tự hiển thị công khai vào thời điểm đã đặt.",
+			icon: CalendarClock,
+			index: 3,
+			label: "Đã hẹn giờ",
+			next: "Tự đăng theo lịch",
+			tone: "progress" as const,
+		};
+	}
+	if (reviewStatus === "rejected") {
+		return {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			help: "Bài đã bị từ chối nên không được đưa lên Zalo OA.",
+			icon: AlertTriangle,
+			index: 1,
+			label: "Đã từ chối",
+			next: "Chỉnh sửa rồi gửi duyệt lại",
+			tone: "danger" as const,
+		};
+	}
+	// A failure only means something once the article was actually cleared to go.
+	if (status === "failed" && reviewStatus === "approved") {
+		return {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			help: reason?.trim() || "Lần đưa lên Zalo OA gần nhất thất bại.",
+			icon: AlertTriangle,
+			index: 2,
+			label: "Đăng lỗi",
+			next: "Mở bài để xem chi tiết và thử lại",
+			tone: "danger" as const,
+		};
+	}
+	if (reviewStatus !== "approved") {
+		return {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			help:
+				reviewStatus === "draft"
+					? "Bản nháp đang soạn, chưa gửi duyệt."
+					: "Đang chờ người phụ trách rà soát và phê duyệt.",
+			icon: Clock,
+			index: reviewStatus === "draft" ? 0 : 1,
+			label: reviewStatus === "draft" ? "Bản nháp" : "Chờ duyệt",
+			next: "Phê duyệt trước khi đăng",
+			tone: "warning" as const,
+		};
+	}
+	if (status === "hidden" || liveOnZalo) {
+		return {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			help: "Bản ẩn đã có trên Zalo OA, chỉ quản trị viên OA nhìn thấy.",
+			icon: EyeOff,
+			index: 3,
+			label: "Ẩn trên Zalo",
+			next: "Bấm Đăng để hiển thị công khai",
+			tone: "warning" as const,
+		};
+	}
+	return {
+		className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+		help: "Bài đã được duyệt và sẵn sàng đưa lên Zalo OA.",
+		icon: CheckCircle2,
+		index: 2,
+		label: "Đã duyệt",
+		next: "Đăng lên Zalo OA",
+		tone: "success" as const,
+	};
 }
+
 function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }

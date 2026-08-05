@@ -63,35 +63,37 @@ describe("the articles list drives bulk actions", () => {
 		expect(workspace).toContain('onRun({ action: "publish" })');
 	});
 
-	test("every Zalo badge explains itself", () => {
-		// A badge that only names a state leaves the reader guessing what would
-		// move it forward.
-		expect(workspace).toContain("function zaloBadgeHelp");
-		for (const status of [
-			"failed",
-			"hidden",
-			"published",
-			"publishing",
-			"scheduled",
-			"syncing",
+	test("one status column says where the article is and what is next", () => {
+		// "Duyệt" and "Trên Zalo OA" were separate, so the reader had to combine
+		// them to answer the only question that matters, and they contradicted
+		// each other — "Chờ duyệt" beside "Chưa đăng" states the same fact twice.
+		expect(workspace).toContain("function ArticleStatusCell");
+		expect(workspace).toContain("function articleStatusStep");
+		expect(workspace).toContain("Tiếp theo:");
+		expect(workspace).not.toContain("function ZaloStatusBadge");
+
+		// Every position on the pipeline is reachable, including the two the
+		// status alone cannot distinguish (draft vs awaiting review).
+		for (const label of [
+			"Bản nháp",
+			"Chờ duyệt",
+			"Đã duyệt",
+			"Ẩn trên Zalo",
+			"Đang hiển thị",
+			"Đã từ chối",
+			"Đăng lỗi",
 		]) {
-			expect(workspace).toContain(`case "${status}":`);
+			expect(workspace).toContain(`"${label}"`);
 		}
 	});
 
-	test("an unapproved article says so instead of reading as merely unposted", () => {
-		// "Chưa đăng" covers both an approved article awaiting a push and one that
-		// cannot go anywhere until somebody reviews it.
-		expect(workspace).toContain("const awaitingReview =");
-		expect(workspace).toContain('reviewStatus !== "approved"');
-		expect(workspace).toContain("chưa được phê duyệt");
-	});
-
-	test("needing approval outranks a failure whose reason is that approval", () => {
+	test("an unapproved article never reads as a publish failure", () => {
 		// The stored error on an unapproved article is usually the approval gate
-		// itself. Showing "Đăng lỗi" reports a refusal to do something nobody asked
-		// for yet as though the publish had broken.
-		expect(workspace).toContain("const liveOnZalo =");
-		expect(workspace).toContain("!liveOnZalo && reviewStatus !== undefined");
+		// itself; reporting that as "Đăng lỗi" blames the publish for a refusal
+		// nobody had asked for yet.
+		expect(workspace).toContain(
+			'if (status === "failed" && reviewStatus === "approved")',
+		);
+		expect(workspace).toContain('if (reviewStatus !== "approved")');
 	});
 });
