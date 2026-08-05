@@ -2,6 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import { articleBulkActionSchema } from "@/lib/articles/schemas";
+import { articleStatusStep } from "@/lib/articles/status-step";
+
+/** Only the fields a case cares about; the rest take their common values. */
+const step = (overrides: {
+	remote?: boolean;
+	reviewStatus: string;
+	status: string;
+}) => articleStatusStep({ reason: null, ...overrides });
 
 describe("bulk article actions", () => {
 	test("accepts every action the toolbar offers", () => {
@@ -68,13 +76,21 @@ describe("the articles list drives bulk actions", () => {
 		// them to answer the only question that matters, and they contradicted
 		// each other — "Chờ duyệt" beside "Chưa đăng" states the same fact twice.
 		expect(workspace).toContain("function ArticleStatusCell");
-		expect(workspace).toContain("function articleStatusStep");
 		expect(workspace).toContain("Tiếp theo:");
 		expect(workspace).not.toContain("function ZaloStatusBadge");
 
 		// Every position on the pipeline is reachable, including the two the
 		// status alone cannot distinguish (draft vs awaiting review).
-		for (const label of [
+		const labels = [
+			step({ reviewStatus: "draft", status: "not_synced" }),
+			step({ reviewStatus: "needs_review", status: "not_synced" }),
+			step({ reviewStatus: "approved", status: "not_synced" }),
+			step({ reviewStatus: "approved", status: "hidden" }),
+			step({ reviewStatus: "approved", status: "published" }),
+			step({ reviewStatus: "rejected", status: "not_synced" }),
+			step({ reviewStatus: "approved", status: "failed" }),
+		].map((entry) => entry.label);
+		expect(labels).toEqual([
 			"Bản nháp",
 			"Chờ duyệt",
 			"Đã duyệt",
@@ -82,18 +98,39 @@ describe("the articles list drives bulk actions", () => {
 			"Đang hiển thị",
 			"Đã từ chối",
 			"Đăng lỗi",
-		]) {
-			expect(workspace).toContain(`"${label}"`);
-		}
+		]);
+		// The track advances monotonically along that same order.
+		expect(step({ reviewStatus: "draft", status: "not_synced" }).index).toBe(0);
+		expect(step({ reviewStatus: "approved", status: "published" }).index).toBe(4);
 	});
 
-	test("an unapproved article never reads as a publish failure", () => {
-		// The stored error on an unapproved article is usually the approval gate
-		// itself; reporting that as "Đăng lỗi" blames the publish for a refusal
-		// nobody had asked for yet.
-		expect(workspace).toContain(
-			'if (status === "failed" && reviewStatus === "approved")',
+	test("an unapproved article never reads as a Zalo publish state", () => {
+		// A queued sync the rules reject leaves "failed"/"syncing" behind on an
+		// article nobody approved. Reporting that verbatim tells the operator a
+		// publish went wrong — or is in flight — when none was ever attempted.
+		for (const status of ["failed", "syncing", "publishing", "scheduled"]) {
+			expect(step({ reviewStatus: "needs_review", status }).label).toBe(
+				"Chờ duyệt",
+			);
+		}
+		expect(step({ reviewStatus: "approved", status: "failed" }).label).toBe(
+			"Đăng lỗi",
 		);
-		expect(workspace).toContain('if (reviewStatus !== "approved")');
+	});
+
+	test("an unapproved article still on Zalo says so", () => {
+		// The one Zalo fact worth reporting without approval, because it is
+		// something the operator has to act on rather than wait for.
+		for (const status of ["hidden", "published"]) {
+			const entry = step({ remote: true, reviewStatus: "needs_review", status });
+			expect(entry.label).toBe("Còn trên Zalo");
+			expect(entry.tone).toBe("danger");
+			expect(entry.next).toContain("Gỡ khỏi Zalo OA");
+		}
+		// Without a remote article there is nothing on the OA to report.
+		expect(
+			step({ remote: false, reviewStatus: "needs_review", status: "hidden" })
+				.label,
+		).toBe("Chờ duyệt");
 	});
 });

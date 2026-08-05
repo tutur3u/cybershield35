@@ -580,3 +580,67 @@ describe("Zalo OA security and article contract", () => {
 		expect(verified.id).toBe("remote-article-id");
 	});
 });
+
+describe("a request the rules reject is not a publish failure", () => {
+	const worker = readFileSync(
+		new URL("../lib/workers/article-publications.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("policy refusals are cancelled rather than retried", () => {
+		// The queue held sync jobs from before the approval gate existed. Each run
+		// re-ran one, the gate refused it, and the refusal was written back as a
+		// publish failure — repainting an unapproved article red every few
+		// minutes for work nobody had asked for.
+		expect(worker).toContain("class PublicationNotPermittedError");
+		expect(worker).toContain(
+			"const notPermitted = error instanceof PublicationNotPermittedError",
+		);
+		expect(worker).toContain(
+			"const retry = !notPermitted && claimed.attempts < claimed.maxAttempts",
+		);
+		expect(worker).toContain('notPermitted ? "cancelled" : "failed"');
+	});
+
+	test("every approval-shaped refusal uses that error", () => {
+		// A plain Error here would be retried and reported as a Zalo failure.
+		for (const message of [
+			"Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.",
+			"Tự động hóa chỉ được đồng bộ bản nháp ẩn; không được phép xuất bản công khai.",
+			"Hãy bấm Xuất bản trong trình biên tập trước khi đưa bài lên Zalo OA.",
+		]) {
+			const at = worker.indexOf(message);
+			expect(at).toBeGreaterThan(-1);
+			expect(worker.slice(Math.max(0, at - 200), at)).toContain(
+				"new PublicationNotPermittedError(",
+			);
+		}
+	});
+
+	test("a refused article keeps describing where it actually stands", () => {
+		expect(worker).toContain('? "hidden"');
+		expect(worker).toContain(': "not_synced",');
+		expect(worker).toContain("if (!retry && !notPermitted) throw error;");
+	});
+});
+
+describe("a review decision clears a refusal it inherited", () => {
+	const store = readFileSync(
+		new URL("../lib/articles/store.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("an unapproved article's stale Zalo state is corrected on review", () => {
+		// Otherwise the approver is greeted by "Đăng lỗi" describing a publish
+		// that the approval gate itself refused before anything reached Zalo.
+		const at = store.indexOf("reviewStatus: status,");
+		expect(at).toBeGreaterThan(-1);
+		const setClause = store.slice(Math.max(0, at - 1200), at);
+		expect(setClause).toContain("publicationStatus: sql`case");
+		expect(setClause).toContain("'not_synced'::publication_status");
+		// An article with a draft on the OA keeps saying so — that part is true.
+		expect(setClause).toContain("'hidden'::publication_status");
+		// An approved article's genuine failure is not swept away with it.
+		expect(setClause).toContain("= 'approved'");
+	});
+});

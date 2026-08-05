@@ -29,6 +29,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { articleStatusStep } from "@/lib/articles/status-step";
 import {
 	articleCatalogInfiniteQueryOptions,
 	articleQueryKeys,
@@ -277,6 +278,7 @@ export function ArticlesWorkspace() {
 						</Link>
 						<ArticleStatusCell
 							reason={article.lastError}
+							remote={Boolean(article.remoteArticleId)}
 							reviewStatus={article.reviewStatus}
 							status={article.publicationStatus}
 						/>
@@ -471,14 +473,17 @@ function Filter({ icon, label, onChange, options, value }: { icon?: boolean; lab
  */
 function ArticleStatusCell({
 	reason,
+	remote,
 	reviewStatus,
 	status,
 }: {
 	reason?: string | null;
+	remote?: boolean;
 	reviewStatus: string;
 	status: string;
 }) {
-	const step = articleStatusStep({ reason, reviewStatus, status });
+	const step = articleStatusStep({ reason, remote, reviewStatus, status });
+	const Icon = STATUS_ICONS[step.icon];
 
 	return (
 		<DashboardTooltip
@@ -498,7 +503,7 @@ function ArticleStatusCell({
 				<span
 					className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${step.className}`}
 				>
-					<step.icon size={11} />
+					<Icon size={11} />
 					{step.label}
 				</span>
 				<StatusTrack index={step.index} tone={step.tone} />
@@ -506,6 +511,16 @@ function ArticleStatusCell({
 		</DashboardTooltip>
 	);
 }
+
+const STATUS_ICONS = {
+	alert: AlertTriangle,
+	approved: CheckCircle2,
+	clock: Clock,
+	hidden: EyeOff,
+	loader: Loader,
+	schedule: CalendarClock,
+	send: Send,
+} as const;
 
 /** Five dots for the five positions, so progress is legible without reading. */
 function StatusTrack({
@@ -534,113 +549,6 @@ function StatusTrack({
 			))}
 		</span>
 	);
-}
-
-function articleStatusStep({
-	reason,
-	reviewStatus,
-	status,
-}: {
-	reason?: string | null;
-	reviewStatus: string;
-	status: string;
-}) {
-	const liveOnZalo =
-		status === "published" || status === "hidden" || status === "publishing";
-
-	if (status === "published") {
-		return {
-			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
-			help: "Bài đang hiển thị công khai với người theo dõi Zalo OA.",
-			icon: Send,
-			index: 4,
-			label: "Đang hiển thị",
-			next: null,
-			tone: "success" as const,
-		};
-	}
-	if (status === "publishing" || status === "syncing") {
-		return {
-			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-			help:
-				status === "publishing"
-					? "Đang đưa bài lên hiển thị công khai trên Zalo OA."
-					: "Đang đồng bộ bản ẩn lên Zalo OA.",
-			icon: Loader,
-			index: 3,
-			label: status === "publishing" ? "Đang đăng" : "Đang đưa lên",
-			next: "Chờ Zalo xác nhận",
-			tone: "progress" as const,
-		};
-	}
-	if (status === "scheduled") {
-		return {
-			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-			help: "Đã hẹn giờ. Bài sẽ tự hiển thị công khai vào thời điểm đã đặt.",
-			icon: CalendarClock,
-			index: 3,
-			label: "Đã hẹn giờ",
-			next: "Tự đăng theo lịch",
-			tone: "progress" as const,
-		};
-	}
-	if (reviewStatus === "rejected") {
-		return {
-			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
-			help: "Bài đã bị từ chối nên không được đưa lên Zalo OA.",
-			icon: AlertTriangle,
-			index: 1,
-			label: "Đã từ chối",
-			next: "Chỉnh sửa rồi gửi duyệt lại",
-			tone: "danger" as const,
-		};
-	}
-	// A failure only means something once the article was actually cleared to go.
-	if (status === "failed" && reviewStatus === "approved") {
-		return {
-			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
-			help: reason?.trim() || "Lần đưa lên Zalo OA gần nhất thất bại.",
-			icon: AlertTriangle,
-			index: 2,
-			label: "Đăng lỗi",
-			next: "Mở bài để xem chi tiết và thử lại",
-			tone: "danger" as const,
-		};
-	}
-	if (reviewStatus !== "approved") {
-		return {
-			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
-			help:
-				reviewStatus === "draft"
-					? "Bản nháp đang soạn, chưa gửi duyệt."
-					: "Đang chờ người phụ trách rà soát và phê duyệt.",
-			icon: Clock,
-			index: reviewStatus === "draft" ? 0 : 1,
-			label: reviewStatus === "draft" ? "Bản nháp" : "Chờ duyệt",
-			next: "Phê duyệt trước khi đăng",
-			tone: "warning" as const,
-		};
-	}
-	if (status === "hidden" || liveOnZalo) {
-		return {
-			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
-			help: "Bản ẩn đã có trên Zalo OA, chỉ quản trị viên OA nhìn thấy.",
-			icon: EyeOff,
-			index: 3,
-			label: "Ẩn trên Zalo",
-			next: "Bấm Đăng để hiển thị công khai",
-			tone: "warning" as const,
-		};
-	}
-	return {
-		className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
-		help: "Bài đã được duyệt và sẵn sàng đưa lên Zalo OA.",
-		icon: CheckCircle2,
-		index: 2,
-		label: "Đã duyệt",
-		next: "Đăng lên Zalo OA",
-		tone: "success" as const,
-	};
 }
 
 function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }

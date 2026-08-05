@@ -26,6 +26,7 @@ import {
 } from "@/components/dashboard/ui-primitives";
 
 import {
+	effectivePublicationStatus,
 	publicationLabel,
 	publicationTone,
 	relativeTime,
@@ -84,6 +85,10 @@ export function EditorHeader({
 	title: string;
 	versionCount: number;
 }) {
+	const publicationStatus = effectivePublicationStatus(
+		article.publicationStatus,
+		article.reviewStatus,
+	);
 	return (
 		<header className="sticky top-2 z-30 rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 shadow-[var(--shadow-soft)] backdrop-blur">
 			<div className="flex flex-wrap items-center gap-3 px-3 py-3">
@@ -101,8 +106,8 @@ export function EditorHeader({
 						</p>
 						<ReviewBadge status={article.reviewStatus} />
 						<StatusChip
-							label={publicationLabel(article.publicationStatus)}
-							tone={publicationTone(article.publicationStatus)}
+							label={publicationLabel(publicationStatus)}
+							tone={publicationTone(publicationStatus)}
 						/>
 						{article.originDraftId ? (
 							<DashboardTooltip content="Bài được chuẩn bị tự động từ nội dung đã quét và vẫn cần người duyệt trước khi xuất bản.">

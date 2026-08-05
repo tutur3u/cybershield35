@@ -248,6 +248,22 @@ export function reviewTone(status: string): StatusTone {
 	);
 }
 
+/**
+ * Collapses a Zalo state that approval makes meaningless.
+ *
+ * A queued sync the rules reject leaves "failed"/"syncing" on an article nobody
+ * approved. Reporting that verbatim tells the operator a publish went wrong when
+ * no publish was ever attempted — so an unapproved article only reports what is
+ * genuinely on the OA, and otherwise reads as not yet sent.
+ */
+export function effectivePublicationStatus(
+	status: string,
+	reviewStatus: string,
+) {
+	if (reviewStatus === "approved") return status;
+	return status === "published" || status === "hidden" ? status : "not_synced";
+}
+
 export function publicationLabel(status: string) {
 	return (
 		{

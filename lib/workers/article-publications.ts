@@ -229,7 +229,18 @@ export async function processArticlePublicationJob(jobId: string) {
 			error,
 			"Thao tác Zalo chưa hoàn tất. Hệ thống sẽ tự động thử lại.",
 		);
-		const retry = claimed.attempts < claimed.maxAttempts;
+		// A job the rules reject can never succeed on a later attempt, so it is
+		// cancelled rather than retried — otherwise the queue re-runs it forever
+		// and repaints the article red every few minutes.
+		const notPermitted = error instanceof PublicationNotPermittedError;
+		const retry = !notPermitted && claimed.attempts < claimed.maxAttempts;
+		const [current] = notPermitted
+			? await adminDb
+					.select({ remoteArticleId: articles.remoteArticleId })
+					.from(articles)
+					.where(eq(articles.id, claimed.articleId))
+					.limit(1)
+			: [];
 		const nextAttempt = new Date(
 			Date.now() + Math.min(15 * 60_000, 30_000 * 2 ** claimed.attempts),
 		);
@@ -239,20 +250,36 @@ export async function processArticlePublicationJob(jobId: string) {
 				errorMessage: message,
 				lockedAt: null,
 				scheduledAt: retry ? nextAttempt : claimed.scheduledAt,
-				status: retry ? "retrying" : "failed",
+				status: retry ? "retrying" : notPermitted ? "cancelled" : "failed",
 				updatedAt: new Date(),
 			})
 			.where(eq(articlePublicationJobs.id, jobId))
 			.returning();
 		await adminDb
 			.update(articles)
-			.set({
-				lastError: message,
-				publicationStatus: retry ? claimed.operation === "publish" ? "scheduled" : "syncing" : "failed",
-				updatedAt: new Date(),
-			})
+			.set(
+				notPermitted
+					? {
+							// Nothing was attempted on Zalo, so the article goes back to
+							// describing where it actually stands.
+							lastError: null,
+							publicationStatus: current?.remoteArticleId
+								? "hidden"
+								: "not_synced",
+							updatedAt: new Date(),
+						}
+					: {
+							lastError: message,
+							publicationStatus: retry
+								? claimed.operation === "publish"
+									? "scheduled"
+									: "syncing"
+								: "failed",
+							updatedAt: new Date(),
+						},
+			)
 			.where(eq(articles.id, claimed.articleId));
-		if (!retry) throw error;
+		if (!retry && !notPermitted) throw error;
 		return failed ?? claimed;
 	}
 }
@@ -504,6 +531,16 @@ async function executePublicationOperation(
 	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 }
 
+/**
+ * A request the rules no longer permit — not a transport failure.
+ *
+ * The distinction matters: a Zalo timeout is worth retrying and worth showing as
+ * "Đăng lỗi", whereas an unapproved article was never eligible in the first
+ * place. Retrying it can only fail again, and reporting it as a publish error on
+ * an article nobody approved is simply wrong — there was no publish to fail.
+ */
+class PublicationNotPermittedError extends Error {}
+
 function validateOperation(
 	article: typeof articles.$inferSelect,
 	operation: PublicationOperation,
@@ -511,15 +548,15 @@ function validateOperation(
 	actorUserId: string,
 ) {
 	if (!actorAllowsArticleOperation(actorUserId, operation)) {
-		throw new Error(
+		throw new PublicationNotPermittedError(
 			"Tự động hóa chỉ được đồng bộ bản nháp ẩn; không được phép xuất bản công khai.",
 		);
 	}
 	if (!reviewAllowsArticleOperation(article.reviewStatus, operation)) {
-		throw new Error("Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.");
+		throw new PublicationNotPermittedError("Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.");
 	}
 	if (!publicationStateAllowsArticleOperation(article.state, operation)) {
-		throw new Error(
+		throw new PublicationNotPermittedError(
 			"Hãy bấm Xuất bản trong trình biên tập trước khi đưa bài lên Zalo OA.",
 		);
 	}

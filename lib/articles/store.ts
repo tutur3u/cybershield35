@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, asc, desc, eq, ilike, inArray, isNull, max, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
@@ -345,6 +345,22 @@ export async function setArticleReviewStatus(
 	const [updated] = await adminDb
 		.update(articles)
 		.set({
+			// A Zalo state left behind by a request the approval gate refused
+			// describes nothing that happened. Carrying it past approval would
+			// greet the approver with "Đăng lỗi" for a publish nobody attempted,
+			// so it is corrected in the same write. Anything with a draft on the
+			// OA keeps saying so — that part is true.
+			lastError: sql`case
+				when ${articles.reviewStatus} <> 'approved'
+					and ${articles.publicationStatus} in ('failed', 'syncing', 'publishing', 'scheduled')
+					then null
+				else ${articles.lastError} end`,
+			publicationStatus: sql`case
+				when ${articles.reviewStatus} = 'approved'
+					or ${articles.publicationStatus} not in ('failed', 'syncing', 'publishing', 'scheduled')
+					then ${articles.publicationStatus}
+				when ${articles.remoteArticleId} is null then 'not_synced'::publication_status
+				else 'hidden'::publication_status end`,
 			reviewStatus: status,
 			updatedAt: new Date(),
 			updatedByDisplayName: actor.displayName,
