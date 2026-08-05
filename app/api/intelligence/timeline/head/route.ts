@@ -8,8 +8,15 @@ export async function GET(request: Request) {
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 	try {
-		const { filters } = parseTimelineSearchParams(new URL(request.url).searchParams);
-		return Response.json(await getTimelineHead(filters), { headers: authHeaders(auth) });
+		const url = new URL(request.url);
+		// `since` is a viewer-local marker, not a data filter, so it must not reach
+		// the strict filter schema or the shared query key.
+		const since = url.searchParams.get("since");
+		url.searchParams.delete("since");
+		const { filters } = parseTimelineSearchParams(url.searchParams);
+		return Response.json(await getTimelineHead(filters, since), {
+			headers: authHeaders(auth),
+		});
 	} catch (error) {
 		return Response.json(
 			{ error: error instanceof ZodError ? error.issues[0]?.message : error instanceof Error ? error.message : "Không thể kiểm tra cập nhật." },

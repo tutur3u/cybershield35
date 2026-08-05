@@ -28,7 +28,6 @@ import {
 	rewriteDraftWithAi,
 	runScanRecord,
 	runManagedSchedulerJobNow,
-	scanTrackedSource,
 	updateDraftBody,
 	updateEvidenceRecord,
 	updateScanRecord,
@@ -76,12 +75,12 @@ const loadDetailPages = () => import("@/components/dashboard/detail-pages");
 const loadDialogs = () => import("@/components/dashboard/dialogs");
 
 const OverviewPage = dynamic(() =>
-	import("@/components/dashboard/overview-page").then(
+	import("@/components/dashboard/overview").then(
 		(module) => module.OverviewPage,
 	),
 );
 const SourcesPage = dynamic(() =>
-	import("@/components/dashboard/sources-page").then(
+	import("@/components/dashboard/sources").then(
 		(module) => module.SourcesPage,
 	),
 );
@@ -571,17 +570,6 @@ export function CyberShieldDashboard({
 			}).then((success) => {
 				if (success) invalidateDashboardQueries();
 				return success;
-			}),
-		onScanTrackedSource: (trackedSource) =>
-			scanTrackedSource({
-				trackedSource,
-				setIsCreating,
-				setTrackedSources,
-				setScans,
-				setSelectedScanId,
-				setNotice,
-			}).then((success) => {
-				if (success) invalidateDashboardQueries();
 			}),
 		onRunSchedulerJob: (jobKey) =>
 			runManagedSchedulerJobNow({

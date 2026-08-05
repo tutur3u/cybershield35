@@ -92,6 +92,9 @@ export const dashboardQueryKeys = {
 		["dashboard", "topics", "infinite", limit] as const,
 	topicDetailInfinite: (slug: string, limit: number) =>
 		["dashboard", "topic-detail", "infinite", slug, limit] as const,
+	workflowPipeline: () => ["dashboard", "workflow-pipeline"] as const,
+	intelligenceAnalytics: (params: Record<string, string>) =>
+		["dashboard", "intelligence", "analytics", params] as const,
 	intelligenceOverview: (params: Record<string, string>) =>
 		["dashboard", "intelligence", "overview", params] as const,
 	intelligenceEvidenceInfinite: (

@@ -1,12 +1,12 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownAZ, FileDown, LoaderCircle, Newspaper, Plus, Search } from "lucide-react";
-import Image from "next/image";
+import { Archive, ArrowDownAZ, FileDown, FileEdit, LoaderCircle, Newspaper, Plus, Search, Send } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import { SafeImage } from "@/components/dashboard/safe-image";
+import { ReviewBadge } from "@/components/dashboard/ui-primitives";
 import {
 	Dialog,
 	DialogContent,
@@ -74,11 +74,22 @@ export function ArticlesWorkspace() {
 				{articles.map(({ article }) => (
 					<Link key={article.id} href={`/articles/${article.id}`} className="grid grid-cols-[minmax(0,1fr)_110px_110px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 hover:bg-[var(--surface-soft)]">
 						<div className="flex min-w-0 items-center gap-3">
-							{article.coverUrl ? <Image unoptimized width={96} height={64} src={article.coverUrl} alt="" className="h-12 w-16 shrink-0 rounded-md object-cover" /> : <span className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--muted)]"><Newspaper size={18} /></span>}
+							<SafeImage
+								alt=""
+								className="h-12 w-16 shrink-0 rounded-md object-cover"
+								fallback={
+									<span className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--muted)]">
+										<Newspaper size={18} />
+									</span>
+								}
+								height={64}
+								src={article.coverUrl}
+								width={96}
+							/>
 							<span className="min-w-0"><strong className="block truncate text-[12px] text-[var(--foreground)]">{article.title || "Bài viết chưa đặt tên"}</strong><span className="mt-1 block truncate text-[10px] font-semibold text-[var(--muted)]">{article.description || "Chưa có trích yếu"}</span><span className="mt-1 block text-[9px] text-[var(--muted)]">Cập nhật {formatDate(article.updatedAt)}</span></span>
 						</div>
-						<Badge variant="outline" className={reviewClass(article.reviewStatus)}>{reviewLabel(article.reviewStatus)}</Badge>
-						<Badge variant="outline" className="justify-center border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted-strong)]">{stateLabel(article.state)}</Badge>
+						<ReviewBadge status={article.reviewStatus} />
+						<PublishStateBadge state={article.state} />
 					</Link>
 				))}
 				{articlesQuery.isPending ? <div className="grid min-h-40 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div> : null}
@@ -108,7 +119,33 @@ function Filter({ icon, label, onChange, options, value }: { icon?: boolean; lab
 	return <label className="relative"><span className="sr-only">{label}</span>{icon ? <ArrowDownAZ size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" /> : null}<select value={value} onChange={(event) => onChange(event.target.value)} className={`h-10 min-w-36 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pr-7 text-[11px] font-bold outline-none focus:border-[var(--accent)] ${icon ? "pl-8" : "pl-3"}`}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
 }
 
-function reviewLabel(value: string) { return value === "approved" ? "Đã duyệt" : value === "rejected" ? "Từ chối" : value === "needs_review" ? "Cần duyệt" : "Bản nháp"; }
-function reviewClass(value: string) { return value === "approved" ? "justify-center border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]" : value === "rejected" ? "justify-center border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "justify-center border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning-strong)]"; }
-function stateLabel(value: string) { return value === "published" ? "Đã xuất bản" : value === "archived" ? "Lưu trữ" : "Bản nháp"; }
+function PublishStateBadge({ state }: { state: string }) {
+	const config: Record<string, { className: string; icon: typeof Send; label: string }> = {
+		archived: {
+			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+			icon: Archive,
+			label: "Lưu trữ",
+		},
+		draft: {
+			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+			icon: FileEdit,
+			label: "Chưa xuất bản",
+		},
+		published: {
+			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+			icon: Send,
+			label: "Đã xuất bản",
+		},
+	};
+	const entry = config[state] ?? config.draft!;
+	const Icon = entry.icon;
+	return (
+		<span
+			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
+		>
+			<Icon size={11} />
+			{entry.label}
+		</span>
+	);
+}
 function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }

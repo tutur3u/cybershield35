@@ -1,53 +1,65 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
+import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { evidenceItems, type RiskLevel } from "@/lib/db/schema";
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import {
+	classifyEvidenceRisk,
+	isRiskClassificationAvailable,
+	type EvidenceRiskInput,
+} from "@/lib/llm/risk-classification";
 
 type StoredEvidenceRisk = {
+	author: string | null;
 	engagement: Record<string, unknown>;
 	id: string;
 	metadata: Record<string, unknown>;
 	quote: string;
 	risk_level: RiskLevel;
+	source_label: string | null;
 	summary: string;
 };
 
+type ScoredEvidence = {
+	categories: string[];
+	confidence: number | null;
+	id: string;
+	level: RiskLevel;
+	reasons: string[];
+	source: "llm" | "rules";
+};
+
+/**
+ * Re-scores stored evidence with the LLM classifier, then re-ranks every
+ * projection so dashboards reflect the new posture instead of the previous one.
+ */
 export async function reassessStoredEvidenceRisk(limit = 5_000) {
 	const rows = await adminSqlClient<StoredEvidenceRisk[]>`
-		select id, quote, summary, engagement, metadata, risk_level
+		select id, quote, summary, author, source_label, engagement, metadata, risk_level
 		from evidence_items
 		order by created_at desc
 		limit ${limit}
 	`;
+	const scored = await scoreEvidenceRows(rows);
 	let updated = 0;
+	let llmScored = 0;
 
 	for (let offset = 0; offset < rows.length; offset += 25) {
 		const batch = rows.slice(offset, offset + 25);
 		await Promise.all(
 			batch.map(async (row) => {
-				const assessment = assessEvidenceRisk({
-					comments: finiteMetric(row.engagement.comments),
-					shares: finiteMetric(row.engagement.shares),
-					storedRisk: row.risk_level,
-					text: `${row.quote}\n${row.summary}`,
-				});
-				const previousReasons = Array.isArray(row.metadata.riskReasons)
-					? row.metadata.riskReasons
-					: [];
-				if (
-					assessment.level === row.risk_level &&
-					JSON.stringify(previousReasons) === JSON.stringify(assessment.reasons)
-				) {
-					return;
-				}
+				const assessment = scored.get(row.id);
+				if (!assessment) return;
+				if (assessment.source === "llm") llmScored += 1;
+				if (!hasRiskChanged(row, assessment)) return;
 
 				await adminDb
 					.update(evidenceItems)
 					.set({
-						metadata: { ...row.metadata, riskReasons: assessment.reasons },
+						metadata: riskMetadata(row.metadata, assessment),
 						riskLevel: assessment.level,
 					})
 					.where(eq(evidenceItems.id, row.id));
@@ -57,7 +69,128 @@ export async function reassessStoredEvidenceRisk(limit = 5_000) {
 	}
 
 	await alignAggregateRiskLevels();
-	return { checked: rows.length, updated };
+	await refreshIntelligenceRollupsBestEffort("evidence-risk-reassessment");
+	return {
+		checked: rows.length,
+		classifier: isRiskClassificationAvailable() ? "llm" : "rules",
+		llmScored,
+		updated,
+	};
+}
+
+/**
+ * Scores freshly ingested evidence during a scan. Provider adapters only attach a
+ * provisional rule-based level so the pipeline never blocks on the LLM; this pass
+ * replaces it with the model verdict as soon as the rows exist.
+ */
+export async function classifyPersistedEvidenceRisk(evidenceIds: string[]) {
+	if (!evidenceIds.length) return { scored: 0, updated: 0 };
+	const rows = await adminDb
+		.select({
+			author: evidenceItems.author,
+			engagement: evidenceItems.engagement,
+			id: evidenceItems.id,
+			metadata: evidenceItems.metadata,
+			quote: evidenceItems.quote,
+			risk_level: evidenceItems.riskLevel,
+			source_label: evidenceItems.sourceLabel,
+			summary: evidenceItems.summary,
+		})
+		.from(evidenceItems)
+		.where(inArray(evidenceItems.id, evidenceIds));
+	const scored = await scoreEvidenceRows(rows as StoredEvidenceRisk[]);
+	let updated = 0;
+
+	for (const row of rows as StoredEvidenceRisk[]) {
+		const assessment = scored.get(row.id);
+		if (!assessment || !hasRiskChanged(row, assessment)) continue;
+		await adminDb
+			.update(evidenceItems)
+			.set({
+				metadata: riskMetadata(row.metadata, assessment),
+				riskLevel: assessment.level,
+			})
+			.where(eq(evidenceItems.id, row.id));
+		updated += 1;
+	}
+
+	return { scored: scored.size, updated };
+}
+
+async function scoreEvidenceRows(rows: StoredEvidenceRisk[]) {
+	const inputs: EvidenceRiskInput[] = rows.map((row) => ({
+		author: row.author,
+		comments: finiteMetric(row.engagement?.comments),
+		id: row.id,
+		reactions: finiteMetric(row.engagement?.reactions),
+		shares: finiteMetric(row.engagement?.shares),
+		sourceLabel: row.source_label,
+		text: `${row.quote}\n${row.summary}`.trim(),
+	}));
+	const classified = await classifyEvidenceRisk(inputs).catch(
+		() => new Map<string, never>(),
+	);
+	const scored = new Map<string, ScoredEvidence>();
+
+	for (const row of rows) {
+		const verdict = classified.get(row.id);
+		if (verdict) {
+			scored.set(row.id, {
+				categories: verdict.categories,
+				confidence: verdict.confidence,
+				id: row.id,
+				level: verdict.level,
+				reasons: [verdict.rationale],
+				source: "llm",
+			});
+			continue;
+		}
+		const fallback = assessEvidenceRisk({
+			comments: finiteMetric(row.engagement?.comments),
+			shares: finiteMetric(row.engagement?.shares),
+			storedRisk: row.risk_level,
+			text: `${row.quote}\n${row.summary}`,
+		});
+		scored.set(row.id, {
+			categories: fallback.categories,
+			confidence: null,
+			id: row.id,
+			level: fallback.level,
+			reasons: fallback.reasons,
+			source: "rules",
+		});
+	}
+
+	return scored;
+}
+
+function hasRiskChanged(row: StoredEvidenceRisk, assessment: ScoredEvidence) {
+	const previousReasons = Array.isArray(row.metadata?.riskReasons)
+		? row.metadata.riskReasons
+		: [];
+	const previousCategories = Array.isArray(row.metadata?.riskCategories)
+		? row.metadata.riskCategories
+		: [];
+	return (
+		assessment.level !== row.risk_level ||
+		row.metadata?.riskClassifier !== assessment.source ||
+		JSON.stringify(previousReasons) !== JSON.stringify(assessment.reasons) ||
+		JSON.stringify(previousCategories) !== JSON.stringify(assessment.categories)
+	);
+}
+
+function riskMetadata(
+	metadata: Record<string, unknown>,
+	assessment: ScoredEvidence,
+) {
+	return {
+		...metadata,
+		riskCategories: assessment.categories,
+		riskClassifier: assessment.source,
+		riskConfidence: assessment.confidence,
+		riskReasons: assessment.reasons,
+		riskScoredAt: new Date().toISOString(),
+	};
 }
 
 async function alignAggregateRiskLevels() {

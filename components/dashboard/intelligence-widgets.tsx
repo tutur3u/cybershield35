@@ -1,16 +1,13 @@
 "use client";
 
-import { ArrowRight, Info, Play } from "lucide-react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Play } from "lucide-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 import {
 	intelligenceClaimsInfiniteQueryOptions,
-	intelligenceOverviewQueryOptions,
 	intelligenceSourcesInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
-import { IntelligenceEvidenceRowView } from "@/components/dashboard/intelligence-evidence-row";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
-import { IntelligenceTopicRowView } from "@/components/dashboard/intelligence-topic-row";
 import {
 	EmptyRow,
 	formatIntelligenceDate as formatDate,
@@ -21,13 +18,8 @@ import {
 } from "@/components/dashboard/intelligence-workspace-shared";
 import type {
 	IntelligenceClaimRow,
-	IntelligenceEvidenceRow,
 	IntelligenceHealthState,
-	IntelligenceKpi,
-	IntelligenceOverviewView,
-	IntelligenceProviderRow,
 	IntelligenceSourceRow,
-	IntelligenceTopicRow,
 } from "@/components/dashboard/types";
 import {
 	DashboardTooltip,
@@ -36,52 +28,15 @@ import {
 	RiskPill,
 } from "@/components/dashboard/ui-primitives";
 
-type IntelligenceWidgetProps = {
-	onOpenScan?: () => void;
-};
-
-export function ExecutiveIntelligenceDashboard({
-	onOpenScan,
-}: IntelligenceWidgetProps) {
-	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
-	const overviewQuery = useQuery(intelligenceOverviewQueryOptions(filters));
-	const overview = overviewQuery.data;
-
-	return (
-		<div className="space-y-5">
-			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
-			{overviewQuery.isError ? (
-				<IntelligenceError
-					title="Không tải được tổng quan"
-					body={overviewQuery.error.message}
-				/>
-			) : null}
-			<ExecutiveKpiGrid
-				kpis={overview?.kpis}
-				isLoading={overviewQuery.isPending}
-			/>
-			<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-				<RiskTrendPanel overview={overview} isLoading={overviewQuery.isPending} />
-				<ActionRoutingPanel
-					overview={overview}
-					onOpenScan={onOpenScan}
-					isLoading={overviewQuery.isPending}
-				/>
-			</div>
-			<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-				<TopicMomentumPanel topics={overview?.topTopics} />
-				<SourceHealthPanel
-					providers={overview?.providerHealth}
-					sources={overview?.sourceHealth}
-				/>
-				<ClaimGraphPanel claims={overview?.topClaims} />
-				<CriticalEvidencePanel evidence={overview?.topEvidence} />
-			</div>
-		</div>
-	);
-}
-
-export function IntelligenceClaimsWorkspace() {
+/**
+ * Claims that need a human check, each linked back to the content supporting it.
+ * `standalone` adds the filter bar for pages that do not already render one.
+ */
+export function IntelligenceClaimsWorkspace({
+	standalone = false,
+}: {
+	standalone?: boolean;
+}) {
 	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
 	const claimsQuery = useInfiniteQuery(
 		intelligenceClaimsInfiniteQueryOptions(filters, 24),
@@ -90,11 +45,13 @@ export function IntelligenceClaimsWorkspace() {
 
 	return (
 		<div className="space-y-5">
-			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
+			{standalone ? (
+				<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
+			) : null}
 			<Panel>
 				<PanelHeader
 					title="Nhận định cần kiểm tra"
-					description="Mỗi nhận định đi kèm mức tin cậy và bằng chứng liên quan."
+					description="Mỗi nhận định đi kèm mức tin cậy và các bài viết liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
 					{claims.map((claim) => (
@@ -117,8 +74,10 @@ export function IntelligenceClaimsWorkspace() {
 
 export function IntelligenceSourcesWorkspace({
 	onOpenScan,
+	standalone = false,
 }: {
 	onOpenScan?: () => void;
+	standalone?: boolean;
 }) {
 	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
 	const sourcesQuery = useInfiniteQuery(
@@ -128,17 +87,19 @@ export function IntelligenceSourcesWorkspace({
 
 	return (
 		<div className="space-y-5">
-			<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
+			{standalone ? (
+				<IntelligenceFilterBar filters={filters} setFilter={setFilter} />
+			) : null}
 			<Panel>
 				<PanelHeader
-					title="Trạng thái nguồn"
-					description="Theo dõi độ mới, lỗi gần đây và lần cập nhật gần nhất của từng nguồn."
+					title="Tình trạng nguồn"
+					description="Độ mới, lỗi gần đây và lần cập nhật gần nhất của từng nguồn."
 					action={
 						onOpenScan ? (
 							<button
 								type="button"
 								onClick={onOpenScan}
-								className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
+								className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 							>
 								<Play size={14} /> Quét nguồn
 							</button>
@@ -164,305 +125,9 @@ export function IntelligenceSourcesWorkspace({
 	);
 }
 
-function ExecutiveKpiGrid({
-	isLoading,
-	kpis,
-}: {
-	isLoading: boolean;
-	kpis?: IntelligenceKpi[];
-}) {
-	const visible = kpis ?? skeletonKpis;
-
+function ClaimRow({ claim }: { claim: IntelligenceClaimRow }) {
 	return (
-		<div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-			{visible.map((kpi) => (
-				<IntentPrefetchLink key={kpi.id} href={kpi.href} className="min-w-0">
-					<Panel className="h-full transition hover:border-[var(--border-strong)]">
-						<div className="min-w-0 p-4">
-							<div className="flex min-w-0 items-start justify-between gap-3">
-								<div className="min-w-0">
-									<DashboardTooltip content={kpi.help}>
-										<p className="inline-flex max-w-full items-center gap-1 truncate text-[12px] font-bold text-[var(--muted-strong)]">
-											{kpi.label} <Info size={13} className="shrink-0" />
-										</p>
-									</DashboardTooltip>
-									<p
-										className={`mt-2 text-[28px] font-bold leading-none ${toneText(kpi.tone)} ${
-											isLoading ? "animate-pulse" : ""
-										}`}
-									>
-										{kpi.value}
-									</p>
-								</div>
-								<ArrowRight size={15} className="shrink-0 text-[var(--muted)]" />
-							</div>
-							<p className="mt-2 text-[12px] leading-5 text-[var(--muted)]">
-								{kpi.description}
-							</p>
-							<p className="mt-3 w-fit max-w-full rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
-								{kpi.trendLabel}
-							</p>
-						</div>
-					</Panel>
-				</IntentPrefetchLink>
-			))}
-		</div>
-	);
-}
-
-function RiskTrendPanel({
-	isLoading,
-	overview,
-}: {
-	isLoading: boolean;
-	overview?: IntelligenceOverviewView;
-}) {
-	const trends = overview?.trends ?? [];
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Xu hướng rủi ro và bằng chứng"
-				description="Diễn biến nội dung và các vấn đề cần ưu tiên theo ngày."
-			/>
-			<div className="p-4">
-				{trends.length ? (
-					<TrendSvg trends={trends} />
-				) : (
-					<div className="grid min-h-56 place-items-center rounded-md border border-dashed border-[var(--border)] text-center text-[12px] font-semibold text-[var(--muted)]">
-						{isLoading
-							? "Đang tải dữ liệu..."
-							: "Chưa có đủ dữ liệu. Hãy quét một nguồn để bắt đầu."}
-					</div>
-				)}
-			</div>
-		</Panel>
-	);
-}
-
-function TrendSvg({
-	trends,
-}: {
-	trends: Array<{ day: string; evidence: number; highRisk: number; scans: number }>;
-}) {
-	const width = 720;
-	const height = 220;
-	const padding = 26;
-	const maxValue = Math.max(
-		1,
-		...trends.flatMap((point) => [point.evidence, point.highRisk, point.scans]),
-	);
-	const points = (key: "evidence" | "highRisk" | "scans") =>
-		trends
-			.map((point, index) => {
-				const x =
-					padding +
-					(index / Math.max(1, trends.length - 1)) * (width - padding * 2);
-				const y =
-					height -
-					padding -
-					(point[key] / maxValue) * (height - padding * 2);
-				return `${x},${y}`;
-			})
-			.join(" ");
-
-	return (
-		<div className="min-w-0 overflow-hidden">
-			<svg
-				viewBox={`0 0 ${width} ${height}`}
-				className="h-56 w-full"
-				role="img"
-				aria-label="Biểu đồ xu hướng lượt quét và bằng chứng"
-			>
-				<polyline
-					points={points("evidence")}
-					fill="none"
-					stroke="var(--accent)"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="4"
-				/>
-				<polyline
-					points={points("highRisk")}
-					fill="none"
-					stroke="var(--danger-strong)"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="4"
-				/>
-				<polyline
-					points={points("scans")}
-					fill="none"
-					stroke="var(--success-strong)"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="3"
-				/>
-			</svg>
-			<div className="flex flex-wrap gap-2 text-[11px] font-bold text-[var(--muted-strong)]">
-				<Legend color="var(--accent)" label="Bằng chứng" />
-				<Legend color="var(--danger-strong)" label="Rủi ro cao" />
-				<Legend color="var(--success-strong)" label="Lượt quét" />
-			</div>
-		</div>
-	);
-}
-
-function ActionRoutingPanel({
-	isLoading,
-	onOpenScan,
-	overview,
-}: {
-	isLoading: boolean;
-	onOpenScan?: () => void;
-	overview?: IntelligenceOverviewView;
-}) {
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Ngoại lệ cần xử lý"
-				description="Những nội dung có ảnh hưởng lớn hoặc cần được kiểm tra trước."
-				action={
-					onOpenScan ? (
-						<button
-							type="button"
-							onClick={onOpenScan}
-							className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
-						>
-							<Play size={14} /> Quét nguồn
-						</button>
-					) : null
-				}
-			/>
-			<div className="divide-y divide-[var(--divider)]">
-				{overview?.actions.map((action) => (
-					<IntentPrefetchLink
-						key={action.id}
-						href={action.href}
-						className="grid min-w-0 gap-2 px-4 py-3 transition hover:bg-[var(--surface-soft)]"
-					>
-						<div className="flex min-w-0 items-start justify-between gap-3">
-							<DashboardTooltip content={action.help}>
-								<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
-									{action.label}
-								</p>
-							</DashboardTooltip>
-							<RiskPill risk={action.severity} />
-						</div>
-						<p className="line-clamp-2 text-[12px] leading-5 text-[var(--muted)]">
-							{action.body}
-						</p>
-					</IntentPrefetchLink>
-				))}
-				{!overview?.actions.length ? (
-					<EmptyRow
-						text={
-							isLoading
-								? "Đang tải việc cần xử lý..."
-								: "Không có việc khẩn cấp."
-						}
-					/>
-				) : null}
-			</div>
-		</Panel>
-	);
-}
-
-function TopicMomentumPanel({ topics }: { topics?: IntelligenceTopicRow[] }) {
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Động lượng chủ đề"
-				description="Các chủ đề đang nhận thêm sự chú ý hoặc tăng mức ảnh hưởng."
-			/>
-			<div className="divide-y divide-[var(--divider)]">
-				{topics?.map((topic) => (
-					<IntelligenceTopicRowView key={topic.id} topic={topic} compact />
-				))}
-				{!topics?.length ? <EmptyRow text="Chưa có chủ đề nổi bật." /> : null}
-			</div>
-		</Panel>
-	);
-}
-
-function SourceHealthPanel({
-	providers,
-	sources,
-}: {
-	providers?: IntelligenceProviderRow[];
-	sources?: IntelligenceSourceRow[];
-}) {
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Nguồn và kết nối dữ liệu"
-				description="Tình trạng cập nhật của nguồn và các kết nối đang sử dụng."
-			/>
-			<div className="grid gap-0 divide-y divide-[var(--divider)]">
-				{providers?.slice(0, 3).map((provider) => (
-					<ProviderHealthRow key={provider.provider} provider={provider} />
-				))}
-				{sources?.slice(0, 4).map((source) => (
-					<SourceRow key={source.sourceId} source={source} compact />
-				))}
-				{!providers?.length && !sources?.length ? (
-					<EmptyRow text="Chưa có dữ liệu trạng thái nguồn." />
-				) : null}
-			</div>
-		</Panel>
-	);
-}
-
-function ClaimGraphPanel({ claims }: { claims?: IntelligenceClaimRow[] }) {
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Nhận định và lập luận"
-				description="Nhận định quan trọng, độ tin cậy và bằng chứng liên quan."
-			/>
-			<div className="divide-y divide-[var(--divider)]">
-				{claims?.map((claim) => (
-					<ClaimRow key={claim.id} claim={claim} compact />
-				))}
-				{!claims?.length ? <EmptyRow text="Chưa có nhận định nổi bật." /> : null}
-			</div>
-		</Panel>
-	);
-}
-
-function CriticalEvidencePanel({
-	evidence,
-}: {
-	evidence?: IntelligenceEvidenceRow[];
-}) {
-	return (
-		<Panel className="h-full">
-			<PanelHeader
-				title="Bằng chứng trọng yếu"
-				description="Bằng chứng mới hoặc rủi ro cao có thể mở trực tiếp."
-			/>
-			<div className="divide-y divide-[var(--divider)]">
-				{evidence?.map((item) => (
-					<IntelligenceEvidenceRowView key={item.id} evidence={item} compact />
-				))}
-				{!evidence?.length ? <EmptyRow text="Chưa có bằng chứng nổi bật." /> : null}
-			</div>
-		</Panel>
-	);
-}
-
-function ClaimRow({
-	claim,
-	compact = false,
-}: {
-	claim: IntelligenceClaimRow;
-	compact?: boolean;
-}) {
-	return (
-		<div
-			className={`grid min-w-0 gap-3 px-4 py-3 ${
-				compact ? "" : "sm:grid-cols-[minmax(0,1fr)_120px_92px]"
-			} sm:items-center`}
-		>
+		<div className="grid min-w-0 gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_120px_92px] sm:items-center">
 			<div className="min-w-0">
 				<IntentPrefetchLink
 					href={claim.deepLink}
@@ -471,7 +136,8 @@ function ClaimRow({
 					{claim.claim}
 				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{claim.evidenceCount} bằng chứng - {stanceLabel(claim.stance)} - {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
+					{claim.evidenceCount} nội dung liên quan · {stanceLabel(claim.stance)} ·{" "}
+					{claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{claim.evidenceHrefs.slice(0, 3).map((href, index) => (
@@ -480,36 +146,24 @@ function ClaimRow({
 							href={href}
 							className="max-w-full truncate rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
 						>
-							Bằng chứng {index + 1}
+							Dẫn chứng {index + 1}
 						</IntentPrefetchLink>
 					))}
 				</div>
 			</div>
-			{compact ? null : (
-				<DashboardTooltip content="Mức độ bằng chứng hiện có hỗ trợ trực tiếp cho nhận định này.">
-					<span className="w-fit rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
-						{claim.confidence}% tin cậy
-					</span>
-				</DashboardTooltip>
-			)}
+			<DashboardTooltip content="Mức độ dữ liệu hiện có hỗ trợ trực tiếp cho nhận định này.">
+				<span className="w-fit rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-bold text-[var(--foreground)]">
+					{claim.confidence}% tin cậy
+				</span>
+			</DashboardTooltip>
 			<RiskPill risk={claim.riskLevel} />
 		</div>
 	);
 }
 
-function SourceRow({
-	compact = false,
-	source,
-}: {
-	compact?: boolean;
-	source: IntelligenceSourceRow;
-}) {
+function SourceRow({ source }: { source: IntelligenceSourceRow }) {
 	return (
-		<div
-			className={`grid min-w-0 gap-3 px-4 py-3 ${
-				compact ? "" : "sm:grid-cols-[minmax(0,1fr)_130px_110px]"
-			} sm:items-center`}
-		>
+		<div className="grid min-w-0 gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_130px_110px] sm:items-center">
 			<div className="min-w-0">
 				<IntentPrefetchLink
 					href={source.href}
@@ -518,7 +172,8 @@ function SourceRow({
 					{source.sourceLabel}
 				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{source.evidenceCount} bằng chứng - {source.failedScanCount} lỗi - {providerLabel(source.provider)}
+					{source.evidenceCount} bài · {source.failedScanCount} lỗi ·{" "}
+					{providerLabel(source.provider)}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					<IntentPrefetchLink
@@ -537,31 +192,10 @@ function SourceRow({
 					) : null}
 				</div>
 			</div>
-			{compact ? null : (
-				<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-					{source.lastScannedAt ? formatDate(source.lastScannedAt) : "Chưa từng quét"}
-				</p>
-			)}
-			<HealthBadge health={source.health} />
-		</div>
-	);
-}
-
-function ProviderHealthRow({ provider }: { provider: IntelligenceProviderRow }) {
-	return (
-		<div className="grid min-w-0 gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_120px_100px] sm:items-center">
-			<div className="min-w-0">
-				<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
-					{providerLabel(provider.provider)}
-				</p>
-				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{provider.completedRunCount} hoàn tất - {provider.failedRunCount} lỗi
-				</p>
-			</div>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-				{provider.avgDurationMs ? `${Math.max(1, Math.round(provider.avgDurationMs / 1_000))} giây trung bình` : "Chưa có thời lượng"}
+				{source.lastScannedAt ? formatDate(source.lastScannedAt) : "Chưa từng quét"}
 			</p>
-			<HealthBadge health={provider.health} />
+			<HealthBadge health={source.health} />
 		</div>
 	);
 }
@@ -571,9 +205,9 @@ function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 		attention: "Cần chú ý",
 		blocked: "Bị chặn",
 		healthy: "Ổn định",
-		stale: "Cũ",
+		stale: "Đã cũ",
 		unknown: "Không rõ",
-		unseen: "Chưa thấy",
+		unseen: "Chưa quét",
 	};
 	const help: Record<IntelligenceHealthState, string> = {
 		attention: "Đang cập nhật hoặc cần được kiểm tra thêm.",
@@ -581,7 +215,7 @@ function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 		healthy: "Gần đây có dữ liệu thành công.",
 		stale: "Nguồn chưa có nội dung mới trong một khoảng thời gian.",
 		unknown: "Chưa đủ dữ liệu để xác định trạng thái.",
-		unseen: "Nguồn hoặc kết nối chưa có lần cập nhật nào.",
+		unseen: "Nguồn chưa có lần quét nào.",
 	};
 	const className: Record<IntelligenceHealthState, string> = {
 		attention: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
@@ -603,41 +237,6 @@ function HealthBadge({ health }: { health: IntelligenceHealthState }) {
 	);
 }
 
-function IntelligenceError({ body, title }: { body: string; title: string }) {
-	return (
-		<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3">
-			<p className="text-[13px] font-bold text-[var(--danger-strong)]">{title}</p>
-			<p className="mt-1 text-[12px] leading-5 text-[var(--danger-strong)]">
-				{body}
-			</p>
-		</div>
-	);
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			<span
-				aria-hidden
-				className="size-2 rounded-full"
-				style={{ backgroundColor: color }}
-			/>
-			{label}
-		</span>
-	);
-}
-
-function toneText(tone: IntelligenceKpi["tone"]) {
-	const map: Record<IntelligenceKpi["tone"], string> = {
-		accent: "text-[var(--accent-strong)]",
-		danger: "text-[var(--danger-strong)]",
-		neutral: "text-[var(--muted-strong)]",
-		success: "text-[var(--success-strong)]",
-		warning: "text-[var(--warning-strong)]",
-	};
-	return map[tone];
-}
-
 function stanceLabel(stance: string) {
 	const labels: Record<string, string> = {
 		neutral: "trung lập",
@@ -648,36 +247,3 @@ function stanceLabel(stance: string) {
 	};
 	return labels[stance] ?? "đang đánh giá";
 }
-
-const skeletonKpis: IntelligenceKpi[] = [
-	{
-		description: "Đang tải các lượt quét.",
-		help: "Số lượt quét đã hoàn tất trong khoảng thời gian đã chọn.",
-		href: "/sources",
-		id: "loading-scans",
-		label: "Lượt quét đã xử lý",
-		tone: "neutral",
-		trendLabel: "Đang tải",
-		value: "-",
-	},
-	{
-		description: "Đang tải mức độ ưu tiên.",
-		help: "Tỷ lệ nội dung cần được xem xét trước.",
-		href: "/evidence",
-		id: "loading-risk",
-		label: "Tư thế rủi ro",
-		tone: "neutral",
-		trendLabel: "Đang tải",
-		value: "-",
-	},
-	{
-		description: "Đang tải nhận định.",
-		help: "Các nhận định đã được liên kết với bằng chứng.",
-		href: "/alerts",
-		id: "loading-claims",
-		label: "Nhận định",
-		tone: "neutral",
-		trendLabel: "Đang tải",
-		value: "-",
-	},
-];

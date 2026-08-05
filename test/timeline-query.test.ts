@@ -63,7 +63,11 @@ describe("timeline query contract", () => {
 });
 
 describe("timeline implementation safety", () => {
-	const server = readFileSync("lib/dashboard/timeline-server.ts", "utf8");
+	const server = readFileSync("lib/dashboard/timeline-server.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-shared.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-mapping.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-related.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-triage.ts", "utf8");
 	const migration = readFileSync("drizzle/0009_flashy_dark_beast.sql", "utf8");
 
 	test("uses stable keyset ordering and safe engagement parsing", () => {

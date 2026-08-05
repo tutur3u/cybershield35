@@ -8,6 +8,7 @@ export const DASHBOARD_OPERATIONS_TAG = "dashboard:operations";
 export type DashboardIntelligenceCacheKind =
 	| "activity"
 	| "all"
+	| "analytics"
 	| "claims"
 	| "evidence"
 	| "facebook-pages"

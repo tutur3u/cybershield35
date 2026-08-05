@@ -61,14 +61,20 @@ export const counterArgumentOutputSchema = z.object({
 	safetyNotes: z.array(z.string()),
 });
 
+/**
+ * Deliberately looser than the Zalo editorial limits. Models routinely overshoot a
+ * hard character cap by a few words, and rejecting the whole draft for that costs
+ * the operator an entire generation; `prepareZaloArticleContent` trims title and
+ * description to the real limits at the word boundary instead.
+ */
 export const articleAiOutputSchema = z.object({
 	author: z.string().trim().max(50),
 	blocks: z.array(articleBlockSchema).min(1).max(100),
 	commentsEnabled: z.boolean(),
 	coverUrl: z.string().url().nullable(),
-	description: z.string().trim().max(180),
+	description: z.string().trim().max(600),
 	reviewNotes: z.array(z.string().trim().min(1).max(500)).max(12).default([]),
-	title: z.string().trim().min(1).max(110),
+	title: z.string().trim().min(1).max(300),
 });
 
 export const reportAiOutputSchema = z.object({

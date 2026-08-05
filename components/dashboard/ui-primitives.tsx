@@ -1,3 +1,15 @@
+import {
+	AlertTriangle,
+	CheckCircle2,
+	Clock,
+	Loader,
+	PencilLine,
+	RotateCcw,
+	ShieldAlert,
+	ShieldCheck,
+	XCircle,
+	type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import {
 	Tooltip,
@@ -51,34 +63,106 @@ export function PanelHeader({
 }
 
 export function StatusPill({ status }: { status: ScanStatus | string }) {
-	const styles: Record<string, string> = {
-		queued: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
-		running: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
-		completed: "bg-[var(--success-soft)] text-[var(--success-strong)]",
-		failed: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
-		retrying: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+	const config: Record<
+		string,
+		{ className: string; help: string; icon: LucideIcon; label: string }
+	> = {
+		completed: {
+			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+			help: "Lượt quét đã xong; nội dung và phân tích đã sẵn sàng.",
+			icon: CheckCircle2,
+			label: "Hoàn tất",
+		},
+		failed: {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			help: "Lượt quét gặp lỗi. Mở chi tiết để xem bước bị chặn.",
+			icon: XCircle,
+			label: "Lỗi",
+		},
+		queued: {
+			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+			help: "Đã đưa vào hàng đợi và đang chờ tới lượt xử lý.",
+			icon: Clock,
+			label: "Đang chờ",
+		},
+		retrying: {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			help: "Hệ thống đang thử lại sau một lỗi tạm thời.",
+			icon: RotateCcw,
+			label: "Thử lại",
+		},
+		running: {
+			className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]",
+			help: "Đang thu thập và phân tích nội dung.",
+			icon: Loader,
+			label: "Đang quét",
+		},
 	};
-	const labels: Record<string, string> = {
-		queued: "Đang chờ",
-		running: "Đang quét",
-		completed: "Hoàn tất",
-		failed: "Lỗi",
-		retrying: "Thử lại",
-	};
-	const help: Record<string, string> = {
-		queued: "Scan đã được tạo và đang chờ worker xử lý.",
-		running: "Worker đang thu thập hoặc phân tích dữ liệu cho scan này.",
-		completed: "Scan đã xử lý xong và có thể đọc bằng chứng, chủ đề, cảnh báo.",
-		failed: "Scan gặp lỗi. Mở chi tiết hoặc nhật ký để xem bước bị chặn.",
-		retrying: "Hệ thống đang thử chạy lại sau một lỗi tạm thời.",
-	};
+	const entry = config[status] ?? config.queued!;
+	const Icon = entry.icon;
 
 	return (
-		<DashboardTooltip content={help[status] ?? "Trạng thái hiện tại của scan."}>
+		<DashboardTooltip content={entry.help}>
 			<span
-				className={`inline-flex h-6 min-w-[72px] max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[status] ?? styles.queued}`}
+				className={`inline-flex h-6 min-w-[84px] max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-center text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
 			>
-				{labels[status] ?? status}
+				<Icon size={11} className={status === "running" ? "animate-spin" : ""} />
+				{entry.label}
+			</span>
+		</DashboardTooltip>
+	);
+}
+
+/**
+ * One review badge for every surface so a status never renders with two different
+ * shapes — or twice — on the same screen.
+ */
+export function ReviewBadge({
+	className = "",
+	status,
+}: {
+	className?: string;
+	status: string;
+}) {
+	const config: Record<
+		string,
+		{ className: string; help: string; icon: LucideIcon; label: string }
+	> = {
+		approved: {
+			className: "bg-[var(--success-soft)] text-[var(--success-strong)]",
+			help: "Đã được người phụ trách phê duyệt.",
+			icon: CheckCircle2,
+			label: "Đã duyệt",
+		},
+		draft: {
+			className: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+			help: "Bản nháp đang soạn, chưa gửi duyệt.",
+			icon: PencilLine,
+			label: "Bản nháp",
+		},
+		needs_review: {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			help: "Đang chờ người phụ trách xem và phê duyệt.",
+			icon: Clock,
+			label: "Chờ duyệt",
+		},
+		rejected: {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			help: "Đã bị từ chối; cần chỉnh sửa trước khi gửi lại.",
+			icon: XCircle,
+			label: "Từ chối",
+		},
+	};
+	const entry = config[status] ?? config.draft!;
+	const Icon = entry.icon;
+
+	return (
+		<DashboardTooltip content={entry.help}>
+			<span
+				className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${entry.className} ${className}`}
+			>
+				<Icon size={11} />
+				{entry.label}
 			</span>
 		</DashboardTooltip>
 	);
@@ -103,11 +187,17 @@ export function RiskPill({
 		medium: "Trung bình",
 		low: "Thấp",
 	};
-	const help: Record<string, string> = {
-		high: "Rủi ro cao: cần đọc bằng chứng và ưu tiên xử lý trước khi dùng báo cáo.",
-		medium: "Rủi ro trung bình: có tín hiệu cần kiểm tra cùng bằng chứng liên quan.",
-		low: "Rủi ro thấp: chưa thấy tín hiệu nghiêm trọng trong dữ liệu hiện tại.",
+	const icons: Record<string, LucideIcon> = {
+		high: ShieldAlert,
+		low: ShieldCheck,
+		medium: AlertTriangle,
 	};
+	const help: Record<string, string> = {
+		high: "Rủi ro cao: cần đọc kỹ nội dung và ưu tiên xử lý trước.",
+		medium: "Rủi ro trung bình: có tín hiệu cần kiểm tra thêm.",
+		low: "Rủi ro thấp: chưa thấy tín hiệu nghiêm trọng trong nội dung hiện có.",
+	};
+	const Icon = icons[risk] ?? AlertTriangle;
 
 	return (
 		<DashboardTooltip
@@ -128,8 +218,9 @@ export function RiskPill({
 			}
 		>
 			<span
-				className={`inline-flex h-6 min-w-12 max-w-full shrink-0 items-center justify-center rounded-md px-2.5 text-center text-[11px] font-bold leading-none shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)] whitespace-nowrap ${styles[risk] ?? styles.medium}`}
+				className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-center text-[11px] font-bold leading-none whitespace-nowrap ${styles[risk] ?? styles.medium}`}
 			>
+				<Icon size={11} />
 				{labelPrefix ? `${labelPrefix}: ` : ""}
 				{labels[risk] ?? risk}
 			</span>

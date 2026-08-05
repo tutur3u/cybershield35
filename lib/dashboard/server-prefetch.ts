@@ -17,6 +17,8 @@ import {
 	listIntelligenceSources,
 	listIntelligenceTopics,
 } from "@/lib/dashboard/intelligence-server";
+import { getIntelligenceAnalytics } from "@/lib/dashboard/intelligence-analytics";
+import { getWorkflowPipeline } from "@/lib/dashboard/pipeline-server";
 import { listTimeline } from "@/lib/dashboard/timeline-server";
 import {
 	dashboardQueryKeys,
@@ -49,6 +51,19 @@ export async function prefetchDashboardRouteData(
 					overview,
 				);
 			}),
+		);
+	}
+
+	if (page === "overview") {
+		tasks.push(
+			getWorkflowPipeline().then((pipeline) => {
+				queryClient.setQueryData(dashboardQueryKeys.workflowPipeline(), pipeline);
+			}),
+			prefetchFirstPage(
+				queryClient,
+				dashboardQueryKeys.intelligenceActivityInfinite(params, 8),
+				listIntelligenceActivity({ filters, limit: 8 }),
+			),
 		);
 	}
 
@@ -138,6 +153,18 @@ export async function prefetchDashboardRouteData(
 	}
 
 	await Promise.allSettled(tasks);
+}
+
+export async function prefetchIntelligenceAnalytics(
+	queryClient: QueryClient,
+	filters: IntelligenceFilters,
+) {
+	await io();
+	const analytics = await getIntelligenceAnalytics(filters);
+	queryClient.setQueryData(
+		dashboardQueryKeys.intelligenceAnalytics(serializeIntelligenceFilters(filters)),
+		analytics,
+	);
 }
 
 export async function prefetchTimeline(

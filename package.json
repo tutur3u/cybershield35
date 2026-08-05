@@ -25,6 +25,7 @@
     "db:analyze-intelligence": "bun --conditions react-server scripts/analyze-intelligence-db.ts",
     "db:backfill-intelligence": "bun --conditions react-server scripts/backfill-intelligence.ts",
     "db:backfill-topics": "bun --conditions react-server scripts/backfill-topics.ts",
+    "db:reclassify-risk": "bun --conditions react-server scripts/reclassify-evidence-risk.ts",
     "worker": "bun --conditions react-server scripts/worker.ts"
   },
   "dependencies": {

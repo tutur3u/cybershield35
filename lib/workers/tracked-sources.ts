@@ -99,7 +99,11 @@ export async function deleteTrackedSource(id: string) {
 	return source ?? null;
 }
 
-export async function scanTrackedSource(id: string) {
+/**
+ * Places a scan on the queue and returns immediately so the caller can show a real
+ * "queued" state before any collection work starts. Processing is a separate step.
+ */
+export async function enqueueTrackedSourceScan(id: string) {
 	const [source] = await adminDb
 		.select()
 		.from(trackedSources)
@@ -107,7 +111,7 @@ export async function scanTrackedSource(id: string) {
 		.limit(1);
 
 	if (!source) return null;
-	if (!source.isActive) throw new Error("Tracked source is inactive");
+	if (!source.isActive) throw new Error("Nguồn này đang tắt theo dõi.");
 
 	const activeScan = source.lastScanJobId
 		? await adminDb
@@ -117,12 +121,14 @@ export async function scanTrackedSource(id: string) {
 				.limit(1)
 				.then((rows) => rows[0] ?? null)
 		: null;
-	const scan =
-		activeScan
-			? activeScan.status === "queued" || activeScan.status === "retrying" || activeScan.status === "running"
-				? { scanId: activeScan.id, status: activeScan.status }
-				: await createTrackedSourceScan(source)
-			: await createTrackedSourceScan(source);
+	const reusable =
+		activeScan &&
+		(activeScan.status === "queued" ||
+			activeScan.status === "retrying" ||
+			activeScan.status === "running");
+	const scan = reusable
+		? { scanId: activeScan.id, status: activeScan.status }
+		: await createTrackedSourceScan(source);
 
 	const [updated] = await adminDb
 		.update(trackedSources)
@@ -134,6 +140,19 @@ export async function scanTrackedSource(id: string) {
 		})
 		.where(eq(trackedSources.id, source.id))
 		.returning();
+
+	return {
+		deduplicated: Boolean(reusable),
+		scan,
+		source: updated ?? source,
+	};
+}
+
+export async function scanTrackedSource(id: string) {
+	const enqueued = await enqueueTrackedSourceScan(id);
+	if (!enqueued) return null;
+	const { scan, source } = enqueued;
+	const updated = source;
 
 	const processing = scan.status === "running"
 		? { processed: false }

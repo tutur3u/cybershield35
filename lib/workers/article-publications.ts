@@ -17,6 +17,7 @@ import {
 import { publicErrorMessage } from "@/lib/http/public-error";
 import {
 	actorAllowsArticleOperation,
+	publicationStateAllowsArticleOperation,
 	reviewAllowsArticleOperation,
 } from "@/lib/articles/publication-policy";
 import {
@@ -516,6 +517,11 @@ function validateOperation(
 	}
 	if (!reviewAllowsArticleOperation(article.reviewStatus, operation)) {
 		throw new Error("Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.");
+	}
+	if (!publicationStateAllowsArticleOperation(article.state, operation)) {
+		throw new Error(
+			"Hãy bấm Xuất bản trong trình biên tập trước khi đưa bài lên Zalo OA.",
+		);
 	}
 	if (!article.targetOaConnectionId) {
 		throw new Error("Hãy chọn Zalo OA đích.");

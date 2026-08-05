@@ -111,7 +111,11 @@ describe("evidence semantic relationships", () => {
 	});
 
 	test("queries the whole corpus with pgvector and hides weak matches", () => {
-		const server = readFileSync("lib/dashboard/timeline-server.ts", "utf8");
+		const server = readFileSync("lib/dashboard/timeline-server.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-shared.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-mapping.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-related.ts", "utf8") +
+		readFileSync("lib/dashboard/timeline-triage.ts", "utf8");
 		const worker = readFileSync("lib/workers/evidence-semantics.ts", "utf8");
 		const migration = readFileSync("drizzle/0018_violet_wrecker.sql", "utf8");
 		expect(server).toContain("cosineDistance");

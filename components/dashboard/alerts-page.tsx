@@ -11,7 +11,7 @@ export function AlertsPage() {
 				title="Cảnh báo & Rủi ro"
 				description="Đồ thị claim, bằng chứng hỗ trợ và luồng xử lý rủi ro."
 			/>
-			<IntelligenceClaimsWorkspace />
+			<IntelligenceClaimsWorkspace standalone />
 		</div>
 	);
 }

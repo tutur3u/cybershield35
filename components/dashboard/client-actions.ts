@@ -76,50 +76,6 @@ export async function createScan(options: {
 	}
 }
 
-export async function scanTrackedSource(options: {
-	trackedSource: TrackedSourceView;
-	setIsCreating: (value: boolean) => void;
-	setTrackedSources: Dispatch<SetStateAction<TrackedSourceView[]>>;
-	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
-	setSelectedScanId: (id: string) => void;
-	setNotice: (notice: string) => void;
-}) {
-	options.setIsCreating(true);
-	try {
-		const response = await fetch(
-			`/api/tracked-sources/${options.trackedSource.id}/scan`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({}),
-			},
-		);
-		const payload = await response.json();
-		if (!response.ok) throw new Error(payload.error ?? "Không thể quét nguồn theo dõi");
-
-		const nextTrackedSource =
-			(payload.trackedSource as TrackedSourceView | undefined) ??
-			options.trackedSource;
-		options.setTrackedSources((current) =>
-			current.map((source) =>
-				source.id === nextTrackedSource.id ? nextTrackedSource : source,
-			),
-		);
-
-		const pending = buildTrackedSourceScan(nextTrackedSource, payload.scan);
-		options.setScans((current) => [pending, ...current]);
-		options.setSelectedScanId(pending.id);
-		options.setNotice("Đã đưa nguồn theo dõi vào hàng đợi worker.");
-		return true;
-	} catch (error) {
-		options.setNotice(
-			error instanceof Error ? error.message : "Không thể quét nguồn theo dõi",
-		);
-		return false;
-	} finally {
-		options.setIsCreating(false);
-	}
-}
 
 export async function runManagedSchedulerJobNow(options: {
 	jobKey:
@@ -811,22 +767,6 @@ function buildPendingScan(
 	};
 }
 
-function buildTrackedSourceScan(
-	source: TrackedSourceView,
-	scan: { scanId?: string; status?: ScanStatus } | undefined,
-): DashboardScan {
-	return {
-		id: scan?.scanId ?? source.lastScanJobId ?? `tracked-${Date.now()}`,
-		status: scan?.status ?? source.lastScanStatus ?? "queued",
-		sourceType: source.type,
-		provider: source.provider,
-		title: source.displayName,
-		sourceLabel: sourceLabelForType(source.type),
-		riskLevel: "medium",
-		progress: scan?.status === "completed" ? 100 : 0,
-		createdAt: new Date().toISOString(),
-	};
-}
 
 function toEvidencePayload(values: EvidenceMutationValues, scanId?: string) {
 	return {

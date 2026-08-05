@@ -46,6 +46,7 @@ import {
 	syncTopicsForScan,
 } from "@/lib/workers/topics";
 import { enqueueEvidenceDraftJobs } from "@/lib/workers/facebook-page-jobs";
+import { classifyPersistedEvidenceRisk } from "@/lib/workers/evidence-risk";
 
 type ClaimedJob = {
 	id: string;
@@ -686,13 +687,25 @@ async function processClaimedJob(claimed: ClaimedJob) {
 						)
 						.returning()
 				: [];
-		const queuedAutomatedDrafts = await enqueueEvidenceDraftJobs(insertedEvidence);
+		// Providers attach a provisional rule-based level so collection never waits
+		// on the model. Re-score with the LLM before drafts or analysis read it.
+		const riskScoring = await classifyPersistedEvidenceRisk(
+			insertedEvidence.map((item) => item.id),
+		).catch(() => ({ scored: 0, updated: 0 }));
+		const scoredEvidence = riskScoring.updated
+			? await adminDb
+					.select()
+					.from(evidenceItems)
+					.where(eq(evidenceItems.scanJobId, claimed.id))
+			: insertedEvidence;
+		const queuedAutomatedDrafts = await enqueueEvidenceDraftJobs(scoredEvidence);
 		await recordScanEvent({
 			eventType: "evidence_persisted",
-			message: "Bằng chứng chuẩn hóa đã được lưu.",
+			message: "Bằng chứng chuẩn hóa đã được lưu và chấm mức rủi ro.",
 			metadata: {
 				automatedDraftCount: queuedAutomatedDrafts,
 				evidenceCount: insertedEvidence.length,
+				riskRescored: riskScoring.updated,
 			},
 			scanJobId: claimed.id,
 			stage: "evidence",
@@ -707,7 +720,7 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			status: "running",
 		});
 		const analysis = await analyzeEvidence(
-			insertedEvidence.map((item) => ({
+			scoredEvidence.map((item) => ({
 				id: item.id,
 				quote: item.quote,
 				summary: item.summary,
@@ -725,7 +738,7 @@ async function processClaimedJob(claimed: ClaimedJob) {
 			status: "completed",
 		});
 
-		await syncTopicsForScan(claimed.id, analysis.topicClusters, insertedEvidence);
+		await syncTopicsForScan(claimed.id, analysis.topicClusters, scoredEvidence);
 		await recordScanEvent({
 			eventType: "topics_completed",
 			message: "Chủ đề và liên kết bằng chứng đã được cập nhật.",

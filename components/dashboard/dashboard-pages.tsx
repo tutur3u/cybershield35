@@ -91,7 +91,6 @@ export type DashboardPageProps = {
 		input: { displayName?: string; isActive?: boolean },
 	) => Promise<boolean>;
 	onDeleteTrackedSource: (source: TrackedSourceView) => Promise<boolean>;
-	onScanTrackedSource: (source: TrackedSourceView) => Promise<void>;
 	onRunSchedulerJob: (
 		jobKey:
 			| "daily-scans"

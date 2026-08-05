@@ -9,6 +9,7 @@ import type {
 export const timelineSortValues = [
 	"published-desc",
 	"published-asc",
+	"collected-desc",
 	"engagement-desc",
 	"risk-desc",
 	"triage-updated-desc",

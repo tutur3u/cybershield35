@@ -166,6 +166,10 @@ function getModel() {
   return getModelRuntime()?.model ?? null;
 }
 
+export function getRiskModelRuntime() {
+  return getModelRuntime();
+}
+
 export async function analyzeEvidence(
   evidence: Array<
     Pick<EvidenceItemRow, "id" | "quote" | "summary" | "riskLevel">

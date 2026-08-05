@@ -3,16 +3,13 @@ import "server-only";
 import {
 	and,
 	asc,
-	cosineDistance,
 	desc,
 	eq,
 	gt,
 	gte,
 	ilike,
-	inArray,
 	isNull,
 	lt,
-	ne,
 	or,
 	sql,
 	type SQL,
@@ -21,10 +18,6 @@ import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 
 import type {
-	EvidenceTriageNoteView,
-	EvidenceTriageView,
-	RelatedEvidenceItem,
-	RelatedEvidenceResponse,
 	TimelineFilters,
 	TimelineHead,
 	TimelinePage,
@@ -37,23 +30,39 @@ import {
 } from "@/lib/dashboard/cache-tags";
 import { adminDb } from "@/lib/db/client";
 import {
-	auditEvents,
 	evidenceItems,
-	evidenceSemanticProfiles,
 	evidenceTopics,
 	evidenceTriage,
 	evidenceTriageNotes,
 	facebookPageProfiles,
-	intelligenceActivityRollups,
 	topics,
-	type EvidenceTriageStatus,
 } from "@/lib/db/schema";
+import { mapTimelinePost } from "@/lib/dashboard/timeline-mapping";
 import {
-	LOCAL_EVIDENCE_EMBEDDING_MODEL,
-	LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE,
-	RELATED_EVIDENCE_MIN_RELEVANCE,
-	rankEvidenceRelationship,
-} from "@/lib/domain/evidence-semantics";
+	collectedMicros,
+	effectivePinned,
+	effectivePublishedAt,
+	effectiveTriageStatus,
+	effectiveTriageUpdatedAt,
+	engagementScore,
+	facebookPageProfileJoin,
+	publishedMicros,
+	riskScore,
+	timelinePostSelection,
+	topicsForEvidence,
+	triageUpdatedMicros,
+} from "@/lib/dashboard/timeline-shared";
+
+export { TimelineNotFoundError } from "@/lib/dashboard/timeline-shared";
+export {
+	listRelatedEvidence,
+} from "@/lib/dashboard/timeline-related";
+export {
+	addEvidenceTriageNote,
+	getEvidenceTriageDetails,
+	updateEvidenceTriage,
+	type TimelineTriagePatch,
+} from "@/lib/dashboard/timeline-triage";
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 50;
@@ -67,6 +76,7 @@ const cursorSchema = z
 		sort: z.enum([
 			"published-desc",
 			"published-asc",
+			"collected-desc",
 			"engagement-desc",
 			"risk-desc",
 			"triage-updated-desc",
@@ -75,83 +85,6 @@ const cursorSchema = z
 	.strict();
 
 type TimelineCursor = z.infer<typeof cursorSchema>;
-type TimelineActor = { displayName: string | null; id: string };
-export type TimelineTriagePatch = {
-	assigneeDisplayName?: string | null;
-	assigneeUserId?: string | null;
-	dueAt?: Date | null;
-	isPinned?: boolean;
-	status?: EvidenceTriageStatus;
-};
-
-const effectivePublishedAt = sql<Date>`coalesce(${evidenceItems.publishedAt}, ${evidenceItems.createdAt})`.mapWith(
-	evidenceItems.createdAt,
-);
-const safeEngagementPart = (key: "comments" | "reactions" | "shares") =>
-	sql<number>`case when coalesce(${evidenceItems.engagement}->>${key}, '') ~ '^\\d+$' then (${evidenceItems.engagement}->>${key})::int else 0 end`;
-const reactionsExpr = safeEngagementPart("reactions");
-const commentsExpr = safeEngagementPart("comments");
-const sharesExpr = safeEngagementPart("shares");
-const engagementScore = sql<number>`(${reactionsExpr} + ${commentsExpr} + ${sharesExpr})`;
-const riskScore = sql<number>`case ${evidenceItems.riskLevel} when 'high' then 3 when 'medium' then 2 else 1 end`;
-const effectiveTriageUpdatedAt = sql<Date>`coalesce(${evidenceTriage.updatedAt}, ${evidenceItems.createdAt})`.mapWith(
-	evidenceItems.createdAt,
-);
-const effectiveTriageStatus = sql<EvidenceTriageStatus>`coalesce(${evidenceTriage.status}, 'new'::evidence_triage_status)`;
-const effectivePinned = sql<boolean>`coalesce(${evidenceTriage.isPinned}, false)`;
-const facebookPageKeyExpr = sql<string | null>`case
-	when nullif(trim(${evidenceItems.metadata}->>'facebookId'), '') is not null
-		then 'id:' || trim(${evidenceItems.metadata}->>'facebookId')
-	when nullif(trim(${evidenceItems.author}), '') is not null
-		then 'username:' || lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g'))
-	else null
-end`;
-const facebookPageProfileJoin = or(
-	eq(facebookPageProfiles.pageKey, facebookPageKeyExpr),
-	eq(
-		facebookPageProfiles.facebookPageId,
-		sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
-	),
-	eq(
-		facebookPageProfiles.username,
-		sql<string | null>`nullif(lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g')), '')`,
-	),
-);
-const publishedMicros = sql<number>`floor(extract(epoch from ${effectivePublishedAt}) * 1000000)`;
-const triageUpdatedMicros = sql<number>`floor(extract(epoch from ${effectiveTriageUpdatedAt}) * 1000000)`;
-const timelinePostSelection = {
-	author: evidenceItems.author,
-	comments: commentsExpr,
-	createdAt: evidenceItems.createdAt,
-	engagementTotal: engagementScore,
-	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
-	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
-	id: evidenceItems.id,
-	originalImageUrl: sql<string | null>`${evidenceItems.metadata}->>'originalImageUrl'`,
-	provider: evidenceItems.provider,
-	publishedAt: evidenceItems.publishedAt,
-	publishedMicros,
-	quote: evidenceItems.quote,
-	reactions: reactionsExpr,
-	riskLevel: evidenceItems.riskLevel,
-	riskScore,
-	scanJobId: evidenceItems.scanJobId,
-	sentiment: evidenceItems.sentiment,
-	shares: sharesExpr,
-	sourceLabel: evidenceItems.sourceLabel,
-	sourceUrl: evidenceItems.sourceUrl,
-	stance: evidenceItems.stance,
-	summary: evidenceItems.summary,
-	triageAssigneeDisplayName: evidenceTriage.assigneeDisplayName,
-	triageAssigneeUserId: evidenceTriage.assigneeUserId,
-	triageDueAt: evidenceTriage.dueAt,
-	triageIsPinned: evidenceTriage.isPinned,
-	triageStatus: effectiveTriageStatus,
-	triageUpdatedAt: evidenceTriage.updatedAt,
-	triageUpdatedMicros,
-	triageUpdatedByDisplayName: evidenceTriage.updatedByDisplayName,
-};
-
 export async function listTimeline({
 	cursor,
 	filters = {},
@@ -220,150 +153,6 @@ export async function getTimelinePostById(
 	return getCachedTimelinePostById(evidenceId);
 }
 
-export async function listRelatedEvidence(
-	evidenceId: string,
-	limit = 6,
-): Promise<RelatedEvidenceResponse> {
-	return getCachedRelatedEvidence(evidenceId, limit);
-}
-
-async function getCachedRelatedEvidence(
-	evidenceId: string,
-	limit: number,
-): Promise<RelatedEvidenceResponse> {
-	"use cache";
-	cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
-	cacheTag(
-		DASHBOARD_INTELLIGENCE_TAG,
-		dashboardIntelligenceTag("evidence"),
-	);
-
-	const targetRows = await adminDb
-		.select({
-			author: evidenceItems.author,
-			createdAt: evidenceItems.createdAt,
-			embedding: evidenceSemanticProfiles.embedding,
-			model: evidenceSemanticProfiles.model,
-			publishedAt: evidenceItems.publishedAt,
-			quote: evidenceItems.quote,
-			sourceUrl: evidenceItems.sourceUrl,
-			summary: evidenceItems.summary,
-			updatedAt: evidenceSemanticProfiles.updatedAt,
-		})
-		.from(evidenceSemanticProfiles)
-		.innerJoin(
-			evidenceItems,
-			eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId),
-		)
-		.where(eq(evidenceSemanticProfiles.evidenceItemId, evidenceId))
-		.limit(1);
-	const target = targetRows[0];
-	if (!target) {
-		return {
-			generatedAt: null,
-			items: [],
-			model: null,
-			profileReady: false,
-		};
-	}
-
-	const distance = cosineDistance(
-		evidenceSemanticProfiles.embedding,
-		target.embedding,
-	);
-	const semanticSimilarity = sql<number>`1 - (${distance})`.mapWith(Number);
-	const minimumRelevance =
-		target.model === LOCAL_EVIDENCE_EMBEDDING_MODEL
-			? LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE
-			: RELATED_EVIDENCE_MIN_RELEVANCE;
-	const candidateFloor = Math.max(0.5, minimumRelevance - 0.14);
-	const rows = await adminDb
-		.select({ ...timelinePostSelection, semanticSimilarity })
-		.from(evidenceSemanticProfiles)
-		.innerJoin(
-			evidenceItems,
-			eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId),
-		)
-		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
-		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
-		.where(
-			and(
-				ne(evidenceItems.id, evidenceId),
-				eq(evidenceSemanticProfiles.model, target.model),
-				sql`${distance} <= ${1 - candidateFloor}`,
-			),
-		)
-		.orderBy(distance, desc(effectivePublishedAt))
-		.limit(Math.max(limit * 12, 72));
-	const topicMap = await topicsForEvidence(rows.map((row) => row.id));
-	const targetTopicSlugs =
-		(await topicsForEvidence([evidenceId])).get(evidenceId) ?? [];
-	const targetTopics = new Set(targetTopicSlugs);
-	const rankedRows = rows
-		.map((row) => {
-			const topicSlugs = topicMap.get(row.id) ?? [];
-			const post = mapTimelinePost(row, topicSlugs);
-			const rank = rankEvidenceRelationship(
-				{
-					author: target.author,
-					publishedAt: (target.publishedAt ?? target.createdAt).toISOString(),
-					quote: target.quote,
-					sourceUrl: target.sourceUrl,
-					summary: target.summary,
-					topicSlugs: targetTopicSlugs,
-				},
-				{
-					author: post.author,
-					publishedAt: post.publishedAt ?? post.createdAt,
-					quote: post.quote,
-					sourceUrl: post.sourceUrl,
-					summary: post.summary,
-					topicSlugs,
-				},
-				Number(row.semanticSimilarity),
-			);
-			return {
-				...post,
-				reasons: rank.reasons,
-				relevance: rank.score,
-				relationship: rank.relationship,
-				semanticSimilarity: rank.semanticSimilarity,
-				sharedTopics: topicSlugs.filter((slug) => targetTopics.has(slug)),
-			} satisfies RelatedEvidenceItem;
-		})
-		.filter((item) => item.relevance >= minimumRelevance)
-		.toSorted(
-			(left, right) =>
-				right.relevance - left.relevance ||
-				right.semanticSimilarity - left.semanticSimilarity ||
-				new Date(right.publishedAt ?? right.createdAt).getTime() -
-					new Date(left.publishedAt ?? left.createdAt).getTime(),
-		);
-	const seenUrls = new Set<string>();
-	const seenQuotes = new Set<string>();
-	const items: RelatedEvidenceItem[] = [];
-	for (const item of rankedRows) {
-		const normalizedQuote = item.quote.trim().toLocaleLowerCase("vi");
-		if (
-			(item.sourceUrl && seenUrls.has(item.sourceUrl)) ||
-			seenQuotes.has(normalizedQuote)
-		) {
-			continue;
-		}
-		if (item.sourceUrl) seenUrls.add(item.sourceUrl);
-		seenQuotes.add(normalizedQuote);
-		items.push(item);
-		if (items.length >= limit) break;
-	}
-
-	return {
-		generatedAt: target.updatedAt.toISOString(),
-		items,
-		model: target.model,
-		profileReady: true,
-	};
-}
-
 async function getCachedTimelinePostById(
 	evidenceId: string,
 ): Promise<TimelinePost | null> {
@@ -386,202 +175,66 @@ async function getCachedTimelinePostById(
 
 export async function getTimelineHead(
 	filters: TimelineFilters = {},
+	since?: string | null,
 ): Promise<TimelineHead> {
-	return getCachedTimelineHead(normalizeFilters(filters));
+	const parsedSince = since ? new Date(since) : null;
+	return getCachedTimelineHead(
+		normalizeFilters(filters),
+		parsedSince && !Number.isNaN(parsedSince.getTime())
+			? parsedSince.toISOString()
+			: null,
+	);
 }
 
 async function getCachedTimelineHead(
 	filters: NormalizedTimelineFilters,
+	since: string | null,
 ): Promise<TimelineHead> {
 	"use cache";
 	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
 	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("timeline"));
 
 	const conditions = timelineConditions(filters);
-	const [newest, totalRows, triageVersion, noteVersion] = await Promise.all([
-		adminDb
-			.select({ id: evidenceItems.id, publishedAt: effectivePublishedAt })
-			.from(evidenceItems)
-			.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
-			.where(and(...conditions))
-			.orderBy(desc(effectivePublishedAt), desc(evidenceItems.id))
-			.limit(1),
-		adminDb
-			.select({ count: sql<number>`count(*)::int` })
-			.from(evidenceItems)
-			.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
-			.where(and(...conditions)),
-		adminDb.select({ value: sql<Date | null>`max(${evidenceTriage.updatedAt})`.mapWith(evidenceTriage.updatedAt) }).from(evidenceTriage),
-		adminDb.select({ value: sql<Date | null>`max(${evidenceTriageNotes.createdAt})`.mapWith(evidenceTriageNotes.createdAt) }).from(evidenceTriageNotes),
-	]);
+	const [newest, totalRows, triageVersion, noteVersion, collected] =
+		await Promise.all([
+			adminDb
+				.select({ id: evidenceItems.id, publishedAt: effectivePublishedAt })
+				.from(evidenceItems)
+				.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+				.where(and(...conditions))
+				.orderBy(desc(effectivePublishedAt), desc(evidenceItems.id))
+				.limit(1),
+			adminDb
+				.select({ count: sql<number>`count(*)::int` })
+				.from(evidenceItems)
+				.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+				.where(and(...conditions)),
+			adminDb.select({ value: sql<Date | null>`max(${evidenceTriage.updatedAt})`.mapWith(evidenceTriage.updatedAt) }).from(evidenceTriage),
+			adminDb.select({ value: sql<Date | null>`max(${evidenceTriageNotes.createdAt})`.mapWith(evidenceTriageNotes.createdAt) }).from(evidenceTriageNotes),
+			adminDb
+				.select({
+					newCount: since
+						? sql<number>`count(*) filter (where ${evidenceItems.createdAt} > ${since}::timestamptz)::int`
+						: sql<number>`0::int`,
+					newestCollectedAt: sql<Date | null>`max(${evidenceItems.createdAt})`.mapWith(
+						evidenceItems.createdAt,
+					),
+				})
+				.from(evidenceItems)
+				.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
+				.where(and(...conditions)),
+		]);
 	const latestTriage = maxDate(triageVersion[0]?.value, noteVersion[0]?.value);
 
 	return {
 		latestTriageUpdatedAt: latestTriage?.toISOString() ?? null,
+		newSinceCount: Number(collected[0]?.newCount ?? 0),
+		newestCollectedAt: collected[0]?.newestCollectedAt?.toISOString() ?? null,
 		newestPostId: newest[0]?.id ?? null,
 		newestPublishedAt: newest[0]?.publishedAt?.toISOString() ?? null,
 		refreshedAt: new Date().toISOString(),
 		total: totalRows[0]?.count ?? 0,
 	};
-}
-
-export async function getEvidenceTriageDetails(evidenceId: string): Promise<{
-	notes: EvidenceTriageNoteView[];
-	triage: EvidenceTriageView;
-}> {
-	const [evidence, triageRows, notes] = await Promise.all([
-		adminDb.select({ id: evidenceItems.id }).from(evidenceItems).where(eq(evidenceItems.id, evidenceId)).limit(1),
-		adminDb.select().from(evidenceTriage).where(eq(evidenceTriage.evidenceItemId, evidenceId)).limit(1),
-		adminDb
-			.select()
-			.from(evidenceTriageNotes)
-			.where(eq(evidenceTriageNotes.evidenceItemId, evidenceId))
-			.orderBy(desc(evidenceTriageNotes.createdAt)),
-	]);
-	if (!evidence[0]) throw new TimelineNotFoundError();
-	return {
-		notes: notes.map((note) => ({
-			authorDisplayName: note.authorDisplayName,
-			authorUserId: note.authorUserId,
-			body: note.body,
-			createdAt: note.createdAt.toISOString(),
-			id: note.id,
-		})),
-		triage: triageRows[0] ? mapTriage(triageRows[0]) : emptyTriage(),
-	};
-}
-
-export async function updateEvidenceTriage(
-	evidenceId: string,
-	patch: TimelineTriagePatch,
-	actor: TimelineActor,
-): Promise<EvidenceTriageView> {
-	const now = new Date();
-	const updated = await adminDb.transaction(async (tx) => {
-		const evidence = await tx
-			.select({ id: evidenceItems.id, riskLevel: evidenceItems.riskLevel })
-			.from(evidenceItems)
-			.where(eq(evidenceItems.id, evidenceId))
-			.limit(1);
-		if (!evidence[0]) throw new TimelineNotFoundError();
-		const [row] = await tx
-			.insert(evidenceTriage)
-			.values({
-				assigneeDisplayName: patch.assigneeDisplayName ?? null,
-				assigneeUserId: patch.assigneeUserId ?? null,
-				dueAt: patch.dueAt ?? null,
-				evidenceItemId: evidenceId,
-				isPinned: patch.isPinned ?? false,
-				status: patch.status ?? "new",
-				updatedAt: now,
-				updatedByDisplayName: actor.displayName,
-				updatedByUserId: actor.id,
-			})
-			.onConflictDoUpdate({
-				set: {
-					...(patch.assigneeDisplayName !== undefined
-						? { assigneeDisplayName: patch.assigneeDisplayName }
-						: {}),
-					...(patch.assigneeUserId !== undefined
-						? { assigneeUserId: patch.assigneeUserId }
-						: {}),
-					...(patch.dueAt !== undefined ? { dueAt: patch.dueAt } : {}),
-					...(patch.isPinned !== undefined ? { isPinned: patch.isPinned } : {}),
-					...(patch.status !== undefined ? { status: patch.status } : {}),
-					updatedAt: now,
-					updatedByDisplayName: actor.displayName,
-					updatedByUserId: actor.id,
-				},
-				target: evidenceTriage.evidenceItemId,
-			})
-			.returning();
-		await Promise.all([
-			tx.insert(auditEvents).values({
-				action: "evidence_triage_updated",
-				entityId: evidenceId,
-				entityType: "evidence_item",
-				payload: {
-					actorId: actor.id,
-					fields: Object.keys(patch).filter((key) => key !== "assigneeDisplayName"),
-				},
-			}),
-			tx.insert(intelligenceActivityRollups).values({
-				action: "evidence_triage_updated",
-				description: `${actor.displayName ?? "Một thành viên"} đã cập nhật phân loại nội bộ.`,
-				entityId: evidenceId,
-				entityType: "evidence_item",
-				href: `/evidence/${evidenceId}`,
-				metadata: { actorId: actor.id },
-				occurredAt: now,
-				severity: evidence[0].riskLevel,
-				title: "Cập nhật xử lý bằng chứng",
-			}),
-		]);
-		return row;
-	});
-	if (!updated) throw new Error("Không thể lưu trạng thái xử lý.");
-	return mapTriage(updated);
-}
-
-export async function addEvidenceTriageNote(
-	evidenceId: string,
-	body: string,
-	actor: TimelineActor,
-): Promise<EvidenceTriageNoteView> {
-	const now = new Date();
-	const note = await adminDb.transaction(async (tx) => {
-		const evidence = await tx
-			.select({ id: evidenceItems.id, riskLevel: evidenceItems.riskLevel })
-			.from(evidenceItems)
-			.where(eq(evidenceItems.id, evidenceId))
-			.limit(1);
-		if (!evidence[0]) throw new TimelineNotFoundError();
-		const [created] = await tx
-			.insert(evidenceTriageNotes)
-			.values({
-				authorDisplayName: actor.displayName,
-				authorUserId: actor.id,
-				body,
-				createdAt: now,
-				evidenceItemId: evidenceId,
-			})
-			.returning();
-		await Promise.all([
-			tx.insert(auditEvents).values({
-				action: "evidence_triage_note_added",
-				entityId: evidenceId,
-				entityType: "evidence_item",
-				payload: { actorId: actor.id, noteId: created?.id },
-			}),
-			tx.insert(intelligenceActivityRollups).values({
-				action: "evidence_triage_note_added",
-				description: `${actor.displayName ?? "Một thành viên"} đã thêm ghi chú nội bộ.`,
-				entityId: evidenceId,
-				entityType: "evidence_item",
-				href: `/evidence/${evidenceId}`,
-				metadata: { actorId: actor.id, noteId: created?.id },
-				occurredAt: now,
-				severity: evidence[0].riskLevel,
-				title: "Ghi chú xử lý mới",
-			}),
-		]);
-		return created;
-	});
-	if (!note) throw new Error("Không thể tạo ghi chú.");
-	return {
-		authorDisplayName: note.authorDisplayName,
-		authorUserId: note.authorUserId,
-		body: note.body,
-		createdAt: note.createdAt.toISOString(),
-		id: note.id,
-	};
-}
-
-export class TimelineNotFoundError extends Error {
-	constructor() {
-		super("Không tìm thấy bằng chứng.");
-		this.name = "TimelineNotFoundError";
-	}
 }
 
 type NormalizedTimelineFilters = {
@@ -674,6 +327,7 @@ function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
 
 function timelineOrderBy(sort: TimelineSort): SQL[] {
 	if (sort === "published-asc") return [asc(effectivePublishedAt), asc(evidenceItems.id)];
+	if (sort === "collected-desc") return [desc(evidenceItems.createdAt), desc(evidenceItems.id)];
 	if (sort === "engagement-desc") return [desc(engagementScore), desc(effectivePublishedAt), desc(evidenceItems.id)];
 	if (sort === "risk-desc") return [desc(riskScore), desc(effectivePublishedAt), desc(evidenceItems.id)];
 	if (sort === "triage-updated-desc") return [desc(effectiveTriageUpdatedAt), desc(effectivePublishedAt), desc(evidenceItems.id)];
@@ -698,6 +352,7 @@ function timelineCursorCondition(sort: TimelineSort, cursor: TimelineCursor): SQ
 }
 
 function primarySortExpression(sort: TimelineSort) {
+	if (sort === "collected-desc") return collectedMicros;
 	if (sort === "engagement-desc") return engagementScore;
 	if (sort === "risk-desc") return riskScore;
 	return triageUpdatedMicros;
@@ -706,6 +361,7 @@ function primarySortExpression(sort: TimelineSort) {
 function cursorFromRow(
 	sort: TimelineSort,
 	row: {
+		collectedMicros: number;
 		engagementTotal: number;
 		id: string;
 		publishedMicros: number;
@@ -716,13 +372,15 @@ function cursorFromRow(
 	return {
 		id: row.id,
 		primary:
-			sort === "engagement-desc"
-				? Number(row.engagementTotal)
-				: sort === "risk-desc"
-					? Number(row.riskScore)
-					: sort === "triage-updated-desc"
-						? Number(row.triageUpdatedMicros)
-						: Number(row.publishedMicros),
+			sort === "collected-desc"
+				? Number(row.collectedMicros)
+				: sort === "engagement-desc"
+					? Number(row.engagementTotal)
+					: sort === "risk-desc"
+						? Number(row.riskScore)
+						: sort === "triage-updated-desc"
+							? Number(row.triageUpdatedMicros)
+							: Number(row.publishedMicros),
 		publishedAt: Number(row.publishedMicros),
 		sort,
 	};
@@ -774,121 +432,10 @@ function addVietnamDays(day: string, count: number) {
 	return date;
 }
 
-async function topicsForEvidence(ids: string[]) {
-	const result = new Map<string, string[]>();
-	if (!ids.length) return result;
-	const rows = await adminDb
-		.select({ evidenceItemId: evidenceTopics.evidenceItemId, slug: topics.slug })
-		.from(evidenceTopics)
-		.innerJoin(topics, eq(topics.id, evidenceTopics.topicId))
-		.where(inArray(evidenceTopics.evidenceItemId, ids));
-	for (const row of rows) result.set(row.evidenceItemId, [...(result.get(row.evidenceItemId) ?? []), row.slug]);
-	return result;
-}
 
-function mapTimelinePost(
-	row: Parameters<typeof cursorFromRow>[1] & {
-		author: string | null;
-		comments: number;
-		createdAt: Date;
-		facebookPageId: string | null;
-		pageClassification: TimelinePost["pageClassification"];
-		originalImageUrl: string | null;
-		provider: TimelinePost["provider"];
-		publishedAt: Date | null;
-		quote: string;
-		reactions: number;
-		riskLevel: TimelinePost["riskLevel"];
-		scanJobId: string;
-		sentiment: string;
-		shares: number;
-		sourceLabel: string | null;
-		sourceUrl: string | null;
-		stance: string;
-		summary: string;
-		triageAssigneeDisplayName: string | null;
-		triageAssigneeUserId: string | null;
-		triageDueAt: Date | null;
-		triageIsPinned: boolean | null;
-		triageStatus: EvidenceTriageStatus;
-		triageUpdatedAt: Date | null;
-		triageUpdatedByDisplayName: string | null;
-	},
-	topicSlugs: string[],
-): TimelinePost {
-	return {
-		author: row.author,
-		createdAt: row.createdAt.toISOString(),
-		engagement: {
-			comments: Number(row.comments),
-			reactions: Number(row.reactions),
-			shares: Number(row.shares),
-			total: Number(row.engagementTotal),
-		},
-		facebookPageId: row.facebookPageId,
-		facebookUsername: facebookUsername(row.author, row.sourceUrl),
-		href: `/evidence/${row.id}`,
-		id: row.id,
-		originalPostHref: row.sourceUrl,
-		originalImageUrl: row.originalImageUrl,
-		pageClassification: row.pageClassification,
-		provider: row.provider,
-		publishedAt: row.publishedAt?.toISOString() ?? null,
-		quote: row.quote,
-		riskLevel: row.riskLevel,
-		scanHref: `/scans/${row.scanJobId}`,
-		scanId: row.scanJobId,
-		sentiment: row.sentiment,
-		sourceLabel: row.sourceLabel,
-		sourceUrl: row.sourceUrl,
-		stance: row.stance,
-		summary: row.summary,
-		topicSlugs,
-		triage: {
-			assigneeDisplayName: row.triageAssigneeDisplayName,
-			assigneeUserId: row.triageAssigneeUserId,
-			dueAt: row.triageDueAt?.toISOString() ?? null,
-			isPinned: row.triageIsPinned ?? false,
-			status: row.triageStatus,
-			updatedAt: row.triageUpdatedAt?.toISOString() ?? null,
-			updatedByDisplayName: row.triageUpdatedByDisplayName,
-		},
-	};
-}
 
-function mapTriage(row: typeof evidenceTriage.$inferSelect): EvidenceTriageView {
-	return {
-		assigneeDisplayName: row.assigneeDisplayName,
-		assigneeUserId: row.assigneeUserId,
-		dueAt: row.dueAt?.toISOString() ?? null,
-		isPinned: row.isPinned,
-		status: row.status,
-		updatedAt: row.updatedAt.toISOString(),
-		updatedByDisplayName: row.updatedByDisplayName,
-	};
-}
 
-function emptyTriage(): EvidenceTriageView {
-	return {
-		assigneeDisplayName: null,
-		assigneeUserId: null,
-		dueAt: null,
-		isPinned: false,
-		status: "new",
-		updatedAt: null,
-		updatedByDisplayName: null,
-	};
-}
 
-function facebookUsername(author: string | null, url: string | null) {
-	if (author?.trim()) return author.trim().replace(/^@/u, "");
-	if (!url) return null;
-	try {
-		return new URL(url).pathname.split("/").filter(Boolean)[0] ?? null;
-	} catch {
-		return null;
-	}
-}
 
 function maxDate(...values: Array<Date | null | undefined>) {
 	return values.filter((value): value is Date => Boolean(value)).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;

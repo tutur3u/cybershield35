@@ -6,7 +6,11 @@ const read = (path: string) => readFileSync(path, "utf8");
 describe("evidence detail routing regression", () => {
 	test("loads the requested evidence UUID instead of falling back to another scan item", () => {
 		const route = read("app/evidence/[id]/page.tsx");
-		const server = read("lib/dashboard/timeline-server.ts");
+		const server =
+			read("lib/dashboard/timeline-server.ts") +
+			read("lib/dashboard/timeline-shared.ts") +
+			read("lib/dashboard/timeline-mapping.ts") +
+			read("lib/dashboard/timeline-related.ts");
 		const legacyDetails = read("components/dashboard/detail-pages.tsx");
 
 		expect(route).toContain("getTimelinePostById(id)");
@@ -37,7 +41,9 @@ describe("evidence detail routing regression", () => {
 		const relatedDetails = read(
 			"components/dashboard/evidence-related-panel.tsx",
 		);
-		const timeline = read("components/dashboard/evidence-timeline.tsx");
+		const timeline =
+			read("components/dashboard/evidence-timeline/index.tsx") +
+			read("components/dashboard/evidence-timeline/timeline-card.tsx");
 
 		expect(details).toContain("data-evidence-id={evidence.id}");
 		expect(relatedDetails).toContain("Bằng chứng liên quan");
@@ -53,7 +59,7 @@ describe("evidence detail routing regression", () => {
 		expect(details).toContain("Mở bảng xử lý");
 		expect(details).toContain("Mức ưu tiên kết hợp tín hiệu");
 		expect(details).toContain("Hình ảnh gốc được giữ lại");
-		expect(timeline).toContain("Xem chi tiết");
+		expect(timeline).toContain("Chi tiết");
 		expect(timeline).toContain("Tải thêm bài viết");
 	});
 });

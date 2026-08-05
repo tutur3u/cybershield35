@@ -1441,7 +1441,15 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const sourcesPage = readFileSync(
-			"components/dashboard/sources-page.tsx",
+			"components/dashboard/sources/index.tsx",
+			"utf8",
+		);
+		const trackedSourcesPanel = readFileSync(
+			"components/dashboard/sources/tracked-sources-panel.tsx",
+			"utf8",
+		);
+		const automationPanel = readFileSync(
+			"components/dashboard/sources/automation-panel.tsx",
 			"utf8",
 		);
 		const actions = readFileSync(
@@ -1473,19 +1481,16 @@ describe("dashboard auth gate", () => {
 		expect(pages).toContain("onCreateEvidence");
 		expect(pages).toContain("onEditEvidence");
 		expect(pages).toContain("onDeleteEvidence");
-		expect(sourcesPage).toContain("Đang theo dõi");
-		expect(sourcesPage).toContain("Đã tắt");
-		expect(sourcesPage).toContain("Tắt tự động quét hằng ngày");
-		expect(sourcesPage).toContain("Bật tự động quét hằng ngày");
+		expect(trackedSourcesPanel).toContain("Đang theo dõi");
+		expect(trackedSourcesPanel).toContain("Đã tắt");
+		expect(trackedSourcesPanel).toContain("Tắt quét lại tự động hằng ngày");
+		expect(trackedSourcesPanel).toContain("Bật quét lại tự động hằng ngày");
 		expect(sourcesPage).toContain("SourceTabs");
-		expect(sourcesPage).toContain("Tự động tái quét");
-		expect(sourcesPage).toContain("Xếp hàng ngay");
-		expect(sourcesPage).toContain("Xử lý ngay");
-		expect(sourcesPage).toContain("Nguồn đến hạn");
-		expect(sourcesPage).toContain("Quy tắc tự động");
-		expect(sourcesPage).toContain(
-			"Tìm theo tên trang, username, Facebook ID hoặc URL",
-		);
+		expect(automationPanel).toContain("Quét lại tự động");
+		expect(automationPanel).toContain("Nguồn đến hạn");
+		expect(automationPanel).toContain("Quy tắc tự động");
+		expect(trackedSourcesPanel).toContain("Tìm theo tên trang hoặc địa chỉ");
+		expect(trackedSourcesPanel).toContain("Quét ngay");
 		expect(scansRoute).toContain("export async function PATCH");
 		expect(scansRoute).toContain("export async function DELETE");
 		expect(evidenceRoute).toContain("export async function POST");
@@ -1612,7 +1617,7 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const sourcesPage = readFileSync(
-			"components/dashboard/sources-page.tsx",
+			"components/dashboard/sources/index.tsx",
 			"utf8",
 		);
 
@@ -1662,11 +1667,15 @@ describe("dashboard auth gate", () => {
 		const layout = readFileSync("app/layout.tsx", "utf8");
 		const telemetry = readFileSync("components/providers/telemetry.tsx", "utf8");
 		const overviewPage = readFileSync(
-			"components/dashboard/overview-page.tsx",
+			"components/dashboard/overview/index.tsx",
 			"utf8",
 		);
 		const intelligenceWidgets = readFileSync(
 			"components/dashboard/intelligence-widgets.tsx",
+			"utf8",
+		);
+		const analyticsWorkspace = readFileSync(
+			"components/dashboard/intelligence/analytics-workspace.tsx",
 			"utf8",
 		);
 		const intelligenceShared = readFileSync(
@@ -1689,11 +1698,15 @@ describe("dashboard auth gate", () => {
 		expect(layout).toContain("<Telemetry />");
 		expect(telemetry).toContain("@vercel/analytics/next");
 		expect(telemetry).toContain("@vercel/speed-insights/next");
-		expect(overviewPage).toContain("<ExecutiveIntelligenceDashboard");
-		expect(overviewPage).toContain("Tổng quan tình báo điều hành");
-		expect(intelligenceWidgets).toContain("Xu hướng rủi ro và bằng chứng");
-		expect(intelligenceWidgets).toContain("Động lượng chủ đề");
-		expect(intelligenceWidgets).toContain("Sẵn sàng báo cáo");
+		// The overview is the operational surface; the analysis charts live on the
+		// intelligence workspace so the two pages never render the same thing.
+		expect(overviewPage).toContain("<WorkflowStrip");
+		expect(overviewPage).toContain("Tổng quan");
+		expect(overviewPage).not.toContain("IntelligenceAnalyticsWorkspace");
+		expect(analyticsWorkspace).toContain("Cơ cấu rủi ro");
+		expect(analyticsWorkspace).toContain("Phân tích theo chủ đề");
+		expect(analyticsWorkspace).toContain("Nguyên nhân rủi ro");
+		expect(intelligenceWidgets).toContain("Nhận định cần kiểm tra");
 		expect(intelligenceShared).toContain("Tất cả fanpage");
 		expect(intelligenceShared).toContain("Facebook ID");
 		expect(intelligenceEvidenceRow).toContain("Facebook ID");
@@ -1716,7 +1729,11 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const sourcesPage = readFileSync(
-			"components/dashboard/sources-page.tsx",
+			"components/dashboard/sources/index.tsx",
+			"utf8",
+		);
+		const automationPanel = readFileSync(
+			"components/dashboard/sources/automation-panel.tsx",
 			"utf8",
 		);
 		const dashboard = readFileSync(
@@ -1732,7 +1749,7 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("aria-label=\"Chạy scan ngay\"");
 		expect(sourcesPage).toContain("onRunScan");
 		expect(sourcesPage).toContain("onRunSchedulerJob");
-		expect(sourcesPage).toContain("managedSchedulerQueryOptions");
+		expect(automationPanel).toContain("managedSchedulerQueryOptions");
 		expect(dashboard).toContain("runScanRecord");
 		expect(dashboard).toContain("runManagedSchedulerJobNow");
 	});
@@ -1747,15 +1764,27 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 		const sourcesPage = readFileSync(
-			"components/dashboard/sources-page.tsx",
+			"components/dashboard/sources/index.tsx",
+			"utf8",
+		);
+		const automationPanel = readFileSync(
+			"components/dashboard/sources/automation-panel.tsx",
+			"utf8",
+		);
+		const trackedPanel = readFileSync(
+			"components/dashboard/sources/tracked-sources-panel.tsx",
+			"utf8",
+		);
+		const sourceUtils = readFileSync(
+			"components/dashboard/sources/source-utils.ts",
 			"utf8",
 		);
 
-		expect(dashboard).toContain('import("@/components/dashboard/sources-page")');
+		expect(dashboard).toContain('import("@/components/dashboard/sources")');
 		expect(sourcesPage).toContain("export function SourcesPage");
-		expect(sourcesPage).toContain("function SourceAutomationPanel");
-		expect(sourcesPage).toContain("function TrackedSourcesPanel");
-		expect(sourcesPage).toContain("function sourceAutomationState");
+		expect(automationPanel).toContain("export function SourceAutomationPanel");
+		expect(trackedPanel).toContain("export function TrackedSourcesPanel");
+		expect(sourceUtils).toContain("export function sourceAutomationState");
 		expect(pages).not.toContain("export function SourcesPage");
 		expect(pages).not.toContain("function SourceAutomationPanel");
 	});

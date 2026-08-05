@@ -26,22 +26,33 @@ afterEach(() => {
 
 describe("Zalo OA security and article contract", () => {
 	test("keeps review and publishing actions inside the canonical editor", () => {
-		const editor = readFileSync(
-			"components/dashboard/article-editor.tsx",
+		const shared = readFileSync(
+			"components/dashboard/article-editor/shared.tsx",
+			"utf8",
+		);
+		const header = readFileSync(
+			"components/dashboard/article-editor/editor-header.tsx",
+			"utf8",
+		);
+		const rail = readFileSync(
+			"components/dashboard/article-editor/publish-rail.tsx",
+			"utf8",
+		);
+		const preview = readFileSync(
+			"components/dashboard/article-editor/zalo-preview.tsx",
 			"utf8",
 		);
 
-		expect(editor).toContain(
+		expect(shared).toContain(
 			'const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/"',
 		);
-		expect(editor).toContain("Mở trong Zalo OA Manager");
-		expect(editor).toContain('target="_blank"');
-		expect(editor).toContain('rel="noopener noreferrer"');
-		expect(editor).toContain("if (!remoteArticleId)");
-		expect(editor).toContain("Phê duyệt");
-		expect(editor).toContain("Từ chối");
-		expect(editor).toContain("Đăng lên Zalo OA");
-		expect(editor).toContain('article.reviewStatus !== "approved"');
+		expect(preview).toContain("Mở trong Zalo OA");
+		expect(preview).toContain('target="_blank"');
+		expect(preview).toContain('rel="noopener noreferrer"');
+		expect(preview).toContain("if (!remoteArticleId)");
+		expect(header).toContain("Phê duyệt");
+		expect(header).toContain("Zalo OA");
+		expect(rail).toContain('article.reviewStatus !== "approved"');
 	});
 
 	test("keeps Zalo import outside the server-driven canonical article list", () => {

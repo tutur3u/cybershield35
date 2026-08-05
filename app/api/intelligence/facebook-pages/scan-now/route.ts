@@ -2,10 +2,17 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { revalidateDashboardIntelligence, revalidateDashboardScan, revalidateDashboardTrackedSources } from "@/lib/dashboard/cache-invalidation";
-import { ensureFacebookPageTracked, scanTrackedSource } from "@/lib/workers/tracked-sources";
+import {
+	ensureFacebookPageTracked,
+	enqueueTrackedSourceScan,
+	scanTrackedSource,
+} from "@/lib/workers/tracked-sources";
 
 const bodySchema = z.object({
 	displayName: z.string().trim().min(1).max(200),
+	// Queue-only lets the workspace render a real "queued" state before collection
+	// starts; the client then drives processing and polls live progress.
+	enqueueOnly: z.boolean().optional(),
 	facebookPageId: z.string().trim().min(1).max(200).nullable(),
 	pageKey: z.string().trim().min(3).max(240).regex(/^(id|username):[^/\\]+$/u),
 	sourceUrl: z.string().url().nullable(),
@@ -19,9 +26,11 @@ export async function POST(request: Request) {
 	if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 
 	try {
-		const body = bodySchema.parse(await request.json());
-		const source = await ensureFacebookPageTracked(body);
-		const result = await scanTrackedSource(source.id);
+		const { enqueueOnly, ...page } = bodySchema.parse(await request.json());
+		const source = await ensureFacebookPageTracked(page);
+		const result = enqueueOnly
+			? await enqueueTrackedSourceScan(source.id)
+			: await scanTrackedSource(source.id);
 		if (!result) return Response.json({ error: "Không tìm thấy nguồn theo dõi." }, { status: 404, headers: authHeaders(auth) });
 		revalidateDashboardTrackedSources();
 		revalidateDashboardIntelligence("facebook-pages");

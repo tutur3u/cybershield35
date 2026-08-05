@@ -18,12 +18,45 @@ import {
 } from "@/components/dashboard/ui-primitives";
 import { intelligenceActivityInfiniteQueryOptions } from "@/lib/dashboard/client-queries";
 
-export function IntelligenceActivityStream() {
+export function IntelligenceActivityStream({
+	compact = false,
+	limit = 30,
+}: {
+	compact?: boolean;
+	limit?: number;
+}) {
 	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
 	const activityQuery = useInfiniteQuery(
-		intelligenceActivityInfiniteQueryOptions(filters, 30),
+		intelligenceActivityInfiniteQueryOptions(filters, limit),
 	);
 	const events = activityQuery.data?.pages.flatMap((page) => page.items) ?? [];
+
+	const panel = (
+		<Panel className={compact ? "h-full" : ""}>
+			<PanelHeader
+				title="Hoạt động gần đây"
+				description="Việc đã diễn ra trong hệ thống, liên kết thẳng tới lượt quét, nội dung và bài viết."
+			/>
+			<div className="divide-y divide-[var(--divider)]">
+				{events.map((event) => (
+					<ActivityRow key={event.id} compact={compact} event={event} />
+				))}
+				{!compact && activityQuery.hasNextPage ? (
+					<LoadMoreRow
+						isFetching={activityQuery.isFetchingNextPage}
+						onClick={() => void activityQuery.fetchNextPage()}
+					/>
+				) : null}
+				{!events.length && !activityQuery.isPending ? (
+					<EmptyRow text="Chưa có hoạt động nào được ghi nhận." />
+				) : null}
+			</div>
+		</Panel>
+	);
+
+	// The compact form sits beside other panels, where a second filter bar would
+	// duplicate the one already controlling the page.
+	if (compact) return panel;
 
 	return (
 		<div className="space-y-5">
@@ -32,35 +65,24 @@ export function IntelligenceActivityStream() {
 				setFilter={setFilter}
 				showProvider={false}
 			/>
-			<Panel>
-				<PanelHeader
-					title="Hoạt động gần đây"
-					description="Các hoạt động gần đây được liên kết với lượt quét, bằng chứng và bài viết liên quan."
-				/>
-				<div className="divide-y divide-[var(--divider)]">
-					{events.map((event) => (
-						<ActivityRow key={event.id} event={event} />
-					))}
-					{activityQuery.hasNextPage ? (
-						<LoadMoreRow
-							isFetching={activityQuery.isFetchingNextPage}
-							onClick={() => void activityQuery.fetchNextPage()}
-						/>
-					) : null}
-					{!events.length && !activityQuery.isPending ? (
-						<EmptyRow text="Chưa có hoạt động phù hợp bộ lọc." />
-					) : null}
-				</div>
-			</Panel>
+			{panel}
 		</div>
 	);
 }
 
-function ActivityRow({ event }: { event: IntelligenceActivityRow }) {
+function ActivityRow({
+	compact,
+	event,
+}: {
+	compact: boolean;
+	event: IntelligenceActivityRow;
+}) {
 	return (
 		<IntentPrefetchLink
 			href={event.href}
-			className="grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:grid-cols-[160px_minmax(0,1fr)_90px] sm:items-center"
+			className={`grid min-w-0 gap-3 px-4 py-3 transition hover:bg-[var(--surface-soft)] sm:items-center ${
+				compact ? "" : "sm:grid-cols-[160px_minmax(0,1fr)_90px]"
+			}`}
 		>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
 				{formatIntelligenceDate(event.occurredAt)}

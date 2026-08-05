@@ -5,9 +5,14 @@ import {
 	revalidateDashboardScan,
 	revalidateDashboardTrackedSources,
 } from "@/lib/dashboard/cache-invalidation";
-import { scanTrackedSource } from "@/lib/workers/tracked-sources";
+import {
+	enqueueTrackedSourceScan,
+	scanTrackedSource,
+} from "@/lib/workers/tracked-sources";
 
-const bodySchema = z.object({}).strict();
+// `enqueueOnly` lets the workspace show a real "queued" state right away and then
+// drive the run through /api/scans/[id]/run while polling live progress.
+const bodySchema = z.object({ enqueueOnly: z.boolean().optional() }).strict();
 
 export async function POST(
 	request: Request,
@@ -29,9 +34,14 @@ export async function POST(
 
 	try {
 		const { id } = await context.params;
-		const result = await scanTrackedSource(id);
+		const result = parsedBody.data.enqueueOnly
+			? await enqueueTrackedSourceScan(id)
+			: await scanTrackedSource(id);
 		if (!result) {
-			return Response.json({ error: "Tracked source not found" }, { status: 404 });
+			return Response.json(
+				{ error: "Không tìm thấy nguồn theo dõi." },
+				{ status: 404, headers: authHeaders(auth) },
+			);
 		}
 		revalidateDashboardTrackedSources();
 		revalidateDashboardScan(result.scan.scanId);

@@ -4,7 +4,10 @@ import { Suspense } from "react";
 import { IntelligenceWorkspace, type IntelligenceView } from "@/components/dashboard/intelligence-workspace";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { prefetchDashboardRouteData } from "@/lib/dashboard/server-prefetch";
+import {
+	prefetchDashboardRouteData,
+	prefetchIntelligenceAnalytics,
+} from "@/lib/dashboard/server-prefetch";
 import { intelligenceFiltersFromSearchParams, type DashboardSearchParams } from "@/lib/dashboard/query-keys";
 import { getQueryClient } from "@/lib/query-client";
 
@@ -22,10 +25,17 @@ export default function IntelligencePage({ searchParams }: { searchParams: Dashb
 async function IntelligenceData({ searchParams }: { searchParams: DashboardSearchParams }) {
 	const params = await searchParams;
 	const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
-	const view: IntelligenceView = requestedView === "topics" || requestedView === "alerts" ? requestedView : "overview";
+	const view: IntelligenceView =
+		requestedView === "topics" ||
+		requestedView === "alerts" ||
+		requestedView === "sources"
+			? requestedView
+			: "overview";
 	const filters = intelligenceFiltersFromSearchParams(params);
 	const queryClient = getQueryClient();
-	await prefetchDashboardRouteData(queryClient, view === "overview" ? "overview" : view, { filters });
+	await (view === "overview"
+		? prefetchIntelligenceAnalytics(queryClient, filters)
+		: prefetchDashboardRouteData(queryClient, view, { filters }));
 
 	return (
 		<QueryProvider>

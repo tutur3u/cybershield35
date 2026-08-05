@@ -5,6 +5,7 @@ import type {
 	DashboardScansPage,
 	EvidenceItemsPage,
 	EvidenceView,
+	IntelligenceAnalyticsView,
 	IntelligenceActivityRow,
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
@@ -25,6 +26,7 @@ import type {
 	TimelineHead,
 	TimelinePage,
 	TimelinePost,
+	WorkflowPipelineView,
 	WorkspaceMembersResponse,
 } from "@/components/dashboard/types";
 import {
@@ -144,6 +146,41 @@ export function intelligenceOverviewQueryOptions(
 		gcTime: dashboardQueryGcTimeMs,
 		queryFn: () => fetchIntelligenceOverview(params),
 		queryKey: dashboardQueryKeys.intelligenceOverview(params),
+		staleTime: intelligenceQueryStaleTimeMs,
+	});
+}
+
+export function workflowPipelineQueryOptions() {
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: async () => {
+			const payload = await fetchJson<{ pipeline?: WorkflowPipelineView }>(
+				"/api/dashboard/pipeline",
+			);
+			if (!payload.pipeline) throw new Error("Không thể tải trạng thái quy trình.");
+			return payload.pipeline;
+		},
+		queryKey: dashboardQueryKeys.workflowPipeline(),
+		refetchInterval: 30_000,
+		refetchIntervalInBackground: false,
+		staleTime: 15_000,
+	});
+}
+
+export function intelligenceAnalyticsQueryOptions(
+	filters: IntelligenceFilters = {},
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: async () => {
+			const payload = await fetchJson<{
+				analytics?: IntelligenceAnalyticsView;
+			}>(`/api/intelligence/analytics?${new URLSearchParams(params).toString()}`);
+			if (!payload.analytics) throw new Error("Không thể tải số liệu phân tích.");
+			return payload.analytics;
+		},
+		queryKey: dashboardQueryKeys.intelligenceAnalytics(params),
 		staleTime: intelligenceQueryStaleTimeMs,
 	});
 }
@@ -279,13 +316,16 @@ export function timelineInfiniteQueryOptions(
 	};
 }
 
-export function timelineHeadQueryOptions(filters: TimelineFilters = {}) {
+export function timelineHeadQueryOptions(
+	filters: TimelineFilters = {},
+	since?: string | null,
+) {
 	const params = serializeTimelineFilters(filters);
 	return queryOptions({
 		gcTime: dashboardQueryGcTimeMs,
-		queryFn: () => fetchTimelineHead(params),
+		queryFn: () => fetchTimelineHead(since ? { ...params, since } : params),
 		queryKey: dashboardQueryKeys.timelineHead(filters),
-		refetchInterval: 60_000,
+		refetchInterval: 30_000,
 		refetchIntervalInBackground: false,
 		staleTime: timelineQueryStaleTimeMs,
 	});

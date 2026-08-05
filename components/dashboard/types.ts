@@ -480,6 +480,7 @@ export type IntelligenceEvidenceRow = {
 export type TimelineSort =
 	| "published-desc"
 	| "published-asc"
+	| "collected-desc"
 	| "engagement-desc"
 	| "risk-desc"
 	| "triage-updated-desc";
@@ -557,6 +558,8 @@ export type TimelinePage = IntelligencePage<TimelinePost> & {
 
 export type TimelineHead = {
 	latestTriageUpdatedAt: string | null;
+	newSinceCount: number;
+	newestCollectedAt: string | null;
 	newestPostId: string | null;
 	newestPublishedAt: string | null;
 	refreshedAt: string;
@@ -674,6 +677,64 @@ export type IntelligenceOverviewView = {
 	topEvidence: IntelligenceEvidenceRow[];
 	topTopics: IntelligenceTopicRow[];
 	trends: IntelligenceTrendPoint[];
+};
+
+export type WorkflowPipelineView = {
+	articles: {
+		approvedUnpublished: number;
+		awaitingReview: number;
+		liveOnZalo: number;
+		readyForZalo: number;
+	};
+	drafts: { approved: number; pending: number };
+	generatedAt: string;
+	scans: {
+		completedToday: number;
+		failedToday: number;
+		queued: number;
+		running: number;
+	};
+	sources: { active: number; total: number };
+	timeline: { collectedToday: number; highRiskOpen: number };
+};
+
+export type IntelligenceRiskCategoryStat = {
+	count: number;
+	key: string;
+	label: string;
+};
+
+export type IntelligenceTopicRiskStat = {
+	high: number;
+	low: number;
+	medium: number;
+	name: string;
+	slug: string;
+	total: number;
+};
+
+export type IntelligenceSourceStat = {
+	highRiskCount: number;
+	label: string;
+	total: number;
+};
+
+export type IntelligenceRiskTrendPoint = {
+	day: string;
+	high: number;
+	low: number;
+	medium: number;
+};
+
+export type IntelligenceAnalyticsView = {
+	generatedAt: string;
+	riskByLevel: { high: number; low: number; medium: number };
+	riskCategories: IntelligenceRiskCategoryStat[];
+	riskTrend: IntelligenceRiskTrendPoint[];
+	sentiment: { negative: number; neutral: number; positive: number };
+	sources: IntelligenceSourceStat[];
+	timeRange: IntelligenceTimeRange;
+	topics: IntelligenceTopicRiskStat[];
 };
 
 export type IntelligencePage<T> = {
