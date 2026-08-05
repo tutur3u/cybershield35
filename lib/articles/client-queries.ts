@@ -12,6 +12,8 @@ export type LocalArticleListItem = {
 		createdAt: string;
 		description: string;
 		id: string;
+		/** Why the last Zalo attempt failed, so the list can say what went wrong. */
+		lastError: string | null;
 		originDraftId: string | null;
 		publicationStatus: string;
 		state: string;

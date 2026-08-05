@@ -19,7 +19,10 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { SafeImage } from "@/components/dashboard/safe-image";
-import { ReviewBadge } from "@/components/dashboard/ui-primitives";
+import {
+	DashboardTooltip,
+	ReviewBadge,
+} from "@/components/dashboard/ui-primitives";
 import {
 	Dialog,
 	DialogContent,
@@ -102,7 +105,10 @@ export function ArticlesWorkspace() {
 							<span className="min-w-0"><strong className="block truncate text-[12px] text-[var(--foreground)]">{article.title || "Bài viết chưa đặt tên"}</strong><span className="mt-1 block truncate text-[10px] font-semibold text-[var(--muted)]">{article.description || "Chưa có trích yếu"}</span><span className="mt-1 block text-[9px] text-[var(--muted)]">Cập nhật {formatDate(article.updatedAt)}</span></span>
 						</div>
 						<ReviewBadge status={article.reviewStatus} />
-						<ZaloStatusBadge status={article.publicationStatus} />
+						<ZaloStatusBadge
+							reason={article.lastError}
+							status={article.publicationStatus}
+						/>
 					</Link>
 				))}
 				{articlesQuery.isPending ? <div className="grid min-h-40 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div> : null}
@@ -133,7 +139,15 @@ function Filter({ icon, label, onChange, options, value }: { icon?: boolean; lab
 }
 
 /** Reflects where the article stands on the Zalo Official Account. */
-function ZaloStatusBadge({ status }: { status: string }) {
+function ZaloStatusBadge({
+	reason,
+	status,
+}: {
+	/** Why the last attempt failed. A red badge with no reason tells an editor
+	 * something is broken without telling them what to do about it. */
+	reason?: string | null;
+	status: string;
+}) {
 	const config: Record<string, { className: string; icon: typeof Send; label: string }> = {
 		failed: {
 			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
@@ -173,7 +187,7 @@ function ZaloStatusBadge({ status }: { status: string }) {
 	};
 	const entry = config[status] ?? config.not_synced!;
 	const Icon = entry.icon;
-	return (
+	const badge = (
 		<span
 			className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
 		>
@@ -181,5 +195,8 @@ function ZaloStatusBadge({ status }: { status: string }) {
 			{entry.label}
 		</span>
 	);
+	const detail = status === "failed" ? reason?.trim() : null;
+	if (!detail) return badge;
+	return <DashboardTooltip content={detail}>{badge}</DashboardTooltip>;
 }
 function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }

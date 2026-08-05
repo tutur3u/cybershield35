@@ -40,6 +40,7 @@ async function HydratedArticlesWorkspace() {
 				createdAt: article.createdAt.toISOString(),
 				description: article.description,
 				id: article.id,
+				lastError: article.lastError,
 				originDraftId: article.originDraftId,
 				publicationStatus: article.publicationStatus,
 				state: article.state,

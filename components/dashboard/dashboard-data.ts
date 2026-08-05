@@ -44,7 +44,7 @@ export const navSections: NavSection[] = [
 		items: [
 			{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
 			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
-			{ label: "Tình báo", href: "/intelligence", icon: Layers3 },
+			{ label: "Phân tích", href: "/intelligence", icon: Layers3 },
 			{ label: "Bài viết", href: "/articles", icon: Newspaper },
 		],
 	},

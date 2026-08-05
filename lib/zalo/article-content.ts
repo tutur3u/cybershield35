@@ -2,8 +2,11 @@ import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
 import { fitTextToLimit } from "@/lib/domain/text-fit";
 
-export const ZALO_EDITORIAL_TITLE_LIMIT = 110;
-export const ZALO_EDITORIAL_DESCRIPTION_LIMIT = 180;
+// Zalo OA's own caps for a Content Article. They used to be set well below
+// these, which made editors rewrite headlines that Zalo would have accepted
+// unchanged.
+export const ZALO_EDITORIAL_TITLE_LIMIT = 150;
+export const ZALO_EDITORIAL_DESCRIPTION_LIMIT = 300;
 
 const EMOJI_OR_PRESENTATION_MARK =
 	/[\p{Extended_Pictographic}\u200D\u20E3\uFE0E\uFE0F]/gu;
@@ -11,8 +14,7 @@ const UNSUPPORTED_FORMAT_CHARACTER = /[\p{Cc}\p{Cf}]/gu;
 
 /**
  * Produces the canonical article representation used by both the CS35 editor
- * and the Zalo Article API. The limits are intentionally below Zalo's hard
- * limits so its manager preview never has to clip a title or excerpt.
+ * and the Zalo Article API, clipped to the limits Zalo itself enforces.
  */
 export function prepareZaloArticleContent(
 	content: ArticleContent,

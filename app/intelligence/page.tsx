@@ -11,12 +11,12 @@ import {
 import { intelligenceFiltersFromSearchParams, type DashboardSearchParams } from "@/lib/dashboard/query-keys";
 import { getQueryClient } from "@/lib/query-client";
 
-export const metadata = { title: "Tình báo" };
+export const metadata = { title: "Phân tích" };
 export const instant = true;
 
 export default function IntelligencePage({ searchParams }: { searchParams: DashboardSearchParams }) {
 	return (
-		<Suspense fallback={<DashboardPageSkeleton title="Tình báo" description="Đang tải tổng quan, chủ đề và cảnh báo." />}>
+		<Suspense fallback={<DashboardPageSkeleton title="Phân tích" description="Đang tải tổng quan, chủ đề và cảnh báo." />}>
 			<IntelligenceData searchParams={searchParams} />
 		</Suspense>
 	);

@@ -17,7 +17,7 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 
 const views = [
-	{ icon: ChartColumn, id: "overview", label: "Phân tích" },
+	{ icon: ChartColumn, id: "overview", label: "Tổng hợp" },
 	{ icon: Layers, id: "topics", label: "Chủ đề" },
 	{ icon: Megaphone, id: "alerts", label: "Nhận định" },
 	{ icon: Radar, id: "sources", label: "Nguồn" },
@@ -63,7 +63,7 @@ export function IntelligenceWorkspace({ view }: { view: IntelligenceView }) {
 			<PageHeader
 				description="Bức tranh toàn cảnh: cơ cấu rủi ro, nguyên nhân, chủ đề nổi bật và nguồn đang tạo ra chúng."
 				icon={BrainCircuit}
-				title="Phân tích tình báo"
+				title="Phân tích"
 			/>
 
 			<div
