@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { logout } from "@/components/dashboard/auth-client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
@@ -65,8 +65,16 @@ export function DashboardLayoutShell({
 	const pathname = usePathname();
 	const chatShell = pathname.startsWith("/chat");
 	const [auth, setAuth] = useState<AuthViewState>(initialAuth);
-	const [sidebarCollapsed, setSidebarCollapsed] =
-		useState(readSidebarCollapsed);
+	// Read through useSyncExternalStore, not seeded into useState. localStorage is
+	// only readable on the client, so seeding it made the server render expanded
+	// and the first client render collapsed. React resolved that mismatch by
+	// reusing DOM nodes, and individual nav links kept the collapsed variant's
+	// classes — gap-0 and px-0 — while the sidebar was drawn expanded.
+	const sidebarCollapsed = useSyncExternalStore(
+		subscribeSidebarCollapsed,
+		readSidebarCollapsed,
+		readServerSidebarCollapsed,
+	);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 	const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 	const passwordChangeRequired = Boolean(
@@ -93,13 +101,6 @@ export function DashboardLayoutShell({
 		);
 	}, [schedulerAutoRetryToken]);
 
-	useEffect(() => {
-		window.localStorage.setItem(
-			"cybershield35:sidebar-collapsed:v1",
-			sidebarCollapsed ? "1" : "0",
-		);
-	}, [sidebarCollapsed]);
-
 	return (
 		<DashboardAuthProvider initialAuth={auth}>
 			{auth.authenticated ? (
@@ -112,7 +113,7 @@ export function DashboardLayoutShell({
 						<Sidebar
 							key={chatShell ? "chat-sidebar" : "dashboard-sidebar"}
 							collapsed={sidebarCollapsed}
-							onToggle={() => setSidebarCollapsed((current) => !current)}
+							onToggle={() => writeSidebarCollapsed(!sidebarCollapsed)}
 						/>
 						<section
 							className={
@@ -234,9 +235,30 @@ function readSchedulerAutoRetryToken() {
 	return url.searchParams.get("cronSetup") === "retry" ? Date.now() : undefined;
 }
 
+const SIDEBAR_COLLAPSED_KEY = "cybershield35:sidebar-collapsed:v1";
+const SIDEBAR_COLLAPSED_EVENT = "cybershield35:sidebar-collapsed-changed";
+
+function subscribeSidebarCollapsed(onStoreChange: () => void) {
+	// `storage` covers other tabs; the custom event covers this one, since a tab
+	// never hears its own storage writes.
+	window.addEventListener("storage", onStoreChange);
+	window.addEventListener(SIDEBAR_COLLAPSED_EVENT, onStoreChange);
+	return () => {
+		window.removeEventListener("storage", onStoreChange);
+		window.removeEventListener(SIDEBAR_COLLAPSED_EVENT, onStoreChange);
+	};
+}
+
 function readSidebarCollapsed() {
-	if (typeof window === "undefined") return false;
-	return (
-		window.localStorage.getItem("cybershield35:sidebar-collapsed:v1") === "1"
-	);
+	return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+/** The server cannot know the preference, so it always renders expanded. */
+function readServerSidebarCollapsed() {
+	return false;
+}
+
+function writeSidebarCollapsed(next: boolean) {
+	window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+	window.dispatchEvent(new Event(SIDEBAR_COLLAPSED_EVENT));
 }
