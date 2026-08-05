@@ -22,6 +22,8 @@ import {
 	ChevronDown,
 	ChevronRight,
 	CircleHelp,
+	Coins,
+	ExternalLink,
 	KeyRound,
 	Laptop,
 	LayoutGrid,
@@ -70,9 +72,12 @@ const dropdownItemFocusClass =
 	"outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[highlighted]:outline-none data-[highlighted]:ring-0";
 
 export function Sidebar({
+	aiUsageHref = null,
 	collapsed,
 	onToggle,
 }: {
+	/** Deep link to this workspace's AI usage on the Tuturuuu AI Studio. */
+	aiUsageHref?: string | null;
 	collapsed: boolean;
 	onToggle: () => void;
 }) {
@@ -310,6 +315,41 @@ export function Sidebar({
 															pathname={pathname}
 														/>
 													))}
+													{/*
+														The credit numbers live on the AI Studio, not here.
+														Without a link an operator has to know it exists,
+														find it, then pick this workspace out of a list —
+														so in practice nobody checks what the AI costs.
+													*/}
+													{section.id === "organization" && aiUsageHref ? (
+														<a
+															aria-label={
+																collapsed ? "Mức dùng AI trên Tuturuuu" : undefined
+															}
+															className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold text-[color:var(--muted-strong)] outline-none transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
+																collapsed
+																	? "lg:justify-center lg:gap-0 lg:px-0"
+																	: "justify-start"
+															}`}
+															href={aiUsageHref}
+															onClick={() => setMobileOpen(false)}
+															rel="noopener noreferrer"
+															target="_blank"
+															title={collapsed ? "Mức dùng AI trên Tuturuuu" : undefined}
+														>
+															<Coins aria-hidden className="shrink-0" size={17} strokeWidth={2} />
+															<span
+																className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
+															>
+																Mức dùng AI
+															</span>
+															<ExternalLink
+																aria-hidden
+																className={`shrink-0 opacity-60 ${collapsed ? "lg:hidden" : ""}`}
+																size={12}
+															/>
+														</a>
+													) : null}
 												</div>
 											) : null}
 										</div>

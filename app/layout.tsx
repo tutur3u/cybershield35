@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { DashboardAppSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { Telemetry } from "@/components/providers/telemetry";
 import { resolveDashboardAuthFromCurrentRequest } from "@/lib/auth/dashboard-auth";
+import { aiStudioWorkspaceUrl } from "@/lib/tuturuuu/ai-studio-links";
 
 import "./globals.css";
 
@@ -91,6 +92,7 @@ async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 
 	return (
 		<DashboardLayoutShell
+			aiUsageHref={aiStudioWorkspaceUrl("usage")}
 			initialAuth={{
 				authenticated: true,
 				configured: true,

@@ -56,10 +56,13 @@ const ProviderStatusDialog = dynamic(
 );
 
 export function DashboardLayoutShell({
+	aiUsageHref = null,
 	children,
 	initialAuth,
 	initialProviderAvailability = null,
 }: {
+	/** Deep link to this workspace's AI usage on the Tuturuuu AI Studio. */
+	aiUsageHref?: string | null;
 	children: ReactNode;
 	initialAuth: AuthViewState;
 	initialProviderAvailability?: ProviderAvailabilityView | null;
@@ -113,6 +116,7 @@ export function DashboardLayoutShell({
 						}`}
 					>
 						<Sidebar
+							aiUsageHref={aiUsageHref}
 							key={chatShell ? "chat-sidebar" : "dashboard-sidebar"}
 							collapsed={sidebarCollapsed}
 							onToggle={() => writeSidebarCollapsed(!sidebarCollapsed)}

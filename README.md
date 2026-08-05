@@ -211,6 +211,9 @@ phía máy chủ qua `/api/auth/verify-app-token`.
   quyền mới.
 - `CYBERSHIELD35_PUBLIC_APP_URL` — origin công khai, dùng khi cấu hình callback
   cho bộ lập lịch. Nếu bỏ trống, hệ thống dùng origin của request hiện tại.
+- `TUTURUUU_AI_APP_URL` — mặc định `https://ai.tuturuuu.com`. Dùng để dựng liên
+  kết **Mức dùng AI** ở thanh bên, đưa thẳng tới trang mức dùng của đúng workspace
+  này trên Tuturuuu AI Studio. Nếu chưa cấu hình workspace, liên kết được ẩn.
 - `AUTH_LOCAL_BYPASS=true` — chỉ bỏ qua kiểm tra phiên khi request đến từ
   localhost và `NODE_ENV` khác `production`. Production luôn yêu cầu phiên hợp lệ.
 
@@ -505,6 +508,9 @@ token server-side through `/api/auth/verify-app-token`.
   scopes.
 - `CYBERSHIELD35_PUBLIC_APP_URL` — public origin used when scheduler callbacks
   are configured. Falls back to the current request origin.
+- `TUTURUUU_AI_APP_URL` — defaults to `https://ai.tuturuuu.com`. Used to build the
+  sidebar's **Mức dùng AI** link, which opens this workspace's usage page on the
+  Tuturuuu AI Studio. The entry is hidden when no workspace is configured.
 - `AUTH_LOCAL_BYPASS=true` — skips the session check only when the request host
   is localhost/loopback and `NODE_ENV` is not `production`. Production always
   requires a valid session.
