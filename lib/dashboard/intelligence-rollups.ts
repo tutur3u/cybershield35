@@ -398,10 +398,18 @@ async function refreshActivityRollups(reason: string) {
 			a.entity_type,
 			a.entity_id,
 			a.action,
+			-- Notability of the event, not risk of the content. Deleting an article
+			-- is ordinary editorial work, so only a broken pipeline step is
+			-- 'high'; everything that merely moves an item through review is
+			-- 'medium'; the rest is routine and renders without a badge.
 			case
-				when a.action in ('failed', 'article_deleted', 'deleted') then 'high'::risk_level
+				when a.action = 'failed' then 'high'::risk_level
 				when a.action in (
+					'article_deleted',
+					'deleted',
 					'article_review_needs_review',
+					'article_review_rejected',
+					'article_removed_from_zalo',
 					'review_status_updated',
 					'evidence_triage_updated',
 					'rescan_created'

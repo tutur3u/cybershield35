@@ -2,6 +2,10 @@ import { ApifyClient } from "apify-client";
 import { fitTextToLimit } from "@/lib/domain/text-fit";
 
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import {
+	classifyApifyError,
+	ProviderCollectionError,
+} from "@/lib/providers/errors";
 import { resolveCredential } from "@/lib/runtime/client-runtime";
 
 import type { ProviderAdapter } from "./types";
@@ -18,16 +22,34 @@ export function createApifyAdapter(
 	return async (source) => {
 		const credential = resolveCredential(process.env.APIFY_TOKEN);
 		if (!credential) {
-			throw new Error("APIFY_TOKEN is required for Facebook source collection");
+			throw new ProviderCollectionError({
+				code: "provider_credential_missing",
+				operatorMessage:
+					"Chưa cấu hình khóa Apify nên không thể thu thập dữ liệu Facebook. Hãy thêm APIFY_TOKEN rồi chạy lại lượt quét.",
+				provider,
+				retryable: false,
+				technicalMessage:
+					"APIFY_TOKEN is required for Facebook source collection",
+			});
 		}
 
 		const client = new ApifyClient({ token: credential.value });
 		const url = source.normalizedUrl ?? source.originalInput;
 		const actorInput = buildActorInput(provider, url);
-		const run = await client.actor(actorByProvider[provider]).call(actorInput);
-		const { items } = await client
-			.dataset<Record<string, unknown>>(run.defaultDatasetId)
-			.listItems({ limit: 80, clean: true });
+
+		// Classified here rather than at the worker: this is the only place that
+		// knows the failure came from Apify, and an exhausted account quota must
+		// not be retried like a blip.
+		let run: Awaited<ReturnType<ReturnType<typeof client.actor>["call"]>>;
+		let items: Record<string, unknown>[];
+		try {
+			run = await client.actor(actorByProvider[provider]).call(actorInput);
+			({ items } = await client
+				.dataset<Record<string, unknown>>(run.defaultDatasetId)
+				.listItems({ limit: 80, clean: true }));
+		} catch (error) {
+			throw classifyApifyError(error, provider);
+		}
 
 		return {
 			provider,

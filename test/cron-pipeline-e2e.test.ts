@@ -38,11 +38,36 @@ const processNextJob = mock(async () => {
 	return { processed: true, scanId };
 });
 const processNextAutomatedDraftJob = mock(async () => ({ processed: false as const }));
+const reconcileFacebookPageSources = mock(async () => ({
+	linked: 0,
+	tracked: 0,
+}));
+const reassessStoredEvidenceRisk = mock(async () => ({ scored: 0, updated: 0 }));
+const refreshIntelligenceRollupsBestEffort = mock(async () => undefined);
 
 mock.module("server-only", () => ({}));
 
 mock.module("@/lib/workers/tracked-sources", () => ({
 	enqueueDueTrackedSources,
+	// The daily job's dependency graph reaches these; stubbing the whole module
+	// means every export it might pull in has to exist.
+	ensureFacebookPageTracked: mock(async () => ({ sourceId: "source-1" })),
+	enqueueTrackedSourceScan: mock(async () => ({ scanId: "scan-manual" })),
+	listTrackedSources: mock(async () => []),
+}));
+
+mock.module("@/lib/dashboard/intelligence-facebook-pages", () => ({
+	facebookUsernameFromEvidence: () => null,
+	listIntelligenceFacebookPages: mock(async () => []),
+	reconcileFacebookPageSources,
+}));
+
+mock.module("@/lib/workers/evidence-risk", () => ({
+	reassessStoredEvidenceRisk,
+}));
+
+mock.module("@/lib/dashboard/intelligence-rollups", () => ({
+	refreshIntelligenceRollupsBestEffort,
 }));
 
 mock.module("@/lib/workers/scans", () => ({
@@ -88,6 +113,9 @@ beforeEach(() => {
 	enqueueDueTrackedSources.mockClear();
 	processNextJob.mockClear();
 	processNextAutomatedDraftJob.mockClear();
+	reconcileFacebookPageSources.mockClear();
+	reassessStoredEvidenceRisk.mockClear();
+	refreshIntelligenceRollupsBestEffort.mockClear();
 	globalThis.fetch = mock(() => {
 		throw new Error("cron pipeline e2e must not call external fetch");
 	}) as unknown as typeof fetch;
@@ -99,26 +127,19 @@ afterEach(() => {
 });
 
 describe("Vercel Cron scan pipeline e2e", () => {
-	test("scheduled enqueue, scheduled process, status, and history stay wired together", async () => {
-		const { GET: enqueueGET } = await import(
-			"@/app/api/cron/scans/enqueue-tracked-sources/route"
-		);
-		const { GET: processGET } = await import(
-			"@/app/api/cron/scans/process-queue/route"
+	test("the daily job enqueues, drains and reports through status and history", async () => {
+		const { GET: dailyGET } = await import(
+			"@/app/api/cron/scans/run-daily/route"
 		);
 		const { GET: statusGET } = await import("@/app/api/workspace/cron/route");
 		const { GET: executionsGET } = await import(
 			"@/app/api/workspace/cron/executions/route"
 		);
 
-		const enqueueResponse = await enqueueGET(
-			authorizedCronRequest("/api/cron/scans/enqueue-tracked-sources"),
+		const dailyResponse = await dailyGET(
+			authorizedCronRequest("/api/cron/scans/run-daily"),
 		);
-		const enqueueBody = (await enqueueResponse.json()) as Record<string, unknown>;
-		const processResponse = await processGET(
-			authorizedCronRequest("/api/cron/scans/process-queue"),
-		);
-		const processBody = (await processResponse.json()) as Record<string, unknown>;
+		const dailyBody = (await dailyResponse.json()) as Record<string, unknown>;
 		const statusResponse = await statusGET(localRequest("/api/workspace/cron"));
 		const statusBody = (await statusResponse.json()) as Record<string, unknown>;
 		const executionsResponse = await executionsGET(
@@ -127,17 +148,18 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		const executionsBody =
 			(await executionsResponse.json()) as Record<string, unknown>;
 
-		expect(enqueueResponse.status).toBe(200);
-		expect(enqueueBody).toMatchObject({
+		expect(dailyResponse.status).toBe(200);
+		// One job now does the whole pass: enqueue what is due, then drain the
+		// queue it just filled. The two used to be separate routes, so this asserts
+		// they still happen together rather than leaving scans queued until the
+		// next tick.
+		expect(dailyBody).toMatchObject({
 			enqueued: 2,
-			jobKey: "enqueue-tracked-sources",
-			recovered: 1,
-			status: "success",
-		});
-		expect(processResponse.status).toBe(200);
-		expect(processBody).toMatchObject({
-			jobKey: "process-queue",
+			jobKey: "daily-scans",
 			processed: 2,
+			recovered: 1,
+			// Deduped: each scan is both enqueued and drained in the same pass, so
+			// the raw collection lists it twice.
 			scanIds: ["scan-from-cron-1", "scan-from-cron-2"],
 			status: "success",
 		});
@@ -151,11 +173,7 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		expect(statusBody.jobs).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					jobKey: "enqueue-tracked-sources",
-					lastStatus: "success",
-				}),
-				expect.objectContaining({
-					jobKey: "process-queue",
+					jobKey: "daily-scans",
 					lastStatus: "success",
 				}),
 			]),
@@ -164,21 +182,28 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		expect(executionsBody.items).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					jobKey: "enqueue-tracked-sources",
-					source: "scheduled",
-					status: "success",
-				}),
-				expect.objectContaining({
-					jobKey: "process-queue",
+					jobKey: "daily-scans",
 					source: "scheduled",
 					status: "success",
 				}),
 			]),
 		);
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
+		// Two queued scans plus the call that reports the queue is empty.
 		expect(processNextJob).toHaveBeenCalledTimes(3);
 		expect(processNextAutomatedDraftJob).toHaveBeenCalledTimes(1);
 		expect(globalThis.fetch).not.toHaveBeenCalled();
+	});
+
+	test("an unauthorized caller cannot trigger the daily job", async () => {
+		const { GET: dailyGET } = await import(
+			"@/app/api/cron/scans/run-daily/route"
+		);
+
+		const response = await dailyGET(localRequest("/api/cron/scans/run-daily"));
+
+		expect(response.status).toBe(401);
+		expect(enqueueDueTrackedSources).not.toHaveBeenCalled();
 	});
 });
 

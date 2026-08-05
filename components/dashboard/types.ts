@@ -248,6 +248,12 @@ export type DashboardScan = {
 	riskLevel: RiskLevel;
 	progress: number;
 	createdAt: string;
+	/**
+	 * Why the scan stopped, phrased for the operator. Present only while the scan
+	 * is failed or retrying, so the queue can say what actually needs doing
+	 * instead of a generic "temporary error".
+	 */
+	errorMessage?: string | null;
 };
 
 export type DashboardScansPage = {

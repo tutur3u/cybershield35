@@ -374,6 +374,11 @@ function ReadinessChecklist({ items }: { items: ReadinessItem[] }) {
 						</span>
 						<span className="min-w-0">
 							{item.label}
+							{item.optional ? (
+								<span className="ml-1.5 rounded bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--muted)]">
+									Không bắt buộc
+								</span>
+							) : null}
 							{item.done ? null : (
 								<span className="block text-[11px] font-medium text-[var(--muted)]">
 									{item.hint}

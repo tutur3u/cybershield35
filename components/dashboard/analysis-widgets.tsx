@@ -27,7 +27,7 @@ import {
 	topicsInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
 import { buildTopicInsights, type TopicInsight } from "@/lib/dashboard/insights";
-import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 import { resolveRiskFlagEvidence } from "@/lib/domain/analysis-evidence";
 import {
 	DashboardTooltip,
@@ -301,7 +301,10 @@ export function TopicDetailPanel({ slug }: { slug?: string }) {
 								<span className="text-[12px] font-semibold text-[var(--muted)] sm:text-right">
 									Khớp {item.topicConfidence ?? 0}%
 								</span>
-								<RiskPill risk={item.riskLevel ?? "medium"} />
+								<RiskPill
+								explanation={explainEvidenceRisk(item)}
+								risk={item.riskLevel ?? "medium"}
+							/>
 						</IntentPrefetchLink>
 						))
 					) : (
@@ -444,7 +447,12 @@ export function RiskFlagPanel({
 											</p>
 										) : null}
 									</div>
-									<RiskPill risk={flag.severity} />
+									<RiskPill
+									reasons={
+										flag.rationale ? [flag.rationale] : undefined
+									}
+									risk={flag.severity}
+								/>
 								</div>
 								<EvidenceLinkStatus
 									proofCount={flag.proofs?.length ?? 0}
@@ -595,7 +603,7 @@ export function EvidencePanel({
 								</p>
 								</IntentPrefetchLink>
 							<RiskPill
-								reasons={evidenceRiskReasons(item)}
+								explanation={explainEvidenceRisk(item)}
 								risk={item.riskLevel ?? "medium"}
 							/>
 							{onEditEvidence || onDeleteEvidence ? (
@@ -653,25 +661,6 @@ export function EvidencePanel({
 			) : null}
 		</Panel>
 	);
-}
-
-function evidenceRiskReasons(item: EvidenceView[number]) {
-	const storedReasons = item.metadata?.riskReasons;
-	if (
-		Array.isArray(storedReasons) &&
-		storedReasons.every((reason): reason is string => typeof reason === "string")
-	) {
-		return storedReasons;
-	}
-	const engagement = item.engagement as
-		| { comments?: number; shares?: number }
-		| undefined;
-	return assessEvidenceRisk({
-		comments: engagement?.comments,
-		shares: engagement?.shares,
-		storedRisk: item.riskLevel,
-		text: item.quote,
-	}).reasons;
 }
 
 function TopicInsightRow({ topic }: { topic: TopicInsight }) {

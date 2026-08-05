@@ -37,6 +37,10 @@ import {
 import type { AnalysisOutput } from "@/lib/llm/schemas";
 import { runProvider } from "@/lib/providers";
 import {
+	isRetryableCollectionError,
+	operatorMessageFor,
+} from "@/lib/providers/errors";
+import {
 	runtimeKeySummary,
 	runtimeMode,
 } from "@/lib/runtime/client-runtime";
@@ -169,6 +173,7 @@ export async function findScanByClientRequestId(clientRequestId: string) {
 	const [row] = await adminDb
 		.select({
 			createdAt: scanJobs.createdAt,
+			errorMessage: scanJobs.errorMessage,
 			fileName: sources.fileName,
 			id: scanJobs.id,
 			normalizedUrl: sources.normalizedUrl,
@@ -267,6 +272,7 @@ export async function listScansPage(input?: {
 			status: scanJobs.status,
 			provider: scanJobs.provider,
 			createdAt: scanJobs.createdAt,
+			errorMessage: scanJobs.errorMessage,
 			sourceType: sources.type,
 			title: sources.title,
 			normalizedUrl: sources.normalizedUrl,
@@ -781,9 +787,18 @@ async function processClaimedJob(claimed: ClaimedJob) {
 		return { processed: true, scanId: claimed.id };
 	} catch (error) {
 		const rawMessage = error instanceof Error ? error.message : String(error);
-		const message = rawMessage;
+		// Prefer the operator-facing explanation when the provider gave us one: the
+		// raw text ("Monthly usage hard limit exceeded") tells the person reading
+		// the queue nothing about what they should do next.
+		const message = operatorMessageFor(error) ?? rawMessage;
+		// A terminal fault must not consume the retry budget. Retrying an exhausted
+		// account quota keeps every scan in a "Thử lại" state that reads like
+		// recovery in progress, when nothing will change until someone intervenes.
 		const nextStatus: ScanStatus =
-			claimed.attempts < claimed.max_attempts ? "retrying" : "failed";
+			isRetryableCollectionError(error) &&
+			claimed.attempts < claimed.max_attempts
+				? "retrying"
+				: "failed";
 
 		await adminDb
 			.update(scanJobs)
@@ -1326,6 +1341,7 @@ async function getScanSummary(id: string) {
 			status: scanJobs.status,
 			provider: scanJobs.provider,
 			createdAt: scanJobs.createdAt,
+			errorMessage: scanJobs.errorMessage,
 			sourceType: sources.type,
 			title: sources.title,
 			normalizedUrl: sources.normalizedUrl,
@@ -1371,6 +1387,7 @@ function normalizeOffsetCursor(value?: string | null) {
 
 function toDashboardScan(row: {
 	createdAt: Date;
+	errorMessage: string | null;
 	fileName: string | null;
 	id: string;
 	normalizedUrl: string | null;
@@ -1390,6 +1407,13 @@ function toDashboardScan(row: {
 		riskLevel: row.riskLevel ?? "medium",
 		progress: progressForStatus(row.status),
 		createdAt: row.createdAt.toISOString(),
+		// Only meaningful while the scan is still stopped: a message left over
+		// from an earlier attempt would misrepresent a run that has since
+		// recovered.
+		errorMessage:
+			row.status === "failed" || row.status === "retrying"
+				? row.errorMessage
+				: null,
 	};
 }
 

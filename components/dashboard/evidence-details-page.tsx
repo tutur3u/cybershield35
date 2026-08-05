@@ -40,7 +40,7 @@ import {
 	relatedEvidenceQueryOptions,
 } from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
-import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
+import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 const EvidenceTriageSheet = dynamic(
 	() => import("@/components/dashboard/evidence-triage-sheet"),
@@ -74,15 +74,9 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 		},
 	});
 	const evidence = evidenceQuery.data;
-	const assessment = evidence
-		? assessEvidenceRisk({
-				comments: evidence.engagement.comments,
-				shares: evidence.engagement.shares,
-				sourceClassification: evidence.pageClassification,
-				storedRisk: evidence.riskLevel,
-				text: evidence.quote,
-			})
-		: null;
+	// Prefers what the classifier actually recorded for this item; only falls back
+	// to re-deriving when the row predates the classifier.
+	const explanation = evidence ? explainEvidenceRisk(evidence) : null;
 
 	function optimisticUpdate(
 		patch: Partial<
@@ -166,13 +160,55 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						description="Mức ưu tiên kết hợp tín hiệu trong nội dung, độ lan truyền và phân loại trang nguồn."
 						action={
 							<RiskPill
+								explanation={explanation ?? undefined}
 								labelPrefix="Ưu tiên"
-								reasons={assessment?.reasons}
-								risk={assessment?.level ?? evidence.riskLevel}
+								risk={evidence.riskLevel}
 							/>
 						}
 					/>
 					<div className="space-y-5 p-5">
+						{/*
+							The reasoning belongs on the page, not only behind a hover: this
+							is the screen where someone decides whether the classification is
+							right, and a tooltip is unreachable on touch and invisible when
+							the page is printed or screenshotted for a report.
+						*/}
+						{explanation &&
+						(explanation.reasons.length ||
+							explanation.categoryLabels.length) ? (
+							<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+								<p className={eyebrowClass}>Vì sao ở mức này</p>
+								{explanation.categoryLabels.length ? (
+									<div className="mt-2 flex flex-wrap gap-1.5">
+										{explanation.categoryLabels.map((label) => (
+											<span
+												key={label}
+												className="rounded-md bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--muted-strong)]"
+											>
+												{label}
+											</span>
+										))}
+									</div>
+								) : null}
+								{explanation.reasons.length ? (
+									<ul className="mt-3 list-disc space-y-1.5 pl-5 text-[12px] leading-5 text-[var(--muted-strong)]">
+										{explanation.reasons.map((reason) => (
+											<li key={reason}>{reason}</li>
+										))}
+									</ul>
+								) : null}
+								<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
+									{explanation.fromModel
+										? "Do mô hình AI phân loại"
+										: "Do bộ quy tắc nội bộ phân loại"}
+									{explanation.confidence === null
+										? ""
+										: ` · độ tin cậy ${Math.round(explanation.confidence * 100)}%`}
+									. Đây là mức ưu tiên hỗ trợ rà soát, không phải kết luận
+									đúng/sai.
+								</p>
+							</section>
+						) : null}
 						{evidence.originalImageUrl ? (
 							<figure className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-soft)]">
 								{/* Facebook CDN URLs are discovered at runtime and cannot use a static Next image host allowlist. */}

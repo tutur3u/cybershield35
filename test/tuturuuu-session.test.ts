@@ -134,6 +134,7 @@ describe("Tuturuuu encrypted admin session", () => {
 			"workspace:cron:write",
 			"workspace:drive:read",
 			"workspace:drive:write",
+			"external-projects:manage",
 			"users:profile:read",
 			"users:profile:write",
 		]);
@@ -168,6 +169,7 @@ describe("Tuturuuu encrypted admin session", () => {
 			"workspace:cron:write",
 			"workspace:drive:read",
 			"workspace:drive:write",
+			"external-projects:manage",
 			"users:profile:read",
 			"users:profile:write",
 		]);

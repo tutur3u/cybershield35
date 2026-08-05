@@ -12,9 +12,9 @@ import {
 } from "@/components/dashboard/intelligence-workspace-shared";
 import type { IntelligenceActivityRow } from "@/components/dashboard/types";
 import {
+	ActivityPill,
 	Panel,
 	PanelHeader,
-	RiskPill,
 } from "@/components/dashboard/ui-primitives";
 import { intelligenceActivityInfiniteQueryOptions } from "@/lib/dashboard/client-queries";
 
@@ -89,7 +89,7 @@ function ActivityRow({
 					<p className="min-w-0 truncate text-[13px] font-bold text-[var(--foreground)]">
 						{event.title}
 					</p>
-					<RiskPill risk={event.severity} />
+					<ActivityPill severity={event.severity} />
 				</div>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
 					{formatIntelligenceDate(event.occurredAt)} · {event.description}
@@ -114,7 +114,7 @@ function ActivityRow({
 					{event.description}
 				</p>
 			</div>
-			<RiskPill risk={event.severity} />
+			<ActivityPill severity={event.severity} />
 		</IntentPrefetchLink>
 	);
 }

@@ -84,12 +84,23 @@ export function useArticleEditor(articleId: string) {
 			description: article.description,
 			title: article.title,
 		});
-		setTargetOaConnectionId(
-			article.targetOaConnectionId ??
-				accounts.data?.accounts.find((account) => account.isDefault)?.id ??
-				"",
-		);
-	}, [accounts.data?.accounts, detail.data?.article]);
+		setTargetOaConnectionId(article.targetOaConnectionId ?? "");
+	}, [detail.data?.article]);
+
+	// Auto-selection has to be its own effect. The hydration effect above returns
+	// early once the article's contentHash is known, and the accounts query almost
+	// always resolves after it — so folding the fallback in there meant the target
+	// was usually left empty and the editor demanded a choice the author had only
+	// one option for.
+	useEffect(() => {
+		if (targetOaConnectionId) return;
+		const available = accounts.data?.accounts ?? [];
+		// Prefer an explicitly default account, otherwise the only/first linked one:
+		// a workspace with a single OA should never be asked to pick it.
+		const fallback =
+			available.find((account) => account.isDefault) ?? available[0];
+		if (fallback) setTargetOaConnectionId(fallback.id);
+	}, [accounts.data?.accounts, targetOaConnectionId]);
 
 	const dirty = useMemo(() => {
 		if (!draft || !detail.data) return false;

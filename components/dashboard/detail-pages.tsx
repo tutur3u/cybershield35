@@ -24,6 +24,7 @@ import {
 	SecondaryButton,
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
+import { explainAnalysisRisk } from "@/lib/domain/risk-explanation";
 
 export function ScanDetailsPage(
 	props: DashboardPageProps & { scanId?: string },
@@ -141,7 +142,15 @@ function ScanStatusStrip(props: DashboardPageProps) {
 		<div className="grid gap-3 md:grid-cols-4">
 			<MiniMetric label="Trạng thái" value={<StatusPill status={props.selectedScan?.status ?? "queued"} />} />
 			<MiniMetric label="Provider" value={providerLabel(props.selectedScan?.provider ?? "none")} />
-			<MiniMetric label="Mức rủi ro" value={<RiskPill risk={props.analysis.riskLevel} />} />
+			<MiniMetric
+				label="Mức rủi ro"
+				value={
+					<RiskPill
+						explanation={explainAnalysisRisk(props.analysis.riskFlags)}
+						risk={props.analysis.riskLevel}
+					/>
+				}
+			/>
 			<MiniMetric label="Bằng chứng" value={props.evidence.length.toLocaleString("vi-VN")} />
 		</div>
 	);

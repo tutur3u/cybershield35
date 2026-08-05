@@ -7,6 +7,7 @@ import {
 } from "@/components/dashboard/intelligence-workspace-shared";
 import type { IntelligenceEvidenceRow } from "@/components/dashboard/types";
 import { RiskPill } from "@/components/dashboard/ui-primitives";
+import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 export function IntelligenceEvidenceRowView({
 	compact = false,
@@ -85,7 +86,10 @@ export function IntelligenceEvidenceRowView({
 					</IntentPrefetchLink>
 				</div>
 			)}
-			<RiskPill risk={evidence.riskLevel} />
+			<RiskPill
+				explanation={explainEvidenceRisk(evidence)}
+				risk={evidence.riskLevel}
+			/>
 		</div>
 	);
 }

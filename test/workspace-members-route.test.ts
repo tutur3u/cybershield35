@@ -179,6 +179,7 @@ describe("workspace members proxy routes", () => {
 						"workspace:cron:write",
 						"workspace:drive:read",
 						"workspace:drive:write",
+						"external-projects:manage",
 						"users:profile:read",
 						"users:profile:write",
 					],

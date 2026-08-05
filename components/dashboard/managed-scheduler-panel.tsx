@@ -290,10 +290,18 @@ export function ManagedSchedulerPanel({
 							nextJob={nextJob}
 							overdueJobs={overdueJobs}
 						/>
+						{/*
+							These posted "enqueue-tracked-sources" and "process-queue", job
+							keys that no longer exist — the scheduler answered 404 for both,
+							so neither manual button did anything. The daily pass now enqueues
+							and drains in one job, and publication is its own.
+						*/}
 						<ImmediateCronActions
 							disabled={!hasLocalScheduler}
-							onProcess={() => runMutation.mutate("process-queue")}
-							onQueue={() => runMutation.mutate("enqueue-tracked-sources")}
+							onProcess={() =>
+								runMutation.mutate("process-article-publications")
+							}
+							onQueue={() => runMutation.mutate("daily-scans")}
 							pending={runMutation.isPending}
 						/>
 						{displayJobs.length > 0 ? (
@@ -385,8 +393,8 @@ function ImmediateCronActions({
 					Chạy thủ công
 				</p>
 				<p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
-					Tạo scan theo dõi ngay hoặc xử lý hàng đợi ngay, không cần chờ lịch
-					Vercel Cron kế tiếp.
+					Chạy lượt quét hằng ngày hoặc đẩy hàng đợi xuất bản Zalo OA ngay,
+					không cần chờ lịch Vercel Cron kế tiếp.
 				</p>
 			</div>
 			<div className="flex flex-wrap gap-2 sm:justify-end">
@@ -394,21 +402,21 @@ function ImmediateCronActions({
 					type="button"
 					disabled={disabled || pending}
 					onClick={onQueue}
-					title="Tạo scan theo dõi ngay"
+					title="Quét toàn bộ nguồn theo dõi ngay"
 					className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--foreground)] transition hover:bg-[var(--surface-soft)] disabled:opacity-60"
 				>
 					{pending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-					Tạo scan ngay
+					Quét ngay
 				</button>
 				<button
 					type="button"
 					disabled={disabled || pending}
 					onClick={onProcess}
-					title="Xử lý hàng đợi ngay"
+					title="Đẩy hàng đợi xuất bản Zalo OA ngay"
 					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
 				>
 					{pending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-					Xử lý ngay
+					Xuất bản ngay
 				</button>
 			</div>
 		</div>

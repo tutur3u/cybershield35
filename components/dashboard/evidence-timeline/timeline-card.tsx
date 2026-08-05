@@ -16,6 +16,7 @@ import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link"
 import { intelligenceProviderLabel } from "@/components/dashboard/intelligence-workspace-shared";
 import type { TimelinePost } from "@/components/dashboard/types";
 import { RiskPill } from "@/components/dashboard/ui-primitives";
+import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 import {
 	Badge,
@@ -85,7 +86,7 @@ export function TimelineCard({
 					<PageTrustBadge classification={post.pageClassification} />
 					{post.triage.isPinned ? <Badge icon={Pin} label="Đội ngũ ghim" accent /> : null}
 					<TriageBadge status={post.triage.status} />
-					<RiskPill risk={post.riskLevel} />
+					<RiskPill explanation={explainEvidenceRisk(post)} risk={post.riskLevel} />
 				</div>
 			</div>
 

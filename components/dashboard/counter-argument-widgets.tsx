@@ -30,6 +30,7 @@ import {
 	SecondaryButton,
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
+import { explainAnalysisRisk } from "@/lib/domain/risk-explanation";
 import {
 	DEFAULT_DRAFT_TONE,
 	DEFAULT_DRAFT_VOICE,
@@ -87,7 +88,10 @@ export function SourceDetail({
 				<p className="rounded-lg bg-[var(--surface-soft)] p-3 text-[13px] leading-6 text-[var(--muted-strong)]">
 					{analysis.summary}
 				</p>
-				<RiskPill risk={analysis.riskLevel} />
+				<RiskPill
+					explanation={explainAnalysisRisk(analysis.riskFlags)}
+					risk={analysis.riskLevel}
+				/>
 			</div>
 		</Panel>
 	);

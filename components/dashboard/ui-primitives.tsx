@@ -1,5 +1,6 @@
 import {
 	AlertTriangle,
+	Bell,
 	CheckCircle2,
 	Clock,
 	Loader,
@@ -18,6 +19,7 @@ import {
 	TooltipTrigger,
 } from "@tuturuuu/ui/tooltip";
 
+import type { RiskExplanation } from "@/lib/domain/risk-explanation";
 import type { RiskLevel, ScanStatus } from "@/lib/db/schema";
 
 export function Panel({
@@ -62,7 +64,18 @@ export function PanelHeader({
 	);
 }
 
-export function StatusPill({ status }: { status: ScanStatus | string }) {
+export function StatusPill({
+	detail,
+	status,
+}: {
+	/**
+	 * The actual reason this scan stopped. Shown in place of the generic help
+	 * text, because "a temporary error" is exactly the wrong thing to tell
+	 * someone whose provider account has run out of quota.
+	 */
+	detail?: string | null;
+	status: ScanStatus | string;
+}) {
 	const config: Record<
 		string,
 		{ className: string; help: string; icon: LucideIcon; label: string }
@@ -100,9 +113,10 @@ export function StatusPill({ status }: { status: ScanStatus | string }) {
 	};
 	const entry = config[status] ?? config.queued!;
 	const Icon = entry.icon;
+	const help = detail?.trim() || entry.help;
 
 	return (
-		<DashboardTooltip content={entry.help}>
+		<DashboardTooltip content={help}>
 			<span
 				className={`inline-flex h-6 min-w-[84px] max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-center text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
 			>
@@ -169,11 +183,19 @@ export function ReviewBadge({
 }
 
 export function RiskPill({
+	explanation,
 	labelPrefix,
 	reasons,
 	risk,
 }: {
+	/**
+	 * Why this level was assigned. A bare level is an assertion a reviewer has to
+	 * take on trust; showing the signals, their categories, and who decided lets
+	 * them judge whether the machine actually understood the content.
+	 */
+	explanation?: RiskExplanation;
 	labelPrefix?: string;
+	/** Shorthand for an explanation that only carries reasons. */
 	reasons?: string[];
 	risk: RiskLevel | string;
 }) {
@@ -198,18 +220,35 @@ export function RiskPill({
 		low: "Rủi ro thấp: chưa thấy tín hiệu nghiêm trọng trong nội dung hiện có.",
 	};
 	const Icon = icons[risk] ?? AlertTriangle;
+	const detailReasons = explanation?.reasons ?? reasons ?? [];
+	const categories = explanation?.categoryLabels ?? [];
 
 	return (
 		<DashboardTooltip
 			content={
 				<div className="space-y-1.5">
 					<p>{help[risk] ?? "Mức rủi ro do phân tích gán cho mục này."}</p>
-					{reasons?.length ? (
+					{categories.length ? (
+						<p className="text-[10px] font-bold text-[var(--muted-strong)]">
+							Liên quan: {categories.join(" · ")}
+						</p>
+					) : null}
+					{detailReasons.length ? (
 						<ul className="list-disc space-y-1 pl-4">
-							{reasons.map((reason) => (
+							{detailReasons.map((reason) => (
 								<li key={reason}>{reason}</li>
 							))}
 						</ul>
+					) : null}
+					{explanation ? (
+						<p className="text-[10px] font-medium text-[var(--muted)]">
+							{explanation.fromModel
+								? "Do mô hình AI phân loại"
+								: "Do bộ quy tắc nội bộ phân loại"}
+							{explanation.confidence === null
+								? ""
+								: ` · độ tin cậy ${Math.round(explanation.confidence * 100)}%`}
+						</p>
 					) : null}
 					<p className="text-[10px] font-medium text-[var(--muted)]">
 						Đây là mức ưu tiên hỗ trợ rà soát, không phải kết luận đúng/sai.
@@ -223,6 +262,49 @@ export function RiskPill({
 				<Icon size={11} />
 				{labelPrefix ? `${labelPrefix}: ` : ""}
 				{labels[risk] ?? risk}
+			</span>
+		</DashboardTooltip>
+	);
+}
+
+/**
+ * Activity events carry a notability, not a content risk. They were rendering
+ * through `RiskPill`, which put a red "Cao" shield next to "Đã xóa bài viết" —
+ * telling the reader an ordinary editorial action was dangerous content.
+ *
+ * Routine events get no badge at all: on a feed where almost everything is
+ * routine, a green "Thấp" on every row is noise that makes the few rows that
+ * genuinely need attention harder to find.
+ */
+export function ActivityPill({ severity }: { severity: RiskLevel | string }) {
+	const config: Record<
+		string,
+		{ className: string; help: string; icon: LucideIcon; label: string }
+	> = {
+		high: {
+			className: "bg-[var(--danger-soft)] text-[var(--danger-strong)]",
+			help: "Sự kiện cần được xem lại: có bước trong quy trình không hoàn tất.",
+			icon: AlertTriangle,
+			label: "Cần xem",
+		},
+		medium: {
+			className: "bg-[var(--warning-soft)] text-[var(--warning-strong)]",
+			help: "Sự kiện làm thay đổi trạng thái duyệt hoặc xuất bản.",
+			icon: Bell,
+			label: "Đáng lưu ý",
+		},
+	};
+	const entry = config[severity];
+	if (!entry) return null;
+	const Icon = entry.icon;
+
+	return (
+		<DashboardTooltip content={entry.help}>
+			<span
+				className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-center text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
+			>
+				<Icon size={11} />
+				{entry.label}
 			</span>
 		</DashboardTooltip>
 	);

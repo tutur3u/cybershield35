@@ -450,7 +450,9 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		reconciliation,
 		riskReassessment,
 		recovered: enqueued.recovered,
-		scanIds,
+		// A scan this run enqueued and then drained appears from both stages, so
+		// the raw list double-counts it and the response reads as twice the work.
+		scanIds: [...new Set(scanIds)],
 		skipped: enqueued.skipped,
 	};
 }

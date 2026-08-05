@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -1579,8 +1579,11 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 
-		expect(data).toContain('href: "/topics"');
-		expect(data).toContain("Chủ đề");
+		// The topics deep link is built where insights are assembled, not in the
+		// dashboard data module it used to live in.
+		const insights = readFileSync("lib/dashboard/insights.ts", "utf8");
+		expect(insights).toContain('href: "/topics",');
+		expect(topicsPage).toContain("Chủ đề");
 		expect(types).toContain('| "topics"');
 		expect(dashboard).toContain('case "topics"');
 		expect(dashboard).toContain('case "topic-detail"');
@@ -1710,7 +1713,7 @@ describe("dashboard auth gate", () => {
 		expect(intelligenceShared).toContain("Facebook ID");
 		expect(intelligenceEvidenceRow).toContain("Facebook ID");
 		expect(intelligenceEvidenceRow).toContain("Bài gốc");
-		expect(intelligenceEvidenceRow).toContain("Mở scan");
+		expect(intelligenceEvidenceRow).toContain("Mở lượt quét");
 		expect(intelligenceEvidenceRow).toContain("line-clamp-2");
 		expect(widgets).toContain("break-words");
 		expect(widgets).toContain("[-webkit-line-clamp:6]");
@@ -1795,12 +1798,12 @@ describe("dashboard auth gate", () => {
 		);
 		const queries = readFileSync("lib/dashboard/client-queries.ts", "utf8");
 		const server = readFileSync("lib/managed-scheduler/server.ts", "utf8");
-		const processRoute = readFileSync(
-			"app/api/cron/scans/process-queue/route.ts",
+		const dailyRoute = readFileSync(
+			"app/api/cron/scans/run-daily/route.ts",
 			"utf8",
 		);
-		const trackedRoute = readFileSync(
-			"app/api/cron/scans/enqueue-tracked-sources/route.ts",
+		const publicationRoute = readFileSync(
+			"app/api/cron/articles/process-publication-queue/route.ts",
 			"utf8",
 		);
 		const vercelConfig = readFileSync("vercel.json", "utf8");
@@ -1813,10 +1816,16 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("Vercel Cron scheduler");
 		expect(panel).toContain("CRON_SECRET");
 		expect(panel).toContain("ImmediateCronActions");
-		expect(panel).toContain('runMutation.mutate("enqueue-tracked-sources")');
-		expect(panel).toContain('runMutation.mutate("process-queue")');
-		expect(panel).toContain("Tạo scan ngay");
-		expect(panel).toContain("Xử lý ngay");
+		// Every job key the panel can post must be one the scheduler defines.
+		// These previously named two removed jobs, so both manual buttons 404'd
+		// and the test did not notice.
+		for (const jobKey of panelJobKeys(panel)) {
+			expect(server).toContain(`jobKey: "${jobKey}"`);
+		}
+		expect(panel).toContain('runMutation.mutate("daily-scans")');
+		expect(panel).toContain('runMutation.mutate("process-article-publications")');
+		expect(panel).toContain("Quét ngay");
+		expect(panel).toContain("Xuất bản ngay");
 		expect(panel).toContain("lockedByDeployment");
 		expect(panel).toContain("vercel.json");
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
@@ -1846,23 +1855,30 @@ describe("dashboard auth gate", () => {
 		expect(server).toContain("runVercelCronRoute");
 		expect(server).toContain("CRON_SECRET");
 		expect(server).not.toContain("buildManagedSchedulerUrl");
-		expect(processRoute).toContain("export async function GET");
-		expect(processRoute).toContain("runVercelCronRoute");
-		expect(trackedRoute).toContain("export async function GET");
-		expect(trackedRoute).toContain("runVercelCronRoute");
-		expect(vercelConfig).toContain("/api/cron/scans/process-queue");
-		expect(vercelConfig).toContain("*/30 * * * *");
-		expect(vercelConfig).toContain("/api/cron/scans/enqueue-tracked-sources");
+		expect(dailyRoute).toContain("export async function GET");
+		expect(dailyRoute).toContain("runVercelCronRoute");
+		expect(publicationRoute).toContain("export async function GET");
+		expect(publicationRoute).toContain("runVercelCronRoute");
+		// Every scheduled path in vercel.json must resolve to a route that exists,
+		// or the cron fires into a 404 every day with nothing to show for it.
+		for (const path of cronPaths(vercelConfig)) {
+			expect(existsSync(`app${path}/route.ts`)).toBe(true);
+		}
+		expect(vercelConfig).toContain("/api/cron/scans/run-daily");
 		expect(vercelConfig).toContain("0 0 * * *");
+		expect(vercelConfig).toContain(
+			"/api/cron/articles/process-publication-queue",
+		);
+		expect(vercelConfig).toContain("*/5 * * * *");
 	});
 
 	test("managed scheduler callbacks return sanitized structured failures", () => {
-		const processRoute = readFileSync(
-			"app/api/cron/scans/process-queue/route.ts",
+		const dailyRoute = readFileSync(
+			"app/api/cron/scans/run-daily/route.ts",
 			"utf8",
 		);
-		const trackedRoute = readFileSync(
-			"app/api/cron/scans/enqueue-tracked-sources/route.ts",
+		const publicationRoute = readFileSync(
+			"app/api/cron/articles/process-publication-queue/route.ts",
 			"utf8",
 		);
 		const callback = readFileSync(
@@ -1870,14 +1886,15 @@ describe("dashboard auth gate", () => {
 			"utf8",
 		);
 
-		expect(processRoute).toContain("managedSchedulerCallbackFailureBody");
-		expect(processRoute).toContain('const JOB_KEY = "process-queue"');
-		expect(processRoute).toContain("operation: JOB_KEY");
-		expect(trackedRoute).toContain("managedSchedulerCallbackFailureBody");
-		expect(trackedRoute).toContain(
-			'const JOB_KEY = "enqueue-tracked-sources"',
-		);
-		expect(trackedRoute).toContain("operation: JOB_KEY");
+		expect(dailyRoute).toContain("managedSchedulerCallbackFailureBody");
+		expect(dailyRoute).toContain('const JOB_KEY = "daily-scans"');
+		expect(dailyRoute).toContain("operation: JOB_KEY");
+		// The publication route is Vercel-Cron only and has no legacy POST callback,
+		// so it needs no sanitized failure body — but it must still name a job key
+		// the scheduler actually defines.
+		expect(publicationRoute).toContain("runVercelCronRoute");
+		expect(publicationRoute).toContain('"process-article-publications"');
+		expect(publicationRoute).not.toContain("export async function POST");
 		expect(callback).toContain("CS35_MANAGED_SCHEDULER_CALLBACK_FAILED");
 		expect(callback).toContain("developerDebug");
 		expect(callback).not.toContain("stack");
@@ -1948,12 +1965,12 @@ describe("dashboard auth gate", () => {
 		expect(widgets).toContain("stanceTooltip");
 		expect(alertsPage).toContain("<IntelligenceClaimsWorkspace");
 		expect(intelligenceWidgets).toContain("evidenceHrefs");
-		expect(intelligenceWidgets).toContain("Đồ thị claim");
+		expect(intelligenceWidgets).toContain("Dẫn chứng");
 		expect(intelligenceWidgets).toContain("href={claim.deepLink}");
 		expect(primitives).toContain("export function DashboardTooltip");
 		expect(primitives).toContain("@tuturuuu/ui/tooltip");
 		expect(primitives).toContain("Rủi ro cao");
-		expect(primitives).toContain("Scan đã được tạo");
+		expect(primitives).toContain("Đã đưa vào hàng đợi");
 	});
 
 	test("verify-token callback page completes login without manual token entry", () => {
@@ -2100,3 +2117,25 @@ describe("dashboard auth gate", () => {
 		expect(globals).not.toContain("bokeh");
 	});
 });
+
+/** Every job key the scheduler panel can post to the run endpoint. */
+function panelJobKeys(panel: string) {
+	return [
+		...new Set(
+			[...panel.matchAll(/runMutation\.mutate\(\s*"([a-z0-9-]+)"/gu)].map(
+				(match) => match[1] as string,
+			),
+		),
+	];
+}
+
+/** Every path Vercel is configured to call on a schedule. */
+function cronPaths(vercelConfig: string) {
+	return [
+		...new Set(
+			[...vercelConfig.matchAll(/"path":\s*"(\/api\/[^"]+)"/gu)].map(
+				(match) => match[1] as string,
+			),
+		),
+	];
+}

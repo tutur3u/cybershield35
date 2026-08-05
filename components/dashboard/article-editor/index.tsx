@@ -54,8 +54,11 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 		},
 		{
 			done: isRenderableImageUrl(draft.coverUrl),
-			hint: "Tải ảnh bìa lên.",
+			// Zalo OA accepts an article without one, and plenty of posts are pure
+			// text, so this is advice rather than a gate.
+			hint: "Nên có ảnh bìa để bài hiển thị nổi bật hơn, nhưng không bắt buộc.",
 			label: "Có ảnh bìa",
+			optional: true,
 		},
 		{ done: hasBody, hint: "Thêm ít nhất một khối nội dung.", label: "Có nội dung" },
 		{
@@ -74,7 +77,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 		article.reviewStatus === "approved" ? null : "Bài viết cần được phê duyệt.",
 		draft.title.trim() ? null : "Bài viết cần có tiêu đề.",
 		hasBody ? null : "Bài viết cần có ít nhất một khối nội dung.",
-		readiness.some((item) => !item.done)
+		readiness.some((item) => !item.done && !item.optional)
 			? "Chưa đủ điều kiện đăng lên Zalo OA — xem danh sách kiểm tra ở cột phải."
 			: null,
 	].filter((value): value is string => Boolean(value));

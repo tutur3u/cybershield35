@@ -28,6 +28,7 @@ import {
 	SecondaryButton,
 	StatusPill,
 } from "@/components/dashboard/ui-primitives";
+import { explainAnalysisRisk } from "@/lib/domain/risk-explanation";
 
 export { PageHeader } from "@/components/dashboard/page-header";
 
@@ -170,8 +171,13 @@ export function QueueCard({
 								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
 									{scan.sourceLabel} - {providerLabel(scan.provider)}
 								</p>
+								{scan.errorMessage ? (
+									<p className="mt-1 line-clamp-2 text-[11px] font-semibold text-[var(--danger-strong)]">
+										{scan.errorMessage}
+									</p>
+								) : null}
 								</IntentPrefetchLink>
-							<StatusPill status={scan.status} />
+							<StatusPill detail={scan.errorMessage} status={scan.status} />
 							<div className="min-w-0 text-[11px] font-semibold text-[var(--muted)] sm:text-right">
 								{scan.progress}%
 								<div className="mt-1">
@@ -298,7 +304,10 @@ export function AnalysisSummary({
 					{analysis.summary}
 				</p>
 				<div className="flex flex-wrap gap-2">
-					<RiskPill risk={analysis.riskLevel} />
+					<RiskPill
+						explanation={explainAnalysisRisk(analysis.riskFlags)}
+						risk={analysis.riskLevel}
+					/>
 					<span className="inline-flex min-h-6 max-w-full min-w-12 items-center justify-center rounded-md bg-[var(--accent-soft)] px-2.5 py-1 text-left text-[11px] font-bold leading-4 text-[var(--accent-strong)]">
 						{analysis.stanceSummary}
 					</span>

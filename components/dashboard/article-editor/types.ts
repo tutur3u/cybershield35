@@ -76,6 +76,12 @@ export type ZaloPublishTarget = "hidden" | "public";
 
 export type EditorNotice = { tone: "error" | "success"; text: string } | null;
 
-export type ReadinessItem = { done: boolean; hint: string; label: string };
+export type ReadinessItem = {
+	done: boolean;
+	hint: string;
+	label: string;
+	/** Recommended but not required — never blocks publishing. */
+	optional?: boolean;
+};
 
 export type StatusTone = "accent" | "danger" | "neutral" | "success" | "warning";
