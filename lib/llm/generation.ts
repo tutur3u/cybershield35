@@ -113,8 +113,12 @@ export function getAllowedAiModels() {
   return configured?.length
     ? [...new Set(configured)]
     : [
+        // Must stay a subset of what the Tuturuuu platform permits for this
+        // workspace, otherwise the gateway rejects the call with
+        // MODEL_NOT_ALLOWED. Verified against the AI Studio model policy on
+        // 2026-08-05; google/gemini-3.1-flash-lite was listed here but is not in
+        // the platform catalog, so every request naming it would have failed.
         "google/gemini-3.5-flash-lite",
-        "google/gemini-3.1-flash-lite",
         "google/gemini-3.6-flash",
       ];
 }

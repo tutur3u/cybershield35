@@ -100,11 +100,14 @@ describe("LLM provider selection", () => {
 				accessToken: "ttr_app_external-session",
 				workspaceId: "workspace-id",
 			},
-			"google/gemini-3.1-flash-lite",
+			// The platform catalog does not include gemini-3.1-flash-lite, so a
+			// request naming it is rejected by the gateway. Only models CS35 can
+			// actually reach belong in the allowlist.
+			"google/gemini-3.6-flash",
 		);
 
 		expect(runtime?.resolved).toMatchObject({
-			model: "google/gemini-3.1-flash-lite",
+			model: "google/gemini-3.6-flash",
 			provider: "tuturuuu",
 			source: "external-app-session",
 		});
