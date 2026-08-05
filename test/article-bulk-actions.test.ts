@@ -56,7 +56,9 @@ describe("the articles list drives bulk actions", () => {
 	});
 
 	test("destructive and audience-facing actions confirm first", () => {
-		expect(workspace).toContain("window.confirm");
+		// The product's own dialog, not window.confirm — see test/confirm-dialog.
+		expect(workspace).toContain("useConfirmDialog()");
+		expect(workspace).toContain("await confirm({");
 		expect(workspace).toContain('onRun({ action: "delete" })');
 		expect(workspace).toContain('onRun({ action: "publish" })');
 	});

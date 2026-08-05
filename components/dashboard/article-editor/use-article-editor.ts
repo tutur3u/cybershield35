@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { articleQueryKeys } from "@/lib/articles/client-queries";
 
+import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
+
 import { fetchJson } from "./shared";
 import type {
 	AiProposal,
@@ -70,6 +72,9 @@ export function useArticleEditor(articleId: string) {
 		useState<EditorialIntent>("counter_argument");
 	const [model, setModel] = useState("");
 	const [proposal, setProposal] = useState<AiProposal | null>(null);
+	// Product-owned confirmations rather than window.confirm, which blocks the
+	// main thread and cannot be styled, translated, or exercised in a test.
+	const { confirm, dialog: confirmDialog } = useConfirmDialog();
 	const hydratedHash = useRef("");
 
 	useEffect(() => {
@@ -165,6 +170,32 @@ export function useArticleEditor(articleId: string) {
 	const review = useCallback(
 		async (status: string) => {
 			if (dirty && !(await save())) return;
+
+			// Withdrawing an approval while the article is live would leave a post on
+			// the OA that CS35 no longer considers approved — the audience keeps
+			// reading something the team has just decided is not ready. So the two
+			// happen together, or not at all.
+			const article = detail.data?.article;
+			const liveOnZalo = article?.publicationStatus === "published";
+			const revoking = status !== "approved";
+			if (liveOnZalo && revoking) {
+				if (
+					!(await confirm({
+						confirmLabel: "Gỡ và chuyển chờ duyệt",
+						description:
+							"Bài đang hiển thị công khai. Gỡ khỏi Zalo OA trước, rồi chuyển về chờ duyệt. Nội dung vẫn được giữ để đăng lại sau khi duyệt.",
+						title: "Gỡ bài khỏi Zalo OA trước khi bỏ duyệt?",
+						tone: "danger",
+					}))
+				) {
+					return;
+				}
+				const withdrawn = await runAction("review", async () => {
+					await fetchJson(`/api/articles/${articleId}/hide`, { method: "POST" });
+				});
+				if (!withdrawn) return;
+			}
+
 			await runAction("review", async () => {
 				await fetchJson(`/api/articles/${articleId}/review`, {
 					body: JSON.stringify({ status }),
@@ -174,14 +205,16 @@ export function useArticleEditor(articleId: string) {
 				setNotice({
 					text:
 						status === "approved"
-							? "Đã phê duyệt. Bài viết sẵn sàng đồng bộ bản ẩn lên Zalo OA."
-							: "Đã chuyển bài về trạng thái chờ duyệt.",
+							? "Đã phê duyệt. Bài viết sẵn sàng đưa lên Zalo OA."
+							: liveOnZalo
+								? "Đã gỡ bài khỏi Zalo OA và chuyển về chờ duyệt."
+								: "Đã chuyển bài về trạng thái chờ duyệt.",
 					tone: "success",
 				});
 				await refresh();
 			});
 		},
-		[articleId, dirty, refresh, runAction, save],
+		[articleId, confirm, detail.data?.article, dirty, refresh, runAction, save],
 	);
 
 	const publishAction = useCallback(
@@ -189,13 +222,27 @@ export function useArticleEditor(articleId: string) {
 			if (dirty && !(await save())) return;
 			const confirmed =
 				action === "sync" ||
-				window.confirm(
-					action === "publish"
-						? "Xuất bản bài viết này công khai trên Zalo OA ngay bây giờ?"
-						: action === "hide"
-							? "Ẩn bài viết này khỏi Zalo OA? Nội dung vẫn được giữ để có thể xuất bản lại."
-							: "Cập nhật bài viết đang hiển thị trên Zalo bằng phiên bản hiện tại?",
-				);
+				(await confirm({
+					confirmLabel:
+						action === "publish"
+							? "Xuất bản"
+							: action === "hide"
+								? "Ẩn bài"
+								: "Cập nhật",
+					description:
+						action === "publish"
+							? "Bài sẽ hiển thị công khai với người theo dõi Zalo OA ngay lập tức."
+							: action === "hide"
+								? "Nội dung vẫn được giữ trong CyberShield35 để có thể xuất bản lại."
+								: "Bản đang hiển thị trên Zalo sẽ được thay bằng phiên bản hiện tại.",
+					title:
+						action === "publish"
+							? "Xuất bản công khai trên Zalo OA?"
+							: action === "hide"
+								? "Ẩn bài khỏi Zalo OA?"
+								: "Cập nhật bài đang hiển thị?",
+					tone: action === "hide" ? "danger" : "default",
+				}));
 			if (!confirmed) return;
 			await runAction(action, async () => {
 				await fetchJson(`/api/articles/${articleId}/${action}`, { method: "POST" });
@@ -209,7 +256,7 @@ export function useArticleEditor(articleId: string) {
 				await refresh();
 			});
 		},
-		[articleId, dirty, refresh, runAction, save],
+		[confirm, articleId, dirty, refresh, runAction, save],
 	);
 
 	/**
@@ -222,11 +269,15 @@ export function useArticleEditor(articleId: string) {
 		if (dirty && !(await save())) return;
 		const goingPublic = publishTarget === "public";
 		if (
-			!window.confirm(
-				goingPublic
-					? "Đăng bài viết này lên Zalo OA ngay bây giờ? Bài sẽ hiển thị công khai với người theo dõi."
-					: "Đưa bài viết này lên Zalo OA ở trạng thái ẩn? Chỉ quản trị viên OA nhìn thấy.",
-			)
+			!(await confirm({
+				confirmLabel: goingPublic ? "Đăng công khai" : "Đưa lên bản ẩn",
+				description: goingPublic
+					? "Bài sẽ hiển thị công khai với người theo dõi Zalo OA ngay lập tức."
+					: "Chỉ quản trị viên OA nhìn thấy. Bài chưa hiển thị với người theo dõi.",
+				title: goingPublic
+					? "Đăng lên Zalo OA ngay bây giờ?"
+					: "Đưa lên Zalo OA ở trạng thái ẩn?",
+			}))
 		) {
 			return;
 		}
@@ -250,7 +301,7 @@ export function useArticleEditor(articleId: string) {
 			});
 			await refresh();
 		}).finally(() => setPublishStep(null));
-	}, [articleId, dirty, publishTarget, refresh, runAction, save]);
+	}, [confirm, articleId, dirty, publishTarget, refresh, runAction, save]);
 
 	/**
 	 * Preview path: pushes a hidden copy to Zalo without revealing it, so an editor
@@ -277,9 +328,12 @@ export function useArticleEditor(articleId: string) {
 			return;
 		}
 		if (
-			!window.confirm(
-				`Xác nhận tự động xuất bản lúc ${new Date(schedule).toLocaleString("vi-VN")}?`,
-			)
+			!(await confirm({
+				confirmLabel: "Hẹn giờ",
+				description:
+					"Bài sẽ tự hiển thị công khai vào thời điểm này mà không cần thao tác thêm.",
+				title: `Tự động xuất bản lúc ${new Date(schedule).toLocaleString("vi-VN")}?`,
+			}))
 		) {
 			return;
 		}
@@ -295,7 +349,7 @@ export function useArticleEditor(articleId: string) {
 			});
 			await refresh();
 		});
-	}, [articleId, refresh, runAction, schedule]);
+	}, [confirm, articleId, refresh, runAction, schedule]);
 
 	const cancelSchedule = useCallback(async () => {
 		await runAction("cancel", async () => {
@@ -315,9 +369,13 @@ export function useArticleEditor(articleId: string) {
 
 	const removeFromZalo = useCallback(async () => {
 		if (
-			!window.confirm(
-				"Xóa bản này khỏi Zalo OA? Nội dung trong CyberShield35 vẫn được giữ lại để chỉnh sửa hoặc đồng bộ lại.",
-			)
+			!(await confirm({
+				confirmLabel: "Xóa khỏi Zalo",
+				description:
+					"Nội dung trong CyberShield35 vẫn được giữ lại để chỉnh sửa hoặc đồng bộ lại.",
+				title: "Xóa bản này khỏi Zalo OA?",
+				tone: "danger",
+			}))
 		) {
 			return;
 		}
@@ -329,13 +387,16 @@ export function useArticleEditor(articleId: string) {
 			});
 			await refresh();
 		});
-	}, [articleId, refresh, runAction]);
+	}, [confirm, articleId, refresh, runAction]);
 
 	const deleteLocalArticle = useCallback(async () => {
 		if (
-			!window.confirm(
-				"Xóa vĩnh viễn bài viết này? Thao tác này không thể hoàn tác.",
-			)
+			!(await confirm({
+				confirmLabel: "Xóa vĩnh viễn",
+				description: "Thao tác này không thể hoàn tác.",
+				title: "Xóa vĩnh viễn bài viết này?",
+				tone: "danger",
+			}))
 		) {
 			return;
 		}
@@ -343,7 +404,7 @@ export function useArticleEditor(articleId: string) {
 			await fetchJson(`/api/articles/${articleId}`, { method: "DELETE" });
 			router.push("/articles");
 		});
-	}, [articleId, router, runAction]);
+	}, [confirm, articleId, router, runAction]);
 
 	const askAi = useCallback(
 		async (action: string) => {
@@ -414,7 +475,16 @@ export function useArticleEditor(articleId: string) {
 
 	const restore = useCallback(
 		async (versionId: string) => {
-			if (!window.confirm("Khôi phục phiên bản này thành nội dung hiện tại?")) return;
+			if (
+				!(await confirm({
+					confirmLabel: "Khôi phục",
+					description:
+						"Nội dung hiện tại sẽ được thay bằng phiên bản này. Bản hiện tại vẫn được lưu trong lịch sử.",
+					title: "Khôi phục phiên bản này?",
+				}))
+			) {
+				return;
+			}
 			await runAction("restore", async () => {
 				await fetchJson(
 					`/api/articles/${articleId}/versions/${versionId}/restore`,
@@ -424,7 +494,7 @@ export function useArticleEditor(articleId: string) {
 				await refresh();
 			});
 		},
-		[articleId, refresh, runAction],
+		[confirm, articleId, refresh, runAction],
 	);
 
 	const dropCover = useCallback(() => {
@@ -448,6 +518,7 @@ export function useArticleEditor(articleId: string) {
 		askAi,
 		busy,
 		cancelSchedule,
+		confirmDialog,
 		deleteLocalArticle,
 		detail,
 		dirty,

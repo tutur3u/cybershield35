@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
 
+import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 
 type ZaloAccount = {
@@ -30,6 +31,7 @@ export function ZaloSettingsPanel() {
 	const queryClient = useQueryClient();
 	const params = useSearchParams();
 	const [busy, setBusy] = useState("");
+	const { confirm, dialog: confirmDialog } = useConfirmDialog();
 	const [notice, setNotice] = useState(
 		params.get("message") ?? "",
 	);
@@ -46,9 +48,13 @@ export function ZaloSettingsPanel() {
 	async function mutate(id: string, action: "default" | "disconnect") {
 		if (
 			action === "disconnect" &&
-			!window.confirm(
-				"Ngắt kết nối OA này? Các bài viết đã xuất bản vẫn được giữ trên Zalo.",
-			)
+			!(await confirm({
+				confirmLabel: "Ngắt kết nối",
+				description:
+					"Các bài viết đã xuất bản vẫn được giữ trên Zalo. CS35 sẽ không đăng được lên OA này nữa.",
+				title: "Ngắt kết nối Zalo OA này?",
+				tone: "danger",
+			}))
 		) {
 			return;
 		}
@@ -79,6 +85,7 @@ export function ZaloSettingsPanel() {
 
 	return (
 		<Panel>
+			{confirmDialog}
 			<PanelHeader
 				title="Zalo Official Account"
 				description="Kết nối nhiều OA bằng OAuth. Token được mã hóa trên máy chủ và tự xoay vòng khi hết hạn."

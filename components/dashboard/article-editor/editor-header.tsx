@@ -7,6 +7,8 @@ import {
 	Check,
 	ChevronRight,
 	CircleDashed,
+	ExternalLink,
+	EyeOff,
 	LoaderCircle,
 	PanelRightClose,
 	PanelRightOpen,
@@ -29,6 +31,7 @@ import {
 	secondaryButton,
 	StatusChip,
 	successButton,
+	zaloPublicArticleUrl,
 } from "./shared";
 import type {
 	ArticleRow,
@@ -50,7 +53,9 @@ export function EditorHeader({
 	blockers,
 	busy,
 	dirty,
+	oaId,
 	onPublish,
+	onPublishAction,
 	onReview,
 	onSave,
 	onToggleRail,
@@ -65,7 +70,9 @@ export function EditorHeader({
 	blockers: string[];
 	busy: string;
 	dirty: boolean;
+	oaId: string | null;
 	onPublish: () => void;
+	onPublishAction: (action: "hide") => void;
 	onReview: (status: string) => void;
 	onSave: () => void;
 	onToggleRail: () => void;
@@ -155,7 +162,10 @@ export function EditorHeader({
 					<PublishButton
 						blockers={blockers}
 						disabled={Boolean(busy)}
+						live={article.publicationStatus === "published"}
+						liveUrl={zaloPublicArticleUrl(article.remoteArticleId, oaId)}
 						onPublish={onPublish}
+						onUnpublish={() => onPublishAction("hide")}
 						publishStep={publishStep}
 						publishTarget={publishTarget}
 						publishing={busy === "publish"}
@@ -183,18 +193,61 @@ export function EditorHeader({
 function PublishButton({
 	blockers,
 	disabled,
+	live,
+	liveUrl,
 	onPublish,
+	onUnpublish,
 	publishStep,
 	publishTarget,
 	publishing,
 }: {
 	blockers: string[];
 	disabled: boolean;
+	/** Already visible to followers on the OA. */
+	live: boolean;
+	liveUrl: string | null;
 	onPublish: () => void;
+	onUnpublish: () => void;
 	publishStep: PublishStep;
 	publishTarget: ZaloPublishTarget;
 	publishing: boolean;
 }) {
+	// Offering "publish" on something already published is an action with no
+	// meaning. What an operator wants there is to see it, or to take it down.
+	if (live) {
+		return (
+			<div className="flex items-center gap-2">
+				{liveUrl ? (
+					<DashboardTooltip content="Mở bài viết đang hiển thị trên Zalo OA, đúng như người theo dõi nhìn thấy.">
+						<a
+							className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+							href={liveUrl}
+							rel="noopener noreferrer"
+							target="_blank"
+						>
+							<ExternalLink size={15} /> Xem trên Zalo
+						</a>
+					</DashboardTooltip>
+				) : null}
+				<DashboardTooltip content="Gỡ bài khỏi hiển thị công khai. Nội dung vẫn được giữ để đăng lại.">
+					<button
+						className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--danger-border)] px-4 text-[12px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={disabled}
+						onClick={onUnpublish}
+						type="button"
+					>
+						{publishing ? (
+							<LoaderCircle size={15} className="animate-spin" />
+						) : (
+							<EyeOff size={15} />
+						)}
+						Gỡ khỏi Zalo
+					</button>
+				</DashboardTooltip>
+			</div>
+		);
+	}
+
 	const blocked = blockers.length > 0;
 	const label = publishing
 		? (publishStep && PUBLISH_STEP_LABELS[publishStep]) || "Đang đăng…"

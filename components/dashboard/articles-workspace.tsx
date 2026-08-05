@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
+import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { SafeImage } from "@/components/dashboard/safe-image";
 import {
 	DashboardTooltip,
@@ -51,6 +52,7 @@ export function ArticlesWorkspace() {
 	const [importOpen, setImportOpen] = useState(false);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [bulkNotice, setBulkNotice] = useState("");
+	const { confirm, dialog: confirmDialog } = useConfirmDialog();
 	const filters = useMemo<ArticleListFilters>(
 		() => ({ q: deferredSearch || undefined, review, sort, state }),
 		[deferredSearch, review, sort, state],
@@ -115,9 +117,13 @@ export function ArticlesWorkspace() {
 					return;
 				}
 				if (
-					window.confirm(
-						`Gỡ ${data.scanned} bản ẩn CS35 khỏi Zalo OA? Bài đang hiển thị công khai và bài không do CS35 tạo sẽ không bị đụng tới.`,
-					)
+					await confirm({
+						confirmLabel: `Gỡ ${data.scanned} bản ẩn`,
+						description:
+							"Bài đang hiển thị công khai và bài không do CS35 tạo sẽ không bị đụng tới.",
+						title: `Gỡ ${data.scanned} bản ẩn CS35 khỏi Zalo OA?`,
+						tone: "danger",
+					})
 				) {
 					cleanupMutation.mutate(true);
 				}
@@ -154,6 +160,7 @@ export function ArticlesWorkspace() {
 
 	return (
 		<div className="space-y-4">
+			{confirmDialog}
 			<div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] xl:flex-row xl:items-center">
 				<label className="relative min-w-0 flex-1">
 					<Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
@@ -327,12 +334,14 @@ function BulkActionBar({
 	onRun: (payload: BulkPayload) => void;
 }) {
 	const label = `${count} bài viết`;
+	const { confirm, dialog } = useConfirmDialog();
 
 	return (
 		<div
 			aria-live="polite"
 			className="flex flex-col gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] p-3 sm:flex-row sm:items-center"
 		>
+			{dialog}
 			<p className="min-w-0 flex-1 text-[12px] font-bold text-[var(--accent-strong)]">
 				Đã chọn {label}
 				{notice ? (
@@ -361,11 +370,14 @@ function BulkActionBar({
 					busy={busy}
 					help={`Đăng công khai ${label} lên Zalo OA. Bài chưa được duyệt sẽ bị bỏ qua và báo lỗi riêng.`}
 					label="Đăng lên Zalo"
-					onClick={() => {
+					onClick={async () => {
 						if (
-							window.confirm(
-								`Đăng công khai ${label} lên Zalo OA? Người theo dõi sẽ nhìn thấy ngay.`,
-							)
+							await confirm({
+								confirmLabel: "Đăng công khai",
+								description:
+									"Người theo dõi Zalo OA sẽ nhìn thấy ngay. Bài chưa được duyệt sẽ bị bỏ qua.",
+								title: `Đăng công khai ${label} lên Zalo OA?`,
+							})
 						) {
 							onRun({ action: "publish" });
 						}
@@ -382,11 +394,15 @@ function BulkActionBar({
 					busy={busy}
 					help={`Xóa ${label} khỏi CS35 và gỡ khỏi Zalo OA. Không thể hoàn tác.`}
 					label="Xóa"
-					onClick={() => {
+					onClick={async () => {
 						if (
-							window.confirm(
-								`Xóa ${label}? Bài cũng bị gỡ khỏi Zalo OA và không thể hoàn tác.`,
-							)
+							await confirm({
+								confirmLabel: "Xóa",
+								description:
+									"Bài cũng bị gỡ khỏi Zalo OA. Thao tác này không thể hoàn tác.",
+								title: `Xóa ${label}?`,
+								tone: "danger",
+							})
 						) {
 							onRun({ action: "delete" });
 						}

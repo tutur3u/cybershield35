@@ -300,6 +300,22 @@ export const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
  * hunting for the right row is the slow path when someone wants to check or
  * tweak exactly this article.
  */
+/**
+ * The public post as a follower sees it.
+ *
+ * Once something is live, "open it on Zalo" means the published article, not the
+ * editor — an operator checking a live post wants what the audience got.
+ */
+export function zaloPublicArticleUrl(
+	remoteArticleId: string | null,
+	oaId: string | null,
+) {
+	const id = remoteArticleId?.trim();
+	const page = oaId?.trim();
+	if (!id || !page) return null;
+	return `https://officialaccount.me/d?id=${encodeURIComponent(id)}&pageId=${encodeURIComponent(page)}`;
+}
+
 export function zaloArticleEditorUrl(remoteArticleId: string | null) {
 	const id = remoteArticleId?.trim();
 	if (!id) return null;

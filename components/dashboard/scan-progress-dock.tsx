@@ -42,7 +42,9 @@ type ScanProgress = {
  * work was never tied to the page in the first place.
  */
 export function ScanProgressDock() {
-	const [collapsed, setCollapsed] = useState(false);
+	// Collapsed by default: a scan takes minutes, and an expanded panel sitting
+	// over the page that whole time is in the way of the work it is reporting on.
+	const [collapsed, setCollapsed] = useState(true);
 	const query = useQuery({
 		queryFn: async (): Promise<ScanProgress[]> => {
 			const response = await fetch("/api/scans/active", {
@@ -70,7 +72,13 @@ export function ScanProgressDock() {
 			aria-live="polite"
 			className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-md rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-[0_18px_45px_rgb(0_0_0/0.28)] sm:inset-x-auto sm:right-4"
 		>
-			<div className="flex items-center gap-2 border-b border-[var(--divider)] px-3 py-2.5">
+			<div
+				className={`flex items-center gap-2 px-3 py-2.5 ${
+					// The divider separates the header from the list; with nothing
+					// below it, it reads as a stray line under the panel.
+					collapsed ? "" : "border-b border-[var(--divider)]"
+				}`}
+			>
 				<Radar
 					aria-hidden
 					className="shrink-0 animate-pulse text-[var(--accent-strong)]"

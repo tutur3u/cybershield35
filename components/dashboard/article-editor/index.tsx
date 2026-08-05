@@ -90,7 +90,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				blockers={blockers}
 				busy={editor.busy}
 				dirty={editor.dirty}
+				oaId={detail.data.oaId}
 				onPublish={() => void editor.publish()}
+				onPublishAction={(action) => void editor.publishAction(action)}
 				onReview={(status) => void editor.review(status)}
 				onSave={() => void editor.save()}
 				onToggleRail={() => setRailOpen((value) => !value)}
@@ -226,6 +228,8 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 					/>
 				) : null}
 			</div>
+
+			{editor.confirmDialog}
 
 			<Dialog
 				open={Boolean(editor.proposal)}
