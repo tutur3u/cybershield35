@@ -23,11 +23,14 @@ const exportOptions: Array<{
 export function ExportActions({
 	compact = false,
 	content,
+	coverUrl,
 	fileName,
 	title,
 }: {
 	compact?: boolean;
 	content: string;
+	/** Included in Word and PDF so the file matches the published article. */
+	coverUrl?: string | null;
 	fileName: string;
 	title: string;
 }) {
@@ -49,6 +52,9 @@ export function ExportActions({
 			const response = await fetch("/api/exports", {
 				body: JSON.stringify({
 					content,
+					...(format === "wav" || !coverUrl?.startsWith("https://")
+						? {}
+						: { coverUrl }),
 					fileName: exportFileName,
 					format,
 					title,

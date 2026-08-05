@@ -8,7 +8,7 @@ import {
 } from "@/components/dashboard/safe-image";
 import type { ArticleContent } from "@/lib/articles/schemas";
 
-import { ZALO_OA_MANAGER_URL } from "./shared";
+import { ZALO_OA_MANAGER_URL, zaloArticleEditorUrl } from "./shared";
 
 export function ZaloPreview({
 	content,
@@ -106,6 +106,7 @@ export function ZaloDashboardHandoff({
 	}
 
 	const published = publicationStatus === "published";
+	const editorUrl = zaloArticleEditorUrl(remoteArticleId);
 	return (
 		<div
 			className={`rounded-lg border p-3 ${
@@ -139,17 +140,21 @@ export function ZaloDashboardHandoff({
 				</div>
 			</div>
 			<a
-				href={ZALO_OA_MANAGER_URL}
+				href={editorUrl ?? ZALO_OA_MANAGER_URL}
 				target="_blank"
 				rel="noopener noreferrer"
-				aria-label={`Mở bản nháp trong Zalo OA${oaDisplayName ? ` của ${oaDisplayName}` : ""}`}
+				aria-label={`Mở bài viết trong trình soạn thảo Zalo OA${oaDisplayName ? ` của ${oaDisplayName}` : ""}`}
 				className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-lg bg-[#0068ff] px-3 py-2 text-left text-white transition hover:bg-[#005ae0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0068ff]/40"
 			>
 				<ExternalLink size={15} className="shrink-0" />
 				<span className="min-w-0 flex-1">
-					<span className="block text-[11px] font-bold">Mở trong Zalo OA</span>
+					<span className="block text-[11px] font-bold">
+						{editorUrl ? "Mở trong trình soạn thảo Zalo" : "Mở trong Zalo OA"}
+					</span>
 					<span className="mt-0.5 block text-[10px] leading-4 text-white/80">
-						Đi thẳng tới danh sách Nội dung → Bài viết
+						{editorUrl
+							? "Đi thẳng tới đúng bài viết này"
+							: "Đi thẳng tới danh sách Nội dung → Bài viết"}
 					</span>
 				</span>
 				<ChevronRight size={15} className="shrink-0" />

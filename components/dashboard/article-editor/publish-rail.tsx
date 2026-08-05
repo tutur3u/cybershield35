@@ -14,11 +14,9 @@ import {
 	Trash2,
 } from "lucide-react";
 
-import { ExportActions } from "@/components/dashboard/export-actions";
 import type { ArticleContent } from "@/lib/articles/schemas";
 
 import {
-	articlePlainText,
 	dangerTextButton,
 	Field,
 	inputClass,
@@ -59,11 +57,13 @@ export type PublishRailProps = {
 	targetOaConnectionId: string;
 };
 
+/**
+ * What stays beside the editor while writing: the preview and what the pipeline
+ * has been doing. Everything that ships the article lives in its own tab, so
+ * publishing is a deliberate destination rather than a column the author scrolls
+ * past while typing.
+ */
 export function PublishRail(props: PublishRailProps) {
-	const { article } = props.detail;
-	const ready = props.readiness.every((item) => item.done);
-	const live = article.publicationStatus === "published";
-
 	return (
 		<aside className="min-w-0 space-y-4 xl:sticky xl:top-[8.5rem]">
 			<Section
@@ -77,6 +77,48 @@ export function PublishRail(props: PublishRailProps) {
 				/>
 			</Section>
 
+			<Section icon={Clock3} title="Hoạt động gần đây">
+				{props.detail.jobs.length ? (
+					<div className="space-y-2">
+						{props.detail.jobs.slice(0, 6).map((job) => (
+							<div key={job.id} className="rounded-lg border border-[var(--border)] p-2.5">
+								<div className="flex items-center justify-between gap-2">
+									<p className="text-[12px] font-bold text-[var(--foreground)]">
+										{operationLabel(job.operation)}
+									</p>
+									<span className="text-[11px] font-bold text-[var(--muted)]">
+										{jobStatusLabel(job.status)}
+									</span>
+								</div>
+								{job.errorMessage ? (
+									<p className="mt-1 text-[11px] leading-4 text-[var(--danger-strong)]">
+										{job.errorMessage}
+									</p>
+								) : null}
+							</div>
+						))}
+					</div>
+				) : (
+					<p className="text-[12px] text-[var(--muted)]">Chưa có thao tác nào.</p>
+				)}
+			</Section>
+
+		</aside>
+	);
+}
+
+/**
+ * The Zalo Official Account controls: which OA, what visibility, scheduling and
+ * the handoff into Zalo's own editor. Exported so the "Xuất bản" tab can render
+ * them without the rail's preview and activity around them.
+ */
+export function PublishSections(props: PublishRailProps) {
+	const { article } = props.detail;
+	const ready = props.readiness.every((item) => item.done || item.optional);
+	const live = article.publicationStatus === "published";
+
+	return (
+		<>
 			<Section icon={Send} title="Đăng lên Zalo OA">
 				{article.originDraftId ? (
 					<div className="mb-3 flex items-start gap-2 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-3">
@@ -102,22 +144,68 @@ export function PublishRail(props: PublishRailProps) {
 					</a>
 				) : (
 					<div className="space-y-3">
-						{props.accounts.accounts.length > 1 ? (
-							<Field label="Đăng lên tài khoản">
-								<select
-									value={props.targetOaConnectionId}
-									onChange={(event) => props.onTargetOaChange(event.target.value)}
-									className={inputClass}
-								>
-									<option value="">Chưa chọn</option>
-									{props.accounts.accounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.displayName} · OA {account.oaId}
-										</option>
-									))}
-								</select>
-							</Field>
-						) : null}
+						{/*
+							The destination is always shown, even with a single account.
+							Publishing reaches a real audience, so "which OA is this going
+							to" must be answerable at a glance rather than inferred from an
+							absent control.
+						*/}
+						<Field label="Đăng lên tài khoản">
+							{props.accounts.accounts.length === 1 ? (
+								<div className="flex items-center gap-2.5 rounded-lg border border-[var(--success-border)] bg-[var(--success-soft)] px-3 py-2.5">
+									<Check
+										size={15}
+										className="shrink-0 text-[var(--success-strong)]"
+									/>
+									<span className="min-w-0">
+										<span className="block truncate text-[12px] font-bold text-[var(--foreground)]">
+											{props.accounts.accounts[0]?.displayName}
+										</span>
+										<span className="block truncate text-[11px] font-semibold text-[var(--muted)]">
+											OA {props.accounts.accounts[0]?.oaId}
+										</span>
+									</span>
+								</div>
+							) : (
+								<div className="space-y-1.5">
+									{props.accounts.accounts.map((account) => {
+										const selected =
+											props.targetOaConnectionId === account.id;
+										return (
+											<button
+												key={account.id}
+												type="button"
+												aria-pressed={selected}
+												onClick={() => props.onTargetOaChange(account.id)}
+												className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition ${
+													selected
+														? "border-[var(--accent)] bg-[var(--accent-soft)]"
+														: "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-soft)]"
+												}`}
+											>
+												<span
+													className={`grid size-4 shrink-0 place-items-center rounded-full border ${
+														selected
+															? "border-[var(--accent)] bg-[var(--accent)] text-white"
+															: "border-[var(--border-strong)]"
+													}`}
+												>
+													{selected ? <Check size={10} /> : null}
+												</span>
+												<span className="min-w-0">
+													<span className="block truncate text-[12px] font-bold text-[var(--foreground)]">
+														{account.displayName}
+													</span>
+													<span className="block truncate text-[11px] font-semibold text-[var(--muted)]">
+														OA {account.oaId}
+													</span>
+												</span>
+											</button>
+										);
+									})}
+								</div>
+							)}
+						</Field>
 
 						<ZaloDashboardHandoff
 							oaDisplayName={props.detail.oaDisplayName}
@@ -271,42 +359,7 @@ export function PublishRail(props: PublishRailProps) {
 					</div>
 				)}
 			</Section>
-
-			<Section icon={Clock3} title="Hoạt động gần đây">
-				{props.detail.jobs.length ? (
-					<div className="space-y-2">
-						{props.detail.jobs.slice(0, 6).map((job) => (
-							<div key={job.id} className="rounded-lg border border-[var(--border)] p-2.5">
-								<div className="flex items-center justify-between gap-2">
-									<p className="text-[12px] font-bold text-[var(--foreground)]">
-										{operationLabel(job.operation)}
-									</p>
-									<span className="text-[11px] font-bold text-[var(--muted)]">
-										{jobStatusLabel(job.status)}
-									</span>
-								</div>
-								{job.errorMessage ? (
-									<p className="mt-1 text-[11px] leading-4 text-[var(--danger-strong)]">
-										{job.errorMessage}
-									</p>
-								) : null}
-							</div>
-						))}
-					</div>
-				) : (
-					<p className="text-[12px] text-[var(--muted)]">Chưa có thao tác nào.</p>
-				)}
-			</Section>
-
-			<Section icon={ExternalLink} title="Xuất & tải xuống">
-				<ExportActions
-					compact
-					content={articlePlainText(props.draft)}
-					fileName={props.draft.title || "bai-viet-cybershield35"}
-					title={props.draft.title || "Bài viết CyberShield35"}
-				/>
-			</Section>
-		</aside>
+		</>
 	);
 }
 
@@ -341,7 +394,10 @@ function TargetButton({
 }
 
 function ReadinessChecklist({ items }: { items: ReadinessItem[] }) {
-	const remaining = items.filter((item) => !item.done);
+	// Optional items are advice, so they never contribute to the count or hold
+	// the article back — otherwise "còn 1 việc" would nag about something that is
+	// not actually required.
+	const remaining = items.filter((item) => !item.done && !item.optional);
 	if (!remaining.length) {
 		return (
 			<p className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-3 py-2 text-[12px] font-bold text-[var(--success-strong)]">

@@ -14,6 +14,9 @@ import { cleanDraftContent } from "@/lib/domain/draft-content";
 const bodySchema = z
 	.object({
 		content: z.string().trim().min(1).max(20_000),
+		// Only https, and only ever fetched server-side, so the export cannot be
+		// used to probe internal hosts.
+		coverUrl: z.string().trim().url().startsWith("https://").max(2_000).optional(),
 		fileName: z.string().trim().min(1).max(160),
 		format: z.enum(["docx", "pdf", "wav"]),
 		title: z.string().trim().min(1).max(160),

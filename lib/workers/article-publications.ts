@@ -526,6 +526,18 @@ function validateOperation(
 	if (!article.targetOaConnectionId) {
 		throw new Error("Hãy chọn Zalo OA đích.");
 	}
+	// Staging a hidden draft over a live post would take it off the OA. Pulling a
+	// published article back is a deliberate act, so it has to go through `hide`.
+	if (
+		operation === "sync_hidden" &&
+		(article.publicationStatus === "published" ||
+			article.publicationStatus === "publishing" ||
+			article.publicationStatus === "scheduled")
+	) {
+		throw new Error(
+			"Bài đang hiển thị trên Zalo OA. Hãy dùng Gỡ bài trước khi đưa về bản ẩn.",
+		);
+	}
 	if (operation !== "sync_hidden" && !article.remoteArticleId) {
 		throw new Error("Hãy đồng bộ bản ẩn với Zalo trước.");
 	}

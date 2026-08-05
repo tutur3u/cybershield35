@@ -294,3 +294,14 @@ export const smallButton =
 export const dangerTextButton =
 	"inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-[12px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:opacity-50";
 export const ZALO_OA_MANAGER_URL = "https://oa.zalo.me/manage/content/article/";
+
+/**
+ * Opens the article straight in Zalo's own editor. Landing on the list and
+ * hunting for the right row is the slow path when someone wants to check or
+ * tweak exactly this article.
+ */
+export function zaloArticleEditorUrl(remoteArticleId: string | null) {
+	const id = remoteArticleId?.trim();
+	if (!id) return null;
+	return `https://oa.zalo.me/manage/content/article/edit?id=${encodeURIComponent(id)}`;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileClock, Sparkles, Type } from "lucide-react";
+import { FileClock, Send, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
 
 import { isRenderableImageUrl } from "@/components/dashboard/safe-image";
@@ -18,6 +18,7 @@ import { AiPanel, AiProposalReview } from "./ai-panel";
 import { ComposePanel } from "./compose-panel";
 import { ArticleContextPanel } from "./context-panel";
 import { EditorHeader, EditorNoticeBar, editorStage } from "./editor-header";
+import { PublishPanel } from "./publish-panel";
 import { PublishRail } from "./publish-rail";
 import { ArticleEditorSkeleton } from "./skeleton";
 import type { ReadinessItem } from "./types";
@@ -121,6 +122,9 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							<TabsTrigger value="ai" className="flex-1">
 								<Sparkles size={14} /> AI hỗ trợ
 							</TabsTrigger>
+						<TabsTrigger value="publish" className="flex-1">
+								<Send size={14} /> Xuất bản
+							</TabsTrigger>
 							<TabsTrigger value="context" className="flex-1">
 								<FileClock size={14} /> Bằng chứng & lịch sử
 								{detail.data.evidence.length ? (
@@ -158,6 +162,31 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 								onVoiceChange={editor.setVoice}
 								tone={editor.tone}
 								voice={editor.voice}
+							/>
+						</TabsContent>
+
+						<TabsContent value="publish">
+							<PublishPanel
+								accounts={editor.accounts.data}
+							busy={editor.busy}
+							detail={detail.data}
+							draft={draft}
+							onCancelSchedule={() => void editor.cancelSchedule()}
+							onCoverUnavailable={editor.dropCover}
+							onDelete={() => void editor.deleteLocalArticle()}
+							onPublishAction={(action) => void editor.publishAction(action)}
+							onPublishTargetChange={editor.setPublishTarget}
+							onSyncPreview={() => void editor.syncPreview()}
+							onRefreshRemote={() => void editor.refreshFromZalo()}
+							onRemoveRemote={() => void editor.removeFromZalo()}
+							onScheduleChange={editor.setSchedule}
+							onSchedulePublish={() => void editor.schedulePublish()}
+							onTargetOaChange={editor.setTargetOaConnectionId}
+							publishTarget={editor.publishTarget}
+							readiness={readiness}
+							schedule={editor.schedule}
+							synced={synced}
+							targetOaConnectionId={editor.targetOaConnectionId}
 							/>
 						</TabsContent>
 
