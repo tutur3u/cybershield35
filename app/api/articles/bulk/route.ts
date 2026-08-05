@@ -46,7 +46,11 @@ export async function POST(request: Request) {
 			try {
 				if (input.action === "set_review_status") {
 					await setArticleReviewStatus(id, input.status, actor);
-				} else if (input.action === "sync_hidden" || input.action === "hide") {
+				} else if (
+					input.action === "sync_hidden" ||
+					input.action === "publish" ||
+					input.action === "hide"
+				) {
 					const job = await enqueueArticlePublication(id, input.action, actor);
 					await processArticlePublicationJob(job.id);
 				} else {

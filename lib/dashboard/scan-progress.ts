@@ -133,14 +133,20 @@ export async function getScanProgress(
 		if (!latestByStage.has(event.stage)) latestByStage.set(event.stage, event);
 	}
 
+	// A queued or retrying job has no worker attached, so any stage the previous
+	// attempt left mid-flight is not running — it was abandoned. Showing it as
+	// running makes an idle job look like it is grinding away, which is exactly
+	// how two waiting scans read as "stuck in analysis" for hours.
+	const idle = job.status === "queued" || job.status === "retrying";
 	const stages = SCAN_PIPELINE_STAGES.map(({ id, label }): ScanProgressStage => {
 		const event = latestByStage.get(id);
+		const status = normalizeStageStatus(event?.status);
 		return {
 			id,
 			label,
 			message: event?.message ?? null,
 			occurredAt: event?.occurredAt?.toISOString() ?? null,
-			status: normalizeStageStatus(event?.status),
+			status: idle && status === "running" ? "waiting" : status,
 		};
 	});
 
@@ -157,7 +163,12 @@ export async function getScanProgress(
 		stages,
 		startedAt: job.startedAt?.toISOString() ?? null,
 		status: job.status,
-		statusMessage: finished ? (job.errorMessage ?? latest?.message ?? null) : (latest?.message ?? null),
+		statusMessage: finished
+			? (job.errorMessage ?? latest?.message ?? null)
+			: idle
+				? (job.errorMessage ??
+					"Đang chờ tới lượt xử lý. Bấm Chạy scan ngay nếu muốn xử lý trước.")
+				: (latest?.message ?? null),
 		title: job.title ?? job.fileName ?? job.normalizedUrl ?? "Nguồn chưa đặt tên",
 	};
 }

@@ -109,7 +109,11 @@ export const articleBulkActionSchema = z.discriminatedUnion("action", [
 		.strict(),
 	z
 		.object({
-			action: z.enum(["sync_hidden", "hide", "delete"]),
+			// `publish` is here too: making an article visible is the operation
+			// operators most often want to repeat across a batch, and the per-item
+			// guards still apply, so an unapproved article fails on its own rather
+			// than blocking the rest.
+			action: z.enum(["sync_hidden", "publish", "hide", "delete"]),
 			articleIds: z.array(articleIdSchema).min(1).max(100),
 		})
 		.strict(),

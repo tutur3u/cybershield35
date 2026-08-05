@@ -92,7 +92,7 @@ async function AuthenticatedApp({ children }: { children: React.ReactNode }) {
 
 	return (
 		<DashboardLayoutShell
-			aiUsageHref={aiStudioWorkspaceUrl("usage")}
+			aiUsageHref={aiStudioWorkspaceUrl("runs")}
 			initialAuth={{
 				authenticated: true,
 				configured: true,

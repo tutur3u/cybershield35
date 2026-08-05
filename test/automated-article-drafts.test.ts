@@ -151,45 +151,26 @@ describe("automated article draft preparation", () => {
 		expect(content.title).not.toContain("🚨");
 	});
 
-	test("requires approval only for operations an audience can see", () => {
-		// Publishing and updating a live post reach followers, so they need an
-		// approval. Staging a hidden draft does not, and requiring one there made
-		// the automation impossible while marking every article it touched as a
-		// publish failure.
-		expect(reviewAllowsArticleOperation("needs_review", "publish")).toBe(
-			false,
-		);
-		expect(reviewAllowsArticleOperation("draft", "publish")).toBe(false);
-		expect(reviewAllowsArticleOperation("needs_review", "update_visible")).toBe(
-			false,
-		);
-		expect(reviewAllowsArticleOperation("approved", "publish")).toBe(true);
+	test("nothing reaches Zalo without an approval, not even a hidden draft", () => {
+		// Staging unapproved drafts on the OA was tried and withdrawn: it filled
+		// someone else's content manager with things nobody had agreed to publish.
+		for (const operation of ["sync_hidden", "publish", "update_visible"] as const) {
+			expect(reviewAllowsArticleOperation("needs_review", operation)).toBe(false);
+			expect(reviewAllowsArticleOperation("draft", operation)).toBe(false);
+			expect(reviewAllowsArticleOperation("rejected", operation)).toBe(false);
+			expect(reviewAllowsArticleOperation("approved", operation)).toBe(true);
+			expect(publicationStateAllowsArticleOperation("draft", operation)).toBe(
+				false,
+			);
+			expect(
+				publicationStateAllowsArticleOperation("published", operation),
+			).toBe(true);
+		}
 
-		expect(reviewAllowsArticleOperation("needs_review", "sync_hidden")).toBe(
-			true,
-		);
-		expect(reviewAllowsArticleOperation("draft", "sync_hidden")).toBe(true);
-		expect(reviewAllowsArticleOperation("approved", "sync_hidden")).toBe(true);
-		// A rejection is a deliberate "no", so it is not staged either.
-		expect(reviewAllowsArticleOperation("rejected", "sync_hidden")).toBe(
-			false,
-		);
-		// Pulling a live post back must never be blocked.
-		expect(reviewAllowsArticleOperation("rejected", "hide")).toBe(false);
-		expect(reviewAllowsArticleOperation("needs_review", "hide")).toBe(true);
-
-		expect(publicationStateAllowsArticleOperation("draft", "sync_hidden")).toBe(
-			true,
-		);
-		expect(publicationStateAllowsArticleOperation("draft", "publish")).toBe(
-			false,
-		);
-		expect(
-			publicationStateAllowsArticleOperation("published", "publish"),
-		).toBe(true);
-		expect(
-			publicationStateAllowsArticleOperation("archived", "sync_hidden"),
-		).toBe(false);
+		// Withdrawing content must never be blocked, at any state.
+		expect(reviewAllowsArticleOperation("rejected", "hide")).toBe(true);
+		expect(reviewAllowsArticleOperation("draft", "hide")).toBe(true);
+		expect(publicationStateAllowsArticleOperation("archived", "hide")).toBe(true);
 
 		expect(actorAllowsArticleOperation("system", "sync_hidden")).toBe(true);
 		expect(actorAllowsArticleOperation("system", "publish")).toBe(false);

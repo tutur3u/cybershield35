@@ -13,40 +13,31 @@ export type ArticlePublicationOperation =
 export type ArticleState = "archived" | "draft" | "published";
 
 /**
- * Only the operations that put an article in front of an audience are gated.
+ * Nothing reaches the Zalo Official Account — not even as a hidden draft — until
+ * an editor has approved the article and published it from the editor.
  *
- * `sync_hidden` uploads a draft that Zalo keeps hidden — no follower can see it,
- * and it is exactly what the automation exists to do so a reviewer opens an
- * article that is already staged. `hide` withdraws a live post and must never be
- * blocked. Requiring approval for those two made the automation impossible and
- * stamped a publish failure on every article it touched, which is what surfaced
- * as "Đăng lỗi" across the whole list.
+ * Staging hidden drafts ahead of review was tried and withdrawn: every unapproved
+ * article ended up sitting in the OA's content manager, which is someone else's
+ * workspace to keep tidy. `hide` is the one exception and must never be blocked,
+ * because pulling something back has to stay possible at any moment.
  */
-function operationReachesAudience(operation: ArticlePublicationOperation) {
-	return operation === "publish" || operation === "update_visible";
+function operationWithdrawsContent(operation: ArticlePublicationOperation) {
+	return operation === "hide";
 }
 
 export function reviewAllowsArticleOperation(
 	reviewStatus: ArticleReviewStatus,
 	operation: ArticlePublicationOperation,
 ) {
-	if (!operationReachesAudience(operation)) {
-		// A rejected article is a deliberate "no", so it is not staged either.
-		return reviewStatus !== "rejected";
-	}
+	if (operationWithdrawsContent(operation)) return true;
 	return reviewStatus === "approved";
 }
 
-/**
- * Nothing becomes visible on the Zalo Official Account until an editor has both
- * approved the article and published it from the editor. Staging a hidden draft
- * and pulling a live post back stay available at any state.
- */
 export function publicationStateAllowsArticleOperation(
 	state: ArticleState,
 	operation: ArticlePublicationOperation,
 ) {
-	if (!operationReachesAudience(operation)) return state !== "archived";
+	if (operationWithdrawsContent(operation)) return true;
 	return state === "published";
 }
 

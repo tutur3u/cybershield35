@@ -1,6 +1,7 @@
 import "server-only";
 
 const DEFAULT_AI_STUDIO_URL = "https://ai.tuturuuu.com";
+const AI_STUDIO_DEFAULT_CURRENCY = "VND";
 
 /**
  * Deep links into this workspace on the Tuturuuu AI Studio.
@@ -25,7 +26,11 @@ export function aiStudioWorkspaceUrl(path: "credits" | "usage" | "runs") {
 	try {
 		// Validated rather than concatenated, so a malformed override surfaces as a
 		// missing link instead of a broken one.
-		return new URL(`${base}/${encodeURIComponent(workspaceId)}/${path}`).toString();
+		const url = new URL(`${base}/${encodeURIComponent(workspaceId)}/${path}`);
+		// The team reads costs in đồng. The studio still offers its own currency
+		// switcher, so this sets the starting point rather than pinning it.
+		url.searchParams.set("currency", AI_STUDIO_DEFAULT_CURRENCY);
+		return url.toString();
 	} catch {
 		return null;
 	}

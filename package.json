@@ -29,7 +29,8 @@
 		"test:e2e:instant": "playwright test",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"typecheck:test": "tsc --noEmit -p tsconfig.test.json",
-		"worker": "bun --conditions react-server scripts/worker.ts"
+		"worker": "bun --conditions react-server scripts/worker.ts",
+		"zalo:cleanup-hidden": "bun --conditions react-server scripts/cleanup-hidden-zalo-drafts.ts"
 	},
 	"dependencies": {
 		"@ai-sdk/google": "^4.0.34",

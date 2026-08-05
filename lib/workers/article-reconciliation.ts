@@ -14,7 +14,6 @@ import {
 	counterArgumentDrafts,
 	evidenceItems,
 } from "@/lib/db/schema";
-import { enqueueArticlePublication } from "@/lib/workers/article-publications";
 
 const SYSTEM_ACTOR = {
 	displayName: "Tự động sửa bản nháp",
@@ -53,7 +52,6 @@ export async function reconcileAutomatedHiddenArticles(limit = 25) {
 		.limit(Math.max(1, Math.min(limit, 100)));
 
 	let failed = 0;
-	let queued = 0;
 	let repaired = 0;
 
 	for (const { article, draft, evidence } of candidates) {
@@ -83,19 +81,10 @@ export async function reconcileAutomatedHiddenArticles(limit = 25) {
 				repaired += 1;
 			}
 
-			const shouldSync =
-				process.env.ZALO_OA_ENABLED === "true" &&
-				Boolean(article.targetOaConnectionId) &&
-				Boolean(reconciled.coverUrl) &&
-				(changed || article.publicationStatus !== "hidden");
-			if (shouldSync) {
-				await enqueueArticlePublication(
-					article.id,
-					"sync_hidden",
-					SYSTEM_ACTOR,
-				);
-				queued += 1;
-			}
+			// Deliberately does not touch Zalo. Reconciliation repairs the local
+			// draft — a duplicated headline, a truncated excerpt — and stops there.
+			// Staging unapproved drafts on the OA filled someone else's content
+			// manager with things nobody had agreed to publish.
 		} catch {
 			failed += 1;
 		}
@@ -103,7 +92,6 @@ export async function reconcileAutomatedHiddenArticles(limit = 25) {
 
 	return {
 		failed,
-		queued,
 		repaired,
 		scanned: candidates.length,
 	};

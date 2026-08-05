@@ -25,11 +25,13 @@ describe("AI Studio workspace deep links", () => {
 		delete process.env.TUTURUUU_AI_APP_URL;
 		const { aiStudioWorkspaceUrl } = await links();
 
-		expect(aiStudioWorkspaceUrl("usage")).toBe(
-			"https://ai.tuturuuu.com/449cdd3b-121b-40f7-9cee-28f5b582e204/usage",
+		// The team reads costs in đồng, so the link opens there; the studio's own
+		// currency switcher still works from that starting point.
+		expect(aiStudioWorkspaceUrl("runs")).toBe(
+			"https://ai.tuturuuu.com/449cdd3b-121b-40f7-9cee-28f5b582e204/runs?currency=VND",
 		);
 		expect(aiStudioWorkspaceUrl("credits")).toBe(
-			"https://ai.tuturuuu.com/449cdd3b-121b-40f7-9cee-28f5b582e204/credits",
+			"https://ai.tuturuuu.com/449cdd3b-121b-40f7-9cee-28f5b582e204/credits?currency=VND",
 		);
 	});
 
@@ -38,8 +40,8 @@ describe("AI Studio workspace deep links", () => {
 		process.env.TUTURUUU_AI_APP_URL = "https://ai.example.test/";
 		const { aiStudioWorkspaceUrl } = await links();
 
-		expect(aiStudioWorkspaceUrl("usage")).toBe(
-			"https://ai.example.test/ws-1/usage",
+		expect(aiStudioWorkspaceUrl("runs")).toBe(
+			"https://ai.example.test/ws-1/runs?currency=VND",
 		);
 	});
 
@@ -70,7 +72,7 @@ describe("the AI usage link reaches the sidebar", () => {
 		const layout = readFileSync("app/layout.tsx", "utf8");
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 
-		expect(layout).toContain('aiUsageHref={aiStudioWorkspaceUrl("usage")}');
+		expect(layout).toContain('aiUsageHref={aiStudioWorkspaceUrl("runs")}');
 		expect(shell).toContain("Mức dùng AI");
 		expect(shell).toContain('target="_blank"');
 		expect(shell).toContain('rel="noopener noreferrer"');
