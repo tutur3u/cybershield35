@@ -65,3 +65,20 @@ describe("scan progress is server-derived and resumable", () => {
 		expect(server).toContain("Math.min(97,");
 	});
 });
+
+describe("the progress dock has a QueryClient", () => {
+	const shell = readFileSync(
+		"components/dashboard/dashboard-layout-shell.tsx",
+		"utf8",
+	);
+
+	test("the dock is wrapped in its own QueryProvider", () => {
+		// The dashboard shell renders *above* the per-page QueryProvider, so a
+		// useQuery inside it throws "No QueryClient set" during render — which took
+		// every authenticated page down. getQueryClient() is a browser singleton,
+		// so this shares one cache rather than creating a second.
+		expect(shell).toMatch(
+			/<QueryProvider>\s*<ScanProgressDock \/>\s*<\/QueryProvider>/u,
+		);
+	});
+});

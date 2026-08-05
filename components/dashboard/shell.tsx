@@ -83,8 +83,16 @@ export function Sidebar({
 	const activeSection = navSections.find((section) =>
 		section.items.some((item) => isNavActive(pathname, item.href)),
 	)?.id;
-	const [expandedSections, setExpandedSections] =
-		useState<Record<string, boolean>>(readSidebarSections);
+	// The stored preference lives in localStorage, which is an external store, so
+	// it is read through the hook built for one. Seeding useState from it instead
+	// made the server ({}) and the first client render disagree; React patched the
+	// mismatch by reusing DOM nodes, and individual nav links ended up wearing the
+	// collapsed variant's classes while the sidebar was expanded.
+	const expandedSections = useSyncExternalStore(
+		subscribeSidebarSections,
+		readSidebarSections,
+		readServerSidebarSections,
+	);
 	const [manuallyCollapsedActivePath, setManuallyCollapsedActivePath] =
 		useState<string | null>(null);
 
@@ -110,13 +118,6 @@ export function Sidebar({
 			);
 		};
 	}, []);
-
-	useEffect(() => {
-		window.localStorage.setItem(
-			"cybershield35:sidebar-sections:v1",
-			JSON.stringify(expandedSections),
-		);
-	}, [expandedSections]);
 
 	useEffect(() => {
 		if (!mobileOpen) return;
@@ -273,10 +274,10 @@ export function Sidebar({
 												aria-controls={`sidebar-section-${section.id}`}
 												onClick={() => {
 													const nextExpanded = !expanded;
-													setExpandedSections((current) => ({
-														...current,
+													writeSidebarSections({
+														...expandedSections,
 														[section.id]: nextExpanded,
-													}));
+													});
 													setManuallyCollapsedActivePath(
 														!nextExpanded && section.id === activeSection
 															? pathname
@@ -387,15 +388,49 @@ function isNavActive(pathname: string, href: string) {
 	return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-function readSidebarSections() {
-	if (typeof window === "undefined") return {};
+const SIDEBAR_SECTIONS_KEY = "cybershield35:sidebar-sections:v1";
+const SIDEBAR_SECTIONS_EVENT = "cybershield35:sidebar-sections-changed";
+const EMPTY_SIDEBAR_SECTIONS: Record<string, boolean> = {};
+
+// useSyncExternalStore calls the snapshot on every render and bails out only on
+// referential equality, so the parsed object is cached against the raw string it
+// came from. Returning a fresh object each time would loop forever.
+let sidebarSectionsRaw: string | null = null;
+let sidebarSectionsValue: Record<string, boolean> = EMPTY_SIDEBAR_SECTIONS;
+
+function subscribeSidebarSections(onStoreChange: () => void) {
+	// `storage` covers other tabs; the custom event covers this one, since a tab
+	// never hears its own storage writes.
+	window.addEventListener("storage", onStoreChange);
+	window.addEventListener(SIDEBAR_SECTIONS_EVENT, onStoreChange);
+	return () => {
+		window.removeEventListener("storage", onStoreChange);
+		window.removeEventListener(SIDEBAR_SECTIONS_EVENT, onStoreChange);
+	};
+}
+
+function readSidebarSections(): Record<string, boolean> {
+	const raw = window.localStorage.getItem(SIDEBAR_SECTIONS_KEY);
+	if (raw === sidebarSectionsRaw) return sidebarSectionsValue;
+	sidebarSectionsRaw = raw;
 	try {
-		return JSON.parse(
-			window.localStorage.getItem("cybershield35:sidebar-sections:v1") ?? "{}",
-		) as Record<string, boolean>;
+		sidebarSectionsValue = raw
+			? (JSON.parse(raw) as Record<string, boolean>)
+			: EMPTY_SIDEBAR_SECTIONS;
 	} catch {
-		return {};
+		sidebarSectionsValue = EMPTY_SIDEBAR_SECTIONS;
 	}
+	return sidebarSectionsValue;
+}
+
+/** The server has no preference, so every section renders at its default. */
+function readServerSidebarSections(): Record<string, boolean> {
+	return EMPTY_SIDEBAR_SECTIONS;
+}
+
+function writeSidebarSections(next: Record<string, boolean>) {
+	window.localStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify(next));
+	window.dispatchEvent(new Event(SIDEBAR_SECTIONS_EVENT));
 }
 
 function BrandmarkLink({ collapsed }: { collapsed: boolean }) {
