@@ -29,10 +29,15 @@ export async function POST(request: Request) {
 	try {
 		const body = await request.json().catch(() => ({}));
 		const { apply } = bodySchema.parse(body ?? {});
-		const result = await removeHiddenZaloDrafts({ dryRun: !apply });
+		const result = await removeHiddenZaloDrafts({
+			// The dry run only counts, so it can look at the whole backlog; an
+			// applying run stays inside the function's time budget.
+			dryRun: !apply,
+			limit: apply ? 60 : 500,
+		});
 
 		return Response.json(
-			{ apply, ...result },
+			{ apply, ...result, remaining: result.scanned - result.removed },
 			{ headers: authHeaders(auth) },
 		);
 	} catch (error) {

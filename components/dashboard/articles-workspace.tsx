@@ -124,9 +124,21 @@ export function ArticlesWorkspace() {
 				return;
 			}
 			setBulkNotice(
-				`Đã gỡ ${data.removed}/${data.scanned} bản ẩn khỏi Zalo OA${data.failed ? `, ${data.failed} lỗi` : ""}.`,
+				`Đã gỡ ${data.removed} bản ẩn khỏi Zalo OA${data.failed ? `, ${data.failed} lỗi` : ""}. Đang tiếp tục…`,
 			);
 			await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all });
+			// One call only clears a batch, because the whole backlog does not fit in
+			// the function's time budget. Keep going until nothing is left, so the
+			// operator does not have to guess how many times to press the button.
+			if (data.removed > 0) {
+				cleanupMutation.mutate(true);
+				return;
+			}
+			setBulkNotice(
+				data.failed
+					? `Còn ${data.failed} bản ẩn không gỡ được. Mở Nhật ký để xem lý do.`
+					: "Đã gỡ hết bản ẩn CS35 khỏi Zalo OA.",
+			);
 		},
 	});
 

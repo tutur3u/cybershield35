@@ -29,8 +29,11 @@ const SYSTEM_ACTOR = { displayName: "Hệ thống", id: "system" } as const;
  */
 export async function removeHiddenZaloDrafts({
 	dryRun = false,
-	limit = 200,
+	limit = 60,
 }: { dryRun?: boolean; limit?: number } = {}) {
+	// Sized to finish inside the route's 300s budget. Each removal commits on its
+	// own, so a run that is cut short loses nothing — but a batch large enough to
+	// be killed mid-flight never reports what it managed to do.
 	const candidates = await adminDb
 		.select({
 			id: articles.id,
