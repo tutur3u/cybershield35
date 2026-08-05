@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
@@ -47,6 +49,7 @@ export async function requireLocalAdminSession(
 	request: Request,
 ): Promise<AdminAuthResult> {
 	if (allowLocalAuthBypass(request)) {
+		await markDevBypassRequestTime();
 		return { kind: "live", session: localDevSession(), setCookie: null };
 	}
 
@@ -76,6 +79,7 @@ export async function requireAdminSession(
 	request: Request,
 ): Promise<AdminAuthResult> {
 	if (allowLocalAuthBypass(request)) {
+		await markDevBypassRequestTime();
 		return { kind: "live", session: localDevSession(), setCookie: null };
 	}
 
@@ -208,6 +212,22 @@ export function localAccountSession(
 		},
 		workspaceId: null,
 	};
+}
+
+/**
+ * The dev session is stamped with the current time, and Next refuses a clock read
+ * inside a prerender scope — without this the bypass throws during render and
+ * local development cannot open a single page.
+ *
+ * Outside a request scope (unit tests calling the guard directly) `connection()`
+ * throws by design; there is no prerender to opt out of there, so it is ignored.
+ */
+async function markDevBypassRequestTime() {
+	try {
+		await connection();
+	} catch {
+		return;
+	}
 }
 
 function localDevSession(): TuturuuuAdminSession {

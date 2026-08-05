@@ -83,20 +83,8 @@ export function Sidebar({
 	const activeSection = navSections.find((section) =>
 		section.items.some((item) => isNavActive(pathname, item.href)),
 	)?.id;
-	// Deliberately NOT seeded from localStorage. Reading it during render makes
-	// the server ({}) and the first client render disagree, and React patches the
-	// mismatch by reusing DOM nodes — which left individual nav links wearing the
-	// collapsed variant's classes while the sidebar was expanded. The stored
-	// preference is applied after mount instead.
-	const [expandedSections, setExpandedSections] = useState<
-		Record<string, boolean>
-	>({});
-	const [sectionsHydrated, setSectionsHydrated] = useState(false);
-
-	useEffect(() => {
-		setExpandedSections(readSidebarSections());
-		setSectionsHydrated(true);
-	}, []);
+	const [expandedSections, setExpandedSections] =
+		useState<Record<string, boolean>>(readSidebarSections);
 	const [manuallyCollapsedActivePath, setManuallyCollapsedActivePath] =
 		useState<string | null>(null);
 
@@ -124,14 +112,11 @@ export function Sidebar({
 	}, []);
 
 	useEffect(() => {
-		// Only once the stored value has been read, so the empty initial state is
-		// never written back over the user's real preference.
-		if (!sectionsHydrated) return;
 		window.localStorage.setItem(
 			"cybershield35:sidebar-sections:v1",
 			JSON.stringify(expandedSections),
 		);
-	}, [expandedSections, sectionsHydrated]);
+	}, [expandedSections]);
 
 	useEffect(() => {
 		if (!mobileOpen) return;
