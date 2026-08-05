@@ -9,6 +9,7 @@ import {
 	CircleDashed,
 	ExternalLink,
 	EyeOff,
+	Info,
 	LoaderCircle,
 	PanelRightClose,
 	PanelRightOpen,
@@ -332,17 +333,24 @@ export function EditorNoticeBar({
 }) {
 	if (!notice && !lastError) return null;
 	const isError = Boolean(lastError) || notice?.tone === "error";
+	// `info` reports a choice recorded rather than work done, so it must not wear
+	// the same green tick as "published" — that would claim something happened.
+	const isInfo = !isError && notice?.tone === "info";
 	return (
 		<div
 			role="status"
 			className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-[13px] font-semibold ${
 				isError
 					? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)]"
-					: "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
+					: isInfo
+						? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+						: "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-strong)]"
 			}`}
 		>
 			{isError ? (
 				<AlertTriangle size={16} className="mt-0.5 shrink-0" />
+			) : isInfo ? (
+				<Info size={16} className="mt-0.5 shrink-0" />
 			) : (
 				<Check size={16} className="mt-0.5 shrink-0" />
 			)}

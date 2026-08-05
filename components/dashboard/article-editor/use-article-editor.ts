@@ -250,7 +250,11 @@ export function useArticleEditor(articleId: string) {
 					text:
 						action === "sync"
 							? "Đã đồng bộ bản ẩn. Kiểm tra bản xem trước trước khi xuất bản."
-							: "Đã hoàn tất thao tác với Zalo OA.",
+							: action === "publish"
+								? "Bài đã hiển thị công khai trên Zalo OA."
+								: action === "hide"
+									? "Bài đã chuyển sang trạng thái ẩn trên Zalo OA."
+									: "Đã cập nhật bài đang hiển thị trên Zalo OA.",
 					tone: "success",
 				});
 				await refresh();
@@ -321,6 +325,45 @@ export function useArticleEditor(articleId: string) {
 			await refresh();
 		});
 	}, [articleId, dirty, refresh, runAction, save]);
+
+	/**
+	 * Choosing a visibility used to set local state and nothing else, so on an
+	 * article already staged on Zalo the click appeared to do nothing at all —
+	 * no confirmation, no change, no indication it had been registered.
+	 *
+	 * When the article is already on the OA the choice *is* the action, so it
+	 * runs the matching publish/hide rail. When it is not there yet there is
+	 * nothing to apply, so it records the choice and says when it takes effect.
+	 */
+	const changePublishTarget = useCallback(
+		async (next: ZaloPublishTarget) => {
+			if (next === publishTarget) return;
+			const status = detail.data?.article.publicationStatus;
+
+			if (status !== "hidden" && status !== "published") {
+				setPublishTarget(next);
+				setNotice({
+					text:
+						next === "public"
+							? "Đã chọn hiển thị công khai. Bấm nút đăng bên dưới để áp dụng."
+							: "Đã chọn đưa lên ở trạng thái ẩn. Bấm nút đăng bên dưới để áp dụng.",
+					tone: "info",
+				});
+				return;
+			}
+
+			await publishAction(next === "public" ? "publish" : "hide");
+		},
+		[detail.data?.article.publicationStatus, publishAction, publishTarget],
+	);
+
+	// Mirrors what Zalo actually holds, so the pair of buttons cannot drift from
+	// the article's real visibility after a publish or hide lands.
+	useEffect(() => {
+		const status = detail.data?.article.publicationStatus;
+		if (status === "published") setPublishTarget("public");
+		else if (status === "hidden") setPublishTarget("hidden");
+	}, [detail.data?.article.publicationStatus]);
 
 	const schedulePublish = useCallback(async () => {
 		if (!schedule) {
@@ -547,6 +590,7 @@ export function useArticleEditor(articleId: string) {
 		setModel,
 		setNotice,
 		setProposal,
+		changePublishTarget,
 		setPublishTarget,
 		syncPreview,
 		setSchedule,

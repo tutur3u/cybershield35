@@ -74,7 +74,11 @@ export type PublishStep = "preparing" | "syncing" | "publishing" | null;
  */
 export type ZaloPublishTarget = "hidden" | "public";
 
-export type EditorNotice = { tone: "error" | "success"; text: string } | null;
+export type EditorNotice = {
+	/** `info` reports a choice recorded, not an action performed. */
+	tone: "error" | "info" | "success";
+	text: string;
+} | null;
 
 export type ReadinessItem = {
 	done: boolean;
