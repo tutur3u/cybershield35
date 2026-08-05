@@ -312,3 +312,43 @@ describe("analysis evidence linking", () => {
 		expect(validated.claims[0]?.proofs[0]?.limitation).toHaveLength(500);
 	});
 });
+
+describe("analysis schema tolerance", () => {
+	test("a claim without proofs does not discard the whole analysis", async () => {
+		// The model omitting proofs on one claim used to fail the entire object,
+		// surfacing as "No object generated: response did not match schema" and
+		// losing every other claim in the response. Claims without usable proofs
+		// are dropped individually downstream instead.
+		const { analysisOutputSchema } = await import("@/lib/llm/schemas");
+		const parsed = analysisOutputSchema.safeParse({
+			claims: [
+				{
+					claim: "Một nhận định không kèm dẫn chứng.",
+					confidence: 0.5,
+					evidenceIds: [],
+					rationale: "Chưa có dẫn chứng trực tiếp.",
+					stance: "neutral",
+				},
+			],
+			riskFlags: [
+				{
+					confidence: 0.4,
+					count: 1,
+					evidenceIds: [],
+					label: "Thiếu dẫn chứng",
+					rationale: "Chưa gắn được bằng chứng.",
+					severity: "low",
+				},
+			],
+			riskLevel: "low",
+			sentiment: { negative: 0, neutral: 1, positive: 0, total: 1 },
+			stanceSummary: "Trung lập.",
+			summary: "Tóm tắt thử nghiệm.",
+			topicClusters: [],
+		});
+
+		expect(parsed.success).toBe(true);
+		expect(parsed.success && parsed.data.claims[0]?.proofs).toEqual([]);
+		expect(parsed.success && parsed.data.riskFlags[0]?.proofs).toEqual([]);
+	});
+});

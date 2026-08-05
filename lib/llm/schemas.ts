@@ -27,7 +27,13 @@ export const analysisOutputSchema = z.object({
 			stance: z.string().trim().min(1).max(120),
 			confidence: z.number().min(0).max(1),
 			evidenceIds: z.array(z.string().trim().min(1)),
-			proofs: z.array(analysisProofSchema).min(1),
+			// Not `.min(1)`. Requiring a proof here throws away the *entire*
+			// analysis when the model omits one on a single claim — which is what
+			// "No object generated: response did not match schema" was. Claims and
+			// flags without usable proofs are already dropped individually in
+			// lib/domain/analysis-evidence.ts, so the strictness bought nothing and
+			// cost every other claim in the response.
+			proofs: z.array(analysisProofSchema).default([]),
 			rationale: z.string().trim().min(1).max(1_500),
 		}),
 	),
@@ -38,7 +44,7 @@ export const analysisOutputSchema = z.object({
 			severity: z.enum(["low", "medium", "high"]),
 			confidence: z.number().min(0).max(1),
 			evidenceIds: z.array(z.string().trim().min(1)),
-			proofs: z.array(analysisProofSchema).min(1),
+			proofs: z.array(analysisProofSchema).default([]),
 			rationale: z.string().trim().min(1).max(1_500),
 		}),
 	),

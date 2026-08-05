@@ -8,6 +8,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { logout } from "@/components/dashboard/auth-client-actions";
 import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-context";
 import { LoginRedirect } from "@/components/auth/login-redirect";
+import { ScanProgressDock } from "@/components/dashboard/scan-progress-dock";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type {
@@ -155,6 +156,9 @@ export function DashboardLayoutShell({
 							</div>
 						</section>
 					</div>
+					{/* Outside the scrolling section so a run in flight stays visible
+						wherever the operator navigates. */}
+					<ScanProgressDock />
 					{profileDialogOpen ? (
 						<ProfileSettingsPanelDialog
 							auth={auth}
