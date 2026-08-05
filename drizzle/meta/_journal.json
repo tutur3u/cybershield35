@@ -162,6 +162,13 @@
       "when": 1785836913097,
       "tag": "0022_small_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785917583627,
+      "tag": "0023_eager_tigra",
+      "breakpoints": true
     }
   ]
 }

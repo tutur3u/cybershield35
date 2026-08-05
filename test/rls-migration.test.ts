@@ -33,6 +33,8 @@ const appTables = [
 	"article_versions",
 	"articles",
 	"zalo_oa_connections",
+	"local_accounts",
+	"local_account_sessions",
 ] as const;
 
 describe("RLS migration", () => {

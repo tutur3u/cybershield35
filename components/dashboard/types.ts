@@ -109,16 +109,46 @@ export type OperationsOverview = {
 	};
 };
 
+/** Which credential issued the current session. */
+export type AdminSessionKind = "local" | "tuturuuu";
+
 export type AdminSessionView = {
 	appName: string | null;
 	authenticated: boolean;
 	expiresAt: string;
+	kind: AdminSessionKind;
+	mustChangePassword?: boolean;
 	refreshExpiresAt: string;
 	user: {
 		avatarUrl: string | null;
 		displayName: string | null;
 		email: string | null;
 		id: string;
+	};
+};
+
+export type LocalAccountRoleView = "admin" | "member";
+
+export type LocalAccountView = {
+	activeSessions: number;
+	createdAt: string;
+	createdByDisplayName: string | null;
+	disabled: boolean;
+	displayName: string | null;
+	id: string;
+	lastLoginAt: string | null;
+	lockedUntil: string | null;
+	mustChangePassword: boolean;
+	passwordUpdatedAt: string;
+	role: LocalAccountRoleView;
+	username: string;
+};
+
+export type LocalAccountsResponse = {
+	accounts: LocalAccountView[];
+	context: {
+		canManage: boolean;
+		reason?: string;
 	};
 };
 

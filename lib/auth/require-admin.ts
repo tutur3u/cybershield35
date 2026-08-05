@@ -12,21 +12,36 @@ import {
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
 import {
+	clearLocalSessionCookie,
+	readLocalSessionCookie,
+	type LocalSessionCookie,
+} from "@/lib/auth/local-session";
+import {
 	isTuturuuuScopeNotAllowedError,
 	TUTURUUU_SCOPE_NOT_ALLOWED_ERROR,
 } from "@/lib/auth/scope-approval";
 
+export const LOCAL_ACCOUNT_PLATFORM_ERROR =
+	"Tính năng này cần đăng nhập bằng tài khoản Tuturuuu.";
+
 export type AdminAuthResult =
 	| {
-			kind: "live";
+			kind: "live" | "local";
 			session: TuturuuuAdminSession;
 			setCookie: string | null;
 	  }
 	| {
 			code?: string;
 			error: string;
+			setCookie?: string | null;
 			status: number;
 	  };
+
+/** The authenticated arm of {@link AdminAuthResult}, whichever credential issued it. */
+export type AdminSessionAuth = Extract<
+	AdminAuthResult,
+	{ session: TuturuuuAdminSession }
+>;
 
 export async function requireLocalAdminSession(
 	request: Request,
@@ -34,6 +49,9 @@ export async function requireLocalAdminSession(
 	if (allowLocalAuthBypass(request)) {
 		return { kind: "live", session: localDevSession(), setCookie: null };
 	}
+
+	const local = await resolveLocalAccountSession(request);
+	if (local) return local;
 
 	const session = await readAdminSession(request);
 	if (!session) {
@@ -60,6 +78,9 @@ export async function requireAdminSession(
 	if (allowLocalAuthBypass(request)) {
 		return { kind: "live", session: localDevSession(), setCookie: null };
 	}
+
+	const local = await resolveLocalAccountSession(request);
+	if (local) return local;
 
 	let session = await readAdminSession(request);
 	if (!session) {
@@ -106,6 +127,87 @@ export async function requireAdminSession(
 	}
 
 	return { kind: "live", session, setCookie: null };
+}
+
+/**
+ * For routes that spend the caller's Tuturuuu access token upstream (Drive,
+ * profile, workspace APIs). Local password accounts have no platform identity,
+ * so they are refused here instead of failing with an opaque upstream 401.
+ */
+export async function requirePlatformAdminSession(
+	request: Request,
+): Promise<AdminAuthResult> {
+	const auth = await requireAdminSession(request);
+	if ("error" in auth) return auth;
+	if (auth.kind === "local") {
+		return {
+			code: "LOCAL_ACCOUNT_NOT_SUPPORTED",
+			error: LOCAL_ACCOUNT_PLATFORM_ERROR,
+			status: 403,
+		};
+	}
+	return auth;
+}
+
+export function isLocalAccountSession(session: TuturuuuAdminSession) {
+	return Boolean(session.localAccount);
+}
+
+async function resolveLocalAccountSession(
+	request: Request,
+): Promise<AdminAuthResult | null> {
+	const cookie = readLocalSessionCookie(request);
+	if (!cookie) return null;
+
+	// Imported lazily so request paths without a local cookie never pull the
+	// database client into the module graph.
+	const { validateLocalSession } = await import("@/lib/auth/local-accounts");
+	const validated = await validateLocalSession(cookie).catch(() => null);
+	if (!validated) {
+		return {
+			error: "Phiên đăng nhập đã hết hạn.",
+			setCookie: clearLocalSessionCookie(),
+			status: 401,
+		};
+	}
+
+	return {
+		kind: "local",
+		session: localAccountSession(validated.cookie),
+		setCookie: null,
+	};
+}
+
+export function localAccountSession(
+	cookie: LocalSessionCookie,
+): TuturuuuAdminSession {
+	return {
+		// A sentinel rather than an empty string: if any code path ever forwards
+		// it upstream, Tuturuuu rejects it outright instead of sending a blank
+		// bearer header.
+		accessToken: "cybershield35-local-account",
+		app: { name: "cybershield35" },
+		createdAt: cookie.issuedAt,
+		expiresAt: cookie.expiresAt,
+		localAccount: {
+			accountId: cookie.accountId,
+			mustChangePassword: cookie.mustChangePassword,
+			role: cookie.role,
+			sessionId: cookie.sessionId,
+			username: cookie.username,
+		},
+		refreshExpiresAt: cookie.expiresAt,
+		refreshToken: "cybershield35-local-account",
+		scopes: [],
+		tokenType: "Bearer",
+		user: {
+			avatarUrl: null,
+			displayName: cookie.displayName ?? cookie.username,
+			email: null,
+			id: `local:${cookie.accountId}`,
+		},
+		workspaceId: null,
+	};
 }
 
 function localDevSession(): TuturuuuAdminSession {

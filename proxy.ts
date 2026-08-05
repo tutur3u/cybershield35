@@ -12,6 +12,7 @@ import {
 	sessionNeedsRefresh,
 	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
+import { readLocalSessionCookie } from "@/lib/auth/local-session";
 import {
 	LOGIN_PATHNAME,
 	VERIFY_TOKEN_PATHNAME,
@@ -42,11 +43,17 @@ export async function proxy(request: NextRequest) {
 
 	let session = await readAdminSession(request);
 	const localBypass = allowLocalAuthBypass(request);
+	// Optimistic only: the cookie proves it was minted by this deployment and has
+	// not expired. Revocation and account state are enforced server-side by
+	// requireAdminSession before any handler runs.
+	const localAccountSession = Boolean(readLocalSessionCookie(request));
 	let setCookie: string | null = null;
 	let loginReason: "expired" | "invitation" | "no-access" | "scope" | undefined;
 
 	if (pathname === LOGIN_PATHNAME) {
-		if (!(localBypass || isUsableSession(session))) return continueRequest();
+		if (!(localBypass || localAccountSession || isUsableSession(session))) {
+			return continueRequest();
+		}
 
 		return NextResponse.redirect(
 			new URL(
@@ -95,7 +102,8 @@ export async function proxy(request: NextRequest) {
 		session = null;
 	}
 
-	const authenticated = localBypass || isUsableSession(session);
+	const authenticated =
+		localBypass || localAccountSession || isUsableSession(session);
 
 	if (!authenticated) {
 		return attachSessionCookie(

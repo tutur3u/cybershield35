@@ -135,6 +135,11 @@ export const promptPresetVisibilityEnum = pgEnum("prompt_preset_visibility", [
 	"workspace",
 ]);
 
+export const localAccountRoleEnum = pgEnum("local_account_role", [
+	"admin",
+	"member",
+]);
+
 export const evidenceTriageStatusEnum = pgEnum("evidence_triage_status", [
 	"new",
 	"reviewing",
@@ -1337,6 +1342,58 @@ export const intelligenceActivityRollups = pgTable(
 	],
 );
 
+export const localAccounts = pgTable(
+	"local_accounts",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		// Usernames are normalized to lowercase before they ever reach the database
+		// so the unique index doubles as the case-insensitive login lookup.
+		username: text("username").notNull(),
+		displayName: text("display_name"),
+		passwordHash: text("password_hash").notNull(),
+		role: localAccountRoleEnum("role").default("member").notNull(),
+		disabled: boolean("disabled").default(false).notNull(),
+		mustChangePassword: boolean("must_change_password").default(false).notNull(),
+		failedAttempts: integer("failed_attempts").default(0).notNull(),
+		lockedUntil: timestamp("locked_until", { withTimezone: true }),
+		lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+		passwordUpdatedAt: timestamp("password_updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		createdByUserId: text("created_by_user_id"),
+		createdByDisplayName: text("created_by_display_name"),
+		updatedByUserId: text("updated_by_user_id"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("local_accounts_username_idx").on(table.username),
+		index("local_accounts_created_idx").on(table.createdAt),
+	],
+);
+
+export const localAccountSessions = pgTable(
+	"local_account_sessions",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		accountId: uuid("account_id")
+			.notNull()
+			.references(() => localAccounts.id, { onDelete: "cascade" }),
+		// Only the hash is stored, so a database leak cannot be replayed as a cookie.
+		tokenHash: text("token_hash").notNull(),
+		userAgent: text("user_agent"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		revokedAt: timestamp("revoked_at", { withTimezone: true }),
+	},
+	(table) => [
+		uniqueIndex("local_account_sessions_token_idx").on(table.tokenHash),
+		index("local_account_sessions_account_idx").on(table.accountId),
+		index("local_account_sessions_expiry_idx").on(table.expiresAt),
+	],
+);
+
 export type SourceType = (typeof sourceTypeEnum.enumValues)[number];
 export type ProviderName = (typeof providerNameEnum.enumValues)[number];
 export type ScanStatus = (typeof scanStatusEnum.enumValues)[number];
@@ -1371,5 +1428,8 @@ export type IntelligenceProviderRollupRow =
 	typeof intelligenceProviderRollups.$inferSelect;
 export type IntelligenceClaimIndexRow =
 	typeof intelligenceClaimIndex.$inferSelect;
+export type LocalAccountRole = (typeof localAccountRoleEnum.enumValues)[number];
+export type LocalAccountRow = typeof localAccounts.$inferSelect;
+export type LocalAccountSessionRow = typeof localAccountSessions.$inferSelect;
 export type IntelligenceActivityRollupRow =
 	typeof intelligenceActivityRollups.$inferSelect;

@@ -10,6 +10,7 @@ export function AuthRequiredScreen({
 	configured,
 	error,
 	loginHref,
+	nextUrl,
 	pendingInvitation,
 	pendingInvitationExpired,
 	reason,
@@ -19,6 +20,7 @@ export function AuthRequiredScreen({
 	configured: boolean;
 	error?: string;
 	loginHref?: string;
+	nextUrl?: string;
 	pendingInvitation?: PendingInvitationPublicView | null;
 	pendingInvitationExpired?: boolean;
 	reason?: LoginReason | null;
@@ -30,6 +32,7 @@ export function AuthRequiredScreen({
 			configured={configured}
 			error={error}
 			loginHref={loginHref}
+			nextUrl={nextUrl}
 			pendingInvitation={pendingInvitation}
 			pendingInvitationExpired={pendingInvitationExpired}
 			reason={reason}

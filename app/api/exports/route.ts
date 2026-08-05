@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	authHeaders,
+	LOCAL_ACCOUNT_PLATFORM_ERROR,
+	requireAdminSession,
+} from "@/lib/auth/require-admin";
 import {
 	createDocxExport,
 	createPdfExport,
@@ -41,6 +45,14 @@ export async function POST(request: Request) {
 
 	try {
 		const input = bodySchema.parse(await request.json());
+		// Documents render entirely on CS35; only speech spends the caller's
+		// Tuturuuu token, so only that format is closed to local accounts.
+		if (input.format === "wav" && auth.kind === "local") {
+			return Response.json(
+				{ error: LOCAL_ACCOUNT_PLATFORM_ERROR },
+				{ status: 403 },
+			);
+		}
 		const bytes =
 			input.format === "docx"
 				? await createDocxExport(input)

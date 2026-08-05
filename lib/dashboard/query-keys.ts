@@ -126,4 +126,5 @@ export const dashboardQueryKeys = {
 	managedSchedulerExecutions: (jobKey = "all") =>
 		["workspace", "managed-scheduler", "executions", jobKey] as const,
 	workspaceMembers: () => ["workspace", "members"] as const,
+	localAccounts: () => ["workspace", "local-accounts"] as const,
 };

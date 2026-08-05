@@ -1,7 +1,10 @@
 import { and, count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	authHeaders,
+	requirePlatformAdminSession,
+} from "@/lib/auth/require-admin";
 import { chatError } from "@/lib/chat/http";
 import { requireOwnedChatConversation } from "@/lib/chat/store";
 import { createTuturuuuDriveUpload } from "@/lib/chat/tuturuuu-drive";
@@ -39,7 +42,7 @@ export async function POST(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> },
 ) {
-	const auth = await requireAdminSession(request);
+	const auth = await requirePlatformAdminSession(request);
 	if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 	try {
 		const conversationId = conversationIdSchema.parse((await params).id);

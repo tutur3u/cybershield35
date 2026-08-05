@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	authHeaders,
+	requirePlatformAdminSession,
+} from "@/lib/auth/require-admin";
 import {
 	deleteChatAttachment,
 	getAccessibleAttachment,
@@ -19,7 +22,7 @@ const idSchema = z.string().uuid();
 type Context = { params: Promise<{ attachmentId: string; id: string }> };
 
 async function ownedAttachment(request: Request, context: Context) {
-	const auth = await requireAdminSession(request);
+	const auth = await requirePlatformAdminSession(request);
 	if ("error" in auth) return { auth, attachment: null };
 	const values = await context.params;
 	const conversationId = conversationIdSchema.parse(values.id);
@@ -30,7 +33,7 @@ async function ownedAttachment(request: Request, context: Context) {
 
 export async function GET(request: Request, context: Context) {
 	try {
-		const auth = await requireAdminSession(request);
+		const auth = await requirePlatformAdminSession(request);
 		if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 		const values = await context.params;
 		const attachment = await getAccessibleAttachment(

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { AuthRequiredScreen } from "@/components/dashboard/auth-required-screen";
+import { readLocalSessionCookie } from "@/lib/auth/local-session";
 import { buildTuturuuuCentralizedLoginUrl } from "@/lib/auth/login-link";
 import { requestUrlFromHeaders } from "@/lib/auth/request-url";
 import { safeLoginReason, safePostLoginPath } from "@/lib/auth/routes";
@@ -68,6 +69,7 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 
 	if (
 		allowLocalAuthBypass(request) ||
+		readLocalSessionCookie(request) ||
 		(session && sessionCanRefresh(session) && !needsScopeApproval)
 	) {
 		redirect(nextPath);
@@ -93,6 +95,7 @@ async function LoginContent({ searchParams }: LoginPageProps) {
 			authDiagnostics={authDiagnostics}
 			configured={authDiagnostics.configured}
 			loginHref={loginHref}
+			nextUrl={nextPath}
 			pendingInvitation={pendingInvitation}
 			pendingInvitationExpired={
 				loginReason === "invitation" && !pendingInvitation

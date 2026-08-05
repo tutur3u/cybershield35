@@ -5,6 +5,7 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 
+import { LocalPasswordLoginForm } from "@/components/auth/local-password-login-form";
 import { PendingInvitationActions } from "@/components/auth/pending-invitation-actions";
 import { TuturuuuLoginLink } from "@/components/auth/tuturuuu-login-link";
 import type { LoginReason } from "@/lib/auth/routes";
@@ -19,6 +20,7 @@ export function CentralizedLoginScreen({
 	configured,
 	error,
 	loginHref,
+	nextUrl = "/",
 	pendingInvitation,
 	pendingInvitationExpired,
 	reason,
@@ -28,6 +30,7 @@ export function CentralizedLoginScreen({
 	configured: boolean;
 	error?: string;
 	loginHref?: string;
+	nextUrl?: string;
 	pendingInvitation?: PendingInvitationPublicView | null;
 	pendingInvitationExpired?: boolean;
 	reason?: LoginReason | null;
@@ -86,6 +89,26 @@ export function CentralizedLoginScreen({
 						>
 							Đăng nhập chưa khả dụng
 						</button>
+					)}
+
+					{/* Password logins are issued by workspace admins and do not depend on
+					    Tuturuuu being reachable, so they stay available whenever the app
+					    itself can run. */}
+					{scopeApprovalHref || pendingInvitation ? null : (
+						<>
+							<div className="mt-5 flex items-center gap-3">
+								<span className="h-px flex-1 bg-[var(--divider)]" />
+								<span className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
+									hoặc
+								</span>
+								<span className="h-px flex-1 bg-[var(--divider)]" />
+							</div>
+							<LocalPasswordLoginForm nextUrl={nextUrl} />
+							<p className="mt-2 text-[11px] leading-4 text-[var(--muted)]">
+								Tài khoản mật khẩu do quản trị viên workspace cấp trong mục
+								Thành viên.
+							</p>
+						</>
 					)}
 
 					{setupIncomplete ? (

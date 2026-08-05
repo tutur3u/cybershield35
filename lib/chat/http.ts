@@ -1,8 +1,8 @@
-import type { AdminAuthResult } from "@/lib/auth/require-admin";
+import type { AdminSessionAuth } from "@/lib/auth/require-admin";
 
 import type { ChatActor } from "./types";
 
-export function actorFromAuth(auth: Extract<AdminAuthResult, { kind: "live" }>): ChatActor {
+export function actorFromAuth(auth: AdminSessionAuth): ChatActor {
 	const user = auth.session.user;
 	return {
 		displayName:

@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import {
+	authHeaders,
+	requirePlatformAdminSession,
+} from "@/lib/auth/require-admin";
 import { getOwnedAttachment, processChatAttachment } from "@/lib/chat/attachments";
 import { chatError } from "@/lib/chat/http";
 import { finalizeTuturuuuDriveUpload } from "@/lib/chat/tuturuuu-drive";
@@ -16,7 +19,7 @@ export async function POST(
 	request: Request,
 	{ params }: { params: Promise<{ attachmentId: string; id: string }> },
 ) {
-	const auth = await requireAdminSession(request);
+	const auth = await requirePlatformAdminSession(request);
 	if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 	try {
 		const values = await params;

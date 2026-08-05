@@ -31,6 +31,17 @@ const ProfileSettingsPanelDialog = dynamic(
 	},
 );
 
+const LocalPasswordDialog = dynamic(
+	() =>
+		import("@/components/dashboard/local-password-dialog").then(
+			(module) => module.LocalPasswordDialog,
+		),
+	{
+		loading: () => <DeferredDialogLoading label="Đang tải đổi mật khẩu" />,
+		ssr: false,
+	},
+);
+
 const ProviderStatusDialog = dynamic(
 	() =>
 		loadOperationalSettingsDialog().then(
@@ -57,6 +68,10 @@ export function DashboardLayoutShell({
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(readSidebarCollapsed);
 	const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+	const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+	const passwordChangeRequired = Boolean(
+		auth.session?.kind === "local" && auth.session.mustChangePassword,
+	);
 	const [schedulerAutoRetryToken] = useState(readSchedulerAutoRetryToken);
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(() =>
 		Boolean(schedulerAutoRetryToken),
@@ -108,6 +123,7 @@ export function DashboardLayoutShell({
 						>
 							<TopBar
 								auth={auth}
+								onChangePassword={() => setPasswordDialogOpen(true)}
 								onLogout={() =>
 									logout(
 										setAuth,
@@ -150,6 +166,27 @@ export function DashboardLayoutShell({
 									session,
 								}));
 							}}
+						/>
+					) : null}
+					{passwordDialogOpen || passwordChangeRequired ? (
+						<LocalPasswordDialog
+							onChanged={() => {
+								setPasswordDialogOpen(false);
+								setAuth((current) =>
+									current.session
+										? {
+												...current,
+												session: {
+													...current.session,
+													mustChangePassword: false,
+												},
+											}
+										: current,
+								);
+								setNotice("Đã đổi mật khẩu.");
+							}}
+							onClose={() => setPasswordDialogOpen(false)}
+							required={passwordChangeRequired}
 						/>
 					) : null}
 					{settingsDialogOpen ? (

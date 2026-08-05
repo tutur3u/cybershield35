@@ -12,9 +12,11 @@ import {
 import { useMemo, useState } from "react";
 
 import { Dialog } from "@/components/dashboard/dialog-frame";
+import { LocalAccountsPanel } from "@/components/dashboard/local-accounts-panel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import type {
+	LocalAccountsResponse,
 	WorkspaceInvitationView,
 	WorkspaceMembersResponse,
 	WorkspaceMemberView,
@@ -41,8 +43,10 @@ const emptyPayload: WorkspaceMembersResponse = {
 
 export function WorkspaceMembersPage({
 	initialData,
+	initialLocalAccounts,
 }: {
 	initialData?: WorkspaceMembersResponse;
+	initialLocalAccounts?: LocalAccountsResponse;
 }) {
 	const queryClient = useQueryClient();
 	const membersQuery = useQuery({
@@ -201,7 +205,7 @@ export function WorkspaceMembersPage({
 			<PageHeader
 				icon={UsersRound}
 				title="Thành viên"
-				description="Mời người vận hành, thu hồi quyền truy cập và phân quyền admin cho workspace."
+				description="Mời người vận hành, cấp tài khoản mật khẩu, thu hồi quyền truy cập và phân quyền admin cho workspace."
 				actions={
 					<button
 						type="button"
@@ -306,6 +310,8 @@ export function WorkspaceMembersPage({
 					/>
 				)}
 			</Panel>
+
+			<LocalAccountsPanel initialData={initialLocalAccounts} />
 
 			<ConfirmDialog
 				action={pendingAction}

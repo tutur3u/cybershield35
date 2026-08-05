@@ -72,6 +72,8 @@ export async function resolveDashboardAuthFromRequest(
 
 	const auth = await requireLocalAdminSession(request);
 	if ("error" in auth) {
+		// A dead local-account cookie is cleared by the login redirect, not here;
+		// the layout only needs to know the request is unauthenticated.
 		const needsScopeApproval =
 			authDiagnostics.configured &&
 			isTuturuuuScopeNotAllowedError({

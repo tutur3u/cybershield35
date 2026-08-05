@@ -45,7 +45,10 @@ export async function GET(request: Request) {
 						})
 					: undefined,
 			},
-			{ status: auth.status, headers: { "Cache-Control": "no-store" } },
+			{
+				status: auth.status,
+				headers: { "Cache-Control": "no-store", ...authHeaders(auth) },
+			},
 		);
 	}
 

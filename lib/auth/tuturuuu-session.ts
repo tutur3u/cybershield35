@@ -1,11 +1,14 @@
-import {
-	createCipheriv,
-	createDecipheriv,
-	createHash,
-	randomBytes,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { z } from "zod";
+
+import {
+	CookieKeyError,
+	decryptCookieJson,
+	encryptCookieJson,
+	readRequestCookie,
+	serializeCookie,
+} from "@/lib/auth/cookie-crypto";
 
 const SESSION_COOKIE_NAME = "cybershield35_admin_session";
 const PENDING_INVITATION_COOKIE_NAME =
@@ -77,9 +80,22 @@ const invitationDecisionResponseSchema = z.union([
 	z.object({ status: z.literal("rejected") }),
 ]);
 
+/**
+ * Set only for CyberShield35-issued username/password sessions. Its presence is
+ * the single source of truth for "this caller has no Tuturuuu platform identity".
+ */
+export type LocalAccountSessionMarker = {
+	accountId: string;
+	mustChangePassword: boolean;
+	role: "admin" | "member";
+	sessionId: string;
+	username: string;
+};
+
 export type TuturuuuAdminSession = z.infer<typeof exchangeResponseSchema> & {
 	createdAt: string;
 	identityRefreshedAt?: string;
+	localAccount?: LocalAccountSessionMarker;
 };
 
 export type PlatformBearerResult = {
@@ -92,6 +108,8 @@ export type SafeAdminSession = {
 	appName: string | null;
 	authenticated: boolean;
 	expiresAt: string;
+	kind: "local" | "tuturuuu";
+	mustChangePassword?: boolean;
 	refreshExpiresAt: string;
 	user: {
 		avatarUrl: string | null;
@@ -297,6 +315,10 @@ export function toSafeSession(session: TuturuuuAdminSession): SafeAdminSession {
 		appName: session.app?.name ?? null,
 		authenticated: true,
 		expiresAt: session.expiresAt,
+		kind: session.localAccount ? "local" : "tuturuuu",
+		...(session.localAccount
+			? { mustChangePassword: session.localAccount.mustChangePassword }
+			: {}),
 		refreshExpiresAt: session.refreshExpiresAt,
 		user: {
 			avatarUrl: firstCleanString(
@@ -498,7 +520,17 @@ export async function getBearerForPlatformRequest(
 	request: Request,
 ): Promise<PlatformBearerResult> {
 	let session = await readAdminSession(request);
-	if (!session) throw new AuthError("Authentication required", 401);
+	if (!session) {
+		const { readLocalSessionCookie } = await import("@/lib/auth/local-session");
+		if (readLocalSessionCookie(request)) {
+			throw new AuthError(
+				"Tính năng này cần đăng nhập bằng tài khoản Tuturuuu.",
+				403,
+				{ code: "LOCAL_ACCOUNT_NOT_SUPPORTED" },
+			);
+		}
+		throw new AuthError("Authentication required", 401);
+	}
 
 	let setCookie: string | null = null;
 	if (
@@ -774,13 +806,7 @@ function cleanEnv(value: string | undefined) {
 }
 
 function getCookie(request: Request, name: string) {
-	const cookieHeader = request.headers.get("cookie") ?? "";
-	const cookies = cookieHeader.split(/;\s*/u);
-	for (const cookie of cookies) {
-		const [key, ...valueParts] = cookie.split("=");
-		if (key === name) return decodeURIComponent(valueParts.join("="));
-	}
-	return null;
+	return readRequestCookie(request, name);
 }
 
 function encryptSession(session: TuturuuuAdminSession) {
@@ -792,40 +818,22 @@ function encryptPendingInvitation(pendingInvitation: PendingInvitation) {
 }
 
 function encryptJson(value: unknown) {
-	const iv = randomBytes(12);
-	const cipher = createCipheriv("aes-256-gcm", getSessionKey(), iv);
-	const encrypted = Buffer.concat([
-		cipher.update(JSON.stringify(value), "utf8"),
-		cipher.final(),
-	]);
-	const tag = cipher.getAuthTag();
-	return [iv, tag, encrypted]
-		.map((part) => part.toString("base64url"))
-		.join(".");
+	try {
+		return encryptCookieJson(value);
+	} catch (error) {
+		throw asAuthError(error);
+	}
 }
 
 function decryptSession(value: string): TuturuuuAdminSession | null {
 	try {
-		const [ivPart, tagPart, encryptedPart] = value.split(".");
-		if (!ivPart || !tagPart || !encryptedPart) return null;
-
-		const decipher = createDecipheriv(
-			"aes-256-gcm",
-			getSessionKey(),
-			Buffer.from(ivPart, "base64url"),
-		);
-		decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
-		const decrypted = Buffer.concat([
-			decipher.update(Buffer.from(encryptedPart, "base64url")),
-			decipher.final(),
-		]).toString("utf8");
 		return exchangeResponseSchema
 			.extend({
 				createdAt: z.string(),
 				identityRefreshedAt: z.string().optional(),
 				scopes: z.array(z.string().min(1)).optional(),
 			})
-			.parse(JSON.parse(decrypted));
+			.parse(decryptCookieJson(value));
 	} catch {
 		return null;
 	}
@@ -833,42 +841,15 @@ function decryptSession(value: string): TuturuuuAdminSession | null {
 
 function decryptPendingInvitation(value: string): PendingInvitation | null {
 	try {
-		const parsed = decryptJson(value);
-		return pendingInvitationSchema.parse(parsed);
+		return pendingInvitationSchema.parse(decryptCookieJson(value));
 	} catch {
 		return null;
 	}
 }
 
-function decryptJson(value: string) {
-	const [ivPart, tagPart, encryptedPart] = value.split(".");
-	if (!ivPart || !tagPart || !encryptedPart) return null;
-
-	const decipher = createDecipheriv(
-		"aes-256-gcm",
-		getSessionKey(),
-		Buffer.from(ivPart, "base64url"),
-	);
-	decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
-	return JSON.parse(
-		Buffer.concat([
-			decipher.update(Buffer.from(encryptedPart, "base64url")),
-			decipher.final(),
-		]).toString("utf8"),
-	);
-}
-
-function getSessionKey() {
-	const secret =
-		process.env.CYBERSHIELD35_SESSION_SECRET ??
-		process.env.CYBERSHIELD35_APP_SECRET;
-	if (!secret?.trim()) {
-		throw new AuthError(
-			"CYBERSHIELD35_SESSION_SECRET or CYBERSHIELD35_APP_SECRET is required",
-			503,
-		);
-	}
-	return createHash("sha256").update(secret.trim()).digest();
+function asAuthError(error: unknown) {
+	if (error instanceof CookieKeyError) return new AuthError(error.message, 503);
+	return error;
 }
 
 function buildExchangeUrl(apiBaseUrl: string) {
@@ -904,24 +885,4 @@ function decodeAccessTokenScopes(accessToken: string) {
 	} catch {
 		return [];
 	}
-}
-
-function serializeCookie(
-	name: string,
-	value: string,
-	options: {
-		httpOnly?: boolean;
-		maxAge?: number;
-		path?: string;
-		sameSite?: "Lax" | "Strict" | "None";
-		secure?: boolean;
-	},
-) {
-	const parts = [`${name}=${encodeURIComponent(value)}`];
-	if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
-	if (options.path) parts.push(`Path=${options.path}`);
-	if (options.httpOnly) parts.push("HttpOnly");
-	if (options.secure) parts.push("Secure");
-	if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
-	return parts.join("; ");
 }

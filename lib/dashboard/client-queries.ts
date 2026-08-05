@@ -15,6 +15,7 @@ import type {
 	IntelligencePage,
 	IntelligenceSourceRow,
 	IntelligenceTopicRow,
+	LocalAccountsResponse,
 	ManagedSchedulerExecutionsView,
 	ManagedSchedulerStatusView,
 	OperationsOverview,
@@ -360,6 +361,15 @@ export function workspaceMembersQueryOptions() {
 	});
 }
 
+export function localAccountsQueryOptions() {
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: fetchLocalAccounts,
+		queryKey: dashboardQueryKeys.localAccounts(),
+		staleTime: workspaceMembersQueryStaleTimeMs,
+	});
+}
+
 export function managedSchedulerQueryOptions() {
 	return queryOptions({
 		gcTime: dashboardQueryGcTimeMs,
@@ -538,6 +548,39 @@ export async function fetchTopicDetailPage({
 
 async function fetchWorkspaceMembers(): Promise<WorkspaceMembersResponse> {
 	return fetchJson("/api/workspace/members");
+}
+
+async function fetchLocalAccounts(): Promise<LocalAccountsResponse> {
+	const response = await fetch("/api/admin/local-accounts", {
+		credentials: "same-origin",
+		headers: { Accept: "application/json" },
+	});
+	const payload = (await response.json().catch(() => null)) as
+		| (Partial<LocalAccountsResponse> & { error?: string })
+		| null;
+
+	// Non-admins get a rendered explanation instead of a thrown error, because
+	// "you cannot manage these" is a valid state of this panel, not a failure.
+	if (response.status === 403 || response.status === 503) {
+		return {
+			accounts: [],
+			context: {
+				canManage: false,
+				reason: payload?.context?.reason ?? payload?.error,
+			},
+		};
+	}
+
+	if (!response.ok) {
+		throw new Error(
+			payload?.error ?? "Không thể tải danh sách tài khoản mật khẩu.",
+		);
+	}
+
+	return {
+		accounts: payload?.accounts ?? [],
+		context: payload?.context ?? { canManage: false },
+	};
 }
 
 async function fetchIntelligenceOverview(
