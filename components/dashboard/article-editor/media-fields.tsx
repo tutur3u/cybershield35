@@ -50,18 +50,29 @@ export function MediaField({
 		}
 	}
 
+	/*
+		Wrapped rather than dropped straight into the label: `sr-only` positions the
+		input absolutely, and with no positioned ancestor it resolves against the
+		document. Its static position is inside the editor's own scroll container,
+		so it landed hundreds of pixels below the fold and stretched the page to
+		reach — a second scrollbar ending in blank space under the layout. The
+		wrapper gives it a containing block of its own, so wherever this control is
+		used it stays inside its label.
+	*/
 	const picker = (
-		<input
-			type="file"
-			accept="image/*"
-			disabled={uploading}
-			className="sr-only"
-			onChange={(event) => {
-				const file = event.target.files?.[0];
-				if (file) void upload(file);
-				event.target.value = "";
-			}}
-		/>
+		<span className="relative">
+			<input
+				type="file"
+				accept="image/*"
+				disabled={uploading}
+				className="sr-only"
+				onChange={(event) => {
+					const file = event.target.files?.[0];
+					if (file) void upload(file);
+					event.target.value = "";
+				}}
+			/>
+		</span>
 	);
 
 	if (isRenderableImageUrl(url)) {

@@ -179,7 +179,10 @@ export function ProfileSettingsPanel({
 							{success}
 						</p>
 					) : null}
-					<div className="flex flex-wrap gap-2">
+					{/* `relative` so the sr-only input below, which is positioned
+						absolutely, resolves inside this row rather than against the
+						document. */}
+					<div className="relative flex flex-wrap gap-2">
 						<input
 							ref={fileInputRef}
 							accept="image/png,image/jpeg,image/gif,image/webp"

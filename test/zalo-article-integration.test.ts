@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
+import {
+	reconcilePublicationOnReview,
+	visiblePublicationError,
+} from "@/lib/articles/publication-reconcile";
+
 mock.module("server-only", () => ({}));
 
 const originalEnv = { ...process.env };
@@ -625,23 +630,103 @@ describe("a request the rules reject is not a publish failure", () => {
 });
 
 describe("a review decision clears a refusal it inherited", () => {
-	const store = readFileSync(
-		new URL("../lib/articles/store.ts", import.meta.url),
-		"utf8",
-	);
+	const base = {
+		lastError: "Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.",
+		remoteArticleId: null,
+		reviewStatus: "needs_review",
+	};
 
-	test("an unapproved article's stale Zalo state is corrected on review", () => {
+	test("stale intent is cleared, and the error with it", () => {
 		// Otherwise the approver is greeted by "Đăng lỗi" describing a publish
 		// that the approval gate itself refused before anything reached Zalo.
-		const at = store.indexOf("reviewStatus: status,");
-		expect(at).toBeGreaterThan(-1);
-		const setClause = store.slice(Math.max(0, at - 1200), at);
-		expect(setClause).toContain("publicationStatus: sql`case");
-		expect(setClause).toContain("'not_synced'::publication_status");
-		// An article with a draft on the OA keeps saying so — that part is true.
-		expect(setClause).toContain("'hidden'::publication_status");
-		// An approved article's genuine failure is not swept away with it.
-		expect(setClause).toContain("= 'approved'");
+		for (const publicationStatus of [
+			"failed",
+			"syncing",
+			"publishing",
+			"scheduled",
+		]) {
+			expect(
+				reconcilePublicationOnReview({ ...base, publicationStatus }),
+			).toEqual({ lastError: null, publicationStatus: "not_synced" });
+		}
+	});
+
+	test("an article with a draft on the OA keeps saying so", () => {
+		expect(
+			reconcilePublicationOnReview({
+				...base,
+				publicationStatus: "failed",
+				remoteArticleId: "abc123",
+			}),
+		).toEqual({ lastError: null, publicationStatus: "hidden" });
+	});
+
+	test("nothing else is touched", () => {
+		// An approved article's failure is real; a status that already describes
+		// Zalo is not intent to be cleared.
+		expect(
+			reconcilePublicationOnReview({
+				...base,
+				publicationStatus: "failed",
+				reviewStatus: "approved",
+			}),
+		).toBeNull();
+		// A status that already describes Zalo is left alone; only the inherited
+		// error goes with the decision.
+		for (const publicationStatus of ["not_synced", "hidden", "published"]) {
+			expect(
+				reconcilePublicationOnReview({ ...base, publicationStatus }),
+			).toEqual({ lastError: null });
+			expect(
+				reconcilePublicationOnReview({
+					...base,
+					lastError: null,
+					publicationStatus,
+				}),
+			).toBeNull();
+		}
+	});
+
+	test("the refusal is cleared even when the status was already right", () => {
+		// The red banner is the stored error, not the status, so clearing only the
+		// status would leave the warning on screen.
+		expect(
+			reconcilePublicationOnReview({ ...base, publicationStatus: "not_synced" }),
+		).toEqual({ lastError: null });
+	});
+
+	test("an unapproved article never shows a publish error", () => {
+		// Only an approved article can have had a publish attempted; anything else
+		// is the approval gate's own refusal, shown beside the button that would
+		// have asked for the publish in the first place.
+		expect(
+			visiblePublicationError({
+				lastError: "Bài viết phải được phê duyệt trước mọi thao tác với Zalo OA.",
+				reviewStatus: "needs_review",
+			}),
+		).toBeNull();
+		expect(
+			visiblePublicationError({
+				lastError: "Zalo từ chối ảnh bìa.",
+				reviewStatus: "approved",
+			}),
+		).toBe("Zalo từ chối ảnh bìa.");
+	});
+
+	test("every status it decides on is a real one", () => {
+		// The first version of this wrote a SQL cast by hand, named an enum type
+		// that does not exist, and broke approval outright — while a test that
+		// matched the SQL as source text kept passing.
+		const schema = readFileSync(
+			new URL("../lib/db/schema.ts", import.meta.url),
+			"utf8",
+		);
+		const declared = schema
+			.slice(schema.indexOf("article_publication_status"))
+			.slice(0, 300);
+		for (const status of ["not_synced", "hidden", "failed", "syncing"]) {
+			expect(declared).toContain(`"${status}"`);
+		}
 	});
 });
 

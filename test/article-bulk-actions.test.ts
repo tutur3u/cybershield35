@@ -134,3 +134,24 @@ describe("the articles list drives bulk actions", () => {
 		).toBe("Chờ duyệt");
 	});
 });
+
+describe("hidden file inputs stay inside their layout", () => {
+	// `sr-only` positions an element absolutely. Inside a scroll container with
+	// no positioned ancestor it resolves against the document, so its static
+	// position — hundreds of pixels down the scrolled content — stretched the
+	// page to reach it: a second scrollbar ending in blank space.
+	const files = [
+		"components/dashboard/article-editor/media-fields.tsx",
+		"components/dashboard/profile-settings-panel.tsx",
+	];
+
+	for (const file of files) {
+		test(`${file} gives its sr-only input a containing block`, () => {
+			const source = readFileSync(file, "utf8");
+			const at = source.indexOf('className="sr-only"');
+			expect(at).toBeGreaterThan(-1);
+			// The containing block is declared on an ancestor within a few lines.
+			expect(source.slice(Math.max(0, at - 500), at)).toContain("relative");
+		});
+	}
+});

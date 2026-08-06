@@ -20,6 +20,7 @@ import { ArticleContextPanel } from "./context-panel";
 import { EditorHeader, EditorNoticeBar, editorStage } from "./editor-header";
 import { PublishPanel } from "./publish-panel";
 import { PublishRail } from "./publish-rail";
+import { visiblePublicationError } from "@/lib/articles/publication-reconcile";
 import { ArticleEditorSkeleton } from "./skeleton";
 import type { ReadinessItem } from "./types";
 import { useArticleEditor } from "./use-article-editor";
@@ -105,7 +106,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 			/>
 
 			<EditorNoticeBar
-				lastError={article.lastError}
+				lastError={visiblePublicationError(article)}
 				notice={editor.notice}
 				onDismiss={() => editor.setNotice(null)}
 			/>
