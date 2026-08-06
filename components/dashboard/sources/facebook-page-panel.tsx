@@ -18,7 +18,11 @@ import type {
 	FacebookPageClassification,
 	IntelligenceFacebookPageOption,
 } from "@/components/dashboard/types";
-import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
+import {
+	DashboardTooltip,
+	Panel,
+	PanelHeader,
+} from "@/components/dashboard/ui-primitives";
 import { intelligenceFacebookPagesQueryOptions } from "@/lib/dashboard/client-queries";
 
 import { ScanRunIndicator } from "./scan-run-indicator";
@@ -344,21 +348,25 @@ function FacebookPagePolicyRow({
 				) : null}
 			</div>
 
+			{/*
+				One row of controls rather than a titled block per page. Every card
+				repeated the same two headings and the same sentence of explanation, so
+				five pages meant reading the instructions five times — and the block
+				grew taller than the page it described.
+			*/}
 			<div className="space-y-2">
-				<div className="flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
-					<span>Cách xử lý nội dung</span>
-					<span>Chọn một</span>
-				</div>
 				<div
-					className="grid grid-cols-2 gap-2 sm:grid-cols-4"
 					aria-label={`Phân loại ${page.label}`}
+					className="flex flex-wrap items-center gap-2"
 				>
 					<PagePolicyButton
 						active={page.classification === "trusted"}
 						disabled={saving}
 						icon={ShieldCheck}
 						label="Đáng tin"
-						onClick={() => onSave({ autoDraftEnabled: true, classification: "trusted" })}
+						onClick={() =>
+							onSave({ autoDraftEnabled: true, classification: "trusted" })
+						}
 						tone="success"
 					/>
 					<PagePolicyButton
@@ -366,7 +374,9 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={Scale}
 						label="Trung lập"
-						onClick={() => onSave({ autoDraftEnabled: true, classification: "neutral" })}
+						onClick={() =>
+							onSave({ autoDraftEnabled: true, classification: "neutral" })
+						}
 						tone="neutral"
 					/>
 					<PagePolicyButton
@@ -374,7 +384,9 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={ShieldAlert}
 						label="Có rủi ro"
-						onClick={() => onSave({ autoDraftEnabled: true, classification: "at_risk" })}
+						onClick={() =>
+							onSave({ autoDraftEnabled: true, classification: "at_risk" })
+						}
 						tone="danger"
 					/>
 					<PagePolicyButton
@@ -387,47 +399,56 @@ function FacebookPagePolicyRow({
 						}
 						tone="neutral"
 					/>
-				</div>
-				<button
-					type="button"
-					role="switch"
-					aria-checked={page.autoDraftEnabled && !automationUnavailable}
-					aria-label={`Tự động soạn bản nháp cho ${page.label}`}
-					disabled={saving || automationUnavailable}
-					onClick={() => void onSave({ autoDraftEnabled: !page.autoDraftEnabled })}
-					className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-70 ${
-						page.autoDraftEnabled && !automationUnavailable
-							? "border-[var(--accent)] bg-[var(--accent-soft)]"
-							: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
-					}`}
-				>
-					<span className="min-w-0">
-						<span className="block text-[11px] font-extrabold text-[var(--foreground)]">
-							Tự động soạn bản nháp chờ duyệt
-						</span>
-						<span className="mt-0.5 block text-[10px] font-semibold leading-4 text-[var(--muted)]">
-							{automationUnavailable
-								? "Chọn cách xử lý ở trên để bật tính năng này."
-								: "Chỉ tạo bản nháp nội bộ, không tự động đăng bài."}
-						</span>
-					</span>
-					<span
-						aria-hidden
-						className={`relative inline-flex h-6 w-11 shrink-0 rounded-full p-0.5 transition ${
-							page.autoDraftEnabled && !automationUnavailable
-								? "bg-[var(--accent)]"
-								: "bg-[var(--border-strong)]"
-						}`}
+
+					<span className="mx-1 hidden h-6 w-px bg-[var(--divider)] sm:block" />
+
+					{/*
+						The toggle keeps its own label but loses the paragraph: what it
+						does is the same on every page, and saying so five times told
+						nobody anything they did not learn the first time.
+					*/}
+					<DashboardTooltip
+						content={
+							automationUnavailable
+								? "Chọn cách xử lý trước để bật tự động soạn bản nháp."
+								: "Tạo bản nháp nội bộ chờ duyệt. Không bao giờ tự đăng bài."
+						}
 					>
-						<span
-							className={`size-5 rounded-full bg-white shadow-sm transition ${
+						<button
+							aria-checked={page.autoDraftEnabled && !automationUnavailable}
+							aria-label={`Tự động soạn bản nháp cho ${page.label}`}
+							className={`inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
 								page.autoDraftEnabled && !automationUnavailable
-									? "translate-x-5"
-									: "translate-x-0"
+									? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+									: "border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] hover:border-[var(--border-strong)]"
 							}`}
-						/>
-					</span>
-				</button>
+							disabled={saving || automationUnavailable}
+							onClick={() =>
+								void onSave({ autoDraftEnabled: !page.autoDraftEnabled })
+							}
+							role="switch"
+							type="button"
+						>
+							<span
+								aria-hidden
+								className={`relative inline-flex h-4 w-7 shrink-0 rounded-full p-0.5 transition ${
+									page.autoDraftEnabled && !automationUnavailable
+										? "bg-[var(--accent)]"
+										: "bg-[var(--border-strong)]"
+								}`}
+							>
+								<span
+									className={`size-3 rounded-full bg-white shadow-sm transition ${
+										page.autoDraftEnabled && !automationUnavailable
+											? "translate-x-3"
+											: "translate-x-0"
+									}`}
+								/>
+							</span>
+							Tự động soạn nháp
+						</button>
+					</DashboardTooltip>
+				</div>
 				{feedback ? (
 					<p
 						aria-live="polite"

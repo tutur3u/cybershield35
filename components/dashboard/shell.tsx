@@ -367,10 +367,7 @@ export function Sidebar({
 							Built as two links rather than a paragraph: both are places
 							someone may actually want to go.
 						*/}
-						<p className="px-2 text-[10px] font-bold tracking-wide text-[color:var(--muted)] uppercase">
-							Sản phẩm của
-						</p>
-						<div className="mt-1.5 space-y-0.5">
+						<div className="space-y-0.5">
 							<AttributionLink
 								href="https://zalo.me/2629920369363080604"
 								icon={Landmark}
@@ -568,7 +565,7 @@ export function TopBar({
 			{chatRoute ? (
 				<div id="chat-topbar-portal" className="min-w-0 flex-1" />
 			) : null}
-			<div className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[var(--muted-strong)] sm:gap-3">
+			<div className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[var(--muted-strong)]">
 				{chatRoute ? null : <BrowserClock />}
 				<a
 					aria-label="Mở mã nguồn trên GitHub"
@@ -970,10 +967,12 @@ function BrowserClock() {
 	}
 
 	const date = new Date(timestamp);
-	const timeLabel = new Intl.DateTimeFormat("en-US", {
+	// 24-hour and day-first. "11:40 PM" is an American reading of a clock that
+	// every reader of this product writes as 23:40.
+	const timeLabel = new Intl.DateTimeFormat("vi-VN", {
 		hour: "2-digit",
+		hour12: false,
 		minute: "2-digit",
-		hour12: true,
 	}).format(date);
 	const dateLabel = new Intl.DateTimeFormat("vi-VN", {
 		day: "2-digit",

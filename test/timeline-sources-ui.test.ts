@@ -170,9 +170,47 @@ describe("the sidebar footer carries attribution, not a link dump", () => {
 		// "Who owns this" and "who built this" are different questions, and the
 		// names alone answer neither.
 		expect(shell).toContain("function AttributionLink");
-		expect(shell).toContain("Sản phẩm của");
+		// No heading: the two roles beneath say what it is.
+		expect(shell).not.toContain("Sản phẩm của");
 		expect(shell).toContain('role="Đơn vị chủ quản"');
 		expect(shell).toContain('role="Phát triển & công nghệ"');
 		expect(shell).toContain('target="_blank"');
+	});
+});
+
+describe("the top bar reads as one group, in local conventions", () => {
+	const shell = read("components/dashboard/shell.tsx");
+
+	test("the clock is 24-hour and day-first", () => {
+		// "11:40 PM" is an American reading of a clock every reader of this
+		// product writes as 23:40.
+		expect(shell).toContain('const timeLabel = new Intl.DateTimeFormat("vi-VN"');
+		expect(shell).toContain("hour12: false,");
+		expect(shell).not.toContain("hour12: true,");
+	});
+
+	test("clock, source, notifications and account sit together", () => {
+		// They were spaced like four separate regions of the header.
+		expect(shell).toContain(
+			'className="flex shrink-0 items-center gap-1.5 text-[12px]',
+		);
+	});
+});
+
+describe("the fanpage rows stop repeating themselves", () => {
+	const panel = read("components/dashboard/sources/facebook-page-panel.tsx");
+
+	test("the per-row headings are gone", () => {
+		// Five pages meant reading "Cách xử lý nội dung / Chọn một" five times.
+		expect(panel).not.toContain("<span>Cách xử lý nội dung</span>");
+		expect(panel).not.toContain("<span>Chọn một</span>");
+	});
+
+	test("classification and the auto-draft switch share one row", () => {
+		expect(panel).toContain('className="flex flex-wrap items-center gap-2"');
+		expect(panel).toContain("Tự động soạn nháp");
+		// The paragraph under the switch became a tooltip.
+		expect(panel).toContain("<DashboardTooltip");
+		expect(panel).not.toContain("Chỉ tạo bản nháp nội bộ, không tự động đăng bài.");
 	});
 });

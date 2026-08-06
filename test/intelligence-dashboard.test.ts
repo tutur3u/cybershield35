@@ -105,7 +105,11 @@ describe("executive intelligence dashboard architecture", () => {
 
 		expect(pagePanel).toContain('role="switch"');
 		expect(pagePanel).toContain("Tự động soạn bản nháp cho ${page.label}");
-		expect(pagePanel).toContain("Chọn cách xử lý ở trên để bật tính năng này.");
+		// The explanation moved into a tooltip: it is identical on every page, and
+		// printing it under all five said nothing the first one had not.
+		expect(pagePanel).toContain(
+			"Chọn cách xử lý trước để bật tự động soạn bản nháp.",
+		);
 		expect(pagePanel).toContain('classification: "neutral"');
 		expect(pagePanel).toContain("feedbackByPage");
 		expect(pagePanel).toContain("updateCachedPage");
