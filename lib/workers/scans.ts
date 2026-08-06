@@ -1,5 +1,5 @@
 import { NoObjectGeneratedError } from "ai";
-import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, max, ne, sql } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -603,6 +603,52 @@ export async function deleteEvidence(id: string) {
  */
 export const MAX_CONCURRENT_SCAN_RUNS = 6;
 
+/**
+ * How long a claimed scan may sit before the queue takes it back.
+ *
+ * Observed runs finish inside five minutes, so this is generous. It has to be:
+ * requeuing a scan that is merely slow would collect the same source twice.
+ */
+const STALLED_SCAN_MS = 30 * 60 * 1000;
+
+/**
+ * Returns scans whose worker never came back to the queue.
+ *
+ * Before the concurrency cap a stalled `running` row was untidy but harmless.
+ * Now it holds a slot for good, so six of them would stop scanning altogether —
+ * a queue that cannot be blocked has to be able to reclaim its own locks.
+ */
+export async function reclaimStalledScans() {
+	const reclaimed = await adminDb
+		.update(scanJobs)
+		.set({
+			errorMessage: "Scan bị treo quá lâu và đã được đưa lại vào hàng đợi.",
+			lockedAt: null,
+			scheduledAt: new Date(),
+			status: "retrying",
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(scanJobs.status, "running"),
+				lt(scanJobs.lockedAt, new Date(Date.now() - STALLED_SCAN_MS)),
+			),
+		)
+		.returning({ id: scanJobs.id });
+
+	for (const job of reclaimed) {
+		await recordScanEvent({
+			eventType: "scan_reclaimed",
+			message: "Scan bị treo quá lâu và đã được đưa lại vào hàng đợi.",
+			scanJobId: job.id,
+			stage: "queue",
+			status: "waiting",
+		}).catch(() => {});
+	}
+
+	return reclaimed.length;
+}
+
 export async function countRunningScans() {
 	const [row] = await adminDb
 		.select({ count: sql<number>`count(*)::int` })
@@ -612,6 +658,7 @@ export async function countRunningScans() {
 }
 
 export async function scanCapacityRemaining() {
+	await reclaimStalledScans();
 	return Math.max(0, MAX_CONCURRENT_SCAN_RUNS - (await countRunningScans()));
 }
 

@@ -71,6 +71,15 @@ describe("scans run as a durable workflow", () => {
 		expect(scheduler).toContain("const scans = await drainScanQueue();");
 	});
 
+	test("a queue with a cap can reclaim its own locks", () => {
+		// A stalled `running` row used to be untidy but harmless. Against a cap it
+		// holds a slot for good, so six of them would stop scanning altogether.
+		expect(scans).toContain("export async function reclaimStalledScans()");
+		expect(scans).toContain("await reclaimStalledScans();");
+		expect(scans).toContain("lt(scanJobs.lockedAt,");
+		expect(scans).toContain('status: "retrying",');
+	});
+
 	test("the build compiles workflows and the step route has room to work", () => {
 		expect(nextConfig).toContain("withWorkflow(nextConfig)");
 		expect(
