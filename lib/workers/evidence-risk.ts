@@ -14,6 +14,13 @@ import {
 	type EvidenceStance,
 } from "@/lib/llm/risk-classification";
 
+/**
+ * Bumped whenever the classifier is asked something new, so a backfill can tell
+ * a row it has already judged from one judged by an earlier, narrower pass.
+ * 2 added sentiment and stance.
+ */
+const CLASSIFIER_VERSION = 2;
+
 type StoredEvidenceRisk = {
 	author: string | null;
 	engagement: Record<string, unknown>;
@@ -48,15 +55,18 @@ type ScoredEvidence = {
  * projection so dashboards reflect the new posture instead of the previous one.
  */
 export async function reassessStoredEvidenceRisk(limit = 5_000) {
-	// Unjudged rows first, newest within that. Ordering purely by recency meant a
-	// repeated run re-read the same newest page forever and never reached the
-	// backlog it existed to clear.
+	// Rows the current classifier has not seen come first, newest within that.
+	// Ordering purely by recency meant a repeated run re-read the same newest
+	// page forever and never reached the backlog it existed to clear.
 	const rows = await adminSqlClient<StoredEvidenceRisk[]>`
 		select id, quote, summary, author, source_label, engagement, metadata,
 			risk_level, sentiment, stance
 		from evidence_items
 		order by
-			case when metadata->>'riskClassifier' = 'llm' then 1 else 0 end,
+			case
+				when coalesce((metadata->>'classifierVersion')::int, 0) >= ${CLASSIFIER_VERSION}
+				then 1 else 0
+			end,
 			created_at desc
 		limit ${limit}
 	`;
@@ -224,6 +234,12 @@ function riskMetadata(
 ) {
 	return {
 		...metadata,
+		// Which questions this row has actually been asked. `riskClassifier` alone
+		// could not answer that: every row scored before sentiment and stance
+		// existed is marked "llm" while those two fields still hold the provider's
+		// default, so a backfill ordered by it would rank the whole corpus as done
+		// and re-read the same page forever.
+		classifierVersion: assessment.source === "llm" ? CLASSIFIER_VERSION : 0,
 		riskCategories: assessment.categories,
 		riskClassifier: assessment.source,
 		riskConfidence: assessment.confidence,

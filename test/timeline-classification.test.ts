@@ -73,7 +73,13 @@ describe("the classifier judges sentiment and stance", () => {
 	});
 
 	test("a repeated backfill reaches the backlog", () => {
-		// Ordering purely by recency re-read the same newest page forever.
-		expect(worker).toContain("case when metadata->>'riskClassifier' = 'llm'");
+		// Ordering by recency re-read the same newest page forever; ordering by
+		// `riskClassifier` was no better, because every row scored before sentiment
+		// existed is marked "llm" while the field still holds a provider default.
+		expect(worker).toContain("const CLASSIFIER_VERSION = 2;");
+		expect(worker).toContain("(metadata->>'classifierVersion')::int");
+		expect(worker).toContain(
+			'classifierVersion: assessment.source === "llm" ? CLASSIFIER_VERSION : 0,',
+		);
 	});
 });
