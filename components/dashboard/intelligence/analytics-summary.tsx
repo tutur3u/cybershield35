@@ -67,6 +67,47 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 					{summary.headline}
 				</p>
 
+				{/*
+					What is actually being discussed, clustered from real posts.
+					The topic taxonomy names a shelf and the hashtags name a fragment;
+					neither answers "what is going on", which is the question this list
+					exists for.
+				*/}
+				{summary.topics?.length ? (
+					<ul className="mt-4 grid gap-2 sm:grid-cols-2">
+						{summary.topics.map((topic) => (
+							<li
+								className="flex gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3"
+								key={topic.subject}
+							>
+								<span
+									aria-hidden
+									className={`mt-1 h-full w-1 shrink-0 rounded-full ${
+										topic.sentiment === "negative"
+											? "bg-[var(--danger-strong)]"
+											: topic.sentiment === "positive"
+												? "bg-[var(--success-strong)]"
+												: "bg-[var(--muted)]"
+									}`}
+								/>
+								<span className="min-w-0">
+									<span className="flex flex-wrap items-baseline gap-x-2">
+										<span className="text-[13px] font-extrabold text-[var(--foreground)]">
+											{topic.subject}
+										</span>
+										<span className="text-[11px] font-bold tabular-nums text-[var(--muted)]">
+											{topic.count} bài
+										</span>
+									</span>
+									<span className="mt-1 block text-[12px] leading-5 text-[var(--muted-strong)]">
+										{topic.summary}
+									</span>
+								</span>
+							</li>
+						))}
+					</ul>
+				) : null}
+
 				<div className="mt-4 grid gap-2.5 lg:grid-cols-3">
 					{summary.trends.map((trend) => {
 						const Icon =

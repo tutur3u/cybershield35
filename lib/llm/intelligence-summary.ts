@@ -42,6 +42,30 @@ const summarySchema = z.object({
 		)
 		.min(2)
 		.max(5),
+	/**
+	 * The specific things being discussed, clustered from the sample.
+	 *
+	 * Distinct from `trends`, which are movements. This is the standing list a
+	 * reader scans to answer "what is going on right now" — "tội phạm mạng liên
+	 quan cờ bạc trực tuyến", not "Tội phạm & Thực thi pháp luật". The taxonomy
+	 * and the hashtags each get half way there: one is too coarse to name a
+	 * subject, the other too fragmentary to describe one.
+	 */
+	topics: z
+		.array(
+			z.object({
+				/** How many posts in the sample belong to this cluster. */
+				count: z.number().int().min(1),
+				/** Where it sits: negative, neutral or positive in tone. */
+				sentiment: z.enum(["negative", "neutral", "positive"]),
+				/** The concrete subject, in a phrase. */
+				subject: z.string().min(4).max(90),
+				/** What is being said about it. */
+				summary: z.string().min(10).max(220),
+			}),
+		)
+		.min(2)
+		.max(8),
 });
 
 export type IntelligenceSummary = z.infer<typeof summarySchema> & {
@@ -54,6 +78,7 @@ Bạn nhận hai loại dữ liệu: số liệu tổng hợp của kỳ, và m�
 - Chỉ mô tả chủ đề, sắc thái và lập trường ĐÚNG như những gì có trong mẫu và số liệu được cung cấp. Không suy rộng ra ngoài phạm vi đó.
 - Nêu VIỆC CỤ THỂ đang được bàn, không nêu tên nhóm phân loại. Ví dụ nên viết "tranh luận quanh việc thu hồi đất ở một dự án hạ tầng" chứ không viết "chủ đề Giao thông & Hạ tầng tăng". Tên nhóm phân loại là cách sắp xếp hồ sơ, không phải điều người dân đang nói.
 - Nếu nhiều bài cùng nói về một sự việc, hãy gộp lại và mô tả sự việc đó.
+- Trường "count" phải là số bài THỰC SỰ đếm được trong mẫu cho nhóm đó, không ước lượng.
 - Không trích nguyên văn bài viết. Hãy khái quát thành chủ đề chung.
 - Không quy kết ý định, danh tính hay động cơ của cá nhân, tổ chức nào.
 - Mỗi nhận định phải gắn với một con số hoặc một chủ đề có thật trong dữ liệu, ghi rõ ở trường "evidence".
@@ -149,7 +174,7 @@ export async function summarizeIntelligence(
 					tuongTac: item.engagement,
 				})),
 				yeuCau:
-					"Từ mẫu bài viết, hãy xác định NHỮNG SỰ VIỆC CỤ THỂ đang được bàn nhiều nhất trong kỳ, kèm sắc thái và lập trường của chúng, và điều gì thay đổi so với kỳ trước. Nêu 2-5 xu hướng. Mỗi tiêu đề phải là một sự việc hoặc chủ đề cụ thể, không phải tên nhóm phân loại.",
+					"Hai việc. (1) 'topics': gom mẫu bài viết thành 2-8 NHÓM NỘI DUNG CỤ THỂ đang được bàn, mỗi nhóm ghi rõ sự việc là gì, đang nói gì về nó, có bao nhiêu bài trong mẫu và sắc thái chung. Ví dụ đúng: 'Tội phạm mạng liên quan cờ bạc trực tuyến', 'Tranh chấp đền bù thu hồi đất tại một dự án hạ tầng'. Ví dụ SAI vì quá chung: 'Chính trị', 'An ninh trật tự'. (2) 'trends': 2-5 thay đổi đáng chú ý so với kỳ trước, mỗi thay đổi gắn với một con số cụ thể.",
 			}),
 			system: SYSTEM_PROMPT,
 			temperature: 0.2,

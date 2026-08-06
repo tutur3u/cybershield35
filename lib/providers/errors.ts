@@ -9,6 +9,7 @@
  * person who has to act on it, not a stack trace.
  */
 export type ProviderFailureCode =
+	| "provider_capacity_exhausted"
 	| "provider_credential_missing"
 	| "provider_credential_rejected"
 	| "provider_quota_exhausted"
@@ -93,6 +94,33 @@ export function classifyApifyError(
 				? error.message
 				: String(error);
 	const lowered = rawMessage.toLowerCase();
+
+	/*
+	 * Memory is billed across every concurrent actor run against one
+	 * account-wide ceiling, so launching one scan too many is refused outright:
+	 * "By launching this job you will exceed the memory limit of 16384MB for
+	 * all your Actor runs and builds". This looks fatal and reads fatal, but it
+	 * is the most transient failure there is — it clears the moment another run
+	 * finishes. Checked before the quota branch: both messages talk about
+	 * limits, and only one of them means the account is out of money — reading
+	 * this one as terminal would park a recoverable scan forever.
+	 */
+	const memoryExhausted =
+		lowered.includes("memory limit") ||
+		lowered.includes("exceed the memory") ||
+		type === "limit-exceeded";
+
+	if (memoryExhausted) {
+		return new ProviderCollectionError({
+			cause: error,
+			code: "provider_capacity_exhausted",
+			operatorMessage:
+				"Apify đang chạy hết bộ nhớ cho phép vì có quá nhiều lượt quét cùng lúc. Hệ thống sẽ tự thử lại khi có chỗ trống — không cần làm gì thêm.",
+			provider,
+			retryable: true,
+			technicalMessage: rawMessage,
+		});
+	}
 
 	const quotaExhausted =
 		type === "platform-feature-disabled" ||

@@ -614,8 +614,15 @@ export async function deleteEvidence(id: string) {
  * run returns as soon as it is started, so without a cap a single drain would
  * fire every queued scan at the provider simultaneously — which is how the
  * crawler account hit its monthly limit before.
+ *
+ * Three, not six. Apify bills memory across every concurrent actor run against
+ * one account-wide ceiling, and five scans in flight reached it: the sixth was
+ * refused outright with "you will exceed the memory limit of 16384MB for all
+ * your Actor runs". The cap is the whole defence — a scan that never starts
+ * cannot consume memory — so it is set below the level that was observed to
+ * fail rather than at it.
  */
-export const MAX_CONCURRENT_SCAN_RUNS = 6;
+export const MAX_CONCURRENT_SCAN_RUNS = 3;
 
 /**
  * How long a claimed scan may sit before the queue takes it back.
@@ -683,7 +690,78 @@ export async function processNextJob() {
 	return processClaimedJob(claimed);
 }
 
+/**
+ * Starts one specific scan, if the provider has room for it.
+ *
+ * The cap used to be consulted only by the scheduler's drain loop, so every
+ * "Quét ngay" walked straight past it. Pressing it on five sources in a row is
+ * exactly what a person does when they want today's data, and exactly what
+ * exhausted the crawler's account-wide memory ceiling.
+ *
+ * A refused run stays queued rather than failing: `deferred` tells the caller
+ * to say "waiting for a free slot", which is the truth and is not an error.
+ */
+/**
+ * Puts a finished-but-failed scan back in the queue, attempts and all.
+ *
+ * A scan that spends its retry budget is parked for good, which is right when
+ * the fault was terminal and wrong when it was capacity: the operator can see
+ * the provider is healthy again and has no way to say so. This is that way. It
+ * resets the attempt counter rather than incrementing it, because the previous
+ * attempts were spent on a condition that no longer holds.
+ *
+ * Deliberately does not start the run — it re-queues, and the same cap decides
+ * when it actually goes. Forcing a retry past a capacity limit would recreate
+ * the fault it is meant to recover from.
+ */
+export async function forceRetryScan(scanId: string) {
+	const [job] = await adminDb
+		.update(scanJobs)
+		.set({
+			attempts: 0,
+			errorMessage: null,
+			lockedAt: null,
+			scheduledAt: new Date(),
+			status: "queued",
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(scanJobs.id, scanId),
+				// Anything already queued or in flight needs no forcing, and
+				// resetting a running job would double-collect the source.
+				inArray(scanJobs.status, ["failed", "retrying"]),
+			),
+		)
+		.returning({ id: scanJobs.id });
+
+	// Nothing to force: the scan is queued, running, or already finished cleanly.
+	if (!job) return { processed: false, requeued: false };
+
+	await recordScanEvent({
+		eventType: "scan_force_retry",
+		message: "Người dùng yêu cầu chạy lại sau khi scan đã dừng.",
+		scanJobId: scanId,
+		stage: "queue",
+		status: "waiting",
+	}).catch(() => {});
+
+	// Goes now if there is room, waits its turn if there is not.
+	return { requeued: true, ...(await processScanJobNow(scanId)) };
+}
+
 export async function processScanJobNow(scanId: string) {
+	if ((await scanCapacityRemaining()) <= 0) {
+		await recordScanEvent({
+			eventType: "scan_deferred",
+			message: `Đang chờ chỗ trống: tối đa ${MAX_CONCURRENT_SCAN_RUNS} lượt quét chạy cùng lúc.`,
+			scanJobId: scanId,
+			stage: "queue",
+			status: "waiting",
+		}).catch(() => {});
+		return { deferred: true, processed: false };
+	}
+
 	const claimed = await claimJobById(scanId);
 	if (!claimed) return { processed: false };
 

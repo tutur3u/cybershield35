@@ -285,17 +285,26 @@ export async function deleteScanRecord(options: {
 }
 
 export async function runScanRecord(options: {
+	/**
+	 * Re-queues a scan that has already spent its retry budget.
+	 *
+	 * Without it a scan stopped by a passing capacity limit is parked for good,
+	 * and the operator — who can see the provider is healthy again — has no way
+	 * to say so.
+	 */
+	force?: boolean;
 	scan: DashboardScan;
 	setDetail: Dispatch<SetStateAction<ScanDetail | null>>;
 	setNotice: (notice: string) => void;
 	setScans: Dispatch<SetStateAction<DashboardScan[]>>;
 }) {
 	try {
-		const isRescan = !["queued", "retrying"].includes(options.scan.status);
+		const isRescan =
+			!options.force && !["queued", "retrying"].includes(options.scan.status);
 		const response = await fetch(
 			isRescan
 				? `/api/scans/${options.scan.id}/rescan`
-				: `/api/scans/${options.scan.id}/run`,
+				: `/api/scans/${options.scan.id}/run${options.force ? "?force=1" : ""}`,
 			{
 			method: "POST",
 				...(isRescan
@@ -311,6 +320,11 @@ export async function runScanRecord(options: {
 			throw new Error(payload.error ?? "Không thể chạy scan thủ công");
 		}
 
+		/*
+		 * 202: accepted and waiting for a free slot. Reported as what it is
+		 * rather than as a success, so pressing "Quét ngay" on a sixth source
+		 * does not claim the scan started when it has not.
+		 */
 		const scan = payload.scan as DashboardScan | null | undefined;
 		if (scan) {
 			options.setScans((current) =>
@@ -321,7 +335,15 @@ export async function runScanRecord(options: {
 			options.setDetail(payload.detail as ScanDetail);
 		}
 
-		options.setNotice(isRescan ? "Đã tạo và chạy lượt quét lại." : "Đã chạy scan thủ công.");
+		options.setNotice(
+			payload.deferred
+				? (payload.message ?? "Đã xếp hàng. Scan sẽ chạy khi có chỗ trống.")
+				: isRescan
+					? "Đã tạo và chạy lượt quét lại."
+					: options.force
+						? "Đã đưa scan trở lại hàng đợi."
+						: "Đã chạy scan thủ công.",
+		);
 		return true;
 	} catch (error) {
 		options.setNotice(

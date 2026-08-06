@@ -525,8 +525,9 @@ export function CyberShieldDashboard({
 			}).then((success) => {
 				if (success) invalidateDashboardQueries(scan.id);
 			}),
-		onRunScan: (scan) =>
+		onRunScan: (scan, options) =>
 			runScanRecord({
+				force: options?.force,
 				scan,
 				setDetail,
 				setNotice,

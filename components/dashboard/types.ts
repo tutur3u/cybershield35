@@ -780,6 +780,13 @@ export type IntelligenceSummaryView = {
 	focus: string;
 	generatedAt: string;
 	headline: string;
+	/** Specific subjects being discussed, clustered from real posts. */
+	topics: Array<{
+		count: number;
+		sentiment: "negative" | "neutral" | "positive";
+		subject: string;
+		summary: string;
+	}>;
 	trends: Array<{
 		detail: string;
 		direction: "up" | "down" | "steady";

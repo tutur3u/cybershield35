@@ -4,6 +4,7 @@ import {
 	BarChart3,
 	Edit3,
 	Play,
+	RotateCw,
 	Sparkles,
 	Trash2,
 } from "lucide-react";
@@ -124,7 +125,10 @@ export function QueueCard({
 	limit?: number;
 	onDeleteScan?: (scan: DashboardScan) => Promise<void>;
 	onEditScan?: (scan: DashboardScan) => void;
-	onRunScan?: (scan: DashboardScan) => Promise<void>;
+	onRunScan?: (
+		scan: DashboardScan,
+		options?: { force?: boolean },
+	) => Promise<void>;
 	onSelectScan: (id: string) => void;
 	scans: DashboardScan[];
 	selectedScanId: string;
@@ -197,15 +201,36 @@ export function QueueCard({
 							{onRunScan || onEditScan || onDeleteScan ? (
 								<div className="flex gap-2 sm:justify-end">
 									{onRunScan ? (
+										/*
+											A stopped scan gets "Thử lại" rather than "Chạy ngay".
+											The two are different asks: one starts work, the other
+											revives a run the queue has given up on, which is the
+											only recourse after a passing capacity limit spent its
+											retry budget.
+										*/
 										<button
 											type="button"
 											disabled={!canRunScan(scan)}
-											onClick={() => void onRunScan(scan)}
-											className="grid size-9 place-items-center rounded-md border border-[var(--border)] text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
-											aria-label="Chạy scan ngay"
-											title="Chạy scan ngay"
+											onClick={() =>
+												void onRunScan(scan, { force: isStopped(scan) })
+											}
+											className={`grid size-9 place-items-center rounded-md border transition disabled:cursor-not-allowed disabled:opacity-50 ${
+												isStopped(scan)
+													? "border-[var(--warning-border,var(--border))] bg-[var(--warning-soft)] text-[var(--warning-strong)] hover:border-[var(--warning-strong)]"
+													: "border-[var(--border)] text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
+											}`}
+											aria-label={isStopped(scan) ? "Thử lại scan" : "Chạy scan ngay"}
+											title={
+												isStopped(scan)
+													? "Thử lại: đưa scan trở lại hàng đợi"
+													: "Chạy scan ngay"
+											}
 										>
-											<Play size={14} />
+											{isStopped(scan) ? (
+												<RotateCw size={14} />
+											) : (
+												<Play size={14} />
+											)}
 										</button>
 									) : null}
 									{onEditScan ? (
@@ -396,6 +421,11 @@ function countScans(scans: DashboardScan[], status: DashboardScan["status"]) {
 
 function canRunScan(scan: DashboardScan) {
 	return scan.status !== "running";
+}
+
+/** A run the queue has given up on, and will not pick up again on its own. */
+function isStopped(scan: DashboardScan) {
+	return scan.status === "failed" || scan.status === "retrying";
 }
 
 function statColor(tone: string) {

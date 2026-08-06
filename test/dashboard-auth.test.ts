@@ -1749,7 +1749,10 @@ describe("dashboard auth gate", () => {
 		expect(actions).toContain("runScanRecord");
 		expect(actions).toContain("/api/workspace/cron/jobs");
 		expect(widgets).toContain("onRunScan");
-		expect(widgets).toContain("aria-label=\"Chạy scan ngay\"");
+		// The label is chosen per status now: a stopped scan is offered "Thử lại"
+		// rather than "Chạy ngay", which are different asks.
+		expect(widgets).toContain("Chạy scan ngay");
+		expect(widgets).toContain("Thử lại scan");
 		expect(sourcesPage).toContain("onRunScan");
 		expect(sourcesPage).toContain("onRunSchedulerJob");
 		expect(automationPanel).toContain("managedSchedulerQueryOptions");

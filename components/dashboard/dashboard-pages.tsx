@@ -80,7 +80,10 @@ export type DashboardPageProps = {
 	onDeleteEvidence: (evidence: EvidenceView[number]) => Promise<void>;
 	onEditScan: (scan: DashboardScan) => void;
 	onDeleteScan: (scan: DashboardScan) => Promise<void>;
-	onRunScan: (scan: DashboardScan) => Promise<void>;
+	onRunScan: (
+		scan: DashboardScan,
+		options?: { force?: boolean },
+	) => Promise<void>;
 	onReviseAnalysis: () => Promise<boolean>;
 	onCreateTrackedSource: (input: {
 		displayName: string;
