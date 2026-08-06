@@ -293,11 +293,39 @@ describe("a post card previews, rather than reprints, its post", () => {
 		expect(card).toContain("+{hiddenTopicCount}");
 	});
 
+	test("reach and the action sit with the badges, not below the post", () => {
+		// Deciding whether an item was worth acting on meant reading top-right for
+		// priority, bottom-left for reach, then travelling back to bottom-right to
+		// act — three corners of the card for one decision.
+		const header = card.slice(
+			card.indexOf("flex min-w-0 flex-wrap items-start justify-between"),
+			card.indexOf("<IntentPrefetchLink"),
+		);
+		expect(header).toContain("<EngagementRow");
+		expect(header).toContain("<RiskPill");
+		expect(header).toContain("<PostActions");
+	});
+
 	test("zero engagement is not reported", () => {
 		// Three zeros on every card said only that nobody had reacted yet, in the
 		// same weight as the numbers that matter.
-		expect(card).toContain("function EngagementCount");
-		expect(card).toContain("if (!value) return null;");
+		const badges = read("components/dashboard/evidence-timeline/timeline-badges.tsx");
+		expect(badges).toContain("if (!value) return null;");
+		expect(badges).toContain(
+			"if (!engagement.reactions && !engagement.comments && !engagement.shares)",
+		);
+	});
+
+	test("every badge on a card can say what it means", () => {
+		// A coloured word is an assertion; a reviewer needs to know who made it and
+		// about what — the trust badge describes the page, not the post.
+		const badges = read("components/dashboard/evidence-timeline/timeline-badges.tsx");
+		for (const map of ["PAGE_TRUST_HELP", "TRIAGE_HELP", "CLASSIFICATION_HELP"]) {
+			expect(badges).toContain(map);
+		}
+		// Wrapped, not merely defined.
+		expect(badges).toContain("<DashboardTooltip content={PAGE_TRUST_HELP[classification]}>");
+		expect(badges).toContain("<DashboardTooltip content={TRIAGE_HELP[status]}>");
 	});
 
 	test("judgements come before hashtags", () => {

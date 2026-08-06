@@ -30,6 +30,7 @@ import {
 	Badge,
 	ClassificationBadge,
 	DueBadge,
+	EngagementRow,
 	PageTrustBadge,
 	TriageBadge,
 } from "./timeline-badges";
@@ -96,8 +97,15 @@ export function TimelineCard({
 					className="absolute left-0 top-4 h-8 w-1 rounded-r bg-[var(--accent)]"
 				/>
 			) : null}
-			<div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-				<div className="flex min-w-0 items-center gap-2.5">
+			{/*
+				Everything that describes the post, and the thing to do about it, on
+				one row. Reach and priority used to sit at opposite ends of the card
+				with the post between them, so deciding whether an item was worth
+				acting on meant reading top-right, then bottom-left, then travelling
+				back to bottom-right to act.
+			*/}
+			<div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2.5">
+				<div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
 					<span
 						aria-hidden
 						className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-[13px] font-extrabold text-[var(--muted-strong)]"
@@ -120,11 +128,26 @@ export function TimelineCard({
 						</span>
 					</span>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-2">
+					<EngagementRow engagement={post.engagement} />
 					<PageTrustBadge classification={post.pageClassification} />
-					{post.triage.isPinned ? <Badge icon={Pin} label="Đội ngũ ghim" accent /> : null}
+					{post.triage.isPinned ? (
+						<Badge
+							accent
+							help="Một thành viên đã ghim bài này để đội ngũ chú ý."
+							icon={Pin}
+							label="Đội ngũ ghim"
+						/>
+					) : null}
 					<TriageBadge status={post.triage.status} />
 					<RiskPill explanation={explainEvidenceRisk(post)} risk={post.riskLevel} />
+					<PostActions
+						articleBusy={articleBusy}
+						onCreateArticle={onCreateArticle}
+						onDraft={onDraft}
+						onTriage={onTriage}
+						post={post}
+					/>
 				</div>
 			</div>
 
@@ -162,11 +185,13 @@ export function TimelineCard({
 				) : null}
 			</div>
 
-			<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-[var(--muted)]">
-					<EngagementCount icon="👍" value={post.engagement.reactions} />
-					<EngagementCount icon="💬" value={post.engagement.comments} />
-					<EngagementCount icon="↗" value={post.engagement.shares} />
+			{/*
+				Only what triage has added. With reach and the action moved up, most
+				cards have nothing left to say here and get no footer at all rather
+				than an empty rule across the bottom.
+			*/}
+			{post.triage.assigneeDisplayName || post.triage.dueAt ? (
+				<div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-2.5 text-[11px] font-semibold text-[var(--muted)]">
 					{post.triage.assigneeDisplayName ? (
 						<span className="inline-flex items-center gap-1">
 							<Users size={13} /> {post.triage.assigneeDisplayName}
@@ -180,75 +205,79 @@ export function TimelineCard({
 						/>
 					) : null}
 				</div>
-				{/*
-					One button, not five. The row wrapped onto two lines on every card
-					and gave equal weight to the action people take — draft an article —
-					and to four they rarely do, so the primary was hard to find in a hedge
-					of identical grey buttons.
-				*/}
-				<div className="flex shrink-0 items-center">
-					<button
-						className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-[var(--accent-fill)] px-3.5 text-xs font-bold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 disabled:cursor-wait disabled:opacity-70"
-						disabled={articleBusy}
-						onClick={() => onCreateArticle(post)}
-						type="button"
-					>
-						{articleBusy ? (
-							<LoaderCircle className="animate-spin" size={14} />
-						) : (
-							<Newspaper size={14} />
-						)}
-						{articleBusy ? "Đang soạn bài…" : "Soạn bài viết"}
-					</button>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button
-								aria-label="Thao tác khác"
-								className="inline-flex h-9 items-center rounded-r-lg border-l border-[var(--accent-on-fill)]/25 bg-[var(--accent-fill)] px-2 text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 data-[state=open]:bg-[var(--accent-fill-hover)]"
-								type="button"
-							>
-								<ChevronDown size={15} />
-							</button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="min-w-52">
-							<DropdownMenuItem onClick={() => onDraft(post.id)}>
-								<Sparkles size={14} />
-								{draftActionLabel(post.pageClassification)}
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => onTriage(post.id)}>
-								<MessageSquareText size={14} /> Xử lý
-							</DropdownMenuItem>
-							<DropdownMenuItem asChild>
-								<IntentPrefetchLink href={post.href}>
-									<Database size={14} /> Chi tiết
-								</IntentPrefetchLink>
-							</DropdownMenuItem>
-							{post.originalPostHref ? (
-								<DropdownMenuItem asChild>
-									<a
-										href={post.originalPostHref}
-										rel="noreferrer"
-										target="_blank"
-									>
-										<ExternalLink size={14} /> Bài gốc
-									</a>
-								</DropdownMenuItem>
-							) : null}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</div>
-			</div>
+			) : null}
 		</article>
 	);
 }
 
-/** A count worth showing, or nothing at all. */
-function EngagementCount({ icon, value }: { icon: string; value: number }) {
-	if (!value) return null;
+/**
+ * One button, not five.
+ *
+ * The row wrapped onto two lines on every card and gave equal weight to the
+ * action people take — draft an article — and to four they rarely do, so the
+ * primary was hard to find in a hedge of identical grey buttons.
+ */
+function PostActions({
+	articleBusy,
+	onCreateArticle,
+	onDraft,
+	onTriage,
+	post,
+}: {
+	articleBusy: boolean;
+	onCreateArticle: (post: TimelinePost) => void;
+	onDraft: (id: string) => void;
+	onTriage: (id: string) => void;
+	post: TimelinePost;
+}) {
 	return (
-		<span>
-			{icon} {value.toLocaleString("vi-VN")}
-		</span>
+		<div className="flex shrink-0 items-center">
+			<button
+				className="inline-flex h-7 items-center gap-1.5 rounded-l-md bg-[var(--accent-fill)] px-2.5 text-[11px] font-bold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 disabled:cursor-wait disabled:opacity-70"
+				disabled={articleBusy}
+				onClick={() => onCreateArticle(post)}
+				type="button"
+			>
+				{articleBusy ? (
+					<LoaderCircle className="animate-spin" size={13} />
+				) : (
+					<Newspaper size={13} />
+				)}
+				{articleBusy ? "Đang soạn…" : "Soạn bài viết"}
+			</button>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<button
+						aria-label="Thao tác khác"
+						className="inline-flex h-7 items-center rounded-r-md border-l border-[var(--accent-on-fill)]/25 bg-[var(--accent-fill)] px-1.5 text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 data-[state=open]:bg-[var(--accent-fill-hover)]"
+						type="button"
+					>
+						<ChevronDown size={14} />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="min-w-52">
+					<DropdownMenuItem onClick={() => onDraft(post.id)}>
+						<Sparkles size={14} />
+						{draftActionLabel(post.pageClassification)}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => onTriage(post.id)}>
+						<MessageSquareText size={14} /> Xử lý
+					</DropdownMenuItem>
+					<DropdownMenuItem asChild>
+						<IntentPrefetchLink href={post.href}>
+							<Database size={14} /> Chi tiết
+						</IntentPrefetchLink>
+					</DropdownMenuItem>
+					{post.originalPostHref ? (
+						<DropdownMenuItem asChild>
+							<a href={post.originalPostHref} rel="noreferrer" target="_blank">
+								<ExternalLink size={14} /> Bài gốc
+							</a>
+						</DropdownMenuItem>
+					) : null}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
 	);
 }
 

@@ -169,3 +169,18 @@ export const toolButtonClass =
 	"inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] disabled:opacity-50";
 export const cardActionClass =
 	"inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]";
+
+/**
+ * Big numbers, shortened.
+ *
+ * A post with 128.400 reactions pushed everything else in the card header off
+ * the row. "128,4K" says the same thing in a third of the width, and the
+ * tooltip beside it carries the exact figure for anyone who needs it.
+ */
+export function compactCount(value: number) {
+	if (value < 10_000) return value.toLocaleString("vi-VN");
+	if (value < 1_000_000) {
+		return `${(value / 1_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}K`;
+	}
+	return `${(value / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}M`;
+}

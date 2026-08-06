@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
+import { compactCount } from "@/components/dashboard/evidence-timeline/timeline-utils";
+
 import {
 	EVIDENCE_SENTIMENT_LABELS,
 	EVIDENCE_STANCE_LABELS,
@@ -104,5 +106,26 @@ describe("the request schema accepts what the classifier writes", () => {
 			);
 			expect(parsed.filters.sentiment).toBe(value);
 		}
+	});
+});
+
+describe("engagement figures in a crowded header", () => {
+	test("small numbers are shown exactly, in Vietnamese grouping", () => {
+		expect(compactCount(0)).toBe("0");
+		expect(compactCount(842)).toBe("842");
+		expect(compactCount(9_999)).toBe("9.999");
+	});
+
+	test("large numbers are shortened so they cannot push the row apart", () => {
+		// A post with 128.400 reactions used to widen the header past every badge
+		// beside it; the exact figure lives in the tooltip.
+		expect(compactCount(10_000)).toBe("10K");
+		expect(compactCount(128_400)).toBe("128,4K");
+		expect(compactCount(2_500_000)).toBe("2,5M");
+	});
+
+	test("the boundary belongs to the shorter form, not both", () => {
+		expect(compactCount(999_999)).toBe("1.000K");
+		expect(compactCount(1_000_000)).toBe("1M");
 	});
 });
