@@ -561,6 +561,9 @@ export type TimelinePost = IntelligenceEvidenceRow & {
 		total: number;
 	};
 	pageClassification: FacebookPageClassification;
+	/** The name the team saved for this page, if it is one we follow. */
+	pageDisplayName: string | null;
+	pageUsername: string | null;
 	triage: EvidenceTriageView;
 };
 

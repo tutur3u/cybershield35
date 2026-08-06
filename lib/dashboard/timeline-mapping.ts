@@ -18,6 +18,8 @@ export function mapTimelinePost(
 		createdAt: Date;
 		facebookPageId: string | null;
 		pageClassification: TimelinePost["pageClassification"];
+		pageDisplayName: string | null;
+		pageUsername: string | null;
 		originalImageUrl: string | null;
 		provider: TimelinePost["provider"];
 		publishedAt: Date | null;
@@ -57,6 +59,8 @@ export function mapTimelinePost(
 		originalPostHref: row.sourceUrl,
 		originalImageUrl: row.originalImageUrl,
 		pageClassification: row.pageClassification,
+		pageDisplayName: row.pageDisplayName,
+		pageUsername: row.pageUsername,
 		provider: row.provider,
 		publishedAt: row.publishedAt?.toISOString() ?? null,
 		quote: row.quote,

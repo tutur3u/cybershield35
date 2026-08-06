@@ -81,6 +81,11 @@ export const timelinePostSelection = {
 	engagementTotal: engagementScore,
 	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
 	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
+	// The name the team gave the page, and its handle. The join was already here
+	// for the classification; the card was left showing the raw scraped author
+	// because these two columns were never carried across.
+	pageDisplayName: facebookPageProfiles.displayName,
+	pageUsername: facebookPageProfiles.username,
 	id: evidenceItems.id,
 	originalImageUrl: sql<string | null>`${evidenceItems.metadata}->>'originalImageUrl'`,
 	provider: evidenceItems.provider,

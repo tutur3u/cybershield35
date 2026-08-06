@@ -63,6 +63,24 @@ export function TimelineCard({
 		post.summary && !post.quote.startsWith(post.summary.slice(0, 60))
 			? post.summary
 			: null;
+	/*
+	 * The name the team saved for the page, not the handle the scraper captured.
+	 * The card used to lead with "example-org" — or worse, "facebook.com" — while
+	 * "Tổ chức ví dụ", the name the team chose and reads everywhere else in the
+	 * product, was nowhere on it.
+	 */
+	const name =
+		post.pageDisplayName ??
+		post.sourceLabel ??
+		post.author ??
+		intelligenceProviderLabel(post.provider);
+	const rawHandle = post.pageUsername ?? post.author ?? null;
+	// Only a handle: dropping it when it merely repeats the name avoids
+	// "Tổ chức ví dụ / @Tổ chức ví dụ".
+	const handle =
+		rawHandle && rawHandle.toLowerCase() !== name.toLowerCase()
+			? rawHandle.replace(/^@/u, "")
+			: null;
 	const shownTopics = post.topicSlugs.slice(0, 3);
 	const hiddenTopicCount = post.topicSlugs.length - shownTopics.length;
 
@@ -88,17 +106,21 @@ export function TimelineCard({
 						aria-hidden
 						className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-[13px] font-extrabold text-[var(--muted-strong)]"
 					>
-						{(post.author ?? post.sourceLabel ?? "?").trim().charAt(0).toUpperCase()}
+						{name.trim().charAt(0).toUpperCase() || "?"}
 					</span>
 					<span className="min-w-0">
 						<span className="block truncate text-[13px] font-extrabold text-[var(--foreground)]">
-							{post.author ?? post.sourceLabel ?? intelligenceProviderLabel(post.provider)}
+							{name}
 						</span>
-						<span className="mt-0.5 block truncate text-[11px] font-semibold text-[var(--muted)]">
-							{post.sourceLabel && post.author ? `${post.sourceLabel} · ` : ""}
-							{formatPublished(post.publishedAt ?? post.createdAt)}
-							{" · "}
-							{relativeTime(post.createdAt, currentTime)}
+						<span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-[var(--muted)]">
+							{handle ? <span className="truncate">@{handle}</span> : null}
+							{handle ? <span aria-hidden>·</span> : null}
+							<span
+								className="shrink-0"
+								title={formatPublished(post.publishedAt ?? post.createdAt)}
+							>
+								{relativeTime(post.createdAt, currentTime)}
+							</span>
 						</span>
 					</span>
 				</div>
