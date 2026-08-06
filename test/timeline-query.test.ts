@@ -40,7 +40,7 @@ describe("timeline query contract", () => {
 			risk: "high",
 			sentiment: "negative",
 			sort: "triage-updated-desc",
-			stance: "opposed",
+			stance: "critical",
 			timeRange: "all",
 			topic: "an-ninh",
 			triageStatus: "action_required",
@@ -55,7 +55,7 @@ describe("timeline query contract", () => {
 			risk: "high",
 			sentiment: "negative",
 			sort: "triage-updated-desc",
-			stance: "opposed",
+			stance: "critical",
 			topic: "an-ninh",
 			triageStatus: "action_required",
 		});
