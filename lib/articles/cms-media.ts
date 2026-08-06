@@ -122,3 +122,109 @@ function cmsUrl(suffix: string) {
 	if (!workspaceId) throw new Error("Tuturuuu CMS workspace chưa được cấu hình.");
 	return buildTuturuuuApiUrl(`workspaces/${encodeURIComponent(workspaceId)}/${suffix}`);
 }
+
+/**
+ * Copies any article image we do not host into Tuturuuu CMS storage.
+ *
+ * Automated drafts inherit the source post's image, which lives on the
+ * platform's own CDN behind a signed, expiring, hotlink-protected URL. Zalo
+ * fetches image URLs itself, so it answered `photo_url ... is invalid` and
+ * refused the whole article — and even when it did work, the article pointed at
+ * a link that would rot on somebody else's schedule.
+ *
+ * Re-hosting makes the image ours: fetched once, stored where we control it,
+ * and served from our own origin for good.
+ *
+ * Failures are per-image and non-fatal. A cover that cannot be fetched is left
+ * alone for the publication guard to report; taking the whole sync down here
+ * would replace a clear message with an obscure one.
+ */
+export async function rehostForeignArticleImages(input: {
+	articleId: string;
+	requestOrigin: string;
+	session: TuturuuuAdminSession;
+}) {
+	const [article] = await adminDb
+		.select()
+		.from(articles)
+		.where(eq(articles.id, input.articleId))
+		.limit(1);
+	if (!article) return { failed: 0, rehosted: 0 };
+
+	const isForeign = (url: string | null): url is string =>
+		Boolean(url?.startsWith("http")) &&
+		!url!.startsWith(`${input.requestOrigin}/`);
+
+	let failed = 0;
+	let rehosted = 0;
+	const blocks = [...article.blocks];
+
+	if (isForeign(article.coverUrl)) {
+		const file = await downloadRemoteImage(article.coverUrl);
+		if (!file) failed += 1;
+		else {
+			try {
+				// Also rewrites articles.coverUrl, so nothing else needs updating.
+				await uploadArticleCmsMedia({ ...input, file, kind: "cover" });
+				rehosted += 1;
+			} catch {
+				failed += 1;
+			}
+		}
+	}
+
+	for (const [index, block] of blocks.entries()) {
+		if (block.type !== "image" || !isForeign(block.url)) continue;
+		const file = await downloadRemoteImage(block.url);
+		if (!file) {
+			failed += 1;
+			continue;
+		}
+		try {
+			const { previewUrl } = await uploadArticleCmsMedia({
+				...input,
+				altText: block.caption ?? "",
+				file,
+				kind: "inline",
+			});
+			blocks[index] = { ...block, url: previewUrl };
+			rehosted += 1;
+		} catch {
+			failed += 1;
+		}
+	}
+
+	if (blocks.some((block, index) => block !== article.blocks[index])) {
+		await adminDb
+			.update(articles)
+			.set({ blocks, updatedAt: new Date() })
+			.where(eq(articles.id, article.id));
+	}
+
+	return { failed, rehosted };
+}
+
+async function downloadRemoteImage(url: string) {
+	const response = await fetch(url, {
+		cache: "no-store",
+		// CDNs reject requests without one, which is most of what needs copying.
+		headers: {
+			"User-Agent":
+				"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+		},
+		signal: AbortSignal.timeout(15_000),
+	}).catch(() => null);
+	if (!response?.ok) return null;
+
+	const contentType = response.headers.get("content-type") ?? "";
+	if (!contentType.startsWith("image/")) return null;
+	const bytes = await response.arrayBuffer().catch(() => null);
+	// Matches the upload's own ceiling, so an oversized image fails here with a
+	// reason rather than inside the CMS call.
+	if (!bytes || bytes.byteLength <= 0 || bytes.byteLength > 10 * 1024 * 1024) {
+		return null;
+	}
+
+	const extension = contentType.split("/")[1]?.split(";")[0] ?? "jpg";
+	return new File([bytes], `cover.${extension}`, { type: contentType });
+}

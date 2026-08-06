@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { articleIdSchema } from "@/lib/articles/schemas";
-import { publishArticleCmsMedia } from "@/lib/articles/cms-media";
+import {
+	publishArticleCmsMedia,
+	rehostForeignArticleImages,
+} from "@/lib/articles/cms-media";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
@@ -20,6 +23,15 @@ export async function POST(
 	if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
 	try {
 		const id = articleIdSchema.parse((await params).id);
+		// Before anything is offered to Zalo, which fetches image URLs itself and
+		// refuses the article when it cannot. This is the only place with an
+		// operator session to upload with — the queue worker has none — and since
+		// nothing reaches Zalo without a person asking, it covers every path.
+		await rehostForeignArticleImages({
+			articleId: id,
+			requestOrigin: new URL(request.url).origin,
+			session: auth.session,
+		});
 		const job = await enqueueArticlePublication(
 			id,
 			"sync_hidden",

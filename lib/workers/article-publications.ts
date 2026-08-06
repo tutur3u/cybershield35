@@ -231,7 +231,12 @@ export async function processArticlePublicationJob(jobId: string) {
 		// cancelled rather than retried — otherwise the queue re-runs it forever
 		// and repaints the article red every few minutes.
 		const notPermitted = error instanceof PublicationNotPermittedError;
-		const willRetry = !notPermitted && claimed.attempts < claimed.maxAttempts;
+		// An image Zalo cannot fetch will not become fetchable on attempt four.
+		const contentRejected = error instanceof PublicationContentError;
+		const willRetry =
+			!notPermitted &&
+			!contentRejected &&
+			claimed.attempts < claimed.maxAttempts;
 		const message = publicErrorMessage(
 			error,
 			willRetry
@@ -602,6 +607,15 @@ async function executePublicationOperation(
  */
 class PublicationNotPermittedError extends Error {}
 
+/**
+ * Content Zalo will refuse however many times it is offered.
+ *
+ * An image it cannot fetch does not become fetchable on the fourth attempt, so
+ * retrying only delays the moment the operator is told, and buries the reason
+ * under three identical failures in the meantime.
+ */
+class PublicationContentError extends Error {}
+
 function validateOperation(
 	article: typeof articles.$inferSelect,
 	operation: PublicationOperation,
@@ -716,21 +730,52 @@ async function validateRemoteImages(content: ZaloArticleContent) {
 	for (const item of urls) {
 		const url = new URL(item.url);
 		if (!["http:", "https:"].includes(url.protocol)) {
-			throw new Error("Ảnh bài viết phải dùng URL HTTP hoặc HTTPS công khai.");
+			throw new PublicationContentError("Ảnh bài viết phải dùng URL HTTP hoặc HTTPS công khai.");
 		}
-		const response = await fetch(url, {
-			cache: "no-store",
-			method: "HEAD",
-			signal: AbortSignal.timeout(8_000),
-		}).catch(() => null);
-		if (!response?.ok) continue;
+		const response = await probeRemoteImage(url);
+		// An unreachable image used to be skipped, on the reading that we simply
+		// could not check it. But Zalo fetches the URL itself, so what we cannot
+		// fetch it cannot either — it answers `photo_url ... is invalid` and
+		// rejects the whole article. Automated drafts inherit the source post's
+		// image, and those live on hotlink-protected CDNs, so this was the common
+		// case rather than the rare one. Saying so here costs one failed attempt
+		// and names something the operator can fix.
+		if (!response?.ok) {
+			throw new PublicationContentError(
+				item.cover
+					? "Zalo OA không tải được ảnh bìa từ nguồn gốc. Hãy tải ảnh bìa lên trong trình biên tập rồi đăng lại."
+					: "Zalo OA không tải được một ảnh trong nội dung. Hãy tải ảnh đó lên trong trình biên tập rồi đăng lại.",
+			);
+		}
 		const contentType = response.headers.get("content-type") ?? "";
 		if (contentType && !contentType.startsWith("image/")) {
-			throw new Error("URL ảnh không trả về định dạng hình ảnh.");
+			throw new PublicationContentError("URL ảnh không trả về định dạng hình ảnh.");
 		}
 		const size = Number(response.headers.get("content-length") ?? "0");
 		if (item.cover && size > 1024 * 1024) {
-			throw new Error("Ảnh bìa Zalo phải nhỏ hơn hoặc bằng 1 MB.");
+			throw new PublicationContentError("Ảnh bìa Zalo phải nhỏ hơn hoặc bằng 1 MB.");
 		}
 	}
+}
+
+/**
+ * Checks an image is actually retrievable, HEAD first and then a single byte.
+ *
+ * Some hosts refuse HEAD while serving GET perfectly well, and treating those
+ * as broken would block images that work. Asking for one byte settles it
+ * without downloading the file.
+ */
+async function probeRemoteImage(url: URL) {
+	const head = await fetch(url, {
+		cache: "no-store",
+		method: "HEAD",
+		signal: AbortSignal.timeout(8_000),
+	}).catch(() => null);
+	if (head?.ok) return head;
+
+	return fetch(url, {
+		cache: "no-store",
+		headers: { Range: "bytes=0-0" },
+		signal: AbortSignal.timeout(8_000),
+	}).catch(() => null);
 }

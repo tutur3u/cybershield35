@@ -601,9 +601,10 @@ describe("a request the rules reject is not a publish failure", () => {
 		expect(worker).toContain(
 			"const notPermitted = error instanceof PublicationNotPermittedError",
 		);
-		expect(worker).toContain(
-			"const willRetry = !notPermitted && claimed.attempts < claimed.maxAttempts",
-		);
+		// Retryability is decided from the error's kind, never from the message.
+		expect(worker).toContain("const willRetry =");
+		expect(worker).toContain("!notPermitted &&");
+		expect(worker).toContain("claimed.attempts < claimed.maxAttempts");
 		expect(worker).toContain('notPermitted ? "cancelled" : "failed"');
 	});
 
@@ -851,5 +852,55 @@ describe("a failed publication leaves a trace worth reading", () => {
 	test("the message does not promise a retry that will not happen", () => {
 		expect(worker).toContain("willRetry\n\t\t\t\t? \"Thao tác Zalo chưa hoàn tất");
 		expect(worker).toContain("Zalo OA từ chối thao tác này");
+	});
+});
+
+describe("images are hosted where Zalo can reach them", () => {
+	const media = readFileSync(
+		new URL("../lib/articles/cms-media.ts", import.meta.url),
+		"utf8",
+	);
+	const syncRoute = readFileSync(
+		new URL("../app/api/articles/[id]/sync/route.ts", import.meta.url),
+		"utf8",
+	);
+	const worker = readFileSync(
+		new URL("../lib/workers/article-publications.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("a foreign image is copied into CMS storage before syncing", () => {
+		// Automated drafts inherit the source post's image, which lives behind a
+		// signed, expiring, hotlink-protected CDN URL. Zalo fetches the URL itself
+		// and answered `photo_url ... is invalid`, refusing the whole article.
+		expect(syncRoute).toContain("await rehostForeignArticleImages({");
+		expect(
+			syncRoute.indexOf("rehostForeignArticleImages"),
+		).toBeLessThan(syncRoute.indexOf("enqueueArticlePublication("));
+		expect(media).toContain("export async function rehostForeignArticleImages");
+		// Ours already, so nothing to copy.
+		expect(media).toContain("!url!.startsWith(`${input.requestOrigin}/`)");
+		// CDNs reject requests without one, which is most of what needs copying.
+		expect(media).toContain('"User-Agent"');
+	});
+
+	test("one bad image does not take the whole sync down", () => {
+		// The publication guard reports it with a message the operator can act on;
+		// failing here would replace that with something obscure.
+		expect(media).toContain("failed += 1;");
+		expect(media).toContain("return { failed, rehosted };");
+	});
+
+	test("an image Zalo cannot fetch fails once, not four times", () => {
+		// It does not become fetchable on the fourth attempt, and retrying buries
+		// the reason under three identical failures.
+		expect(worker).toContain("class PublicationContentError extends Error {}");
+		expect(worker).toContain(
+			"const contentRejected = error instanceof PublicationContentError;",
+		);
+		expect(worker).toContain("!contentRejected &&");
+		// An unreachable image is no longer skipped as "could not check".
+		expect(worker).toContain("const response = await probeRemoteImage(url);");
+		expect(worker).not.toContain("if (!response?.ok) continue;");
 	});
 });
