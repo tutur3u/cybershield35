@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, inArray, or, sql } from "drizzle-orm";
+import { eq, inArray, or, sql, type SQL } from "drizzle-orm";
 
 import type { TimelinePost } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
@@ -20,6 +20,25 @@ import {
 export const effectivePublishedAt = sql<Date>`coalesce(${evidenceItems.publishedAt}, ${evidenceItems.createdAt})`.mapWith(
 	evidenceItems.createdAt,
 );
+/**
+ * Compares a timestamp expression against a moment in time.
+ *
+ * `gte(expr, date)` cannot be used here: the operand is a `coalesce(...)`
+ * expression rather than a column, so Drizzle has no column type to encode the
+ * parameter with and sends the Date through JavaScript's own `toString` —
+ * "Tue Jul 07 2026 10:56:58 GMT+0000 (Coordinated Universal Time)", which
+ * Postgres rejects outright. Every time-range filter on the timeline failed
+ * with a 503 because of it. An ISO string with an explicit cast leaves nothing
+ * to infer.
+ */
+export function atOrAfter(expression: SQL, moment: Date) {
+	return sql`${expression} >= ${moment.toISOString()}::timestamptz`;
+}
+
+export function before(expression: SQL, moment: Date) {
+	return sql`${expression} < ${moment.toISOString()}::timestamptz`;
+}
+
 const safeEngagementPart = (key: "comments" | "reactions" | "shares") =>
 	sql<number>`case when coalesce(${evidenceItems.engagement}->>${key}, '') ~ '^\\d+$' then (${evidenceItems.engagement}->>${key})::int else 0 end`;
 export const reactionsExpr = safeEngagementPart("reactions");

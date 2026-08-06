@@ -41,6 +41,8 @@ import { mapTimelinePost } from "@/lib/dashboard/timeline-mapping";
 import {
 	collectedMicros,
 	effectivePinned,
+	atOrAfter,
+	before,
 	effectivePublishedAt,
 	effectiveTriageStatus,
 	effectiveTriageUpdatedAt,
@@ -279,8 +281,8 @@ function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
 	const conditions: Array<SQL | undefined> = [];
 	const range = vietnamDateRange(filters);
 	conditions.push(
-		range.from ? gte(effectivePublishedAt, range.from) : undefined,
-		range.to ? lt(effectivePublishedAt, range.to) : undefined,
+		range.from ? atOrAfter(effectivePublishedAt, range.from) : undefined,
+		range.to ? before(effectivePublishedAt, range.to) : undefined,
 		filters.risk !== "all" ? eq(evidenceItems.riskLevel, filters.risk) : undefined,
 		filters.provider ? sql`${evidenceItems.provider}::text = ${filters.provider}` : undefined,
 		filters.sentiment ? eq(evidenceItems.sentiment, filters.sentiment) : undefined,
