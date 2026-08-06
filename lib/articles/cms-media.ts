@@ -70,6 +70,15 @@ export async function uploadArticleCmsMedia(input: {
 		storageProvider: uploaded.provider,
 	}).returning();
 	if (!media) throw new Error("Không thể lưu ảnh bài viết.");
+	/*
+	 * Published immediately, because an uploaded article image exists to be
+	 * looked at. A draft asset refuses anonymous resolution, and the request that
+	 * renders it — from the image optimiser, or from Zalo's fetcher — carries no
+	 * session, so an unpublished cover answered 401 and every thumbnail rendered
+	 * as a placeholder even for a signed-in operator.
+	 */
+	await publishArticleCmsMedia(article.id, input.session).catch(() => null);
+
 	const previewUrl = `${input.requestOrigin}/api/articles/${article.id}/media/${media.id}`;
 	if (input.kind === "cover") {
 		await adminDb.update(articles).set({ coverStoragePath: uploaded.path, coverUrl: previewUrl, updatedAt: new Date() }).where(eq(articles.id, article.id));

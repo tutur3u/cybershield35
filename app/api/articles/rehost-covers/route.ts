@@ -2,6 +2,7 @@ import { and, asc, desc, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
+	publishArticleCmsMedia,
 	rehostForeignArticleImages,
 	type CoverOutcome,
 } from "@/lib/articles/cms-media";
@@ -28,6 +29,14 @@ const bodySchema = z
 		 * are never reached.
 		 */
 		offset: z.number().int().min(0).default(0),
+		/**
+		 * Publishes CMS entries for covers already copied here.
+		 *
+		 * The sweep uploaded them but never published, so they refused anonymous
+		 * resolution and every thumbnail rendered as a placeholder. New uploads
+		 * publish themselves; this repairs the ones that went before.
+		 */
+		publishExisting: z.boolean().default(false),
 	})
 	.strict();
 
@@ -55,8 +64,39 @@ export async function POST(request: Request) {
 
 	try {
 		const body = await request.json().catch(() => ({}));
-		const { apply, limit, offset } = bodySchema.parse(body ?? {});
+		const { apply, limit, offset, publishExisting } = bodySchema.parse(body ?? {});
 		const origin = new URL(request.url).origin;
+
+		if (publishExisting) {
+			const hosted = await adminDb
+				.select({ id: articles.id, title: articles.title })
+				.from(articles)
+				.where(
+					and(
+						isNotNull(articles.cmsEntryId),
+						sql`${articles.coverUrl} like ${`${origin}/%`}`,
+					),
+				)
+				.orderBy(desc(articles.updatedAt), asc(articles.id))
+				.limit(limit)
+				.offset(offset);
+
+			let published = 0;
+			for (const article of hosted) {
+				const done = await publishArticleCmsMedia(article.id, auth.session)
+					.then(() => true)
+					.catch(() => false);
+				if (done) published += 1;
+			}
+			return Response.json(
+				{
+					nextOffset: offset + hosted.length,
+					published,
+					scanned: hosted.length,
+				},
+				{ headers: authHeaders(auth) },
+			);
+		}
 
 		const candidates = await adminDb
 			.select({ id: articles.id, title: articles.title })

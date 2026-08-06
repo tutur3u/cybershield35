@@ -65,3 +65,25 @@ describe("publishing has one canonical action", () => {
 		expect(hook).not.toContain("syncPreview");
 	});
 });
+
+describe("an uploaded cover is actually viewable", () => {
+	const media = read("lib/articles/cms-media.ts");
+	const route = read("app/api/articles/rehost-covers/route.ts");
+
+	test("uploading publishes the entry", () => {
+		// A draft asset refuses anonymous resolution, and the request that renders
+		// it — from the image optimiser, or from Zalo's fetcher — carries no
+		// session. Unpublished covers answered 401, so every thumbnail rendered as
+		// a placeholder even for a signed-in operator.
+		expect(media).toContain("await publishArticleCmsMedia(article.id, input.session)");
+		const uploadAt = media.indexOf("await publishArticleCmsMedia(article.id, input.session)");
+		const urlAt = media.indexOf("const previewUrl =");
+		expect(uploadAt).toBeLessThan(urlAt);
+	});
+
+	test("covers copied before that can be repaired", () => {
+		expect(route).toContain("publishExisting: z.boolean().default(false)");
+		expect(route).toContain("if (publishExisting) {");
+		expect(route).toContain("published,");
+	});
+});
