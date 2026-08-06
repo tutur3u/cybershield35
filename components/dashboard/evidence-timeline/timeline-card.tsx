@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	ChevronDown,
 	Database,
 	ExternalLink,
 	LoaderCircle,
@@ -13,6 +14,12 @@ import {
 } from "lucide-react";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { intelligenceProviderLabel } from "@/components/dashboard/intelligence-workspace-shared";
 import type { TimelinePost } from "@/components/dashboard/types";
 import { RiskPill } from "@/components/dashboard/ui-primitives";
@@ -26,7 +33,6 @@ import {
 	TriageBadge,
 } from "./timeline-badges";
 import {
-	cardActionClass,
 	draftActionLabel,
 	formatDay,
 	formatPublished,
@@ -129,47 +135,62 @@ export function TimelineCard({
 						/>
 					) : null}
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
+				{/*
+					One button, not five. The row wrapped onto two lines on every card
+					and gave equal weight to the action people take — draft an article —
+					and to four they rarely do, so the primary was hard to find in a hedge
+					of identical grey buttons.
+				*/}
+				<div className="flex shrink-0 items-center">
 					<button
-						type="button"
+						className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-[var(--accent)] px-3 text-xs font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70"
 						disabled={articleBusy}
 						onClick={() => onCreateArticle(post)}
-						className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 text-xs font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70"
+						type="button"
 					>
 						{articleBusy ? (
-							<LoaderCircle size={14} className="animate-spin" />
+							<LoaderCircle className="animate-spin" size={14} />
 						) : (
 							<Newspaper size={14} />
 						)}
 						{articleBusy ? "Đang soạn bài…" : "Soạn bài viết"}
 					</button>
-					<button
-						type="button"
-						onClick={() => onDraft(post.id)}
-						className={cardActionClass}
-					>
-						<Sparkles size={14} /> {draftActionLabel(post.pageClassification)}
-					</button>
-					<button
-						type="button"
-						onClick={() => onTriage(post.id)}
-						className={cardActionClass}
-					>
-						<MessageSquareText size={14} /> Xử lý
-					</button>
-					<IntentPrefetchLink href={post.href} className={cardActionClass}>
-						<Database size={14} /> Chi tiết
-					</IntentPrefetchLink>
-					{post.originalPostHref ? (
-						<a
-							href={post.originalPostHref}
-							target="_blank"
-							rel="noreferrer"
-							className={cardActionClass}
-						>
-							Bài gốc <ExternalLink size={12} />
-						</a>
-					) : null}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								aria-label="Thao tác khác"
+								className="inline-flex h-9 items-center rounded-r-lg border-l border-white/25 bg-[var(--accent)] px-2 text-white transition hover:bg-[var(--accent-strong)]"
+								type="button"
+							>
+								<ChevronDown size={15} />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="min-w-48">
+							<DropdownMenuItem onClick={() => onDraft(post.id)}>
+								<Sparkles size={14} />
+								{draftActionLabel(post.pageClassification)}
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => onTriage(post.id)}>
+								<MessageSquareText size={14} /> Xử lý
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<IntentPrefetchLink href={post.href}>
+									<Database size={14} /> Chi tiết
+								</IntentPrefetchLink>
+							</DropdownMenuItem>
+							{post.originalPostHref ? (
+								<DropdownMenuItem asChild>
+									<a
+										href={post.originalPostHref}
+										rel="noreferrer"
+										target="_blank"
+									>
+										<ExternalLink size={14} /> Bài gốc
+									</a>
+								</DropdownMenuItem>
+							) : null}
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</div>
 		</article>
@@ -204,14 +225,17 @@ export function TimelineDayGroups({
 				return (
 					<section key={day} aria-labelledby={`day-${day}`}>
 						{/*
-							Not sticky. It used to pin itself below the toolbar at a
-							hard-coded offset, which stopped matching the moment the
-							toolbar changed height — leaving the date floating over the
-							card above it, translucent and attached to nothing. A date
-							separator only has to mark where one day ends; it does not
-							need to follow the reader down the page.
+							A plain separator. The current day lives in the toolbar, which
+							is already pinned, so this does not need to compete for the same
+							strip of screen — the earlier version pinned itself at a
+							hard-coded offset and floated over the card above it whenever
+							the toolbar changed height.
 						*/}
-						<div className="mb-3 flex items-center gap-3">
+						<div
+							className="mb-3 flex items-center gap-3"
+							data-day={day}
+							data-day-label={formatDay(day)}
+						>
 							<h2
 								className="shrink-0 text-[13px] font-extrabold tracking-tight text-[var(--foreground)]"
 								id={`day-${day}`}

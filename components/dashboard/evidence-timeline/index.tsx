@@ -6,7 +6,7 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { CalendarDays, RefreshCw, Sparkles } from "lucide-react";
+import { CalendarDays, RefreshCw } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -28,6 +28,7 @@ import { serializeTimelineFilters } from "@/lib/dashboard/timeline-query";
 import { TimelineDayGroups } from "./timeline-card";
 import { TimelineDenseList } from "./timeline-list";
 import { TimelineToolbar } from "./timeline-toolbar";
+import { useVisibleDay } from "./use-visible-day";
 import {
 	filtersFromParams,
 	LAST_SEEN_STORAGE_KEY,
@@ -59,6 +60,7 @@ export function EvidenceTimeline() {
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
 	const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
 	const view = searchParams.get("view") === "list" ? "list" : "timeline";
+	const visibleDay = useVisibleDay(view === "timeline");
 	const timelineQuery = useInfiniteQuery(timelineInfiniteQueryOptions(filters, 30));
 	const headQuery = useQuery(timelineHeadQueryOptions(filters, lastSeenAt));
 	const pagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
@@ -94,10 +96,6 @@ export function EvidenceTimeline() {
 	const loadedNewCount = posts.filter(
 		(post) => Date.parse(post.createdAt) > lastSeenMs,
 	).length;
-	const pendingNewCount = Math.max(
-		0,
-		(headQuery.data?.newSinceCount ?? 0) - loadedNewCount,
-	);
 	const { fetchNextPage, hasNextPage, isFetchingNextPage } = timelineQuery;
 
 	useEffect(() => {
@@ -228,18 +226,8 @@ export function EvidenceTimeline() {
 				refreshing={timelineQuery.isRefetching}
 				total={total}
 				view={view}
+				visibleDay={visibleDay}
 			/>
-
-			{pendingNewCount ? (
-				<button
-					type="button"
-					onClick={() => void refresh()}
-					className="sticky top-32 z-10 mx-auto flex items-center gap-2 rounded-full border border-[var(--accent)] bg-[var(--surface)] px-4 py-2 text-xs font-bold text-[var(--accent-strong)] shadow-lg"
-				>
-					<Sparkles size={14} /> {pendingNewCount.toLocaleString("vi-VN")} bài vừa được
-					quét — tải ngay
-				</button>
-			) : null}
 
 			{articleError ? (
 				<div

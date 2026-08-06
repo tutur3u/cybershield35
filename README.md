@@ -13,6 +13,9 @@ vận hành của AI For Life.
 
 > Tài liệu tiếng Việt là bản chính. English version is further down.
 
+**Đơn vị chủ quản:** Công an phường Ea Kao ·
+**Phát triển & cung cấp công nghệ:** [Tuturuuu](https://tuturuuu.com)
+
 ---
 
 # Bản tiếng Việt
@@ -312,6 +315,9 @@ Nếu màn hình đăng nhập báo thiếu hoặc sai cấu hình trên Vercel:
 ---
 
 # English version
+
+**Stakeholder:** Công an phường Ea Kao ·
+**Developer & technology provider:** [Tuturuuu](https://tuturuuu.com)
 
 **Contents** — [What CS35 does](#what-cybershield-35-does) ·
 [Architecture](#architecture) · [Workflow](#the-five-step-workflow) ·

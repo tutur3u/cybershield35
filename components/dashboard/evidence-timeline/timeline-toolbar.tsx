@@ -63,6 +63,7 @@ export function TimelineToolbar({
 	refreshing,
 	total,
 	view,
+	visibleDay,
 }: {
 	advancedOpen: boolean;
 	exportHref: string;
@@ -80,6 +81,8 @@ export function TimelineToolbar({
 	refreshing: boolean;
 	total: number;
 	view: "list" | "timeline";
+	/** The day currently filling the screen, or null at the top of the list. */
+	visibleDay: string | null;
 }) {
 	const queryTimer = useRef<number | null>(null);
 	const activeFilters = activeFilterEntries(filters);
@@ -207,6 +210,17 @@ export function TimelineToolbar({
 				<span className="font-bold text-[var(--muted-strong)]">
 					{total.toLocaleString("vi-VN")} kết quả
 				</span>
+				{/*
+					The day the reader is on, carried by the strip that is already
+					pinned rather than by a second sticky header competing for the same
+					space beneath it.
+				*/}
+				{visibleDay ? (
+					<span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-soft)] px-2.5 py-1 font-bold text-[var(--foreground)]">
+						<CalendarDays size={12} />
+						{visibleDay}
+					</span>
+				) : null}
 				{activeFilters.map(([key, label]) => (
 					// Each chip clears only itself, so narrowing a search does not mean
 					// rebuilding it from nothing.

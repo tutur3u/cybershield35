@@ -382,6 +382,31 @@ export function Sidebar({
 								))}
 							</div>
 						</div>
+						{/*
+							Who owns this and who built it. Kept in the shell so it travels
+							with every page rather than living on one that is easy to miss.
+						*/}
+						<div className="mt-3 space-y-1 border-t border-[var(--divider)] px-3 pt-3">
+							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
+								Đơn vị chủ quản
+								<br />
+								<span className="font-bold text-[color:var(--muted-strong)]">
+									Công an phường Ea Kao
+								</span>
+							</p>
+							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
+								Phát triển &amp; cung cấp công nghệ
+								<br />
+								<a
+									className="font-bold text-[color:var(--muted-strong)] underline-offset-2 hover:text-[color:var(--foreground)] hover:underline"
+									href="https://tuturuuu.com"
+									rel="noreferrer"
+									target="_blank"
+								>
+									Tuturuuu
+								</a>
+							</p>
+						</div>
 					</div>
 				</div>
 			</aside>

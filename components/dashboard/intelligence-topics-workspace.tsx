@@ -12,7 +12,11 @@ import {
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 import { intelligenceTopicsInfiniteQueryOptions } from "@/lib/dashboard/client-queries";
 
-export function IntelligenceTopicsWorkspace() {
+export function IntelligenceTopicsWorkspace({
+	standalone = false,
+}: {
+	standalone?: boolean;
+}) {
 	const [filters, setFilter] = useIntelligenceFiltersFromUrl();
 	const topicsQuery = useInfiniteQuery(
 		intelligenceTopicsInfiniteQueryOptions(filters, 24),
@@ -21,11 +25,18 @@ export function IntelligenceTopicsWorkspace() {
 
 	return (
 		<div className="space-y-5">
-			<IntelligenceFilterBar
-				filters={filters}
-				setFilter={setFilter}
-				showStatus={false}
-			/>
+			{/*
+				Nested inside the intelligence workspace, which already renders the
+				filters above the tabs — so this drew a second, identical row. Its
+				siblings had the guard; this one never got it.
+			*/}
+			{standalone ? (
+				<IntelligenceFilterBar
+					filters={filters}
+					setFilter={setFilter}
+					showStatus={false}
+				/>
+			) : null}
 			<Panel>
 				<PanelHeader
 					title="Chủ đề intelligence"
