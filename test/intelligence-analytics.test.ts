@@ -130,8 +130,31 @@ describe("the summary is a stored checkpoint, not a cache", () => {
 	test("a stale summary is served rather than withheld", () => {
 		// Last hour's read beats a spinner for somebody opening the page; the
 		// refresh belongs to the scheduled run that should be paying for it.
-		const read = stored.slice(stored.indexOf("export async function getIntelligenceSummary"));
-		expect(read).toContain("if (stored) return stored.summary;");
+		const read = stored.slice(
+			stored.indexOf("export async function readIntelligenceSummary"),
+		);
+		expect(read).toContain('status: stored.fingerprint === fingerprint ? "ready" : "stale"');
+	});
+
+	test("a read never generates inside the request", () => {
+		// The first reader used to wait forty seconds for generation and the
+		// request often died first, which the panel rendered as a skeleton that
+		// then disappeared.
+		const read = stored.slice(
+			stored.indexOf("export async function readIntelligenceSummary"),
+			stored.indexOf("/** Back-compat"),
+		);
+		expect(read).not.toContain("regenerateIntelligenceSummary");
+		expect(read).toContain('return { status: "generating", summary: null }');
+	});
+
+	test("only one reader generates, however many are looking", () => {
+		expect(stored).toContain("onConflictDoNothing");
+		expect(stored).toContain("export async function claimSummaryGeneration");
+	});
+
+	test("the claim placeholder is never served as an answer", () => {
+		expect(stored).toContain("if (row.fingerprint === GENERATING) return null;");
 	});
 
 	test("a run that collected nothing new never calls the model", () => {

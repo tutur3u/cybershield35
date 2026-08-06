@@ -36,7 +36,10 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 	 * from a broken panel — and was reported as exactly that. Saying what is
 	 * happening costs one line and turns a fault into a wait.
 	 */
-	if (summaryQuery.isPending) {
+	const summary = summaryQuery.data?.summary ?? null;
+	const generating = summaryQuery.data?.status === "generating";
+
+	if (summaryQuery.isPending || (generating && !summary)) {
 		return (
 			<section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
 				<span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-[var(--accent-strong)]">
@@ -44,8 +47,9 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 					Đang tổng hợp xu hướng
 				</span>
 				<p className="mt-2 text-[12.5px] text-[var(--muted)]">
-					AI đang đọc lại nội dung trong kỳ. Việc này mất khoảng nửa phút cho lần
-					đầu — các biểu đồ bên dưới đã sẵn sàng.
+					AI đang đọc lại nội dung trong kỳ. Việc này chạy nền và mất khoảng nửa
+					phút; phần tóm tắt sẽ tự hiện ra, không cần tải lại trang. Các biểu đồ
+					bên dưới đã sẵn sàng.
 				</p>
 				<div className="mt-4 grid gap-2 sm:grid-cols-2">
 					<div className="h-14 animate-pulse rounded-lg bg-[var(--surface-soft)]" />
@@ -60,9 +64,7 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 	 * reasons — no model configured, or an empty window — and neither is an error
 	 * a reader can act on. The charts below carry the page on their own.
 	 */
-	if (summaryQuery.isError || !summaryQuery.data) return null;
-
-	const summary = summaryQuery.data;
+	if (summaryQuery.isError || !summary) return null;
 
 	return (
 		<section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">

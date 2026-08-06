@@ -63,21 +63,71 @@ function normalizeRange(value?: string): RangeKey {
  * opening the page than a spinner. The refresh happens on the next scheduled
  * run, which is the path that should be paying for it.
  */
-export async function getIntelligenceSummary(
+export type IntelligenceSummaryRead = {
+	/** `generating` means no row yet and one is being produced right now. */
+	status: "generating" | "ready" | "stale";
+	summary: IntelligenceSummary | null;
+};
+
+/**
+ * Reads the stored summary. Never generates one on the way.
+ *
+ * Generating inline was the last thing making this page feel broken: the first
+ * reader after a deploy or a cleared row waited forty seconds inside their own
+ * request, and often the request died first — the panel showed a skeleton and
+ * then vanished, which is the failure branch rendering nothing.
+ *
+ * A read is now always a single indexed lookup. When there is no row the caller
+ * is told `generating` and asked to come back, and production happens outside
+ * the request where nothing is waiting on it.
+ */
+export async function readIntelligenceSummary(
 	filters: IntelligenceFilters = {},
-): Promise<IntelligenceSummary | null> {
+): Promise<IntelligenceSummaryRead> {
 	const range = normalizeRange(filters.timeRange);
 	const [stored, fingerprint] = await Promise.all([
 		readStoredSummary(range),
 		fingerprintFor(range),
 	]);
 
-	if (stored && stored.fingerprint === fingerprint) return stored.summary;
-	if (stored) return stored.summary;
+	if (!stored) return { status: "generating", summary: null };
+	return {
+		// Stale is still served: a paragraph describing the last hour beats a
+		// spinner, and the scheduled run refreshes it.
+		status: stored.fingerprint === fingerprint ? "ready" : "stale",
+		summary: stored.summary,
+	};
+}
 
-	// Nothing stored at all: generate once so the first reader is not left with
-	// an empty panel, then every reader after them is served from the row.
-	return regenerateIntelligenceSummary(range);
+/** Back-compat for callers that only want the summary itself. */
+export async function getIntelligenceSummary(
+	filters: IntelligenceFilters = {},
+): Promise<IntelligenceSummary | null> {
+	return (await readIntelligenceSummary(filters)).summary;
+}
+
+/**
+ * Claims the right to generate, so twenty readers do not start twenty runs.
+ *
+ * Writes a placeholder row: whoever inserts it wins, everybody else sees a row
+ * and waits. The placeholder carries a sentinel fingerprint, so if generation
+ * dies the row stays stale and the next scheduled run replaces it rather than
+ * the slot being held for ever.
+ */
+const GENERATING = "__generating__";
+
+export async function claimSummaryGeneration(range: RangeKey) {
+	const inserted = await adminDb
+		.insert(intelligenceSummaries)
+		.values({
+			fingerprint: GENERATING,
+			generatedAt: new Date(),
+			payload: {},
+			timeRange: range,
+		})
+		.onConflictDoNothing({ target: intelligenceSummaries.timeRange })
+		.returning({ timeRange: intelligenceSummaries.timeRange });
+	return inserted.length > 0;
 }
 
 async function readStoredSummary(range: RangeKey) {
@@ -90,6 +140,8 @@ async function readStoredSummary(range: RangeKey) {
 		.where(eq(intelligenceSummaries.timeRange, range))
 		.limit(1);
 	if (!row) return null;
+	// A claim placeholder is not an answer: treat it as "nothing stored yet".
+	if (row.fingerprint === GENERATING) return null;
 	return {
 		fingerprint: row.fingerprint,
 		summary: row.payload as unknown as IntelligenceSummary,

@@ -200,16 +200,25 @@ export function intelligenceSummaryQueryOptions(
 		gcTime: dashboardQueryGcTimeMs,
 		queryFn: async () => {
 			const payload = await fetchJson<{
+				status?: "generating" | "ready" | "stale";
 				summary?: IntelligenceSummaryView | null;
 			}>(`/api/intelligence/summary?${new URLSearchParams(params).toString()}`);
-			// A missing summary is a state, not a failure: no model configured, or
-			// nothing collected in the window.
-			return payload.summary ?? null;
+			// A missing summary is a state, not a failure: none stored yet, no model
+			// configured, or nothing collected in the window.
+			return {
+				status: payload.status ?? "ready",
+				summary: payload.summary ?? null,
+			};
 		},
 		queryKey: dashboardQueryKeys.intelligenceSummary(params),
-		// One retry, not the default three. Each attempt waits on a model for tens
-		// of seconds, so three of them keep the panel in its loading state for
-		// minutes — which is what made it look like an infinite skeleton.
+		/*
+		 * Polls only while one is being produced. The read itself is a single
+		 * indexed lookup, so this costs nothing until it resolves — and it does
+		 * resolve, which is the difference from waiting on a request that was
+		 * generating inline and might die before it answered.
+		 */
+		refetchInterval: (query) =>
+			query.state.data?.status === "generating" ? 5_000 : false,
 		retry: 1,
 		staleTime: intelligenceQueryStaleTimeMs * 4,
 	});
