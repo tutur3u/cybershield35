@@ -69,7 +69,9 @@ describe("what the trend summary is allowed to do", () => {
 
 	test("every trend has to name the figure it rests on", () => {
 		expect(summary).toContain("evidence: z.string()");
-		expect(summary).toContain('ghi rõ ở trường "evidence"');
+		// The instruction was rewritten to forbid field names outright after the
+		// model started citing the JSON path instead of the number.
+		expect(summary).toContain('Trường "evidence" phải là con số viết ra cho người đọc');
 	});
 
 	test("the model runs when the data moves, not when a reader arrives", () => {
@@ -141,5 +143,54 @@ describe("the summary is a stored checkpoint, not a cache", () => {
 		// Otherwise a missing row stops meaning "not yet generated".
 		const regen = stored.slice(stored.indexOf("export async function regenerateIntelligenceSummary"));
 		expect(regen).toContain("if (!summary) return null;");
+	});
+});
+
+describe("a citation is a figure, not a field name", () => {
+	const summary = readFileSync("lib/llm/intelligence-summary.ts", "utf8");
+	// Copied verbatim from the module, which cannot be imported here: it is
+	// `server-only` and pulls in the database client.
+	const KEY_PATH = /(^|\s)[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+(\s|$)/u;
+	const usable = (value: string) => !KEY_PATH.test(value) && /\d/u.test(value);
+
+	test("the module still uses the pattern this test copies", () => {
+		expect(summary).toContain("const KEY_PATH =");
+		expect(summary).toContain("function usableEvidence");
+	});
+
+	test("the numbers are handed over already written out", () => {
+		// A nested object gives the model a path to quote when asked to cite its
+		// figure, and it took it: "soLieu.soSanhKyTruoc.tongKyTruoc" reached the
+		// page. A flat list of formatted pairs has no path in it.
+		expect(summary).toContain("chiSo: string; giaTri: string");
+		expect(summary).not.toContain("tongSoBai:");
+		expect(summary).not.toContain("soSanhKyTruoc:");
+	});
+
+	test("a leaked key path is rejected", () => {
+		for (const leaked of [
+			"soLieu.tongSoBai",
+			"soLieu.soSanhKyTruoc.tongKyTruoc",
+			"soLieu.mucRuiRo.high",
+		]) {
+			expect(usable(leaked)).toBe(false);
+		}
+	});
+
+	test("a real figure is kept", () => {
+		expect(usable("Tổng số bài: 1.626 (kỳ trước 150)")).toBe(true);
+		expect(usable("Chủ đề · Kinh tế & Tài chính: 872 bài")).toBe(true);
+	});
+
+	test("a citation with no number in it is not a citation", () => {
+		expect(usable("theo dữ liệu thu thập được")).toBe(false);
+	});
+
+	test("a rejected citation loses the chip rather than showing empty", () => {
+		const panel = readFileSync(
+			"components/dashboard/intelligence/analytics-summary.tsx",
+			"utf8",
+		);
+		expect(panel).toContain("{trend.evidence ? (");
 	});
 });

@@ -159,10 +159,14 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 									{trend.detail}
 								</p>
 								{/* The figure this rests on. Without it the paragraph is an
-									assertion; with it, a reader can check it in one glance. */}
-								<p className="mt-2 inline-flex rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-[var(--muted)]">
-									{trend.evidence}
-								</p>
+									assertion; with it, a reader can check it in one glance.
+									Blank when the citation failed validation server-side — an
+									empty chip is worse than none. */}
+								{trend.evidence ? (
+									<p className="mt-2 inline-flex rounded bg-[var(--surface)] px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-[var(--muted)]">
+										{trend.evidence}
+									</p>
+								) : null}
 							</article>
 						);
 					})}

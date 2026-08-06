@@ -81,62 +81,113 @@ Bạn nhận hai loại dữ liệu: số liệu tổng hợp của kỳ, và m�
 - Trường "count" phải là số bài THỰC SỰ đếm được trong mẫu cho nhóm đó, không ước lượng.
 - Không trích nguyên văn bài viết. Hãy khái quát thành chủ đề chung.
 - Không quy kết ý định, danh tính hay động cơ của cá nhân, tổ chức nào.
-- Mỗi nhận định phải gắn với một con số hoặc một chủ đề có thật trong dữ liệu, ghi rõ ở trường "evidence".
+- Trường "evidence" phải là con số viết ra cho người đọc, sao chép nguyên văn từ danh sách số liệu — ví dụ "Tổng số bài: 1.626 (kỳ trước 150)". TUYỆT ĐỐI không ghi tên trường, đường dẫn khóa hay bất kỳ chuỗi kiểu mã nguồn nào.
 - Nếu dữ liệu không đủ để kết luận, hãy nói thẳng là chưa đủ dữ liệu thay vì phỏng đoán.
 - Không đề xuất đăng bài tự động. Mọi khuyến nghị đều là việc để người xem xét.
 
 Viết cho người trực ban đọc trong 30 giây: cái gì đã thay đổi, và nên xem gì trước.`;
 
+const vi = (value: number) => value.toLocaleString("vi-VN");
+
 /**
- * Reduces the view to the numbers worth reasoning about.
+ * The numbers, already written out the way a person would say them.
  *
- * Deliberately not the whole object: the daily trend is ninety points of noise
- * for this purpose, and handing a model more than it needs is how it starts
- * finding patterns in the padding.
+ * This used to hand over a nested object with machine key names, and the model
+ * did the obvious thing when asked to cite its figure: it cited the path.
+ * "soLieu.soSanhKyTruoc.tongKyTruoc" appeared on the page, which is a field
+ * name and not a fact — worse, it is a field name in a language nobody on the
+ * team writes.
+ *
+ * A flat list of formatted label/value pairs has no path to quote. The worst
+ * available answer becomes "Tổng số bài: 1.626", which is exactly what the
+ * field is for.
  */
 function toPromptFacts(analytics: IntelligenceAnalyticsView) {
-	const { previousPeriod, riskByLevel, total } = analytics;
-	return {
-		khoangThoiGian: analytics.timeRange,
-		tongSoBai: total,
-		mucRuiRo: riskByLevel,
-		soSanhKyTruoc: previousPeriod
-			? {
-					tongKyTruoc: previousPeriod.total,
-					ruiRoCaoKyTruoc: previousPeriod.high,
-				}
-			: null,
-		sacThai: analytics.sentiment,
-		lapTruong: analytics.stance,
-		tuongTacTheoMucRuiRo: analytics.reach,
-		ngayCaoDiem: analytics.peakDay,
-		nguyenNhanRuiRo: analytics.riskCategories.map((row) => ({
-			nhan: row.label,
-			so: row.count,
-		})),
-		chuDe: analytics.topics.map((row) => ({
-			ruiRoCao: row.high,
-			ten: row.name,
-			tong: row.total,
-		})),
-		chuDeBienDong: analytics.momentum.map((row) => ({
-			kyNay: row.current,
-			kyTruoc: row.previous,
-			ten: row.name,
-		})),
-		nguon: analytics.sources.map((row) => ({
-			ruiRoCao: row.highRiskCount,
-			ten: row.label,
-			tong: row.total,
-		})),
-		// The authors' own words for what they were posting about, which is what
-		// a reader means by "trending" — the taxonomy above is a filing system.
-		theDangDungNhieu: analytics.hashtags.map((row) => ({
-			soBai: row.total,
-			the: `#${row.tag}`,
-			tuongTac: row.engagement,
-		})),
-	};
+	const { previousPeriod, reach, riskByLevel, sentiment, stance, total } =
+		analytics;
+	const facts: Array<{ chiSo: string; giaTri: string }> = [
+		{ chiSo: "Khoảng thời gian", giaTri: analytics.timeRange },
+		{
+			chiSo: "Tổng số bài",
+			giaTri: previousPeriod
+				? `${vi(total)} (kỳ trước ${vi(previousPeriod.total)})`
+				: vi(total),
+		},
+		{
+			chiSo: "Bài rủi ro cao",
+			giaTri: previousPeriod
+				? `${vi(riskByLevel.high)} (kỳ trước ${vi(previousPeriod.high)})`
+				: vi(riskByLevel.high),
+		},
+		{ chiSo: "Bài rủi ro trung bình", giaTri: vi(riskByLevel.medium) },
+		{ chiSo: "Bài rủi ro thấp", giaTri: vi(riskByLevel.low) },
+		{
+			chiSo: "Sắc thái",
+			giaTri: `tiêu cực ${vi(sentiment.negative)} · trung tính ${vi(sentiment.neutral)} · tích cực ${vi(sentiment.positive)}`,
+		},
+		{
+			chiSo: "Lập trường",
+			giaTri: `phản đối ${vi(stance.critical)} · trung tính ${vi(stance.neutral)} · ủng hộ ${vi(stance.supportive)}`,
+		},
+		{
+			chiSo: "Lượt tương tác theo mức rủi ro",
+			giaTri: `cao ${vi(reach.high)} · trung bình ${vi(reach.medium)} · thấp ${vi(reach.low)}`,
+		},
+	];
+
+	if (analytics.peakDay) {
+		facts.push({
+			chiSo: "Ngày cao điểm",
+			giaTri: `${analytics.peakDay.day}: ${vi(analytics.peakDay.high)} bài rủi ro cao trên ${vi(analytics.peakDay.total)} bài`,
+		});
+	}
+	for (const row of analytics.riskCategories) {
+		facts.push({ chiSo: `Dấu hiệu · ${row.label}`, giaTri: `${vi(row.count)} bài` });
+	}
+	for (const row of analytics.topics) {
+		facts.push({
+			chiSo: `Chủ đề · ${row.name}`,
+			giaTri: `${vi(row.total)} bài, ${vi(row.high)} rủi ro cao`,
+		});
+	}
+	for (const row of analytics.momentum) {
+		facts.push({
+			chiSo: `Biến động · ${row.name}`,
+			giaTri: `${vi(row.current)} bài kỳ này, ${vi(row.previous)} bài kỳ trước`,
+		});
+	}
+	for (const row of analytics.sources) {
+		facts.push({
+			chiSo: `Nguồn · ${row.label}`,
+			giaTri: `${vi(row.total)} bài, ${vi(row.highRiskCount)} rủi ro cao`,
+		});
+	}
+	// The authors' own words for what they were posting about, which is what a
+	// reader means by "trending" — the taxonomy above is a filing system.
+	for (const row of analytics.hashtags) {
+		facts.push({
+			chiSo: `Thẻ · #${row.tag}`,
+			giaTri: `${vi(row.total)} bài, ${vi(row.engagement)} tương tác`,
+		});
+	}
+
+	return facts;
+}
+
+/**
+ * Drops a citation that is a field name rather than a figure.
+ *
+ * The prompt now makes this hard to produce, but a model asked for a citation
+ * will always find *something* to put there, and a leaked identifier on a
+ * government dashboard reads as a defect in the data rather than in the
+ * wording. A trend with an unusable citation keeps its text and loses the chip.
+ */
+const KEY_PATH = /(^|\s)[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+(\s|$)/u;
+
+function usableEvidence(value: string) {
+	if (KEY_PATH.test(value)) return false;
+	// A citation with no digit in it is not a figure.
+	return /\d/u.test(value);
 }
 
 /**
@@ -161,6 +212,8 @@ export async function summarizeIntelligence(
 			model: runtime.model,
 			output: Output.object({ schema: summarySchema }),
 			prompt: JSON.stringify({
+				// A flat list of already-formatted label/value pairs. See
+				// `toPromptFacts` for why this is not a nested object.
 				soLieu: toPromptFacts(analytics),
 				// Trimmed again here, not only in SQL: the sample is drawn by reach,
 				// so the tail is short posts nobody engaged with.
@@ -179,7 +232,15 @@ export async function summarizeIntelligence(
 			system: SYSTEM_PROMPT,
 			temperature: 0.2,
 		});
-		return { ...output, generatedAt: new Date().toISOString() };
+		return {
+			...output,
+			generatedAt: new Date().toISOString(),
+			// A trend whose citation is a field name keeps its text and loses the
+			// chip; an identifier on the page reads as a defect in the data.
+			trends: output.trends.map((trend) =>
+				usableEvidence(trend.evidence) ? trend : { ...trend, evidence: "" },
+			),
+		};
 	} catch {
 		return null;
 	}

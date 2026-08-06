@@ -23,14 +23,23 @@ vận hành của Công an phường Ea Kao.
 
 # Bản tiếng Việt
 
-**Mục lục** — [CS35 làm gì](#cybershield-35-làm-gì) ·
-[Kiến trúc](#kiến-trúc-tổng-thể) · [Quy trình 5 bước](#quy-trình-5-bước) ·
-[Lượt quét](#một-lượt-quét-chạy-thế-nào) · [Chi phí AI](#chi-phí-ai-đi-qua-đâu) ·
-[Tóm tắt xu hướng](#tóm-tắt-xu-hướng-được-lưu-lại) ·
-[Dữ liệu](#dữ-liệu-được-lưu-thế-nào) ·
-[Mức rủi ro](#mức-rủi-ro-được-xác-định-thế-nào) · [Cài đặt](#cài-đặt-máy-chủ) ·
-[Xác thực](#xác-thực) · [Tài khoản mật khẩu](#tài-khoản-tên-đăng-nhập--mật-khẩu) ·
-[Tích hợp](#tích-hợp-bên-ngoài) · [Vận hành](#vận-hành)
+### Mục lục
+
+| Phần | Trả lời câu hỏi |
+| --- | --- |
+| [CS35 làm gì](#cybershield-35-làm-gì) | Sản phẩm này giải quyết việc gì |
+| [Kiến trúc tổng thể](#kiến-trúc-tổng-thể) | Các thành phần và dòng dữ liệu |
+| [Quy trình 5 bước](#quy-trình-5-bước) | Một ngày làm việc diễn ra thế nào |
+| [Một lượt quét chạy thế nào](#một-lượt-quét-chạy-thế-nào) | Trạng thái, giới hạn 3 lượt, khi nào thử lại |
+| [Chi phí AI đi qua đâu](#chi-phí-ai-đi-qua-đâu) | Vì sao mức dùng AI có thể thiếu |
+| [Tóm tắt xu hướng được lưu lại](#tóm-tắt-xu-hướng-được-lưu-lại) | Vì sao trang mở gần như tức thì |
+| [Dữ liệu được lưu thế nào](#dữ-liệu-được-lưu-thế-nào) | Các bảng chính và quan hệ |
+| [Mức rủi ro được xác định thế nào](#mức-rủi-ro-được-xác-định-thế-nào) | Ai chấm điểm và dựa vào đâu |
+| [Cài đặt máy chủ](#cài-đặt-máy-chủ) | Chạy dự án lên |
+| [Xác thực](#xác-thực) | Đăng nhập và biến môi trường |
+| [Tài khoản tên đăng nhập + mật khẩu](#tài-khoản-tên-đăng-nhập--mật-khẩu) | Cấp tài khoản cho người không có Tuturuuu |
+| [Tích hợp bên ngoài](#tích-hợp-bên-ngoài) | Apify, Zalo OA, lịch chạy |
+| [Vận hành](#vận-hành) | Khi có sự cố thì xem ở đâu |
 
 ## CyberShield 35 làm gì
 
@@ -463,14 +472,23 @@ Nếu màn hình đăng nhập báo thiếu hoặc sai cấu hình trên Vercel:
 > **Competition entry.** CyberShield 35 forms part of a submission to
 > [AI For Life — ai.daklak.gov.vn](https://ai.daklak.gov.vn).
 
-**Contents** — [What CS35 does](#what-cybershield-35-does) ·
-[Architecture](#architecture) · [Workflow](#the-five-step-workflow) ·
-[Scan runs](#how-a-scan-runs) · [AI spend](#where-ai-spend-goes) ·
-[Trend summary](#the-trend-summary-is-stored) ·
-[Data model](#how-the-data-is-stored) ·
-[Risk levels](#how-risk-levels-are-decided) · [Setup](#server-setup) ·
-[Authentication](#authentication) · [Password accounts](#username--password-accounts) ·
-[Integrations](#external-integrations) · [Operations](#operations)
+### Contents
+
+| Section | Answers |
+| --- | --- |
+| [What CyberShield 35 does](#what-cybershield-35-does) | What the product is for |
+| [Architecture](#architecture) | The pieces and how data moves |
+| [The five-step workflow](#the-five-step-workflow) | What a working day looks like |
+| [How a scan runs](#how-a-scan-runs) | States, the three-run cap, what gets retried |
+| [Where AI spend goes](#where-ai-spend-goes) | Why AI usage may be under-reported |
+| [The trend summary is stored](#the-trend-summary-is-stored) | Why the analysis page opens instantly |
+| [How the data is stored](#how-the-data-is-stored) | The core tables and their relations |
+| [How risk levels are decided](#how-risk-levels-are-decided) | Who scores content, and on what |
+| [Server setup](#server-setup) | Getting it running |
+| [Authentication](#authentication) | Sign-in and environment variables |
+| [Username + password accounts](#username--password-accounts) | Access for people without Tuturuuu |
+| [External integrations](#external-integrations) | Apify, Zalo OA, scheduling |
+| [Operations](#operations) | Where to look when something breaks |
 
 ## What CyberShield 35 does
 
