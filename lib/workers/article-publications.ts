@@ -15,6 +15,7 @@ import {
 	cronHeartbeats,
 } from "@/lib/db/schema";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { logOperation } from "@/lib/operations/telemetry";
 import {
 	actorAllowsArticleOperation,
 	publicationStateAllowsArticleOperation,
@@ -27,6 +28,7 @@ import {
 	removeZaloArticle,
 	updateZaloArticle,
 	verifyZaloArticleOperation,
+	ZaloApiError,
 	type ZaloArticleContent,
 } from "@/lib/zalo/client";
 import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
@@ -225,15 +227,40 @@ export async function processArticlePublicationJob(jobId: string) {
 			.returning();
 		return completed ?? claimed;
 	} catch (error) {
-		const message = publicErrorMessage(
-			error,
-			"Thao tác Zalo chưa hoàn tất. Hệ thống sẽ tự động thử lại.",
-		);
 		// A job the rules reject can never succeed on a later attempt, so it is
 		// cancelled rather than retried — otherwise the queue re-runs it forever
 		// and repaints the article red every few minutes.
 		const notPermitted = error instanceof PublicationNotPermittedError;
-		const retry = !notPermitted && claimed.attempts < claimed.maxAttempts;
+		const willRetry = !notPermitted && claimed.attempts < claimed.maxAttempts;
+		const message = publicErrorMessage(
+			error,
+			willRetry
+				? "Thao tác Zalo chưa hoàn tất. Hệ thống sẽ tự động thử lại."
+				: "Zalo OA từ chối thao tác này. Hãy mở nhật ký vận hành để xem chi tiết.",
+		);
+		// The operator-facing message deliberately hides anything that is not
+		// already safe Vietnamese prose, which means the actual cause of a failure
+		// left no trace anywhere — a job could retry itself to exhaustion and the
+		// only record was "chưa hoàn tất". The real error is kept where support
+		// can read it, and never shown.
+		const cause =
+			error instanceof Error ? error : new Error(String(error));
+		const detail = {
+			articleId: claimed.articleId,
+			errorMessage: cause.message.slice(0, 500),
+			errorName: cause.name,
+			jobId: claimed.id,
+			operation: claimed.operation,
+			// Zalo reports what it rejected in the response body, which is the part
+			// that says whether it was the cover image, the title, or the account.
+			zaloDetails:
+				cause instanceof ZaloApiError
+					? JSON.stringify(cause.details).slice(0, 800)
+					: null,
+			zaloStatus: cause instanceof ZaloApiError ? cause.status : null,
+		};
+		logOperation("article_publication_failed", detail, "error");
+		const retry = willRetry;
 		const [current] = notPermitted
 			? await adminDb
 					.select({ remoteArticleId: articles.remoteArticleId })
@@ -255,6 +282,12 @@ export async function processArticlePublicationJob(jobId: string) {
 			})
 			.where(eq(articlePublicationJobs.id, jobId))
 			.returning();
+		await adminDb.insert(auditEvents).values({
+			action: "article_publication_failed",
+			entityId: claimed.articleId,
+			entityType: "article",
+			payload: { ...detail, nextStatus: retry ? "retrying" : "failed" },
+		});
 		await adminDb
 			.update(articles)
 			.set(

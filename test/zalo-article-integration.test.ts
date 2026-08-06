@@ -602,7 +602,7 @@ describe("a request the rules reject is not a publish failure", () => {
 			"const notPermitted = error instanceof PublicationNotPermittedError",
 		);
 		expect(worker).toContain(
-			"const retry = !notPermitted && claimed.attempts < claimed.maxAttempts",
+			"const willRetry = !notPermitted && claimed.attempts < claimed.maxAttempts",
 		);
 		expect(worker).toContain('notPermitted ? "cancelled" : "failed"');
 	});
@@ -827,5 +827,29 @@ describe("a sync recreates a draft that was deleted on the OA", () => {
 		expect(worker).toContain(
 			"if (!remoteArticleId && pendingToken && !recreating)",
 		);
+	});
+});
+
+describe("a failed publication leaves a trace worth reading", () => {
+	const worker = readFileSync(
+		new URL("../lib/workers/article-publications.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("the real cause is recorded even when it cannot be shown", () => {
+		// The operator-facing message hides anything that is not already safe
+		// Vietnamese prose — which is most of what Zalo returns — so a job could
+		// retry itself to exhaustion leaving only "chưa hoàn tất" behind.
+		expect(worker).toContain('logOperation("article_publication_failed"');
+		expect(worker).toContain('action: "article_publication_failed"');
+		// Zalo says what it rejected in the response body: the cover, the title,
+		// the account.
+		expect(worker).toContain("zaloDetails:");
+		expect(worker).toContain("cause instanceof ZaloApiError");
+	});
+
+	test("the message does not promise a retry that will not happen", () => {
+		expect(worker).toContain("willRetry\n\t\t\t\t? \"Thao tác Zalo chưa hoàn tất");
+		expect(worker).toContain("Zalo OA từ chối thao tác này");
 	});
 });
