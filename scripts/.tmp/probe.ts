@@ -4,12 +4,10 @@ const rowsOf = <T,>(r: unknown): T[] => {
 	const m = r as { rows?: T[] };
 	return Array.isArray(m.rows) ? m.rows : (r as T[]);
 };
-const [v] = rowsOf<{ judged: number; total: number }>(await db.execute(sql`
-  select count(*) filter (where coalesce((metadata->>'classifierVersion')::int,0) >= 2)::int judged,
-         count(*)::int total from evidence_items`));
-console.log(`judged ${v.judged}/${v.total}`);
-console.table(rowsOf(await db.execute(sql`
-  select sentiment, count(*)::int n from evidence_items group by 1 order by 2 desc`)));
-console.table(rowsOf(await db.execute(sql`
-  select stance, count(*)::int n from evidence_items group by 1 order by 2 desc`)));
+const [v] = rowsOf<{ ours: number; foreign: number }>(await db.execute(sql`
+  select count(*) filter (where cover_url like 'https://cybershield35.ttr.gg/%')::int ours,
+         count(*) filter (where cover_url is not null and cover_url <> ''
+           and cover_url not like 'https://cybershield35.ttr.gg/%')::int foreign
+  from articles`));
+console.log(`covers on our origin: ${v.ours} | still foreign: ${v.foreign}`);
 process.exit(0);

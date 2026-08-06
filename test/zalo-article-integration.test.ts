@@ -966,4 +966,13 @@ describe("the cover backlog can be swept before it rots", () => {
 		expect(route).toContain("not like");
 		expect(route).toContain("remaining");
 	});
+
+	test("the walk is stable and resumable", () => {
+		// A dead source cannot be copied and so never leaves the candidate set.
+		// Without a position and an order, the same unreachable rows came back on
+		// every call and the saveable ones behind them were never reached.
+		expect(route).toContain("offset: z.number()");
+		expect(route).toContain(".orderBy(desc(articles.updatedAt), asc(articles.id))");
+		expect(route).toContain("nextOffset: offset + candidates.length,");
+	});
 });

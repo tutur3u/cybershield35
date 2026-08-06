@@ -1,4 +1,4 @@
-import { and, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -15,6 +15,13 @@ const bodySchema = z
 		// Defaults to a dry run, so a mistaken call only ever reports.
 		apply: z.boolean().default(false),
 		limit: z.number().int().min(1).max(60).default(20),
+		/**
+		 * Where to resume. A cover whose source is already dead cannot be copied
+		 * and so never leaves the candidate set — without a position the same
+		 * unreachable rows come back every call and the saveable ones behind them
+		 * are never reached.
+		 */
+		offset: z.number().int().min(0).default(0),
 	})
 	.strict();
 
@@ -42,7 +49,7 @@ export async function POST(request: Request) {
 
 	try {
 		const body = await request.json().catch(() => ({}));
-		const { apply, limit } = bodySchema.parse(body ?? {});
+		const { apply, limit, offset } = bodySchema.parse(body ?? {});
 		const origin = new URL(request.url).origin;
 
 		const candidates = await adminDb
@@ -56,7 +63,11 @@ export async function POST(request: Request) {
 					sql`${articles.coverUrl} not like ${`${origin}/%`}`,
 				),
 			)
-			.limit(limit);
+			// Ordered so the walk is stable between calls; without it Postgres is
+			// free to return a different arbitrary page each time.
+			.orderBy(desc(articles.updatedAt), asc(articles.id))
+			.limit(limit)
+			.offset(offset);
 
 		const outcomes: Record<CoverOutcome, Array<{ id: string; title: string }>> =
 			{
@@ -100,6 +111,9 @@ export async function POST(request: Request) {
 					Object.entries(outcomes).map(([key, value]) => [key, value.length]),
 				),
 				outcomes,
+				// Where to resume from. Unreachable rows stay in the set, so the
+				// caller advances past them rather than re-reading them.
+				nextOffset: offset + candidates.length,
 				remaining: remaining?.count ?? 0,
 				scanned: candidates.length,
 			},
