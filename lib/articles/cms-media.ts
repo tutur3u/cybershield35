@@ -101,8 +101,23 @@ export async function resolveCmsAsset(assetId: string, session?: TuturuuuAdminSe
 
 async function createArticleMediaEntry(session: TuturuuuAdminSession, article: typeof articles.$inferSelect) {
 	const collections = await cmsRequest<CmsCollection[]>(session, "external-projects/collections", { method: "GET" });
-	const collection = collections.find((item) => item.slug === COLLECTION_SLUG);
-	if (!collection) throw new Error("Tuturuuu CMS chưa được cấu hình bộ sưu tập ảnh bài viết.");
+	// Created on demand rather than required up front. `article-media` is the
+	// collection this app declares for itself, so a workspace that has never
+	// stored an image simply has not got one yet — which is a first-run state,
+	// not a misconfiguration for someone to go and fix by hand.
+	const collection =
+		collections.find((item) => item.slug === COLLECTION_SLUG) ??
+		(await cmsRequest<CmsCollection>(session, "external-projects/collections", {
+			body: JSON.stringify({
+				collection_type: COLLECTION_SLUG,
+				config: {},
+				description: "Ảnh bìa và ảnh nội dung của bài viết CyberShield35.",
+				slug: COLLECTION_SLUG,
+				title: "Ảnh bài viết",
+			}),
+			headers: { "Content-Type": "application/json" },
+			method: "POST",
+		}));
 	const entry = await cmsRequest<CmsEntry>(session, "external-projects/entries", {
 		body: JSON.stringify({ collection_id: collection.id, metadata: { cs35ArticleId: article.id }, profile_data: {}, slug: article.id, status: "draft", title: article.title || "Bài viết chưa đặt tên" }),
 		headers: { "Content-Type": "application/json" },

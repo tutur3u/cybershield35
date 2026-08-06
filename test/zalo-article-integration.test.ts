@@ -904,3 +904,24 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(worker).not.toContain("if (!response?.ok) continue;");
 	});
 });
+
+describe("CMS storage sets itself up", () => {
+	const media = readFileSync(
+		new URL("../lib/articles/cms-media.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("a missing article-media collection is created, not reported", () => {
+		// `article-media` is the collection this app declares for itself, so a
+		// workspace that has never stored an image simply has not got one yet —
+		// a first-run state, not something for an operator to go and fix by hand.
+		const at = media.indexOf("async function createArticleMediaEntry");
+		const body = media.slice(at, at + 1200);
+		expect(body).toContain('collections.find((item) => item.slug === COLLECTION_SLUG) ??');
+		expect(body).toContain('method: "POST"');
+		expect(body).toContain("collection_type: COLLECTION_SLUG");
+		expect(media).not.toContain(
+			"Tuturuuu CMS chưa được cấu hình bộ sưu tập ảnh bài viết.",
+		);
+	});
+});
