@@ -25,6 +25,9 @@ vận hành của Công an phường Ea Kao.
 
 **Mục lục** — [CS35 làm gì](#cybershield-35-làm-gì) ·
 [Kiến trúc](#kiến-trúc-tổng-thể) · [Quy trình 5 bước](#quy-trình-5-bước) ·
+[Lượt quét](#một-lượt-quét-chạy-thế-nào) · [Chi phí AI](#chi-phí-ai-đi-qua-đâu) ·
+[Tóm tắt xu hướng](#tóm-tắt-xu-hướng-được-lưu-lại) ·
+[Dữ liệu](#dữ-liệu-được-lưu-thế-nào) ·
 [Mức rủi ro](#mức-rủi-ro-được-xác-định-thế-nào) · [Cài đặt](#cài-đặt-máy-chủ) ·
 [Xác thực](#xác-thực) · [Tài khoản mật khẩu](#tài-khoản-tên-đăng-nhập--mật-khẩu) ·
 [Tích hợp](#tích-hợp-bên-ngoài) · [Vận hành](#vận-hành)
@@ -55,9 +58,10 @@ flowchart LR
     end
 
     subgraph core["CyberShield 35"]
-        QUEUE["Hàng đợi quét<br/>scan_jobs"]
-        DB[("Postgres<br/>Neon")]
-        LLM["Chấm rủi ro<br/>và phân tích"]
+        QUEUE["Hàng đợi quét<br/>scan_jobs · tối đa 3 lượt song song"]
+        WF["Vercel Workflows<br/>tiến trình bền, tự thử lại"]
+        DB[("Postgres · Neon")]
+        LLM["Chấm rủi ro, phân tích<br/>qua Tuturuuu AI"]
         EDITOR["Soạn bài<br/>có dẫn chứng"]
     end
 
@@ -69,10 +73,13 @@ flowchart LR
     FB --> APIFY
     WEB --> FIRE
     WEB --> BU
-    APIFY --> QUEUE
-    FIRE --> QUEUE
-    BU --> QUEUE
-    QUEUE --> DB
+    QUEUE --> WF
+    WF --> APIFY
+    WF --> FIRE
+    WF --> BU
+    APIFY --> DB
+    FIRE --> DB
+    BU --> DB
     DB --> LLM
     LLM --> DB
     DB --> EDITOR
@@ -80,8 +87,13 @@ flowchart LR
     EDITOR --> FILES
 ```
 
-Vercel Cron kích hoạt hai công việc định kỳ: quét nguồn hằng ngày và đẩy hàng đợi
-xuất bản Zalo mỗi 5 phút.
+Vercel Cron kích hoạt hai công việc định kỳ: **quét nguồn hằng ngày** (00:00 UTC)
+và **đẩy hàng đợi xuất bản Zalo** mỗi 5 phút.
+
+Một lượt quét chạy như *tiến trình bền* trên Vercel Workflows chứ không nằm trong
+vòng đời một request: nó chờ crawler bên ngoài và hai lần gọi mô hình, nhiều hơn
+ngân sách một request nên có, và tiến trình bền vẫn sống sót khi có bản triển
+khai mới rơi vào giữa lượt quét.
 
 ## Quy trình 5 bước
 
@@ -104,6 +116,122 @@ flowchart LR
    xuất của AI đều phải được xem lại trước khi áp dụng.
 5. **Xuất bản** — đưa bản ẩn lên Zalo OA để kiểm tra, phê duyệt, rồi hiển thị
    công khai. Có thể tải bài về dạng Word, PDF hoặc bản đọc tiếng Việt.
+
+## Một lượt quét chạy thế nào
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: thêm nguồn hoặc tới lịch
+    queued --> running: còn chỗ trong 3 slot
+    queued --> queued: hết chỗ, chờ lượt sau
+
+    running --> completed: thu thập, chấm điểm,<br/>phân tích, gắn chủ đề xong
+    running --> retrying: lỗi tạm thời
+    running --> failed: lỗi dứt điểm
+
+    retrying --> running: tự thử lại
+    retrying --> failed: hết lượt thử
+
+    failed --> queued: người dùng bấm Thử lại
+    running --> retrying: treo quá 30 phút,<br/>hàng đợi thu hồi
+
+    completed --> [*]
+```
+
+Sáu chặng trong một lượt: **Xếp hàng → Thu thập nội dung → Lưu bằng chứng →
+Phân tích → Gắn chủ đề → Hoàn tất**. Mỗi chặng ghi lại tiến độ nên khi một lượt
+quét dừng giữa chừng, màn hình chỉ đúng chỗ nó dừng.
+
+**Tối đa 3 lượt song song.** Apify tính bộ nhớ gộp cho mọi lượt chạy trên cùng
+một tài khoản: chạy 5 lượt cùng lúc là chạm trần và lượt thứ sáu bị từ chối
+thẳng. Giới hạn này áp dụng cho cả lịch tự động lẫn nút **Quét ngay** — bấm khi
+đã đủ 3 lượt thì scan được xếp hàng chứ không báo lỗi.
+
+**Lỗi nào đáng thử lại.** Hết bộ nhớ hoặc bị giới hạn tần suất là tạm thời, tự
+hết khi một lượt khác xong, nên hệ thống tự thử lại. Hết hạn mức chi tiêu, sai
+khóa truy cập hay nguồn không còn công khai thì không: thử lại chỉ đốt hàng đợi
+trong khi việc cần làm là nạp thêm hạn mức hoặc sửa cấu hình. Với những lượt đã
+dừng hẳn, nút **Thử lại** đưa scan trở lại hàng đợi và đặt lại số lần thử — vẫn
+tôn trọng giới hạn 3 lượt.
+
+## Chi phí AI đi qua đâu
+
+```mermaid
+flowchart TD
+    subgraph interactive["Có người dùng"]
+        CHAT["Chat trong CS35"]
+    end
+    subgraph batch["Không có người dùng"]
+        SCAN["Chấm rủi ro khi quét"]
+        DRAFT["Soạn bản nháp, bài viết"]
+        SUM["Tóm tắt xu hướng"]
+    end
+
+    CHAT -->|"phiên ứng dụng của<br/>chính người đang dùng"| GW["Tuturuuu AI Gateway<br/>ai.tuturuuu.com"]
+    SCAN --> MACHINE{"Đã cấu hình<br/>máy định danh?"}
+    DRAFT --> MACHINE
+    SUM --> MACHINE
+    MACHINE -->|"Có"| GW
+    MACHINE -->|"Chưa"| DIRECT["Gọi thẳng nhà cung cấp<br/>không tính vào workspace"]
+
+    GW --> METER["Tính vào mức dùng<br/>và chi phí của workspace"]
+```
+
+Chat mượn phiên của chính người đang dùng nên luôn đi qua cổng và luôn được tính.
+Việc chạy nền thì không có phiên nào để mượn — nó cần **máy định danh**, khai báo
+bằng `TUTURUUU_AI_APP_TOKEN` và `TUTURUUU_AI_WORKSPACE_ID`.
+
+> **Chưa đặt hai biến này thì phần nặng nhất không được tính.** Chấm rủi ro cho
+> hàng nghìn bài, mọi bản nháp và mọi bản tóm tắt sẽ chạy bằng khóa nhà cung cấp
+> trực tiếp và không xuất hiện ở **Mức dùng AI**. Hệ thống vẫn chạy bình thường —
+> đây là dự phòng có chủ ý để việc quét không dừng trong lúc chờ cấp định danh —
+> nhưng số liệu chi phí sẽ thiếu đúng phần lớn nhất.
+
+## Tóm tắt xu hướng được lưu lại
+
+```mermaid
+flowchart TD
+    OPEN["Mở trang Phân tích"] --> READ[("Đọc bản đã lưu<br/>intelligence_summaries")]
+    READ --> HAS{"Đã có bản nào chưa?"}
+    HAS -->|"Chưa"| GEN["Sinh lần đầu<br/>rồi lưu lại"]
+    HAS -->|"Rồi · khoảng 100ms"| SERVE["Trả về cho người xem"]
+    GEN --> SERVE
+
+    CRON["Lịch chạy hằng ngày"] --> FP{"Dấu vân dữ liệu<br/>còn khớp?"}
+    FP -->|"Khớp"| SKIP["Bỏ qua, không gọi mô hình"]
+    FP -->|"Khác"| REGEN["Sinh lại và lưu đè"]
+    REGEN --> READ
+```
+
+Bản tóm tắt được **lưu vào cơ sở dữ liệu**, không nằm trong bộ nhớ đệm. Mỗi bản
+mang một *dấu vân dữ liệu* — số bài và mốc thời gian mới nhất trong kỳ. Dấu vân
+còn khớp nghĩa là chưa thu thập thêm gì, nên bản cũ vẫn là câu trả lời đúng và
+không lời gọi mô hình nào cải thiện được nó. Một lượt quét hoàn tất sẽ làm dấu
+vân đổi, và đó là điều duy nhất khiến hệ thống sinh lại.
+
+Nhờ vậy trang mở gần như tức thì, và mô hình chỉ chạy khi dữ liệu thực sự đổi.
+
+## Dữ liệu được lưu thế nào
+
+```mermaid
+erDiagram
+    tracked_sources ||--o{ scan_jobs : "sinh ra"
+    sources ||--o{ scan_jobs : "mô tả"
+    scan_jobs ||--o{ evidence_items : "thu về"
+    scan_jobs ||--o| analyses : "kết luận"
+    evidence_items ||--o{ evidence_topics : "gắn"
+    topics ||--o{ evidence_topics : "gom"
+    evidence_items ||--o| evidence_triage : "xử lý"
+    evidence_items ||--o{ articles : "làm căn cứ"
+    articles ||--o{ article_publication_jobs : "đưa lên Zalo"
+    facebook_page_profiles ||--o{ evidence_items : "phân loại nguồn"
+```
+
+`tracked_sources` là danh sách nguồn đội ngũ theo dõi và là nơi đặt **tên gọi**
+cho một trang — mọi màn hình đều đọc tên từ đây, kèm `@handle` bên dưới.
+`evidence_items` giữ nội dung đã chuẩn hóa cùng mức rủi ro, sắc thái và lập
+trường. `articles` là bài phản hồi do người soạn, và chỉ đi lên Zalo qua
+`article_publication_jobs` sau khi có người phê duyệt.
 
 ## Mức rủi ro được xác định thế nào
 
@@ -220,6 +348,16 @@ phía máy chủ qua `/api/auth/verify-app-token`.
 - `TUTURUUU_AI_APP_URL` — mặc định `https://ai.tuturuuu.com`. Dùng để dựng liên
   kết **Mức dùng AI** ở thanh bên, đưa thẳng tới trang mức dùng của đúng workspace
   này trên Tuturuuu AI Studio. Nếu chưa cấu hình workspace, liên kết được ẩn.
+- `TUTURUUU_AI_APP_TOKEN` và `TUTURUUU_AI_WORKSPACE_ID` — **máy định danh** cho
+  phần chạy nền. Xem [Chi phí AI đi qua đâu](#chi-phí-ai-đi-qua-đâu): thiếu hai
+  biến này thì chấm rủi ro, soạn nháp và tóm tắt xu hướng không được tính vào
+  mức dùng của workspace.
+- `TUTURUUU_AI_BASE_URL` — mặc định `https://tuturuuu.com/api/v1/external-ai`.
+- `TUTURUUU_AI_MODEL` — mô hình mặc định, phải nằm trong danh sách workspace cho
+  phép; nếu không, cổng từ chối với `MODEL_NOT_ALLOWED`.
+- `CYBERSHIELD35_SEED_SOURCE_URLS` — danh sách nguồn khởi tạo, ngăn cách bằng dấu
+  phẩy. Để trống theo mặc định: những trang một đơn vị theo dõi là thông tin
+  nghiệp vụ, không phải thuộc tính của phần mềm, nên không nằm trong mã nguồn.
 - `AUTH_LOCAL_BYPASS=true` — chỉ bỏ qua kiểm tra phiên khi request đến từ
   localhost và `NODE_ENV` khác `production`. Production luôn yêu cầu phiên hợp lệ.
 
@@ -327,6 +465,9 @@ Nếu màn hình đăng nhập báo thiếu hoặc sai cấu hình trên Vercel:
 
 **Contents** — [What CS35 does](#what-cybershield-35-does) ·
 [Architecture](#architecture) · [Workflow](#the-five-step-workflow) ·
+[Scan runs](#how-a-scan-runs) · [AI spend](#where-ai-spend-goes) ·
+[Trend summary](#the-trend-summary-is-stored) ·
+[Data model](#how-the-data-is-stored) ·
 [Risk levels](#how-risk-levels-are-decided) · [Setup](#server-setup) ·
 [Authentication](#authentication) · [Password accounts](#username--password-accounts) ·
 [Integrations](#external-integrations) · [Operations](#operations)
@@ -358,9 +499,10 @@ flowchart LR
     end
 
     subgraph core["CyberShield 35"]
-        QUEUE["Scan queue<br/>scan_jobs"]
-        DB[("Postgres<br/>Neon")]
-        LLM["Risk scoring<br/>and analysis"]
+        QUEUE["Scan queue<br/>scan_jobs · 3 concurrent at most"]
+        WF["Vercel Workflows<br/>durable runs, own retries"]
+        DB[("Postgres · Neon")]
+        LLM["Risk scoring, analysis<br/>via Tuturuuu AI"]
         EDITOR["Evidence-grounded<br/>drafting"]
     end
 
@@ -372,10 +514,13 @@ flowchart LR
     FB --> APIFY
     WEB --> FIRE
     WEB --> BU
-    APIFY --> QUEUE
-    FIRE --> QUEUE
-    BU --> QUEUE
-    QUEUE --> DB
+    QUEUE --> WF
+    WF --> APIFY
+    WF --> FIRE
+    WF --> BU
+    APIFY --> DB
+    FIRE --> DB
+    BU --> DB
     DB --> LLM
     LLM --> DB
     DB --> EDITOR
@@ -383,8 +528,12 @@ flowchart LR
     EDITOR --> FILES
 ```
 
-Vercel Cron drives two scheduled jobs: a daily source scan and a Zalo publication
-queue drain every five minutes.
+Vercel Cron drives two scheduled jobs: a **daily source scan** (00:00 UTC) and a
+**Zalo publication queue drain** every five minutes.
+
+A scan runs as a *durable workflow* rather than inside a request: it waits on an
+external crawler and two model calls, which is more than one request's budget
+should hold, and a durable run survives a deploy landing mid-scan.
 
 ## The five-step workflow
 
@@ -408,6 +557,124 @@ flowchart LR
 5. **Publishing** — stage a hidden version on the Zalo OA to check it, approve
    it, then make it public. Articles can also be downloaded as Word, PDF or a
    Vietnamese audio reading.
+
+## How a scan runs
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: source added or schedule due
+    queued --> running: a slot is free
+    queued --> queued: at capacity, waits its turn
+
+    running --> completed: collected, scored,<br/>analysed, topics attached
+    running --> retrying: transient fault
+    running --> failed: terminal fault
+
+    retrying --> running: automatic retry
+    retrying --> failed: retry budget spent
+
+    failed --> queued: operator presses Retry
+    running --> retrying: stalled past 30 min,<br/>queue reclaims it
+
+    completed --> [*]
+```
+
+Six stages per run: **Queue → Collect → Store evidence → Analyse → Attach topics
+→ Complete**. Each records its own progress, so a run that stops halfway shows
+where it stopped.
+
+**Three concurrent runs at most.** Apify bills memory across every run on one
+account, so five in flight reaches the ceiling and the sixth is refused outright.
+The cap applies to the schedule and to **Scan now** alike — pressing it when
+three are already running queues the scan rather than reporting an error.
+
+**Which faults are worth retrying.** An exhausted memory ceiling or a rate limit
+is transient and clears when another run finishes, so it is retried. An exhausted
+spend cap, a rejected token or a source that is no longer public is not: retrying
+burns the queue while the real fix is to top up the account or correct the
+configuration. For runs that have stopped for good, **Retry** re-queues with the
+attempt counter reset — still subject to the same cap.
+
+## Where AI spend goes
+
+```mermaid
+flowchart TD
+    subgraph interactive["With a user present"]
+        CHAT["Chat inside CS35"]
+    end
+    subgraph batch["With no user present"]
+        SCAN["Risk scoring during scans"]
+        DRAFT["Drafts and articles"]
+        SUM["Trend summary"]
+    end
+
+    CHAT -->|"the reader's own<br/>app session"| GW["Tuturuuu AI Gateway<br/>ai.tuturuuu.com"]
+    SCAN --> MACHINE{"Machine credential<br/>configured?"}
+    DRAFT --> MACHINE
+    SUM --> MACHINE
+    MACHINE -->|"Yes"| GW
+    MACHINE -->|"No"| DIRECT["Straight to the provider<br/>not billed to the workspace"]
+
+    GW --> METER["Counted in the workspace's<br/>usage and cost"]
+```
+
+Chat borrows the reader's own session, so it always reaches the gateway and is
+always counted. Batch work has no session to borrow — it needs a **machine
+credential**, declared as `TUTURUUU_AI_APP_TOKEN` and `TUTURUUU_AI_WORKSPACE_ID`.
+
+> **Without those two set, the heaviest use is not counted.** Scoring thousands
+> of items, every draft and every summary run on a direct provider key and never
+> appear under **AI usage**. The system works either way — the fallback is
+> deliberate so scanning does not stop while the credential is issued — but the
+> cost figures are missing exactly the largest part.
+
+## The trend summary is stored
+
+```mermaid
+flowchart TD
+    OPEN["Open the analysis page"] --> READ[("Read the stored row<br/>intelligence_summaries")]
+    READ --> HAS{"Anything stored?"}
+    HAS -->|"No"| GEN["Generate once,<br/>then store"]
+    HAS -->|"Yes · about 100ms"| SERVE["Serve to the reader"]
+    GEN --> SERVE
+
+    CRON["Daily scheduled run"] --> FP{"Fingerprint<br/>still matching?"}
+    FP -->|"Matches"| SKIP["Skip — no model call"]
+    FP -->|"Differs"| REGEN["Regenerate and overwrite"]
+    REGEN --> READ
+```
+
+The summary lives **in the database**, not in a cache. Each stored row carries a
+*fingerprint* of what it was computed from — the evidence count and newest
+timestamp in the window. A matching fingerprint means nothing has been collected
+since, so the stored answer is still correct and no model call can improve it. A
+completed scan moves the fingerprint, and that is the only thing that triggers
+regeneration.
+
+The page therefore opens more or less instantly, and the model runs only when the
+data has actually changed.
+
+## How the data is stored
+
+```mermaid
+erDiagram
+    tracked_sources ||--o{ scan_jobs : "schedules"
+    sources ||--o{ scan_jobs : "describes"
+    scan_jobs ||--o{ evidence_items : "collects"
+    scan_jobs ||--o| analyses : "concludes"
+    evidence_items ||--o{ evidence_topics : "tagged by"
+    topics ||--o{ evidence_topics : "groups"
+    evidence_items ||--o| evidence_triage : "triaged as"
+    evidence_items ||--o{ articles : "grounds"
+    articles ||--o{ article_publication_jobs : "published via"
+    facebook_page_profiles ||--o{ evidence_items : "classifies source of"
+```
+
+`tracked_sources` is the list of followed sources and the home of a page's
+**name** — every screen reads the name from here and prints the `@handle` beneath
+it. `evidence_items` holds normalised content with its risk level, sentiment and
+stance. `articles` are the responses a person writes, and reach Zalo only through
+`article_publication_jobs` after somebody approves them.
 
 ## How risk levels are decided
 
@@ -523,6 +790,17 @@ token server-side through `/api/auth/verify-app-token`.
 - `TUTURUUU_AI_APP_URL` — defaults to `https://ai.tuturuuu.com`. Used to build the
   sidebar's **Mức dùng AI** link, which opens this workspace's usage page on the
   Tuturuuu AI Studio. The entry is hidden when no workspace is configured.
+- `TUTURUUU_AI_APP_TOKEN` and `TUTURUUU_AI_WORKSPACE_ID` — the **machine
+  credential** for work with no user attached. See
+  [Where AI spend goes](#where-ai-spend-goes): without both, risk scoring,
+  drafting and the trend summary are not billed to the workspace.
+- `TUTURUUU_AI_BASE_URL` — defaults to `https://tuturuuu.com/api/v1/external-ai`.
+- `TUTURUUU_AI_MODEL` — the default model. It must be one the workspace permits,
+  or the gateway rejects the call with `MODEL_NOT_ALLOWED`.
+- `CYBERSHIELD35_SEED_SOURCE_URLS` — comma-separated seed sources. Empty by
+  default: which pages a unit follows is operational information about an
+  investigation, not a property of the software, so it does not live in the
+  repository.
 - `AUTH_LOCAL_BYPASS=true` — skips the session check only when the request host
   is localhost/loopback and `NODE_ENV` is not `production`. Production always
   requires a valid session.
