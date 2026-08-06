@@ -4,7 +4,7 @@ import { and, eq, isNotNull, notInArray } from "drizzle-orm";
 
 import { adminDb } from "@/lib/db/client";
 import { articles, auditEvents } from "@/lib/db/schema";
-import { getZaloArticle } from "@/lib/zalo/client";
+import { getZaloArticle, listZaloArticles } from "@/lib/zalo/client";
 import { getValidZaloAccessToken } from "@/lib/zalo/connections";
 
 /**
@@ -71,6 +71,9 @@ export async function reconcileZaloRemotePresence({
 		let accessToken: string;
 		try {
 			accessToken = await getValidZaloAccessToken(connectionId);
+			// Proves the OA is answering us before any absence is believed. A
+			// listing that throws means we cannot tell missing from unreachable.
+			await listZaloArticles(accessToken, { limit: 1 });
 		} catch {
 			skipped += group.length;
 			continue;
@@ -84,14 +87,6 @@ export async function reconcileZaloRemotePresence({
 			} catch {
 				missing.push(candidate);
 			}
-		}
-
-		// Every draft on one OA disappearing at once is an OA-side fault, not a
-		// batch of removals. Clearing on that reading would lose every pointer the
-		// moment a token lapses.
-		if (missing.length === group.length && group.length > 1) {
-			skipped += group.length;
-			continue;
 		}
 
 		for (const candidate of missing) {

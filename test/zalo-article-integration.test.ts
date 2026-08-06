@@ -745,14 +745,15 @@ describe("a pointer to a draft that is gone is not a warning", () => {
 		}
 	});
 
-	test("an OA-wide fault is not read as mass removal", () => {
-		// One draft missing is a removal; every draft missing is an expired grant
-		// or a rate limit, and acting on it would lose every pointer at once.
-		expect(worker).toContain(
-			"if (missing.length === group.length && group.length > 1)",
-		);
-		// A connection we cannot get a token for is skipped whole, not treated as
-		// an OA with nothing on it.
+	test("the connection is proved healthy before absence is believed", () => {
+		// The first version inferred an outage from "everything looks missing".
+		// Then the OA was cleared by hand, every draft really was gone, and the
+		// guard suppressed the truth — leaving six articles claiming to be on an
+		// Official Account that held none of them.
+		expect(worker).toContain("await listZaloArticles(accessToken, { limit: 1 })");
+		expect(worker).not.toContain("missing.length === group.length");
+		// A connection that cannot answer is skipped whole, not read as an OA
+		// with nothing on it.
 		expect(worker).toContain("skipped += group.length;");
 	});
 
@@ -801,5 +802,30 @@ describe("a presence check records what it saw", () => {
 		// which is the question when a draft cannot be found on the OA.
 		expect(worker).toContain('action: "article_remote_presence_checked"');
 		expect(worker).toContain("payload: result");
+	});
+});
+
+describe("a sync recreates a draft that was deleted on the OA", () => {
+	const worker = readFileSync(
+		new URL("../lib/workers/article-publications.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("a dangling remote id becomes a create, not an update", () => {
+		// Anyone with OA access can delete a draft and nothing tells us. Zalo
+		// accepts an update against the deleted article and it verifies clean, so
+		// the sync reported success while the OA still showed nothing.
+		expect(worker).toContain('if (remoteArticleId && job.operation === "sync_hidden")');
+		expect(worker).toContain("const stillThere = await getZaloArticle(");
+		expect(worker).toContain("recreating = true;");
+		expect(worker).toContain("remoteArticleId: null,");
+	});
+
+	test("a pending token cannot resurrect the deleted article instead", () => {
+		// Resuming that operation would wait on an answer about something deleted
+		// rather than making a new article.
+		expect(worker).toContain(
+			"if (!remoteArticleId && pendingToken && !recreating)",
+		);
 	});
 });

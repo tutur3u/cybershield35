@@ -463,11 +463,39 @@ async function executePublicationOperation(
 		.where(eq(articles.id, article.id));
 
 	let remoteArticleId = article.remoteArticleId;
+	// A remote id outlives the article it points at: anyone with access to the OA
+	// can delete a draft, and nothing tells us. Updating a deleted article is
+	// accepted by Zalo and verifies clean, so the sync reports success while the
+	// OA still shows nothing — which is exactly what happened after the OA's
+	// content list was cleared by hand. Checking first turns that into a create.
+	let recreating = false;
+	if (remoteArticleId && job.operation === "sync_hidden") {
+		const stillThere = await getZaloArticle(accessToken, remoteArticleId)
+			.then(() => true)
+			.catch(() => false);
+		if (!stillThere) {
+			remoteArticleId = null;
+			recreating = true;
+			await adminDb
+				.update(articles)
+				.set({
+					lastSyncedAt: null,
+					remoteArticleId: null,
+					remoteOperationToken: null,
+					syncedContentHash: null,
+					updatedAt: new Date(),
+				})
+				.where(eq(articles.id, article.id));
+		}
+	}
 	let operationToken: string;
 	try {
 		const pendingToken =
 			job.remoteOperationToken ?? article.remoteOperationToken;
-		if (!remoteArticleId && pendingToken) {
+		// A pending token resumes an operation that was already in flight. Once we
+		// know the article it belonged to is gone, resuming it would wait on an
+		// answer about something deleted instead of making a new article.
+		if (!remoteArticleId && pendingToken && !recreating) {
 			operationToken = pendingToken;
 		} else {
 			const operation = remoteArticleId
