@@ -755,9 +755,47 @@ export type IntelligenceTopicRiskStat = {
 };
 
 export type IntelligenceSourceStat = {
+	/** The account handle, when it says something the name does not. */
+	handle: string | null;
 	highRiskCount: number;
 	label: string;
 	total: number;
+};
+
+/** A topic's volume this window against the window before it. */
+export type IntelligenceMomentumStat = {
+	current: number;
+	name: string;
+	previous: number;
+	slug: string;
+};
+
+/**
+ * The written read of a window.
+ *
+ * Declared here rather than imported from the generator, which lives behind
+ * `server-only` — the browser needs the shape, not the model that produces it.
+ */
+export type IntelligenceSummaryView = {
+	focus: string;
+	generatedAt: string;
+	headline: string;
+	trends: Array<{
+		detail: string;
+		direction: "up" | "down" | "steady";
+		evidence: string;
+		title: string;
+	}>;
+};
+
+/** A post that travelled, whatever its risk level. */
+export type IntelligenceLoudestPost = {
+	engagement: number;
+	href: string;
+	id: string;
+	quote: string;
+	riskLevel: string;
+	source: string;
 };
 
 export type IntelligenceRiskTrendPoint = {
@@ -769,13 +807,30 @@ export type IntelligenceRiskTrendPoint = {
 
 export type IntelligenceAnalyticsView = {
 	generatedAt: string;
+	/** Posts that travelled furthest in the window, by total engagement. */
+	loudest: IntelligenceLoudestPost[];
+	/** Topics ranked by how much they moved, not how big they are. */
+	momentum: IntelligenceMomentumStat[];
+	/** The single worst day in the window, when there was one. */
+	peakDay: { day: string; high: number; total: number } | null;
+	/** The same counts one window back, so every level has a comparison. */
+	previousPeriod: { high: number; total: number } | null;
+	/** Engagement carried by each risk level — reach rather than volume. */
+	reach: { high: number; low: number; medium: number };
 	riskByLevel: { high: number; low: number; medium: number };
 	riskCategories: IntelligenceRiskCategoryStat[];
 	riskTrend: IntelligenceRiskTrendPoint[];
 	sentiment: { negative: number; neutral: number; positive: number };
 	sources: IntelligenceSourceStat[];
+	stance: {
+		critical: number;
+		neutral: number;
+		supportive: number;
+		unknown: number;
+	};
 	timeRange: IntelligenceTimeRange;
 	topics: IntelligenceTopicRiskStat[];
+	total: number;
 };
 
 export type IntelligencePage<T> = {

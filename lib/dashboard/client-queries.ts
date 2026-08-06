@@ -6,6 +6,7 @@ import type {
 	EvidenceItemsPage,
 	EvidenceView,
 	IntelligenceAnalyticsView,
+	IntelligenceSummaryView,
 	IntelligenceActivityRow,
 	IntelligenceClaimRow,
 	IntelligenceEvidenceRow,
@@ -183,6 +184,30 @@ export function intelligenceAnalyticsQueryOptions(
 		},
 		queryKey: dashboardQueryKeys.intelligenceAnalytics(params),
 		staleTime: intelligenceQueryStaleTimeMs,
+	});
+}
+
+/**
+ * The written trend read. Kept on a longer stale time than the charts because
+ * the server regenerates it at most every half hour anyway — refetching sooner
+ * just re-downloads the same paragraph.
+ */
+export function intelligenceSummaryQueryOptions(
+	filters: IntelligenceFilters = {},
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return queryOptions({
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: async () => {
+			const payload = await fetchJson<{
+				summary?: IntelligenceSummaryView | null;
+			}>(`/api/intelligence/summary?${new URLSearchParams(params).toString()}`);
+			// A missing summary is a state, not a failure: no model configured, or
+			// nothing collected in the window.
+			return payload.summary ?? null;
+		},
+		queryKey: dashboardQueryKeys.intelligenceSummary(params),
+		staleTime: intelligenceQueryStaleTimeMs * 4,
 	});
 }
 

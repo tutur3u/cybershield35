@@ -13,7 +13,9 @@ export type DashboardIntelligenceCacheKind =
 	| "evidence"
 	| "facebook-pages"
 	| "overview"
+	| "sample"
 	| "sources"
+	| "summary"
 	| "timeline"
 	| "topics";
 

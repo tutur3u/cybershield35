@@ -95,6 +95,8 @@ export const dashboardQueryKeys = {
 	workflowPipeline: () => ["dashboard", "workflow-pipeline"] as const,
 	intelligenceAnalytics: (params: Record<string, string>) =>
 		["dashboard", "intelligence", "analytics", params] as const,
+	intelligenceSummary: (params: Record<string, string>) =>
+		["dashboard", "intelligence", "summary", params] as const,
 	intelligenceOverview: (params: Record<string, string>) =>
 		["dashboard", "intelligence", "overview", params] as const,
 	intelligenceEvidenceInfinite: (

@@ -4,6 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 
 import { BarList } from "@/components/dashboard/charts/bar-list";
+import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import {
+	AnalyticsHeadline,
+	TopicMomentum,
+} from "@/components/dashboard/intelligence/analytics-headline";
+import { AnalyticsSummary } from "@/components/dashboard/intelligence/analytics-summary";
 import {
 	ChartEmptyState,
 	ChartFrame,
@@ -65,8 +71,16 @@ export function IntelligenceAnalyticsWorkspace({
 		analytics.sentiment.neutral +
 		analytics.sentiment.negative;
 
+	const totalStance =
+		analytics.stance.critical +
+		analytics.stance.neutral +
+		analytics.stance.supportive;
+
 	return (
-		<div className="grid min-w-0 gap-4 xl:grid-cols-2">
+		<div className="min-w-0 space-y-4">
+			<AnalyticsHeadline analytics={analytics} />
+			<AnalyticsSummary filters={filters} />
+			<div className="grid min-w-0 gap-4 xl:grid-cols-2">
 			<ChartFrame
 				description="Tỷ trọng nội dung theo mức cần ưu tiên xử lý."
 				series={RISK_SERIES.map(({ color, label }) => ({ color, label }))}
@@ -205,11 +219,22 @@ export function IntelligenceAnalyticsWorkspace({
 				{analytics.sources.length ? (
 					<BarList
 						rows={analytics.sources.map((source) => ({
-							href: `/evidence?facebookPage=${encodeURIComponent(source.label)}`,
+							/*
+								Filtered by handle, labelled by name. This panel did both
+								with the raw handle while every other surface in the product
+								had moved to the name the team gave the page.
+							*/
+							href: `/evidence?facebookPage=${encodeURIComponent(source.handle ?? source.label)}`,
 							label: source.label,
-							meta: source.highRiskCount
-								? `${source.highRiskCount} rủi ro cao`
-								: undefined,
+							meta:
+								[
+									source.handle ? `@${source.handle}` : null,
+									source.highRiskCount
+										? `${source.highRiskCount} rủi ro cao`
+										: null,
+								]
+									.filter(Boolean)
+									.join(" · ") || undefined,
 							segments: [
 								{
 									color: RISK_COLORS.high,
@@ -266,6 +291,140 @@ export function IntelligenceAnalyticsWorkspace({
 					<ChartEmptyState message="Chưa có dữ liệu sắc thái." />
 				)}
 			</ChartFrame>
+
+			<ChartFrame
+				description="Bài viết nghiêng về phía nào với cơ quan, chính sách hoặc chủ trương được nhắc tới."
+				table={{
+					headers: ["Lập trường", "Số bài"],
+					rows: [
+						["Phản đối", analytics.stance.critical],
+						["Trung tính", analytics.stance.neutral],
+						["Ủng hộ", analytics.stance.supportive],
+						["Chưa xác định", analytics.stance.unknown],
+					],
+				}}
+				title="Lập trường nội dung"
+			>
+				{totalStance ? (
+					<DonutChart
+						centerLabel="bài đã xác định"
+						slices={[
+							{
+								color: "var(--chart-risk-high)",
+								label: "Phản đối",
+								value: analytics.stance.critical,
+							},
+							{
+								color: "var(--chart-1)",
+								label: "Trung tính",
+								value: analytics.stance.neutral,
+							},
+							{
+								color: "var(--chart-risk-low)",
+								label: "Ủng hộ",
+								value: analytics.stance.supportive,
+							},
+						]}
+					/>
+				) : (
+					<ChartEmptyState message="Chưa có dữ liệu lập trường." />
+				)}
+			</ChartFrame>
+
+			{/*
+				Movement, not size. The topic chart above already ranks by volume; a
+				subject that tripled from a small base never appears near the top of
+				one of those and is often the thing worth knowing first.
+			*/}
+			<ChartFrame
+				description="Chủ đề tăng hoặc giảm mạnh nhất so với kỳ liền trước cùng độ dài."
+				table={{
+					headers: ["Chủ đề", "Kỳ này", "Kỳ trước"],
+					rows: analytics.momentum.map((row) => [
+						row.name,
+						row.current,
+						row.previous,
+					]),
+				}}
+				title="Biến động chủ đề"
+			>
+				<TopicMomentum rows={analytics.momentum} />
+			</ChartFrame>
+
+			{/*
+				Reach rather than volume. Counting posts treats a note nobody saw the
+				same as one shared four thousand times.
+			*/}
+			<ChartFrame
+				description="Lượt tương tác cộng dồn theo từng mức rủi ro — nội dung nào thực sự lan đi."
+				series={RISK_SERIES.map(({ color, label }) => ({ color, label }))}
+				table={{
+					headers: ["Mức rủi ro", "Lượt tương tác"],
+					rows: [
+						["Rủi ro cao", analytics.reach.high],
+						["Rủi ro trung bình", analytics.reach.medium],
+						["Rủi ro thấp", analytics.reach.low],
+					],
+				}}
+				title="Mức lan truyền theo rủi ro"
+			>
+				{analytics.reach.high + analytics.reach.medium + analytics.reach.low ? (
+					<BarList
+						rows={[
+							{ color: RISK_COLORS.high, label: "Rủi ro cao", value: analytics.reach.high },
+							{ color: RISK_COLORS.medium, label: "Rủi ro trung bình", value: analytics.reach.medium },
+							{ color: RISK_COLORS.low, label: "Rủi ro thấp", value: analytics.reach.low },
+						].map((row) => ({
+							label: row.label,
+							meta: `${row.value.toLocaleString("vi-VN")} tương tác`,
+							segments: [{ color: row.color, label: row.label, value: row.value }],
+						}))}
+					/>
+				) : (
+					<ChartEmptyState message="Chưa ghi nhận tương tác nào." />
+				)}
+			</ChartFrame>
+
+			<ChartFrame
+				description="Bài lan xa nhất trong kỳ, kèm mức rủi ro đã chấm."
+				table={{
+					headers: ["Nguồn", "Tương tác", "Mức rủi ro"],
+					rows: analytics.loudest.map((post) => [
+						post.source,
+						post.engagement,
+						post.riskLevel,
+					]),
+				}}
+				title="Nội dung lan xa nhất"
+			>
+				{analytics.loudest.length ? (
+					<ul className="divide-y divide-[var(--divider)]">
+						{analytics.loudest.map((post) => (
+							<li key={post.id}>
+								<IntentPrefetchLink
+									className="block px-4 py-2.5 transition hover:bg-[var(--surface-soft)]"
+									href={post.href}
+								>
+									<span className="flex items-center justify-between gap-3">
+										<span className="truncate text-[12px] font-bold text-[var(--muted-strong)]">
+											{post.source}
+										</span>
+										<span className="shrink-0 text-[11px] font-bold tabular-nums text-[var(--muted)]">
+											{post.engagement.toLocaleString("vi-VN")} tương tác
+										</span>
+									</span>
+									<span className="mt-1 line-clamp-2 block text-[12.5px] leading-5 text-[var(--foreground)]">
+										{post.quote}
+									</span>
+								</IntentPrefetchLink>
+							</li>
+						))}
+					</ul>
+				) : (
+					<ChartEmptyState message="Chưa có bài nào ghi nhận tương tác." />
+				)}
+			</ChartFrame>
+			</div>
 		</div>
 	);
 }
