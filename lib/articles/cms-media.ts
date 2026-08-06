@@ -2,7 +2,11 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 
-import { buildTuturuuuApiUrl, type TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
+import {
+	buildTuturuuuApiUrl,
+	getSessionGrantedScopes,
+	type TuturuuuAdminSession,
+} from "@/lib/auth/tuturuuu-session";
 import { adminDb } from "@/lib/db/client";
 import { logOperation } from "@/lib/operations/telemetry";
 import { articleMedia, articles } from "@/lib/db/schema";
@@ -122,6 +126,10 @@ async function cmsRequest<T>(session: TuturuuuAdminSession, suffix: string, init
 			"cms_request_failed",
 			{
 				body: JSON.stringify(body).slice(0, 500),
+				// A 403 is either a scope the session was never granted or a
+				// permission the workspace has not given the app. Naming the
+				// granted scopes says which without another round trip.
+				grantedScopes: getSessionGrantedScopes(session).join(" "),
 				status: response.status,
 				suffix,
 			},
