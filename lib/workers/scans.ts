@@ -1,5 +1,5 @@
 import { NoObjectGeneratedError } from "ai";
-import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 
 import { adminDb, adminSqlClient } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
@@ -35,11 +35,6 @@ import {
 	reviseCounterArgumentWithEvidenceFallback,
 } from "@/lib/llm/generation";
 import type { AnalysisOutput } from "@/lib/llm/schemas";
-import { runProvider } from "@/lib/providers";
-import {
-	isRetryableCollectionError,
-	operatorMessageFor,
-} from "@/lib/providers/errors";
 import {
 	runtimeKeySummary,
 	runtimeMode,
@@ -49,8 +44,15 @@ import {
 	syncExistingAnalysisTopicsForScan,
 	syncTopicsForScan,
 } from "@/lib/workers/topics";
-import { enqueueEvidenceDraftJobs } from "@/lib/workers/facebook-page-jobs";
-import { classifyPersistedEvidenceRisk } from "@/lib/workers/evidence-risk";
+import {
+	analyzeScan,
+	collectEvidence,
+	completeScan,
+	failScan,
+	recordScanClaimed,
+	scoreEvidenceRisk,
+	syncScanTopics,
+} from "@/lib/workers/scan-stages";
 
 type ClaimedJob = {
 	id: string;
@@ -590,6 +592,29 @@ export async function deleteEvidence(id: string) {
 	return item;
 }
 
+/**
+ * How many scans may be in flight at once.
+ *
+ * Running the pipeline inline made this self-limiting: the drain loop processed
+ * one scan at a time and stopped when the request ran out of budget. A durable
+ * run returns as soon as it is started, so without a cap a single drain would
+ * fire every queued scan at the provider simultaneously — which is how the
+ * crawler account hit its monthly limit before.
+ */
+export const MAX_CONCURRENT_SCAN_RUNS = 6;
+
+export async function countRunningScans() {
+	const [row] = await adminDb
+		.select({ count: sql<number>`count(*)::int` })
+		.from(scanJobs)
+		.where(eq(scanJobs.status, "running"));
+	return row?.count ?? 0;
+}
+
+export async function scanCapacityRemaining() {
+	return Math.max(0, MAX_CONCURRENT_SCAN_RUNS - (await countRunningScans()));
+}
+
 export async function processNextJob() {
 	const claimed = await claimNextJob();
 	if (!claimed) return { processed: false };
@@ -604,234 +629,83 @@ export async function processScanJobNow(scanId: string) {
 	return processClaimedJob(claimed);
 }
 
+/**
+ * Runs a claimed scan.
+ *
+ * Prefers the durable workflow: the pipeline waits on an external crawler and
+ * two model calls, which is more than one request's budget should have to hold,
+ * and a durable run also survives a deploy landing mid-scan.
+ *
+ * Falls back to running the stages inline when a run cannot be started, so a
+ * problem with the workflow platform degrades scanning to what it was before
+ * rather than stopping it.
+ */
 async function processClaimedJob(claimed: ClaimedJob) {
-	const processingStartedAt = Date.now();
+	const started = await startScanPipelineRun(claimed);
+	if (started) {
+		return { durable: true, processed: true, runId: started, scanId: claimed.id };
+	}
+	return processClaimedJobInline(claimed);
+}
+
+async function startScanPipelineRun(claimed: ClaimedJob) {
 	try {
+		const [{ start }, { scanPipelineWorkflow }] = await Promise.all([
+			import("workflow/api"),
+			import("@/workflows/scan-pipeline"),
+		]);
+		const run = await start(scanPipelineWorkflow, [claimed]);
 		await recordScanEvent({
-			eventType: "scan_claimed",
-			message: "Worker đã nhận scan từ hàng đợi.",
-			metadata: { attempt: claimed.attempts, provider: claimed.provider },
+			eventType: "scan_run_started",
+			message: "Scan đang chạy nền và sẽ tiếp tục kể cả khi bạn rời trang.",
+			metadata: { runId: run.runId },
 			scanJobId: claimed.id,
 			stage: "queue",
-			status: "completed",
-		});
-		const [source] = await adminDb
-			.select()
-			.from(sources)
-			.where(eq(sources.id, claimed.source_id))
-			.limit(1);
-
-		if (!source) throw new Error(`Source not found for job ${claimed.id}`);
-
-		const [run] = await adminDb
-			.insert(providerRuns)
-			.values({
-				scanJobId: claimed.id,
-				provider: claimed.provider,
-				status: "running",
-				input: {
-					sourceId: source.id,
-					input: source.originalInput,
-					runtimeMode: runtimeMode(),
-				},
-			})
-			.returning();
-
-		if (!run) throw new Error("Failed to create provider run");
-		await recordScanEvent({
-			eventType: "provider_started",
-			message: "Provider bắt đầu thu thập dữ liệu.",
-			metadata: { provider: claimed.provider, providerRunId: run.id },
-			scanJobId: claimed.id,
-			stage: "provider",
 			status: "running",
 		});
-
-		const result = await runProvider(claimed.provider, source);
-
-		await adminDb
-			.update(providerRuns)
-			.set({
-				status: "completed",
-				output: result.raw,
-				completedAt: new Date(),
-			})
-			.where(eq(providerRuns.id, run.id));
+		return run.runId;
+	} catch (error) {
+		// Deliberately swallowed: the inline path below produces the same result,
+		// so a workflow platform problem must not become a scan failure.
 		await recordScanEvent({
-			eventType: "provider_completed",
-			message: "Provider đã hoàn tất thu thập dữ liệu.",
+			eventType: "scan_run_fallback",
+			message: "Không khởi động được tiến trình nền; scan chạy trực tiếp.",
 			metadata: {
-				candidateCount: result.evidence.length,
-				provider: result.provider,
+				reason: error instanceof Error ? error.message : String(error),
 			},
 			scanJobId: claimed.id,
-			stage: "provider",
-			status: "completed",
-		});
-
-		const insertedEvidence =
-			result.evidence.length > 0
-				? await adminDb
-						.insert(evidenceItems)
-						.values(
-							result.evidence.map((item) => ({
-								scanJobId: claimed.id,
-								sourceId: source.id,
-								provider: result.provider,
-								sourceUrl: item.sourceUrl,
-								sourceLabel: item.sourceLabel,
-								author: item.author,
-								publishedAt: item.publishedAt,
-								quote: item.quote,
-								summary: item.summary,
-								engagement: item.engagement,
-								stance: item.stance,
-								sentiment: item.sentiment,
-								riskLevel: item.riskLevel,
-								metadata: item.metadata,
-							})),
-						)
-						.returning()
-				: [];
-		// Providers attach a provisional rule-based level so collection never waits
-		// on the model. Re-score with the LLM before drafts or analysis read it.
-		const riskScoring = await classifyPersistedEvidenceRisk(
-			insertedEvidence.map((item) => item.id),
-		).catch(() => ({ scored: 0, updated: 0 }));
-		const scoredEvidence = riskScoring.updated
-			? await adminDb
-					.select()
-					.from(evidenceItems)
-					.where(eq(evidenceItems.scanJobId, claimed.id))
-			: insertedEvidence;
-		const queuedAutomatedDrafts = await enqueueEvidenceDraftJobs(scoredEvidence);
-		await recordScanEvent({
-			eventType: "evidence_persisted",
-			message: "Bằng chứng chuẩn hóa đã được lưu và chấm mức rủi ro.",
-			metadata: {
-				automatedDraftCount: queuedAutomatedDrafts,
-				evidenceCount: insertedEvidence.length,
-				riskRescored: riskScoring.updated,
-			},
-			scanJobId: claimed.id,
-			stage: "evidence",
-			status: "completed",
-		});
-
-		await recordScanEvent({
-			eventType: "analysis_started",
-			message: "AI bắt đầu phân tích bằng chứng.",
-			scanJobId: claimed.id,
-			stage: "analysis",
+			stage: "queue",
 			status: "running",
-		});
-		const analysis = await analyzeEvidence(
-			scoredEvidence.map((item) => ({
-				id: item.id,
-				quote: item.quote,
-				summary: item.summary,
-				riskLevel: item.riskLevel,
-			})),
-		);
+		}).catch(() => {});
+		return null;
+	}
+}
 
-		await persistAnalysis(claimed.id, analysis);
-		await recordScanEvent({
-			eventType: "analysis_completed",
-			message: "Phân tích rủi ro và lập trường đã hoàn tất.",
-			metadata: { riskLevel: analysis.riskLevel },
+async function processClaimedJobInline(claimed: ClaimedJob) {
+	const startedAtMs = Date.now();
+	try {
+		await recordScanClaimed(claimed);
+		const collected = await collectEvidence(claimed);
+		await scoreEvidenceRisk(claimed.id);
+		await analyzeScan(claimed.id);
+		await syncScanTopics(claimed.id);
+		await completeScan({
+			credentialSource: collected.credentialSource,
+			evidenceCount: collected.evidenceCount,
+			mode: collected.mode,
 			scanJobId: claimed.id,
-			stage: "analysis",
-			status: "completed",
+			startedAtMs,
 		});
-
-		await syncTopicsForScan(claimed.id, analysis.topicClusters, scoredEvidence);
-		await recordScanEvent({
-			eventType: "topics_completed",
-			message: "Chủ đề và liên kết bằng chứng đã được cập nhật.",
-			metadata: { topicCount: analysis.topicClusters.length },
-			scanJobId: claimed.id,
-			stage: "topics",
-			status: "completed",
-		});
-
-		await adminDb
-			.update(scanJobs)
-			.set({
-				status: "completed",
-				completedAt: new Date(),
-				updatedAt: new Date(),
-				errorMessage: null,
-			})
-			.where(eq(scanJobs.id, claimed.id));
-
-		await updateTrackedSourceLastScan(claimed.id, "completed");
-
-		await writeAudit("scan_job", claimed.id, "processed", {
-			providerMode: result.mode,
-			credentialSource: result.credentialSource,
-			evidenceCount: insertedEvidence.length,
-		});
-		await recordScanEvent({
-			eventType: "scan_completed",
-			message: "Scan đã hoàn tất toàn bộ pipeline.",
-			metadata: {
-				durationMs: Date.now() - processingStartedAt,
-				evidenceCount: insertedEvidence.length,
-			},
-			scanJobId: claimed.id,
-			stage: "complete",
-			status: "completed",
-		});
-		await refreshIntelligenceRollupsBestEffort(`scan-processed:${claimed.id}`);
-
 		return { processed: true, scanId: claimed.id };
 	} catch (error) {
-		const rawMessage = error instanceof Error ? error.message : String(error);
-		// Prefer the operator-facing explanation when the provider gave us one: the
-		// raw text ("Monthly usage hard limit exceeded") tells the person reading
-		// the queue nothing about what they should do next.
-		const message = operatorMessageFor(error) ?? rawMessage;
-		// A terminal fault must not consume the retry budget. Retrying an exhausted
-		// account quota keeps every scan in a "Thử lại" state that reads like
-		// recovery in progress, when nothing will change until someone intervenes.
-		const nextStatus: ScanStatus =
-			isRetryableCollectionError(error) &&
-			claimed.attempts < claimed.max_attempts
-				? "retrying"
-				: "failed";
-
-		await adminDb
-			.update(scanJobs)
-			.set({
-				status: nextStatus,
-				errorMessage: message,
-				scheduledAt: nextStatus === "retrying" ? new Date(Date.now() + 60_000) : new Date(),
-				updatedAt: new Date(),
-				completedAt: nextStatus === "failed" ? new Date() : null,
-			})
-			.where(eq(scanJobs.id, claimed.id));
-
-		await updateTrackedSourceLastScan(claimed.id, nextStatus);
-
-		await writeAudit("scan_job", claimed.id, "failed", { message, nextStatus });
-		await recordScanEvent({
-			eventType: nextStatus === "retrying" ? "scan_retry_scheduled" : "scan_failed",
-			message:
-				nextStatus === "retrying"
-					? "Scan gặp lỗi và đã được lên lịch thử lại."
-					: "Scan đã dừng sau khi hết số lần thử.",
-			metadata: {
-				attempt: claimed.attempts,
-				durationMs: Date.now() - processingStartedAt,
-				errorType: error instanceof Error ? error.name : "UnknownError",
-				nextStatus,
-			},
+		const { message } = await failScan({
+			attempts: claimed.attempts,
+			error,
+			maxAttempts: claimed.max_attempts,
 			scanJobId: claimed.id,
-			stage: "complete",
-			status: "failed",
+			startedAtMs,
 		});
-		await refreshIntelligenceRollupsBestEffort(`scan-failed:${claimed.id}`);
-		return { processed: true, scanId: claimed.id, error: message };
+		return { error: message, processed: true, scanId: claimed.id };
 	}
 }
 

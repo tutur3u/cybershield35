@@ -8,7 +8,10 @@ describe("operations observability", () => {
 	const migration = read("drizzle/0010_nasty_jamie_braddock.sql");
 	const server = read("lib/operations/server.ts");
 	const telemetry = read("lib/operations/telemetry.ts");
-	const worker = read("lib/workers/scans.ts");
+	// The pipeline is split across the queue entry point and its stages; the
+	// events are recorded by whichever half performs the work.
+	const worker =
+		read("lib/workers/scans.ts") + read("lib/workers/scan-stages.ts");
 	const page = read("components/dashboard/operations-page.tsx");
 
 	test("persists append-only pipeline events with query indexes and protected access", () => {

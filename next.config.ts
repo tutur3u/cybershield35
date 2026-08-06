@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 
 const useWebpackBuild = process.env.NEXT_WEBPACK_BUILD === "1";
 
@@ -67,4 +68,8 @@ const nextConfig: NextConfig = {
 	},
 };
 
-export default nextConfig;
+/**
+ * Workflows compiles `'use workflow'` / `'use step'` functions into the routes
+ * that make them durable, so the wrapper has to see the whole config.
+ */
+export default withWorkflow(nextConfig);

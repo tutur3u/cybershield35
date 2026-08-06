@@ -54,6 +54,9 @@ mock.module("@/lib/workers/scans", () => ({
 	heartbeat: mock(async () => undefined),
 	processScanJobNow: mock(async () => ({ processed: true })),
 	processNextJob: mock(async () => ({ processed: false })),
+	// The drain is bounded by how many scans are already running, so the mock has
+	// to answer that too.
+	scanCapacityRemaining: mock(async () => 6),
 }));
 
 mock.module("@/lib/db/client", () => ({

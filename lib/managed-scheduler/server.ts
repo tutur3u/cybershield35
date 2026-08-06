@@ -22,7 +22,11 @@ import {
 import { processDueArticlePublications } from "@/lib/workers/article-publications";
 import { reconcileZaloRemotePresence } from "@/lib/workers/zalo-presence-reconciliation";
 import { reassessStoredEvidenceRisk } from "@/lib/workers/evidence-risk";
-import { heartbeat, processNextJob } from "@/lib/workers/scans";
+import {
+	heartbeat,
+	processNextJob,
+	scanCapacityRemaining,
+} from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
 import { logOperation } from "@/lib/operations/telemetry";
@@ -405,6 +409,31 @@ async function writeSchedulerHeartbeat(
 	}
 }
 
+/**
+ * Starts as many queued scans as the concurrency cap allows.
+ *
+ * Stops at the cap rather than at the request's time budget: a durable run
+ * returns as soon as it starts, so the loop is no longer self-limiting and the
+ * queue depth would otherwise land on the provider all at once.
+ */
+async function drainScanQueue() {
+	const capacity = Math.min(DAILY_DRAIN_LIMIT, await scanCapacityRemaining());
+	const scanIds: string[] = [];
+	let failed = 0;
+	let processed = 0;
+
+	for (let index = 0; index < capacity; index += 1) {
+		const result = await processNextJob();
+		if (!result.processed) break;
+
+		processed += 1;
+		if ("scanId" in result && result.scanId) scanIds.push(result.scanId);
+		if ("error" in result && result.error) failed += 1;
+	}
+
+	return { capacity, failed, processed, scanIds };
+}
+
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
 		const publications = await processDueArticlePublications(5);
@@ -414,7 +443,11 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		const presence = await reconcileZaloRemotePresence({ limit: 25 }).catch(
 			() => null,
 		);
-		return { ...publications, remotePresence: presence };
+		// Scans now run as durable workflows, so the daily job can only start as
+		// many as the concurrency cap allows and the rest wait. This tick is what
+		// keeps them moving — without it a capped queue would sit until tomorrow.
+		const scans = await drainScanQueue();
+		return { ...publications, remotePresence: presence, scans };
 	}
 
 	const reconciliation = await reconcileFacebookPageSources();
@@ -426,14 +459,10 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	let failed = 0;
 	let processed = 0;
 
-	for (let index = 0; index < DAILY_DRAIN_LIMIT; index += 1) {
-		const result = await processNextJob();
-		if (!result.processed) break;
-
-		processed += 1;
-		if ("scanId" in result && result.scanId) scanIds.push(result.scanId);
-		if ("error" in result && result.error) failed += 1;
-	}
+	const drained = await drainScanQueue();
+	scanIds.push(...drained.scanIds);
+	processed += drained.processed;
+	failed += drained.failed;
 
 	let automatedDraftsProcessed = 0;
 	for (let index = 0; index < DAILY_DRAIN_LIMIT; index += 1) {

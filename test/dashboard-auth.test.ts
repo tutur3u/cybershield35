@@ -1639,6 +1639,7 @@ describe("dashboard auth gate", () => {
 		const schema = readFileSync("lib/db/schema.ts", "utf8");
 		const topicWorker = readFileSync("lib/workers/topics.ts", "utf8");
 		const scanWorker = readFileSync("lib/workers/scans.ts", "utf8");
+		const scanStages = readFileSync("lib/workers/scan-stages.ts", "utf8");
 		const topicRoute = readFileSync("app/api/topics/route.ts", "utf8");
 		const topicDetailRoute = readFileSync(
 			"app/api/topics/[slug]/route.ts",
@@ -1654,7 +1655,8 @@ describe("dashboard auth gate", () => {
 		expect(schema).toContain("export const evidenceTopics");
 		expect(topicWorker).toContain("syncTopicsForScan");
 		expect(topicWorker).toContain("backfillTopicsFromAnalyses");
-		expect(scanWorker).toContain("syncTopicsForScan(claimed.id");
+		// The scan pipeline tags topics as one of its stages, keyed by scan id.
+		expect(scanStages).toContain("syncTopicsForScan(scanJobId");
 		expect(scanWorker).toContain("syncExistingAnalysisTopicsForScan");
 		expect(topicRoute).toContain("listTopicsPage");
 		expect(topicDetailRoute).toContain("getTopicDetailPage");

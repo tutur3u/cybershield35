@@ -44,3 +44,4 @@ next-env.d.ts
 
 # Local git worktrees used for cross-repo work.
 .worktrees/
+/.swc

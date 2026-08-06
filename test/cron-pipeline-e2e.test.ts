@@ -76,6 +76,9 @@ mock.module("@/lib/workers/scans", () => ({
 		metadata: Record<string, unknown> = {},
 	) => upsertHeartbeat(serviceName, metadata),
 	processNextJob,
+	// The drain is bounded by how many scans are already running, so the mock has
+	// to answer that too.
+	scanCapacityRemaining: async () => 6,
 }));
 
 mock.module("@/lib/workers/draft-automation", () => ({

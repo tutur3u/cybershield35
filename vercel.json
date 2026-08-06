@@ -9,5 +9,10 @@
       "path": "/api/cron/articles/process-publication-queue",
       "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/.well-known/workflow/v1/step/route.js": {
+      "maxDuration": 300
+    }
+  }
 }

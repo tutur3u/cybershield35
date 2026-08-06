@@ -43,6 +43,9 @@ const eslintConfig = defineConfig([
     // Local git worktrees hold other repositories' source. Linting them buries
     // this project's real findings under thousands of foreign ones.
     ".worktrees/**",
+    // Emitted by withWorkflow on every build, and ignored by git for the same
+    // reason: it is compiler output, not source anyone edits.
+    "app/.well-known/workflow/**",
   ]),
 ]);
 
