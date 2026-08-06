@@ -290,7 +290,9 @@ async function downloadRemoteImage(url: string) {
 			"User-Agent":
 				"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
 		},
-		signal: AbortSignal.timeout(15_000),
+		// Short: a dead CDN link is the common case here, and waiting fifteen
+		// seconds each to learn that is what pushed the sweep past its budget.
+		signal: AbortSignal.timeout(6_000),
 	}).catch(() => null);
 	if (!response?.ok) return null;
 

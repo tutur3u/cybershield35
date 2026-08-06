@@ -14,7 +14,13 @@ const bodySchema = z
 	.object({
 		// Defaults to a dry run, so a mistaken call only ever reports.
 		apply: z.boolean().default(false),
-		limit: z.number().int().min(1).max(60).default(20),
+		/**
+		 * Kept small on purpose. Each article means a download and an upload, and
+		 * an unreachable source burns the full fetch timeout before failing — at
+		 * twenty-five the call exceeded the function budget and returned a 504,
+		 * losing the work it had already done.
+		 */
+		limit: z.number().int().min(1).max(12).default(8),
 		/**
 		 * Where to resume. A cover whose source is already dead cannot be copied
 		 * and so never leaves the candidate set — without a position the same
