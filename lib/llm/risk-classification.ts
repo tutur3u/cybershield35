@@ -12,6 +12,21 @@ const CATEGORY_VALUES = Object.keys(
 	EVIDENCE_RISK_CATEGORY_LABELS,
 ) as [EvidenceRiskCategory, ...EvidenceRiskCategory[]];
 
+/**
+ * The stored vocabulary for these two fields.
+ *
+ * Both columns are free text, which is how every row ended up "neutral" and
+ * "unknown": the providers write a default and nothing ever revised it. Pinning
+ * the values here is what lets a filter offer them and mean it.
+ */
+export const EVIDENCE_SENTIMENTS = ["negative", "neutral", "positive"] as const;
+export const EVIDENCE_STANCES = [
+	"critical",
+	"neutral",
+	"supportive",
+	"unknown",
+] as const;
+
 export const evidenceRiskClassificationSchema = z.object({
 	items: z.array(
 		z.object({
@@ -20,15 +35,22 @@ export const evidenceRiskClassificationSchema = z.object({
 			id: z.string().trim().min(1),
 			rationale: z.string().trim().min(1).max(400),
 			riskLevel: z.enum(["low", "medium", "high"]),
+			sentiment: z.enum(EVIDENCE_SENTIMENTS),
+			stance: z.enum(EVIDENCE_STANCES),
 		}),
 	),
 });
+
+export type EvidenceSentiment = (typeof EVIDENCE_SENTIMENTS)[number];
+export type EvidenceStance = (typeof EVIDENCE_STANCES)[number];
 
 export type EvidenceRiskClassification = {
 	categories: EvidenceRiskCategory[];
 	confidence: number;
 	level: EvidenceRiskLevel;
 	rationale: string;
+	sentiment: EvidenceSentiment;
+	stance: EvidenceStance;
 };
 
 export type EvidenceRiskInput = {
@@ -98,7 +120,7 @@ async function classifyBatch(
 				source: item.sourceLabel ?? null,
 				text: item.text.slice(0, MAX_TEXT_LENGTH),
 			})),
-			task: "Chấm mức rủi ro cho từng bài viết theo đúng rubric. Trả về đủ mọi id đã nhận.",
+			task: "Chấm mức rủi ro, sắc thái và lập trường cho từng bài viết theo đúng rubric. Trả về đủ mọi id đã nhận.",
 		}),
 		system: RISK_SYSTEM_PROMPT,
 		temperature: 0,
@@ -112,6 +134,8 @@ async function classifyBatch(
 			confidence: item.confidence,
 			level: item.riskLevel,
 			rationale: item.rationale,
+			sentiment: item.sentiment,
+			stance: item.stance,
 		});
 	}
 	return mapped;
@@ -139,4 +163,19 @@ Nguyên tắc bắt buộc:
 - categories chọn từ danh sách cho phép và phải nhất quán với riskLevel.
 - rationale viết bằng tiếng Việt tự nhiên, một đến hai câu, nêu đúng dấu hiệu quan sát được trong văn bản, không suy diễn về danh tính hay động cơ cá nhân.
 - confidence phản ánh mức chắc chắn thực tế; hạ thấp khi văn bản quá ngắn hoặc mơ hồ.
-- Trả về đúng một mục cho mỗi id nhận được, không thêm id mới.`;
+- Trả về đúng một mục cho mỗi id nhận được, không thêm id mới.
+
+Ngoài mức rủi ro, hãy chấm thêm hai trường độc lập:
+
+sentiment — sắc thái cảm xúc của chính văn bản:
+- "negative": giọng bức xúc, chê trách, lo ngại, mỉa mai, tố cáo, than phiền.
+- "positive": giọng khen ngợi, biết ơn, cổ vũ, chia vui, thông báo tin tốt.
+- "neutral": đưa tin, mô tả, thông báo hành chính, hỏi đáp không kèm cảm xúc rõ rệt.
+
+stance — lập trường của người viết đối với cơ quan nhà nước, chính quyền hoặc chính sách được nhắc tới:
+- "critical": phản đối, chỉ trích, quy kết, đòi hỏi trách nhiệm.
+- "supportive": ủng hộ, đồng tình, bênh vực, lan tỏa thông điệp chính thống.
+- "neutral": có nhắc tới nhưng không nghiêng về phía nào.
+- "unknown": bài viết không nói về cơ quan nhà nước, chính quyền hay chính sách nào.
+
+Hai trường này độc lập với nhau và với riskLevel: một bài đưa tin trung tính về vụ bắt giữ vẫn có thể là rủi ro cao, sắc thái trung tính và lập trường unknown. Đừng suy ra trường này từ trường kia.`;

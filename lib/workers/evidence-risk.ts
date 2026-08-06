@@ -10,6 +10,8 @@ import {
 	classifyEvidenceRisk,
 	isRiskClassificationAvailable,
 	type EvidenceRiskInput,
+	type EvidenceSentiment,
+	type EvidenceStance,
 } from "@/lib/llm/risk-classification";
 
 type StoredEvidenceRisk = {
@@ -19,7 +21,9 @@ type StoredEvidenceRisk = {
 	metadata: Record<string, unknown>;
 	quote: string;
 	risk_level: RiskLevel;
+	sentiment: string;
 	source_label: string | null;
+	stance: string;
 	summary: string;
 };
 
@@ -29,7 +33,14 @@ type ScoredEvidence = {
 	id: string;
 	level: RiskLevel;
 	reasons: string[];
+	/**
+	 * Left null by the rule-based fallback, which cannot judge either. A null
+	 * keeps whatever is stored rather than overwriting a model verdict with a
+	 * guess when the provider is briefly unavailable.
+	 */
+	sentiment: EvidenceSentiment | null;
 	source: "llm" | "rules";
+	stance: EvidenceStance | null;
 };
 
 /**
@@ -37,10 +48,16 @@ type ScoredEvidence = {
  * projection so dashboards reflect the new posture instead of the previous one.
  */
 export async function reassessStoredEvidenceRisk(limit = 5_000) {
+	// Unjudged rows first, newest within that. Ordering purely by recency meant a
+	// repeated run re-read the same newest page forever and never reached the
+	// backlog it existed to clear.
 	const rows = await adminSqlClient<StoredEvidenceRisk[]>`
-		select id, quote, summary, author, source_label, engagement, metadata, risk_level
+		select id, quote, summary, author, source_label, engagement, metadata,
+			risk_level, sentiment, stance
 		from evidence_items
-		order by created_at desc
+		order by
+			case when metadata->>'riskClassifier' = 'llm' then 1 else 0 end,
+			created_at desc
 		limit ${limit}
 	`;
 	const scored = await scoreEvidenceRows(rows);
@@ -54,13 +71,15 @@ export async function reassessStoredEvidenceRisk(limit = 5_000) {
 				const assessment = scored.get(row.id);
 				if (!assessment) return;
 				if (assessment.source === "llm") llmScored += 1;
-				if (!hasRiskChanged(row, assessment)) return;
+				if (!hasAssessmentChanged(row, assessment)) return;
 
 				await adminDb
 					.update(evidenceItems)
 					.set({
 						metadata: riskMetadata(row.metadata, assessment),
 						riskLevel: assessment.level,
+						...(assessment.sentiment ? { sentiment: assessment.sentiment } : {}),
+						...(assessment.stance ? { stance: assessment.stance } : {}),
 					})
 					.where(eq(evidenceItems.id, row.id));
 				updated += 1;
@@ -93,7 +112,9 @@ export async function classifyPersistedEvidenceRisk(evidenceIds: string[]) {
 			metadata: evidenceItems.metadata,
 			quote: evidenceItems.quote,
 			risk_level: evidenceItems.riskLevel,
+			sentiment: evidenceItems.sentiment,
 			source_label: evidenceItems.sourceLabel,
+			stance: evidenceItems.stance,
 			summary: evidenceItems.summary,
 		})
 		.from(evidenceItems)
@@ -103,12 +124,14 @@ export async function classifyPersistedEvidenceRisk(evidenceIds: string[]) {
 
 	for (const row of rows as StoredEvidenceRisk[]) {
 		const assessment = scored.get(row.id);
-		if (!assessment || !hasRiskChanged(row, assessment)) continue;
+		if (!assessment || !hasAssessmentChanged(row, assessment)) continue;
 		await adminDb
 			.update(evidenceItems)
 			.set({
 				metadata: riskMetadata(row.metadata, assessment),
 				riskLevel: assessment.level,
+				...(assessment.sentiment ? { sentiment: assessment.sentiment } : {}),
+				...(assessment.stance ? { stance: assessment.stance } : {}),
 			})
 			.where(eq(evidenceItems.id, row.id));
 		updated += 1;
@@ -141,7 +164,9 @@ async function scoreEvidenceRows(rows: StoredEvidenceRisk[]) {
 				id: row.id,
 				level: verdict.level,
 				reasons: [verdict.rationale],
+				sentiment: verdict.sentiment,
 				source: "llm",
+				stance: verdict.stance,
 			});
 			continue;
 		}
@@ -157,14 +182,26 @@ async function scoreEvidenceRows(rows: StoredEvidenceRisk[]) {
 			id: row.id,
 			level: fallback.level,
 			reasons: fallback.reasons,
+			sentiment: null,
 			source: "rules",
+			stance: null,
 		});
 	}
 
 	return scored;
 }
 
-function hasRiskChanged(row: StoredEvidenceRisk, assessment: ScoredEvidence) {
+/**
+ * Whether anything the model decided differs from what is stored.
+ *
+ * Covers sentiment and stance as well as risk: an item whose risk is unchanged
+ * but whose sentiment finally has a real value would otherwise be skipped, and
+ * the backfill would leave the field exactly as it found it.
+ */
+function hasAssessmentChanged(
+	row: StoredEvidenceRisk,
+	assessment: ScoredEvidence,
+) {
 	const previousReasons = Array.isArray(row.metadata?.riskReasons)
 		? row.metadata.riskReasons
 		: [];
@@ -173,6 +210,8 @@ function hasRiskChanged(row: StoredEvidenceRisk, assessment: ScoredEvidence) {
 		: [];
 	return (
 		assessment.level !== row.risk_level ||
+		(assessment.sentiment !== null && assessment.sentiment !== row.sentiment) ||
+		(assessment.stance !== null && assessment.stance !== row.stance) ||
 		row.metadata?.riskClassifier !== assessment.source ||
 		JSON.stringify(previousReasons) !== JSON.stringify(assessment.reasons) ||
 		JSON.stringify(previousCategories) !== JSON.stringify(assessment.categories)

@@ -317,6 +317,35 @@ export function timelineInfiniteQueryOptions(
 	};
 }
 
+export function timelineFacetsQueryOptions(
+	filters: TimelineFilters = {},
+	enabled = true,
+) {
+	const params = serializeTimelineFilters(filters);
+	return queryOptions({
+		enabled,
+		gcTime: dashboardQueryGcTimeMs,
+		queryFn: async () => {
+			const search = new URLSearchParams(params as Record<string, string>);
+			const response = await fetch(
+				`/api/intelligence/timeline/facets?${search.toString()}`,
+				{ cache: "no-store", credentials: "same-origin" },
+			);
+			if (!response.ok) throw new Error("Không thể đếm bộ lọc.");
+			return (await response.json()) as TimelineFacetCounts;
+		},
+		queryKey: [...dashboardQueryKeys.timelineHead(filters), "facets"],
+		staleTime: timelineQueryStaleTimeMs,
+	});
+}
+
+export type TimelineFacetCounts = {
+	risk: Record<string, number>;
+	sentiment: Record<string, number>;
+	stance: Record<string, number>;
+	triageStatus: Record<string, number>;
+};
+
 export function timelineHeadQueryOptions(
 	filters: TimelineFilters = {},
 	since?: string | null,

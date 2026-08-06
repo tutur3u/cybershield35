@@ -277,6 +277,16 @@ function normalizeFilters(filters: TimelineFilters): NormalizedTimelineFilters {
 	};
 }
 
+/**
+ * The same conditions the list uses, from raw filters.
+ *
+ * Exported so the facet counts are computed by the identical code path — a
+ * count that disagreed with the list it describes would be worse than no count.
+ */
+export function timelineConditionsFor(filters: TimelineFilters): SQL[] {
+	return timelineConditions(normalizeFilters(filters));
+}
+
 function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
 	const conditions: Array<SQL | undefined> = [];
 	const range = vietnamDateRange(filters);

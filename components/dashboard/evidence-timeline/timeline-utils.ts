@@ -1,15 +1,17 @@
 import type { TimelineFilters, TimelinePost } from "@/components/dashboard/types";
 import { intelligenceProviderLabel } from "@/components/dashboard/intelligence-workspace-shared";
+import {
+	EVIDENCE_TRIAGE_LABELS,
+	sentimentLabel,
+	stanceLabel,
+} from "@/lib/domain/evidence-classification";
 
 export const LAST_SEEN_STORAGE_KEY = "cs35.timeline.lastSeenCollectedAt";
 
-export const triageLabels: Record<TimelinePost["triage"]["status"], string> = {
-	action_required: "Cần hành động",
-	dismissed: "Bỏ qua",
-	new: "Mới",
-	reviewing: "Đang xem xét",
-	resolved: "Đã giải quyết",
-};
+export const triageLabels = EVIDENCE_TRIAGE_LABELS as Record<
+	TimelinePost["triage"]["status"],
+	string
+>;
 
 export function filtersFromParams(
 	params: Readonly<URLSearchParams>,
@@ -146,23 +148,10 @@ export function relativeTime(value: string, now: number) {
 	return `${Math.floor(seconds / 86_400)} ngày trước`;
 }
 
-export function sentimentLabel(value: string) {
-	return (
-		({ negative: "Tiêu cực", neutral: "Trung tính", positive: "Tích cực" } as Record<
-			string,
-			string
-		>)[value] ?? value
-	);
-}
-
-export function stanceLabel(value: string) {
-	return (
-		({ neutral: "Trung lập", opposed: "Phản đối", supportive: "Ủng hộ" } as Record<
-			string,
-			string
-		>)[value] ?? value
-	);
-}
+// Re-exported from the shared vocabulary. Keeping a second copy here is how the
+// filter came to offer "opposed" against a stored "critical" — a choice that
+// looked right and matched nothing.
+export { sentimentLabel, stanceLabel } from "@/lib/domain/evidence-classification";
 
 export function draftActionLabel(classification: TimelinePost["pageClassification"]) {
 	return classification === "trusted"

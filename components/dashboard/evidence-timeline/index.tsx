@@ -18,6 +18,7 @@ import type {
 } from "@/components/dashboard/types";
 import {
 	intelligenceFacebookPagesQueryOptions,
+	timelineFacetsQueryOptions,
 	timelineHeadQueryOptions,
 	timelineInfiniteQueryOptions,
 } from "@/lib/dashboard/client-queries";
@@ -61,6 +62,10 @@ export function EvidenceTimeline() {
 	const timelineQuery = useInfiniteQuery(timelineInfiniteQueryOptions(filters, 30));
 	const headQuery = useQuery(timelineHeadQueryOptions(filters, lastSeenAt));
 	const pagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
+	// Fetched only while the panel is open: the counts matter when someone is
+	// choosing, and an aggregate across every filter is not worth running on a
+	// page that is merely being read.
+	const facetsQuery = useQuery(timelineFacetsQueryOptions(filters, advancedOpen));
 	const posts = useMemo(() => {
 		const map = new Map<string, TimelinePost>();
 		for (const post of timelineQuery.data?.pages.flatMap((page) => page.items) ?? []) {
@@ -209,6 +214,7 @@ export function EvidenceTimeline() {
 			<TimelineToolbar
 				advancedOpen={advancedOpen}
 				exportHref={exportHref}
+				facets={facetsQuery.data}
 				filters={filters}
 				isPending={isPending}
 				loadedNewCount={loadedNewCount}
@@ -216,7 +222,7 @@ export function EvidenceTimeline() {
 				onMarkSeen={() => void markAllSeen()}
 				onParamChange={updateParam}
 				onRefresh={() => void refresh()}
-				onToggleAdvanced={() => setAdvancedOpen((value) => !value)}
+				onToggleAdvanced={setAdvancedOpen}
 				pages={pagesQuery.data ?? []}
 				posts={posts}
 				refreshing={timelineQuery.isRefetching}
