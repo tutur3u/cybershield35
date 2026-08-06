@@ -20,6 +20,7 @@ import {
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
 import { processDueArticlePublications } from "@/lib/workers/article-publications";
+import { reconcileZaloRemotePresence } from "@/lib/workers/zalo-presence-reconciliation";
 import { reassessStoredEvidenceRisk } from "@/lib/workers/evidence-risk";
 import { heartbeat, processNextJob } from "@/lib/workers/scans";
 import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
@@ -407,7 +408,13 @@ async function writeSchedulerHeartbeat(
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
 		const publications = await processDueArticlePublications(5);
-		return publications;
+		// Runs alongside the queue rather than on its own schedule: a pointer to a
+		// draft that is no longer on the OA is exactly what the queue's own
+		// removals leave behind, so the check belongs next to them.
+		const presence = await reconcileZaloRemotePresence({ limit: 25 }).catch(
+			() => null,
+		);
+		return { ...publications, remotePresence: presence };
 	}
 
 	const reconciliation = await reconcileFacebookPageSources();

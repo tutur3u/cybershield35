@@ -644,3 +644,37 @@ describe("a review decision clears a refusal it inherited", () => {
 		expect(setClause).toContain("= 'approved'");
 	});
 });
+
+describe("a pointer to a draft that is gone is not a warning", () => {
+	const worker = readFileSync(
+		new URL("../lib/workers/zalo-presence-reconciliation.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("nothing a follower can see is ever unlinked", () => {
+		// Clearing a live article's pointer would strand it: CS35 would no longer
+		// know which post on the OA it owns.
+		expect(worker).toContain("notInArray(articles.publicationStatus, [");
+		for (const status of ["published", "publishing", "scheduled"]) {
+			expect(worker).toContain(`"${status}",`);
+		}
+	});
+
+	test("an OA-wide fault is not read as mass removal", () => {
+		// One draft missing is a removal; every draft missing is an expired grant
+		// or a rate limit, and acting on it would lose every pointer at once.
+		expect(worker).toContain(
+			"if (missing.length === group.length && group.length > 1)",
+		);
+		// A connection we cannot get a token for is skipped whole, not treated as
+		// an OA with nothing on it.
+		expect(worker).toContain("skipped += group.length;");
+	});
+
+	test("clearing a pointer leaves the article re-syncable and audited", () => {
+		expect(worker).toContain("remoteArticleId: null,");
+		expect(worker).toContain("syncedContentHash: null,");
+		expect(worker).toContain('publicationStatus: "not_synced",');
+		expect(worker).toContain('action: "article_remote_pointer_cleared",');
+	});
+});
