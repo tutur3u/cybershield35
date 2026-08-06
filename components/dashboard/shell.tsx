@@ -151,7 +151,15 @@ export function Sidebar({
 			) : null}
 			<aside
 				aria-label="Thanh điều hướng"
-				className={`z-50 border-[var(--border)] bg-[var(--surface)] transition-[width,box-shadow] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:overflow-y-auto lg:border-y-0 lg:border-l-0 lg:border-r ${
+				/*
+					`overflow-y-auto` used to sit here as well as on the nav inside.
+					Two scroll containers stacked on the same axis meant a wheel
+					gesture over the sidebar ran the nav to its end, then scrolled the
+					aside, then chained out to the document — which has just enough
+					slack to move, so the whole page drifted. The nav is the only
+					scroller; the aside is pinned to the viewport and does not move.
+				*/
+				className={`z-50 border-[var(--border)] bg-[var(--surface)] transition-[width,box-shadow] duration-200 lg:fixed lg:inset-y-0 lg:left-0 lg:overflow-hidden lg:border-y-0 lg:border-l-0 lg:border-r ${
 					mobileOpen
 						? "fixed inset-y-0 left-0 w-[min(320px,calc(100vw-2rem))] border-r shadow-[20px_0_60px_rgb(0_0_0/0.28)]"
 						: "relative border-x-0 border-t-0 border-b"
@@ -198,7 +206,9 @@ export function Sidebar({
 						aria-label={
 							chatRoute && chatMenuOpen ? "Điều hướng Chat" : "Điều hướng chính"
 						}
-						className={`${mobileOpen ? "flex" : "hidden"} min-h-0 flex-1 flex-col overflow-y-auto lg:flex`}
+						// `overscroll-contain` keeps a wheel gesture that reaches the end of
+					// the nav from continuing into whatever is behind it.
+					className={`${mobileOpen ? "flex" : "hidden"} min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain lg:flex`}
 					>
 						{chatRoute && chatMenuOpen ? (
 							<>

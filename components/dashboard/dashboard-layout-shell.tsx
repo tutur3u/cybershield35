@@ -109,9 +109,20 @@ export function DashboardLayoutShell({
 	return (
 		<DashboardAuthProvider initialAuth={auth}>
 			{auth.authenticated ? (
-				<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+				<main
+					/*
+						On a wide screen the shell is exactly the viewport and the content
+						pane is the only thing that scrolls, so the document itself has
+						nothing to move. It used to be `min-h-screen`, which leaves the
+						document a sliver of slack — enough that a gesture escaping the
+						sidebar visibly shifted the whole page. Below `lg` the document
+						scrolls normally, because there the sidebar is a collapsed bar
+						rather than a fixed column.
+					*/
+					className="min-h-screen bg-[var(--background)] text-[var(--foreground)] lg:h-screen lg:overflow-hidden"
+				>
 					<div
-						className={`min-h-screen transition-[padding] duration-200 ${
+						className={`min-h-screen transition-[padding] duration-200 lg:h-full lg:min-h-0 ${
 							sidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]"
 						}`}
 					>
@@ -125,7 +136,7 @@ export function DashboardLayoutShell({
 							className={
 								chatShell
 									? "h-[calc(100dvh-4rem)] min-w-0 overflow-hidden lg:h-screen"
-									: "min-w-0 lg:h-screen lg:overflow-y-auto"
+									: "min-w-0 lg:h-screen lg:overflow-y-auto lg:overscroll-contain"
 							}
 						>
 							<TopBar
