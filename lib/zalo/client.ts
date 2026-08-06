@@ -193,6 +193,10 @@ export type ZaloArticleContent = {
 	title: string;
 };
 
+type ZaloBodyElement =
+	| { content: string; type: "text" }
+	| { caption?: string; type: "image"; url: string };
+
 function toZaloArticlePayload(content: ZaloArticleContent) {
 	if (!content.title.trim()) throw new Error("Tiêu đề bài viết là bắt buộc.");
 	if (!content.description.trim()) {
@@ -202,14 +206,24 @@ function toZaloArticlePayload(content: ZaloArticleContent) {
 	if (!content.blocks.length) throw new Error("Bài viết cần ít nhất một khối nội dung.");
 	return {
 		author: content.author,
-		body: content.blocks.map((block) =>
+		// One element per paragraph. Zalo drops the newlines inside a text element
+		// rather than rendering them as breaks, so a block holding several
+		// paragraphs came out as a single run — "…nền kinh tế.Những áp lực…" —
+		// which is not what the author wrote or what our own preview showed.
+		body: content.blocks.flatMap<ZaloBodyElement>((block) =>
 			block.type === "text"
-				? { content: block.content, type: "text" }
-				: {
-						...(block.caption ? { caption: block.caption } : {}),
-						url: block.url,
-						type: "image",
-					},
+				? block.content
+						.split(/\n{2,}/u)
+						.map((paragraph) => paragraph.trim())
+						.filter(Boolean)
+						.map((paragraph) => ({ content: paragraph, type: "text" }))
+				: [
+						{
+							...(block.caption ? { caption: block.caption } : {}),
+							url: block.url,
+							type: "image",
+						},
+					],
 		),
 		comment: content.commentsEnabled ? "show" : "hide",
 		cover: {
