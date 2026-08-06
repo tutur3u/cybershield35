@@ -10,17 +10,26 @@ describe("article images load at the size they are shown", () => {
 	test("our own media goes through the optimiser", () => {
 		// Every cover used to download at full upload size with no re-encoding,
 		// for a slot a few hundred pixels wide.
-		expect(image).toContain("unoptimized={!ours}");
-		expect(image).toContain("function isSameOriginMedia");
+		expect(image).toContain("unoptimized={!optimisable}");
 		expect(config).toContain('formats: ["image/avif", "image/webp"]');
 	});
 
-	test("foreign hosts are still passed through untouched", () => {
-		// Pointing the optimiser at hosts we do not control makes it an open image
-		// proxy, and the foreign covers we show are expiring links that would only
-		// poison its cache.
+	test("our own host is allow-listed, narrowly", () => {
+		// Covers are stored as absolute URLs, which the optimiser classifies as
+		// remote even though they point back here — so allow-listing the local
+		// path alone matched nothing and every article image failed to load.
 		expect(config).toContain('localPatterns: [{ pathname: "/api/articles/**" }]');
-		expect(config).not.toContain("remotePatterns");
+		expect(config).toContain("remotePatterns:");
+		expect(config).toContain("hostname: publicAppHostname");
+		// Narrow: the media route only, never an arbitrary path.
+		expect(config).not.toContain('pathname: "/**"');
+	});
+
+	test("optimisability does not depend on the browser", () => {
+		// The server and the browser must agree on the rendered attributes; a
+		// window-only check would render one src during SSR and another after.
+		expect(image).toContain("function isOptimisableMedia");
+		expect(image).not.toContain("window.location.origin");
 	});
 });
 

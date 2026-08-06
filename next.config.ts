@@ -3,6 +3,21 @@ import { withWorkflow } from "workflow/next";
 
 const useWebpackBuild = process.env.NEXT_WEBPACK_BUILD === "1";
 
+/**
+ * The host this app is served from, which is the only remote host whose images
+ * the optimiser may touch. Falls back to the production domain so a build
+ * without the variable still serves its own media.
+ */
+const publicAppHostname = (() => {
+	const configured = process.env.CYBERSHIELD35_PUBLIC_APP_URL?.trim();
+	if (!configured) return "cybershield35.ttr.gg";
+	try {
+		return new URL(configured).hostname;
+	} catch {
+		return "cybershield35.ttr.gg";
+	}
+})();
+
 const securityHeaders = [
 	{ key: "X-Content-Type-Options", value: "nosniff" },
 	{ key: "X-Frame-Options", value: "DENY" },
@@ -39,6 +54,21 @@ const nextConfig: NextConfig = {
 		 */
 		formats: ["image/avif", "image/webp"],
 		localPatterns: [{ pathname: "/api/articles/**" }],
+		/*
+		 * Our own media is stored as absolute URLs, which the optimiser classifies
+		 * as remote even though they point back here — so allow-listing the local
+		 * path alone matched nothing and every article image failed to load. The
+		 * pathname keeps the permission narrow: only the media route, never an
+		 * arbitrary file, and only from hosts we serve.
+		 */
+		remotePatterns: [
+			{
+				hostname: publicAppHostname,
+				pathname: "/api/articles/**",
+				protocol: "https",
+			},
+			{ hostname: "localhost", pathname: "/api/articles/**", protocol: "http" },
+		],
 		// Article covers render around 380px in the rail and full width on mobile.
 		imageSizes: [64, 128, 256, 384],
 	},

@@ -22,16 +22,23 @@ export function isRenderableImageUrl(
 	}
 }
 
-/** Media served by this app, which the image optimiser may safely process. */
-function isSameOriginMedia(value: string) {
+/**
+ * Whether this is media we serve, and may therefore optimise.
+ *
+ * Decided from the path alone, never from `window`: the server and the browser
+ * have to agree on the rendered attributes, and a check that only works in the
+ * browser would render one `src` during SSR and a different one after
+ * hydration.
+ *
+ * The optimiser also splits its allow-lists by URL shape — a path is checked
+ * against `localPatterns`, an absolute URL against `remotePatterns`, even when
+ * it points back at this host — so our own hostname is allow-listed there too.
+ * Allow-listing the local path alone matched nothing and every image failed.
+ */
+function isOptimisableMedia(value: string) {
 	if (value.startsWith("/api/articles/")) return true;
 	try {
-		const url = new URL(value);
-		return (
-			typeof window !== "undefined" &&
-			url.origin === window.location.origin &&
-			url.pathname.startsWith("/api/articles/")
-		);
+		return new URL(value).pathname.startsWith("/api/articles/");
 	} catch {
 		return false;
 	}
@@ -78,12 +85,12 @@ export function SafeImage({
 	// Our own media is resized and re-encoded; anything else is passed through
 	// untouched, because the optimiser must not be pointed at hosts we do not
 	// control and expiring CDN links would only poison its cache.
-	const ours = isSameOriginMedia(src);
+	const optimisable = isOptimisableMedia(src);
 
 	return (
 		<Image
 			alt={alt}
-			unoptimized={!ours}
+			unoptimized={!optimisable}
 			className={className}
 			height={height}
 			loading={priority ? "eager" : "lazy"}
