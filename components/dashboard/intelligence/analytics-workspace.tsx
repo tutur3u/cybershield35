@@ -80,7 +80,13 @@ export function IntelligenceAnalyticsWorkspace({
 		<div className="min-w-0 space-y-4">
 			<AnalyticsHeadline analytics={analytics} />
 			<AnalyticsSummary filters={filters} />
-			<div className="grid min-w-0 gap-4 xl:grid-cols-2">
+			{/*
+				A lone trailing chart spans both columns rather than sitting beside an
+				empty cell. The panel count changes as data appears — a source with no
+				hashtags, a window with no momentum — so which one ends up last is not
+				fixed and cannot be hard-coded.
+			*/}
+			<div className="grid min-w-0 gap-4 xl:grid-cols-2 xl:[&>*:last-child:nth-child(odd)]:col-span-2">
 			<ChartFrame
 				description="Tỷ trọng nội dung theo mức cần ưu tiên xử lý."
 				series={RISK_SERIES.map(({ color, label }) => ({ color, label }))}

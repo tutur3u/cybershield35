@@ -3,10 +3,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 
 import type { IntelligenceFilters } from "@/components/dashboard/types";
-import {
-	DASHBOARD_INTELLIGENCE_TAG,
-	dashboardIntelligenceTag,
-} from "@/lib/dashboard/cache-tags";
+import { dashboardIntelligenceTag } from "@/lib/dashboard/cache-tags";
 import {
 	getIntelligenceAnalytics,
 	getIntelligenceEvidenceSample,
@@ -26,8 +23,8 @@ import {
  * view; the numbers it describes refresh on their own five-minute cycle and are
  * always the live ones.
  *
- * Tagged alongside the rest of the intelligence data so a scan completing clears
- * the narrative too, rather than leaving yesterday's read above today's charts.
+ * Refreshed on its own timer rather than with the rest of the intelligence
+ * data: see the tag note below for why sharing that tag made it uncacheable.
  */
 export async function getIntelligenceSummary(
 	filters: IntelligenceFilters = {},
@@ -46,7 +43,20 @@ async function getCachedIntelligenceSummary(
 ): Promise<IntelligenceSummary | null> {
 	"use cache";
 	cacheLife({ expire: 7200, revalidate: 1800, stale: 1800 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("summary"));
+	/*
+	 * Its own tag only, deliberately not the broad intelligence one.
+	 *
+	 * Twenty-five call sites invalidate `DASHBOARD_INTELLIGENCE_TAG`, and with
+	 * scans running through the day something clears it every few minutes. The
+	 * summary was tagged with it, so the cache never survived long enough to be
+	 * read: every reader regenerated it from cold and waited the full forty
+	 * seconds, every single refresh.
+	 *
+	 * Half an hour behind the charts is the right trade for a paragraph about
+	 * trends — it describes the shape of a window, not a live count — and the
+	 * daily job warms it besides.
+	 */
+	cacheTag(dashboardIntelligenceTag("summary"));
 
 	const [analytics, samples] = await Promise.all([
 		getIntelligenceAnalytics({ timeRange: range }),

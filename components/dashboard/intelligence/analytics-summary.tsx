@@ -88,7 +88,7 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 					exists for.
 				*/}
 				{summary.topics?.length ? (
-					<ul className="mt-4 grid gap-2 sm:grid-cols-2">
+					<ul className="mt-4 grid gap-2 sm:grid-cols-2 sm:[&>li:last-child:nth-child(odd)]:col-span-2">
 						{summary.topics.map((topic) => (
 							<li
 								className="flex gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-soft)] p-3"
@@ -122,7 +122,13 @@ export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) 
 					</ul>
 				) : null}
 
-				<div className="mt-4 grid gap-2.5 lg:grid-cols-3">
+				{/*
+					Six columns rather than three, so a trailing row can divide evenly:
+					each card takes two (three per row), a lone remainder takes all six,
+					and a pair takes three each. Three equal columns cannot express
+					"half a row", which is what left a gap under the last card.
+				*/}
+				<div className="mt-4 grid gap-2.5 lg:grid-cols-6 lg:[&>article]:col-span-2 lg:[&>article:last-child:nth-child(3n-2)]:col-span-6 lg:[&>article:nth-last-child(2):nth-child(3n-2)]:col-span-3 lg:[&>article:last-child:nth-child(3n-1)]:col-span-3">
 					{summary.trends.map((trend) => {
 						const Icon =
 							trend.direction === "up"

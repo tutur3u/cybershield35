@@ -486,7 +486,9 @@ async function getCachedEvidenceSample(
 ): Promise<IntelligenceEvidenceSample[]> {
 	"use cache";
 	cacheLife({ expire: 3600, revalidate: 600, stale: 600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("sample"));
+	// Feeds the summary, so it follows the summary's cache life rather than the
+	// charts' — sharing the broad tag would make the expensive half uncacheable.
+	cacheTag(dashboardIntelligenceTag("sample"));
 
 	const days = rangeDays(range);
 	const rows = await adminSqlClient<
