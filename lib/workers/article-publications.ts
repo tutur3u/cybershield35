@@ -489,6 +489,17 @@ async function executePublicationOperation(
 			? "hide"
 			: "show";
 	const content = toZaloContent(article, status);
+	// Checked here rather than left to Zalo's own payload validation, which
+	// throws a plain error the queue then retries. A missing title is not a
+	// transport hiccup — it is the same on the fourth attempt as the first, and
+	// meanwhile the article sits locked in `syncing` and cannot be edited to fix
+	// the very thing being complained about.
+	if (!content.title.trim()) {
+		throw new PublicationContentError("Tiêu đề bài viết là bắt buộc.");
+	}
+	if (!content.description.trim()) {
+		throw new PublicationContentError("Mô tả bài viết là bắt buộc.");
+	}
 	await validateRemoteImages(content);
 	await adminDb
 		.update(articles)

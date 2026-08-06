@@ -903,6 +903,18 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(worker).toContain("const response = await probeRemoteImage(url);");
 		expect(worker).not.toContain("if (!response?.ok) continue;");
 	});
+
+	test("a missing title fails once instead of locking the article", () => {
+		// Left to Zalo's own payload validation this throws a plain error the queue
+		// retries, and the article sits locked in `syncing` — unable to be edited
+		// to fix the very thing being complained about.
+		expect(worker).toContain(
+			'throw new PublicationContentError("Tiêu đề bài viết là bắt buộc.")',
+		);
+		expect(worker).toContain(
+			'throw new PublicationContentError("Mô tả bài viết là bắt buộc.")',
+		);
+	});
 });
 
 describe("CMS storage sets itself up", () => {
