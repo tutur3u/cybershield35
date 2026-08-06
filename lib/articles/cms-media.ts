@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { buildTuturuuuApiUrl, type TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { adminDb } from "@/lib/db/client";
+import { logOperation } from "@/lib/operations/telemetry";
 import { articleMedia, articles } from "@/lib/db/schema";
 
 const COLLECTION_SLUG = "article-media";
@@ -113,7 +114,25 @@ async function cmsRequest<T>(session: TuturuuuAdminSession, suffix: string, init
 		headers: { Authorization: `Bearer ${session.accessToken}`, ...init.headers },
 	});
 	const body = await response.json().catch(() => null);
-	if (!response.ok) throw new Error(body && typeof body === "object" && "error" in body ? String(body.error) : "Tuturuuu CMS request failed");
+	if (!response.ok) {
+		// Logged because the caller's message is a safe generic one: a CMS refusal
+		// reached nobody, so "Không thể tải ảnh lên" was the whole story an
+		// operator — or anyone debugging — ever got.
+		logOperation(
+			"cms_request_failed",
+			{
+				body: JSON.stringify(body).slice(0, 500),
+				status: response.status,
+				suffix,
+			},
+			"error",
+		);
+		throw new Error(
+			body && typeof body === "object" && "error" in body
+				? String(body.error)
+				: `Tuturuuu CMS request failed (${response.status})`,
+		);
+	}
 	return body as T;
 }
 

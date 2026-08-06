@@ -4,6 +4,7 @@ import { articleIdSchema } from "@/lib/articles/schemas";
 import { uploadArticleCmsMedia } from "@/lib/articles/cms-media";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { logOperation } from "@/lib/operations/telemetry";
 
 export const maxDuration = 60;
 
@@ -27,6 +28,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		});
 		return Response.json(result, { status: 201, headers: authHeaders(auth) });
 	} catch (error) {
+		logOperation(
+			"article_media_upload_failed",
+			{
+				message: error instanceof Error ? error.message.slice(0, 300) : null,
+				name: error instanceof Error ? error.name : null,
+			},
+			"error",
+		);
 		return Response.json({ error: publicErrorMessage(error, "Không thể tải ảnh lên Tuturuuu CMS.") }, { status: error instanceof z.ZodError ? 400 : 409, headers: authHeaders(auth) });
 	}
 }
