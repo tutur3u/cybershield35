@@ -4,8 +4,17 @@ const listSkeletonRows = Array.from({ length: 5 }, (_, index) => index);
 
 export function DashboardAppSkeleton() {
 	return (
-		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-			<div className="min-h-screen lg:pl-[248px]">
+		/*
+			The same scroll model as the real shell, deliberately.
+
+			This skeleton stands in for `DashboardLayoutShell` until it hydrates, and
+			it used to size itself differently: `min-h-screen` on the main with an
+			unconstrained section, so the document itself scrolled. For the first
+			moments of every page load the whole page was scrollable, and then it
+			abruptly was not — a shift you could catch with the wheel.
+		*/
+		<main className="min-h-screen bg-[var(--background)] text-[var(--foreground)] lg:h-screen lg:overflow-hidden">
+			<div className="min-h-screen lg:h-full lg:min-h-0 lg:pl-[248px]">
 				<aside className="z-30 border-b border-[var(--border)] bg-[var(--surface)] lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:border-r lg:border-b-0">
 					<div className="flex h-16 items-center border-b border-[var(--border)] px-4">
 						<div className="h-6 w-36 rounded-md bg-[var(--surface-soft)]" />
@@ -19,7 +28,7 @@ export function DashboardAppSkeleton() {
 						))}
 					</nav>
 				</aside>
-				<section className="min-w-0">
+				<section className="min-w-0 lg:h-screen lg:overflow-y-auto lg:overscroll-contain">
 					<div className="sticky top-0 z-20 flex min-h-16 items-center justify-end gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
 						<div className="h-7 w-40 rounded-md bg-[var(--surface-soft)]" />
 						<div className="size-9 rounded-md bg-[var(--surface-soft)]" />
