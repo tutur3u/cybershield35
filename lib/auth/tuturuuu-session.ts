@@ -873,6 +873,32 @@ function normalizeScopes(scopes: unknown) {
 	];
 }
 
+/**
+ * The claims the *token* carries, as opposed to the grant we recorded.
+ *
+ * The two can disagree — a grant is what the user approved, a token is what was
+ * minted — and a service that reads the token will act on the latter. Only used
+ * to describe a rejection; nothing decides access from this.
+ */
+export function describeAccessTokenClaims(accessToken: string) {
+	const [, payload] = accessToken.split(".");
+	if (!payload) return { scopes: [] as string[], targetApp: null, typ: null };
+
+	try {
+		const parsed = JSON.parse(
+			Buffer.from(payload, "base64url").toString("utf8"),
+		) as { scopes?: unknown; target_app?: unknown; typ?: unknown };
+		return {
+			scopes: normalizeScopes(parsed.scopes),
+			targetApp:
+				typeof parsed.target_app === "string" ? parsed.target_app : null,
+			typ: typeof parsed.typ === "string" ? parsed.typ : null,
+		};
+	} catch {
+		return { scopes: [] as string[], targetApp: null, typ: null };
+	}
+}
+
 function decodeAccessTokenScopes(accessToken: string) {
 	const [, payload] = accessToken.split(".");
 	if (!payload) return [];

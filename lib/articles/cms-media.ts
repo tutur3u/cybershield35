@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import {
 	buildTuturuuuApiUrl,
+	describeAccessTokenClaims,
 	getSessionGrantedScopes,
 	type TuturuuuAdminSession,
 } from "@/lib/auth/tuturuuu-session";
@@ -130,6 +131,14 @@ async function cmsRequest<T>(session: TuturuuuAdminSession, suffix: string, init
 				// permission the workspace has not given the app. Naming the
 				// granted scopes says which without another round trip.
 				grantedScopes: getSessionGrantedScopes(session).join(" "),
+				// The grant and the token can disagree, and the service reads the
+				// token — so a 403 against a grant that looks complete is only
+				// explicable by showing what the token itself carries.
+				tokenScopes: describeAccessTokenClaims(session.accessToken).scopes.join(
+					" ",
+				),
+				tokenTargetApp: describeAccessTokenClaims(session.accessToken).targetApp,
+				tokenTyp: describeAccessTokenClaims(session.accessToken).typ,
 				status: response.status,
 				suffix,
 			},
