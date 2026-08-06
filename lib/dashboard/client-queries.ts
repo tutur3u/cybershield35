@@ -207,6 +207,10 @@ export function intelligenceSummaryQueryOptions(
 			return payload.summary ?? null;
 		},
 		queryKey: dashboardQueryKeys.intelligenceSummary(params),
+		// One retry, not the default three. Each attempt waits on a model for tens
+		// of seconds, so three of them keep the panel in its loading state for
+		// minutes — which is what made it look like an infinite skeleton.
+		retry: 1,
 		staleTime: intelligenceQueryStaleTimeMs * 4,
 	});
 }

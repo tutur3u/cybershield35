@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
 	ArrowRight,
+	LoaderCircle,
 	Minus,
 	Sparkles,
 	TrendingDown,
@@ -27,15 +28,28 @@ import { intelligenceSummaryQueryOptions } from "@/lib/dashboard/client-queries"
 export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) {
 	const summaryQuery = useQuery(intelligenceSummaryQueryOptions(filters));
 
+	/*
+	 * A labelled wait, not a bare pulse.
+	 *
+	 * Generating this reads a window of posts and takes tens of seconds on a cold
+	 * cache. Three grey rectangles breathing for that long is indistinguishable
+	 * from a broken panel — and was reported as exactly that. Saying what is
+	 * happening costs one line and turns a fault into a wait.
+	 */
 	if (summaryQuery.isPending) {
 		return (
-			<section className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
-				<div className="h-4 w-40 rounded bg-[var(--surface-soft)]" />
-				<div className="mt-3 h-6 w-3/4 rounded bg-[var(--surface-soft)]" />
-				<div className="mt-4 grid gap-2 sm:grid-cols-3">
-					<div className="h-16 rounded-lg bg-[var(--surface-soft)]" />
-					<div className="h-16 rounded-lg bg-[var(--surface-soft)]" />
-					<div className="h-16 rounded-lg bg-[var(--surface-soft)]" />
+			<section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+				<span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-[var(--accent-strong)]">
+					<LoaderCircle className="animate-spin" size={13} aria-hidden />
+					Đang tổng hợp xu hướng
+				</span>
+				<p className="mt-2 text-[12.5px] text-[var(--muted)]">
+					AI đang đọc lại nội dung trong kỳ. Việc này mất khoảng nửa phút cho lần
+					đầu — các biểu đồ bên dưới đã sẵn sàng.
+				</p>
+				<div className="mt-4 grid gap-2 sm:grid-cols-2">
+					<div className="h-14 animate-pulse rounded-lg bg-[var(--surface-soft)]" />
+					<div className="h-14 animate-pulse rounded-lg bg-[var(--surface-soft)]" />
 				</div>
 			</section>
 		);

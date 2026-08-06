@@ -437,6 +437,30 @@ async function drainScanQueue() {
 	return { capacity, failed, processed, scanIds };
 }
 
+/**
+ * Regenerates the analysis-page summary so a reader never pays for it.
+ *
+ * The daily job invalidates the intelligence caches when it finishes, which
+ * includes the written summary — so the next person to open the page was
+ * always the one who waited the forty seconds it takes to produce, every day,
+ * for ever. Cron has the budget for that and a person watching a spinner does
+ * not.
+ *
+ * Best-effort on purpose: a summary is the least important thing this job does,
+ * and it must never be the reason a scan run is reported as failed.
+ */
+async function warmIntelligenceSummary() {
+	try {
+		const { getIntelligenceSummary } = await import(
+			"@/lib/dashboard/intelligence-summary"
+		);
+		const summary = await getIntelligenceSummary({ timeRange: "30d" });
+		return { warmed: Boolean(summary) };
+	} catch {
+		return { warmed: false };
+	}
+}
+
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
 		// Before draining: a job left locked by a killed request blocks its article
@@ -482,10 +506,14 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	}
 
 	await refreshIntelligenceRollupsBestEffort("daily-orchestrator");
+	// Last, so it reads the rollups this run just produced rather than the ones
+	// it replaced.
+	const summary = await warmIntelligenceSummary();
 
 	return {
 		automatedDraftIds,
 		automatedDraftsProcessed,
+		summaryWarmed: summary.warmed,
 		enqueued: enqueued.enqueued,
 		failed,
 		processed,

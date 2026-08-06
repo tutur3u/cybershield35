@@ -65,7 +65,7 @@ const summarySchema = z.object({
 			}),
 		)
 		.min(2)
-		.max(8),
+		.max(6),
 });
 
 export type IntelligenceSummary = z.infer<typeof summarySchema> & {
@@ -164,7 +164,7 @@ export async function summarizeIntelligence(
 				soLieu: toPromptFacts(analytics),
 				// Trimmed again here, not only in SQL: the sample is drawn by reach,
 				// so the tail is short posts nobody engaged with.
-				mauBaiViet: samples.slice(0, 40).map((item) => ({
+				mauBaiViet: samples.slice(0, 28).map((item) => ({
 					chuDe: item.topics,
 					lapTruong: item.stance,
 					noiDung: item.quote,
@@ -174,7 +174,7 @@ export async function summarizeIntelligence(
 					tuongTac: item.engagement,
 				})),
 				yeuCau:
-					"Hai việc. (1) 'topics': gom mẫu bài viết thành 2-8 NHÓM NỘI DUNG CỤ THỂ đang được bàn, mỗi nhóm ghi rõ sự việc là gì, đang nói gì về nó, có bao nhiêu bài trong mẫu và sắc thái chung. Ví dụ đúng: 'Tội phạm mạng liên quan cờ bạc trực tuyến', 'Tranh chấp đền bù thu hồi đất tại một dự án hạ tầng'. Ví dụ SAI vì quá chung: 'Chính trị', 'An ninh trật tự'. (2) 'trends': 2-5 thay đổi đáng chú ý so với kỳ trước, mỗi thay đổi gắn với một con số cụ thể.",
+					"Hai việc. (1) 'topics': gom mẫu bài viết thành 2-6 NHÓM NỘI DUNG CỤ THỂ đang được bàn, mỗi nhóm ghi rõ sự việc là gì, đang nói gì về nó, có bao nhiêu bài trong mẫu và sắc thái chung. Ví dụ đúng: 'Tội phạm mạng liên quan cờ bạc trực tuyến', 'Tranh chấp đền bù thu hồi đất tại một dự án hạ tầng'. Ví dụ SAI vì quá chung: 'Chính trị', 'An ninh trật tự'. (2) 'trends': 2-5 thay đổi đáng chú ý so với kỳ trước, mỗi thay đổi gắn với một con số cụ thể.",
 			}),
 			system: SYSTEM_PROMPT,
 			temperature: 0.2,

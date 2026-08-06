@@ -505,7 +505,7 @@ async function getCachedEvidenceSample(
 			e.risk_level::text as risk_level,
 			coalesce(nullif(e.sentiment, ''), 'neutral') as sentiment,
 			coalesce(nullif(e.stance, ''), 'unknown') as stance,
-			left(coalesce(nullif(e.summary, ''), e.quote), 320) as quote,
+			left(coalesce(nullif(e.summary, ''), e.quote), 200) as quote,
 			(
 				case when coalesce(e.engagement->>'reactions', '') ~ '^\\d+$' then (e.engagement->>'reactions')::bigint else 0 end
 				+ case when coalesce(e.engagement->>'comments', '') ~ '^\\d+$' then (e.engagement->>'comments')::bigint else 0 end
@@ -518,7 +518,7 @@ async function getCachedEvidenceSample(
 		${days ? adminSqlClient`where e.created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
 		group by e.id
 		order by engagement desc, e.created_at desc
-		limit 60
+		limit 28
 	`;
 
 	return rows.map((row) => ({
