@@ -319,21 +319,6 @@ export function useArticleEditor(articleId: string) {
 	 * Preview path: pushes a hidden copy to Zalo without revealing it, so an editor
 	 * can check the real rendering before going live.
 	 */
-	const syncPreview = useCallback(async () => {
-		if (dirty && !(await save())) return;
-		await runAction("sync", async () => {
-			await fetchJson(`/api/articles/${articleId}/publish-internal`, {
-				method: "POST",
-			});
-			await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
-			setNotice({
-				text: "Đã tạo bản xem trước ẩn trên Zalo OA. Bài chưa hiển thị công khai.",
-				tone: "success",
-			});
-			await refresh();
-		});
-	}, [articleId, dirty, refresh, runAction, save]);
-
 	/**
 	 * Choosing a visibility used to set local state and nothing else, so on an
 	 * article already staged on Zalo the click appeared to do nothing at all —
@@ -600,7 +585,6 @@ export function useArticleEditor(articleId: string) {
 		setProposal,
 		changePublishTarget,
 		setPublishTarget,
-		syncPreview,
 		setSchedule,
 		setTargetOaConnectionId,
 		setTone,

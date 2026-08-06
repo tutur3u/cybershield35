@@ -48,7 +48,6 @@ export type PublishRailProps = {
 	onScheduleChange: (value: string) => void;
 	onSchedulePublish: () => void;
 	onPublishTargetChange: (value: ZaloPublishTarget) => void;
-	onSyncPreview: () => void;
 	onTargetOaChange: (value: string) => void;
 	publishTarget: ZaloPublishTarget;
 	readiness: ReadinessItem[];
@@ -114,7 +113,6 @@ export function PublishRail(props: PublishRailProps) {
  */
 export function PublishSections(props: PublishRailProps) {
 	const { article } = props.detail;
-	const ready = props.readiness.every((item) => item.done || item.optional);
 	const live = article.publicationStatus === "published";
 
 	return (
@@ -265,28 +263,7 @@ export function PublishSections(props: PublishRailProps) {
 									<EyeOff size={14} /> Gỡ bài khỏi Zalo OA
 								</button>
 							</>
-						) : (
-							<>
-								<button
-									type="button"
-									disabled={!ready || Boolean(props.busy)}
-									onClick={props.onSyncPreview}
-									className={`${secondaryButton} w-full`}
-								>
-									{props.busy === "sync" ? (
-										<LoaderCircle size={15} className="animate-spin" />
-									) : (
-										<Eye size={15} />
-									)}
-									Tạo bản xem trước ẩn trên Zalo
-								</button>
-								<p className="text-[11px] leading-4 text-[var(--muted)]">
-									Không bắt buộc. Dùng khi bạn muốn kiểm tra bài trên Zalo trước khi
-									hiển thị công khai. Nút “Đăng lên Zalo OA” ở đầu trang sẽ thực hiện
-									toàn bộ các bước.
-								</p>
-							</>
-						)}
+						) : null}
 
 						<div className="border-t border-[var(--border)] pt-3">
 							<Field

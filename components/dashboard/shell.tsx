@@ -566,7 +566,16 @@ export function TopBar({
 				<div id="chat-topbar-portal" className="min-w-0 flex-1" />
 			) : null}
 			<div className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[var(--muted-strong)]">
-				{chatRoute ? null : <BrowserClock />}
+				{/*
+					The clock is a reading, not a control. Grouping it tightly with the
+					three buttons made it look like a fourth one, so it keeps its own
+					space while the buttons stay close together.
+				*/}
+				{chatRoute ? null : (
+					<span className="mr-2.5">
+						<BrowserClock />
+					</span>
+				)}
 				<a
 					aria-label="Mở mã nguồn trên GitHub"
 					className="grid size-8 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]"

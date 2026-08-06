@@ -22,6 +22,21 @@ export function isRenderableImageUrl(
 	}
 }
 
+/** Media served by this app, which the image optimiser may safely process. */
+function isSameOriginMedia(value: string) {
+	if (value.startsWith("/api/articles/")) return true;
+	try {
+		const url = new URL(value);
+		return (
+			typeof window !== "undefined" &&
+			url.origin === window.location.origin &&
+			url.pathname.startsWith("/api/articles/")
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function SafeImage({
 	alt,
 	className = "",
@@ -60,10 +75,15 @@ export function SafeImage({
 
 	if (!renderable || broken) return <>{fallback}</>;
 
+	// Our own media is resized and re-encoded; anything else is passed through
+	// untouched, because the optimiser must not be pointed at hosts we do not
+	// control and expiring CDN links would only poison its cache.
+	const ours = isSameOriginMedia(src);
+
 	return (
 		<Image
-			unoptimized
 			alt={alt}
+			unoptimized={!ours}
 			className={className}
 			height={height}
 			loading={priority ? "eager" : "lazy"}

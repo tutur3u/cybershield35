@@ -180,7 +180,6 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 							onDelete={() => void editor.deleteLocalArticle()}
 							onPublishAction={(action) => void editor.publishAction(action)}
 							onPublishTargetChange={(value) => void editor.changePublishTarget(value)}
-							onSyncPreview={() => void editor.syncPreview()}
 							onRefreshRemote={() => void editor.refreshFromZalo()}
 							onRemoveRemote={() => void editor.removeFromZalo()}
 							onScheduleChange={editor.setSchedule}
@@ -216,7 +215,6 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						onDelete={() => void editor.deleteLocalArticle()}
 						onPublishAction={(action) => void editor.publishAction(action)}
 						onPublishTargetChange={(value) => void editor.changePublishTarget(value)}
-						onSyncPreview={() => void editor.syncPreview()}
 						onRefreshRemote={() => void editor.refreshFromZalo()}
 						onRemoveRemote={() => void editor.removeFromZalo()}
 						onScheduleChange={editor.setSchedule}
