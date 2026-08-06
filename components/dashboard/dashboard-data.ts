@@ -43,8 +43,11 @@ export const navSections: NavSection[] = [
 		label: "Quy trình",
 		items: [
 			{ label: "Nguồn & Quét", href: "/sources", icon: Radar },
-			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
+			// Analysis before the timeline: it answers "what is going on" in one
+			// screen, and the timeline is where you go once you know what to look
+			// for. Reading the raw feed first is the slower way round.
 			{ label: "Phân tích", href: "/intelligence", icon: Layers3 },
+			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
 			{ label: "Bài viết", href: "/articles", icon: Newspaper },
 		],
 	},

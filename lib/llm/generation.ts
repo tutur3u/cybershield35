@@ -166,12 +166,58 @@ export function getInteractiveModelRuntime(
   return fallback;
 }
 
+/**
+ * The runtime for work that has no user attached.
+ *
+ * Chat runs on the reader's own Tuturuuu app session, so it reaches the
+ * metered gateway and shows up under the workspace's usage. Everything
+ * else — risk classification, analysis, drafts, article generation, the
+ * analysis-page summary — runs in cron and workflows where there is no session
+ * to borrow, and so fell through to a raw provider key. That is the whole of
+ * the leak: the interactive path is a handful of calls a day and is counted,
+ * while the batch path scored sixteen hundred items and was not.
+ *
+ * A machine credential fixes it, because it carries the same workspace
+ * attribution a session does without needing a person present. When one is
+ * configured this routes through the gateway; when it is not, behaviour is
+ * exactly what it was, so scanning does not stop while the credential is being
+ * issued.
+ */
+function getMachineModelRuntime() {
+  const token = cleanSecret(process.env.TUTURUUU_AI_APP_TOKEN);
+  const workspaceId = cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID);
+  if (!token || !workspaceId) return null;
+
+  const allowed = getAllowedAiModels();
+  const configured = process.env.TUTURUUU_AI_MODEL?.trim();
+  const model = configured && allowed.includes(configured) ? configured : allowed[0]!;
+  const provider = createOpenAI({
+    apiKey: token,
+    baseURL:
+      process.env.TUTURUUU_AI_BASE_URL?.trim() ??
+      "https://tuturuuu.com/api/v1/external-ai",
+    headers: { "X-Tuturuuu-Workspace-Id": workspaceId },
+    name: "tuturuuu-ai",
+  });
+
+  return {
+    // The gateway speaks the OpenAI chat-completions contract; selecting it
+    // explicitly avoids sending Responses-API-only fields it would reject.
+    model: provider.chat(model),
+    resolved: {
+      model,
+      provider: "tuturuuu" as const,
+      source: "machine-credential" as const,
+    },
+  };
+}
+
 function getModel() {
-  return getModelRuntime()?.model ?? null;
+  return (getMachineModelRuntime() ?? getModelRuntime())?.model ?? null;
 }
 
 export function getRiskModelRuntime() {
-  return getModelRuntime();
+  return getMachineModelRuntime() ?? getModelRuntime();
 }
 
 export async function analyzeEvidence(

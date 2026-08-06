@@ -157,3 +157,35 @@ describe("Tuturuuu is the only AI provider boundary", () => {
 		).toEqual([]);
 	});
 });
+
+describe("work without a user still bills the workspace", () => {
+	const generation = readFileSync("lib/llm/generation.ts", "utf8");
+
+	test("batch work prefers the metered gateway over a raw provider key", () => {
+		// Chat borrows the reader's session and is counted; scans, drafts and the
+		// analysis summary have no session and fell through to a provider key, so
+		// the heaviest use of the model was the part nobody was billed for.
+		expect(generation).toContain("function getMachineModelRuntime");
+		expect(generation).toContain(
+			"return getMachineModelRuntime() ?? getModelRuntime()",
+		);
+	});
+
+	test("the machine credential carries workspace attribution", () => {
+		// A token without the workspace header reaches the gateway but cannot be
+		// attributed, which looks identical to not being tracked at all.
+		const machine = generation.slice(
+			generation.indexOf("function getMachineModelRuntime"),
+		);
+		expect(machine.slice(0, machine.indexOf("function getModel("))).toContain(
+			'"X-Tuturuuu-Workspace-Id": workspaceId',
+		);
+	});
+
+	test("a missing credential degrades rather than stopping the scanner", () => {
+		const machine = generation.slice(
+			generation.indexOf("function getMachineModelRuntime"),
+		);
+		expect(machine).toContain("if (!token || !workspaceId) return null");
+	});
+});
