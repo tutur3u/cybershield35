@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+	EVIDENCE_SENTIMENTS,
+	EVIDENCE_STANCES,
+} from "@/lib/llm/risk-classification";
+
 import type {
 	TimelineDueFilter,
 	TimelineFilters,
@@ -62,9 +67,12 @@ const timelineQuerySchema = z
 			.optional(),
 		q: z.string().trim().max(240).optional(),
 		risk: z.enum(["all", "low", "medium", "high"]).default("all"),
-		sentiment: z.enum(["positive", "neutral", "negative"]).optional(),
+		// Taken from the shared vocabulary rather than repeated. This list still
+		// said "opposed" after the classifier moved to "critical", so the request
+		// was rejected with a 400 before it ever reached the query.
+		sentiment: z.enum(EVIDENCE_SENTIMENTS).optional(),
 		sort: z.enum(timelineSortValues).default("published-desc"),
-		stance: z.enum(["supportive", "neutral", "opposed"]).optional(),
+		stance: z.enum(EVIDENCE_STANCES).optional(),
 		timeRange: z.enum(["7d", "30d", "90d", "all"]).default("all"),
 		topic: z.string().trim().max(160).optional(),
 		triageStatus: z

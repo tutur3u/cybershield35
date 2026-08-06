@@ -83,3 +83,26 @@ describe("the classifier judges sentiment and stance", () => {
 		);
 	});
 });
+
+describe("the request schema accepts what the classifier writes", () => {
+	test("every stored value survives a round trip through the query", async () => {
+		// `stance=critical` answered 400: the request schema still said "opposed"
+		// after the classifier had moved on, so the filter was rejected before it
+		// ever reached the database.
+		const { parseTimelineSearchParams } = await import(
+			"@/lib/dashboard/timeline-query"
+		);
+		for (const value of EVIDENCE_STANCES) {
+			const parsed = parseTimelineSearchParams(
+				new URLSearchParams({ stance: value }),
+			);
+			expect(parsed.filters.stance).toBe(value);
+		}
+		for (const value of EVIDENCE_SENTIMENTS) {
+			const parsed = parseTimelineSearchParams(
+				new URLSearchParams({ sentiment: value }),
+			);
+			expect(parsed.filters.sentiment).toBe(value);
+		}
+	});
+});
