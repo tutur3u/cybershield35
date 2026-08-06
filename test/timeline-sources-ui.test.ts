@@ -171,7 +171,8 @@ describe("the sidebar footer carries attribution, not a link dump", () => {
 		// names alone answer neither.
 		expect(shell).toContain("function AttributionLink");
 		expect(shell).toContain("Sản phẩm của");
-		expect(shell).toContain("role={");
+		expect(shell).toContain('role="Đơn vị chủ quản"');
+		expect(shell).toContain('role="Phát triển & công nghệ"');
 		expect(shell).toContain('target="_blank"');
 	});
 });
