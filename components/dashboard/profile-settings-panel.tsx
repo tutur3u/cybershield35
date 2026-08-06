@@ -208,7 +208,7 @@ export function ProfileSettingsPanel({
 						<button
 							type="submit"
 							disabled={!canSave}
-							className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+							className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === "save" ? (
 								<Loader2 size={14} className="animate-spin" />

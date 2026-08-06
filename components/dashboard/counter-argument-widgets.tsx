@@ -379,7 +379,7 @@ export function DraftReview({
 										type="button"
 										disabled={isSaving || instruction.trim().length < 3}
 										onClick={() => void applyAiEdit()}
-										className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
+										className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55"
 									>
 										{isSaving ? (
 											<LoaderCircle className="animate-spin" size={14} />

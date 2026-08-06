@@ -367,7 +367,7 @@ export function PrimaryButton({
 			type={type}
 			disabled={disabled}
 			onClick={onClick}
-			className="inline-flex h-11 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-strong)] disabled:opacity-60"
+			className="inline-flex h-11 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-4 text-[13px] font-bold text-white shadow-sm transition whitespace-nowrap hover:bg-[var(--accent-fill-hover)] disabled:opacity-60"
 		>
 			{children}
 		</button>

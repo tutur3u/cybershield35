@@ -300,7 +300,7 @@ export const inputClass =
 export const textareaClass =
 	"w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-[13px] leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15";
 export const primaryButton =
-	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-50";
+	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-50";
 export const successButton =
 	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--brand)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50";
 export const secondaryButton =

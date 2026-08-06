@@ -194,7 +194,7 @@ export default function EvidenceTriageSheet({
 							/>
 							<div className="flex items-center justify-between gap-3">
 								<span className="text-[11px] text-[var(--muted)]">{noteBody.length}/4000</span>
-								<button type="submit" disabled={!noteBody.trim() || noteMutation.isPending} className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--accent)] px-3 text-xs font-bold text-white disabled:opacity-50"><Send size={14} /> Thêm ghi chú</button>
+								<button type="submit" disabled={!noteBody.trim() || noteMutation.isPending} className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-xs font-bold text-white disabled:opacity-50"><Send size={14} /> Thêm ghi chú</button>
 							</div>
 						</form>
 						{detailsQuery.isPending ? <p className="text-xs text-[var(--muted)]">Đang tải ghi chú…</p> : null}

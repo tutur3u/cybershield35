@@ -20,6 +20,16 @@
 	--accent: #3b82f6;
 	--accent-strong: #2563eb;
 	--accent-soft: #eff6ff;
+	/*
+	 * Solid buttons need their own tokens. `--accent-strong` is a *text* colour
+	 * — pale in dark mode — so `bg-accent hover:bg-accent-strong` made every
+	 * primary button grow lighter on hover against a dark page, which reads as
+	 * the button switching off rather than responding.
+	 */
+	--accent-fill: #2563eb;
+	--accent-fill-hover: #1d4ed8;
+	--accent-on-fill: #ffffff;
+	--control-hover: #f1f5f9;
 	--danger: #ef4444;
 	--danger-border: #fecaca;
 	--danger-strong: #b91c1c;
@@ -86,6 +96,11 @@
 	--accent: #60a5fa;
 	--accent-strong: #bfdbfe;
 	--accent-soft: #172b45;
+	/* Saturated rather than pale, and hover brightens instead of washing out. */
+	--accent-fill: #2563eb;
+	--accent-fill-hover: #3b82f6;
+	--accent-on-fill: #ffffff;
+	--control-hover: #223041;
 	--danger: #fb7185;
 	--danger-border: #7f1d2d;
 	--danger-strong: #fecdd3;

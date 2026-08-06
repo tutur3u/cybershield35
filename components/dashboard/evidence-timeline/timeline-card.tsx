@@ -143,7 +143,7 @@ export function TimelineCard({
 				*/}
 				<div className="flex shrink-0 items-center">
 					<button
-						className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-[var(--accent)] px-3 text-xs font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-70"
+						className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-[var(--accent-fill)] px-3.5 text-xs font-bold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 disabled:cursor-wait disabled:opacity-70"
 						disabled={articleBusy}
 						onClick={() => onCreateArticle(post)}
 						type="button"
@@ -159,13 +159,13 @@ export function TimelineCard({
 						<DropdownMenuTrigger asChild>
 							<button
 								aria-label="Thao tác khác"
-								className="inline-flex h-9 items-center rounded-r-lg border-l border-white/25 bg-[var(--accent)] px-2 text-white transition hover:bg-[var(--accent-strong)]"
+								className="inline-flex h-9 items-center rounded-r-lg border-l border-[var(--accent-on-fill)]/25 bg-[var(--accent-fill)] px-2 text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 data-[state=open]:bg-[var(--accent-fill-hover)]"
 								type="button"
 							>
 								<ChevronDown size={15} />
 							</button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="min-w-48">
+						<DropdownMenuContent align="end" className="min-w-52">
 							<DropdownMenuItem onClick={() => onDraft(post.id)}>
 								<Sparkles size={14} />
 								{draftActionLabel(post.pageClassification)}

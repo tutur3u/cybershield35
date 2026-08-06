@@ -207,5 +207,5 @@ function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { d
 function formatDuration(ms: number) { if (!Number.isFinite(ms) || ms <= 0) return "0 giây"; if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))} giây`; if (ms < 3_600_000) return `${Math.round(ms / 60_000)} phút`; return `${Math.round(ms / 3_600_000)} giờ`; }
 function stageLabel(stage: string) { return stages.find((item) => item.key === stage)?.label ?? stage; }
 
-const primaryButtonClass = "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-xs font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-50";
+const primaryButtonClass = "inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-xs font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:opacity-50";
 const secondaryButtonClass = "inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:opacity-50";

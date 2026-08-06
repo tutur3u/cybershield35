@@ -101,7 +101,7 @@ export function SourceAutomationPanel({
 						type="button"
 						disabled={runningJob !== null}
 						onClick={() => void runJob()}
-						className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+						className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						<RefreshCw
 							size={15}

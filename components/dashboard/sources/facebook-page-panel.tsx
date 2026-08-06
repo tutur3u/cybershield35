@@ -324,7 +324,7 @@ function FacebookPagePolicyRow({
 					type="button"
 					disabled={scanning}
 					onClick={() => void onScanNow()}
-					className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[11px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-wait disabled:opacity-65"
+					className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3 text-[11px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-wait disabled:opacity-65"
 				>
 					{scanning ? (
 						<LoaderCircle size={14} className="animate-spin" />

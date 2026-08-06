@@ -80,7 +80,7 @@ export function useConfirmDialog() {
 						className={`inline-flex h-10 items-center justify-center rounded-md px-3 text-[12px] font-bold text-white transition ${
 							pending?.tone === "danger"
 								? "bg-[var(--danger-strong)] hover:opacity-90"
-								: "bg-[var(--accent)] hover:bg-[var(--accent-strong)]"
+								: "bg-[var(--accent)] hover:bg-[var(--accent-fill-hover)]"
 						}`}
 						onClick={() => settle(true)}
 						type="button"

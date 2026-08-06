@@ -186,7 +186,7 @@ export function ManagedSchedulerPanel({
 					) : status?.approvalHref && !controlsDisabled ? (
 						<a
 							href={status.approvalHref}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)]"
 						>
 							<ExternalLink size={14} />
 							Duyệt thiết lập
@@ -194,7 +194,7 @@ export function ManagedSchedulerPanel({
 					) : canOpenRecovery ? (
 						<a
 							href={status?.adminRecoveryHref}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)]"
 						>
 							<ExternalLink size={14} />
 							Khôi phục cron
@@ -204,7 +204,7 @@ export function ManagedSchedulerPanel({
 							type="button"
 							onClick={() => setupMutation.mutate()}
 							disabled={controlsDisabled}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:opacity-60"
 						>
 							{setupMutation.isPending ? (
 								<Loader2 size={14} className="animate-spin" />
@@ -413,7 +413,7 @@ function ImmediateCronActions({
 					disabled={disabled || pending}
 					onClick={onProcess}
 					title="Đẩy hàng đợi xuất bản Zalo OA ngay"
-					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:opacity-60"
 				>
 					{pending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
 					Xuất bản ngay
@@ -776,7 +776,7 @@ function ScheduleEditor({
 					type="button"
 					disabled={!canSave || pending}
 					onClick={() => schedule && onSave({ schedule, scheduleTimezone: timezone })}
-					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white disabled:opacity-60"
+					className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white disabled:opacity-60"
 				>
 					{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
 					Lưu lịch

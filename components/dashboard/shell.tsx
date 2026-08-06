@@ -390,9 +390,14 @@ export function Sidebar({
 							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
 								Đơn vị chủ quản
 								<br />
-								<span className="font-bold text-[color:var(--muted-strong)]">
+								<a
+									className="font-bold text-[color:var(--muted-strong)] underline-offset-2 hover:text-[color:var(--foreground)] hover:underline"
+									href="https://zalo.me/2629920369363080604"
+									rel="noreferrer"
+									target="_blank"
+								>
 									Công an phường Ea Kao
-								</span>
+								</a>
 							</p>
 							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
 								Phát triển &amp; cung cấp công nghệ

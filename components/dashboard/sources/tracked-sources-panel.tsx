@@ -141,7 +141,7 @@ export function TrackedSourcesPanel({
 				description="Trang và website công khai được quét lại mỗi ngày khi đang bật."
 				action={
 					<button
-						className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+						className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)]"
 						onClick={() => setAddOpen(true)}
 						type="button"
 					>
@@ -192,7 +192,7 @@ export function TrackedSourcesPanel({
 							Hủy
 						</button>
 						<button
-							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:opacity-60"
 							disabled={isCreating}
 							onClick={async () => {
 								if (await createAndScan()) setAddOpen(false);
@@ -311,7 +311,7 @@ export function TrackedSourcesPanel({
 											type="button"
 											disabled={scanning || !source.isActive}
 											onClick={() => void startScan(source)}
-											className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+											className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 										>
 											<Play size={14} /> {scanning ? "Đang quét" : "Quét ngay"}
 										</button>

@@ -109,7 +109,7 @@ export function PendingInvitationActions({
 					type="button"
 					disabled={isPending || state === "success"}
 					onClick={() => void decide("accept")}
-					className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-65"
+					className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-4 text-[13px] font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-65"
 				>
 					{state === "accepting" ? (
 						<Loader2 size={15} className="animate-spin" />

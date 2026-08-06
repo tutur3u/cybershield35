@@ -38,11 +38,14 @@ export function useVisibleDay(enabled: boolean) {
 		};
 
 		const first = requestAnimationFrame(read);
-		window.addEventListener("scroll", read, { passive: true });
+		// Captured on the document rather than bound to `window`: the dashboard
+		// shell scrolls an inner section, so window scroll events never fire and
+		// the date never moved. Scroll does not bubble, but it does capture.
+		document.addEventListener("scroll", read, { capture: true, passive: true });
 		window.addEventListener("resize", read, { passive: true });
 		return () => {
 			cancelAnimationFrame(first);
-			window.removeEventListener("scroll", read);
+			document.removeEventListener("scroll", read, { capture: true });
 			window.removeEventListener("resize", read);
 		};
 	}, [enabled]);

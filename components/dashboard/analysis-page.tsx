@@ -44,7 +44,7 @@ export function AnalysisPage(props: DashboardPageProps) {
 									? void reviseAnalysis()
 									: setIsConfirmingRevision(true)
 							}
-							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+							className="inline-flex h-10 max-w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<RefreshCw size={14} className={isRevising ? "animate-spin" : ""} />
 							{isRevising

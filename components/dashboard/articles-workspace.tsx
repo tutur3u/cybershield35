@@ -183,7 +183,7 @@ export function ArticlesWorkspace() {
 						Dọn bản ẩn Zalo
 					</button>
 				</DashboardTooltip>
-				<Link href="/articles/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-[11px] font-bold text-white"><Plus size={14} /> Bài viết mới</Link>
+				<Link href="/articles/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[11px] font-bold text-white"><Plus size={14} /> Bài viết mới</Link>
 			</div>
 
 			{/* The bulk bar carries its own notice, but cleanup runs with nothing
@@ -436,7 +436,7 @@ function BulkButton({
 		tone === "danger"
 			? "border-[var(--danger-border)] text-[var(--danger-strong)] hover:bg-[var(--danger-soft)]"
 			: tone === "accent"
-				? "border-transparent bg-[var(--accent)] text-white hover:bg-[var(--accent-strong)]"
+				? "border-transparent bg-[var(--accent)] text-white hover:bg-[var(--accent-fill-hover)]"
 				: "border-[var(--border)] text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]";
 
 	return (

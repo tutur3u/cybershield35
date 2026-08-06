@@ -164,7 +164,7 @@ function RelatedEvidenceCard({ item }: { item: RelatedEvidenceItem }) {
 }
 
 function RebuildConfirmation({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
-	return <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Xác nhận cập nhật chỉ mục"><span className="text-[11px] font-semibold text-[var(--muted)]">Tạo lại toàn bộ vector?</span><button type="button" onClick={onCancel} className="inline-flex min-h-9 items-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">Hủy</button><button type="button" onClick={onConfirm} className="inline-flex min-h-9 items-center rounded-md bg-[var(--accent)] px-3 text-[11px] font-extrabold text-white">Cập nhật</button></div>;
+	return <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Xác nhận cập nhật chỉ mục"><span className="text-[11px] font-semibold text-[var(--muted)]">Tạo lại toàn bộ vector?</span><button type="button" onClick={onCancel} className="inline-flex min-h-9 items-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)]">Hủy</button><button type="button" onClick={onConfirm} className="inline-flex min-h-9 items-center rounded-md bg-[var(--accent-fill)] px-3 text-[11px] font-extrabold text-white">Cập nhật</button></div>;
 }
 
 function RebuildStatus({ error, result }: { error: Error | null; result?: EvidenceSemanticRebuildResult }) {

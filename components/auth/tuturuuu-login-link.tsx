@@ -18,7 +18,7 @@ export function TuturuuuLoginLink({ href }: { href: string }) {
 					window.location.assign(href);
 				});
 			}}
-			className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:brightness-110"
+			className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-4 text-[13px] font-bold text-white shadow-sm transition hover:brightness-110"
 		>
 			{pending ? (
 				<Loader2 size={16} className="animate-spin" />

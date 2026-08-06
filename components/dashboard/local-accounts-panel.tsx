@@ -244,7 +244,7 @@ export function LocalAccountsPanel({
 							type="button"
 							disabled={saving || !username.trim()}
 							onClick={() => void createAccount()}
-							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<UserPlus size={14} /> Cấp tài khoản
 						</button>

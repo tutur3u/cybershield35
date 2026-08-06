@@ -66,15 +66,18 @@ describe("the product says who owns and who built it", () => {
 	const shell = read("components/dashboard/shell.tsx");
 	const readme = read("README.md");
 
-	test("both parties are named in the shell, so every page carries it", () => {
+	test("both parties are named and linked in the shell", () => {
 		expect(shell).toContain("Công an phường Ea Kao");
+		expect(shell).toContain("https://zalo.me/2629920369363080604");
 		expect(shell).toContain("https://tuturuuu.com");
 		expect(shell).toContain("Phát triển &amp; cung cấp công nghệ");
 	});
 
 	test("the README names them in both languages", () => {
-		expect(readme).toContain("**Đơn vị chủ quản:** Công an phường Ea Kao");
-		expect(readme).toContain("**Stakeholder:** Công an phường Ea Kao");
+		expect(readme).toContain(
+			"[Công an phường Ea Kao](https://zalo.me/2629920369363080604)",
+		);
+		expect(readme).toContain("**Stakeholder:**");
 		expect(readme).toContain("[Tuturuuu](https://tuturuuu.com)");
 	});
 });
@@ -108,5 +111,45 @@ describe("one toolbar, one set of actions", () => {
 	test("the toolbar carries the day being read", () => {
 		expect(toolbar).toContain("{visibleDay ? (");
 		expect(card).toContain("data-day-label={formatDay(day)}");
+	});
+});
+
+describe("solid buttons stay legible on a dark page", () => {
+	const css = read("app/globals.css");
+
+	test("fills have their own tokens, separate from text colours", () => {
+		// `--accent-strong` is a text colour and is pale in dark mode, so
+		// `bg-accent hover:bg-accent-strong` made every primary button grow
+		// lighter on hover — reading as the button switching off, not responding.
+		expect(css).toContain("--accent-fill:");
+		expect(css).toContain("--accent-fill-hover:");
+		expect(css).toContain("--accent-on-fill:");
+	});
+
+	test("no primary button hovers to the pale text colour any more", () => {
+		for (const file of [
+			"components/dashboard/evidence-timeline/timeline-card.tsx",
+			"components/dashboard/articles-workspace.tsx",
+			"components/dashboard/ui-primitives.tsx",
+		]) {
+			expect(read(file)).not.toContain("hover:bg-[var(--accent-strong)]");
+		}
+	});
+
+	test("the dropdown uses the app's own surfaces", () => {
+		const menu = read("components/ui/dropdown-menu.tsx");
+		expect(menu).toContain("bg-[var(--surface-elevated)]");
+		expect(menu).toContain("hover:bg-[var(--surface-soft)]");
+		expect(menu).not.toContain("focus:bg-accent ");
+	});
+
+	test("the visible day is read from the container that actually scrolls", () => {
+		// The shell scrolls an inner section, so listening on `window` meant the
+		// date never moved.
+		const hook = read(
+			"components/dashboard/evidence-timeline/use-visible-day.ts",
+		);
+		expect(hook).toContain('document.addEventListener("scroll", read, {');
+		expect(hook).toContain("capture: true");
 	});
 });

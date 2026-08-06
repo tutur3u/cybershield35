@@ -58,7 +58,7 @@ export function TimelineDenseList({
 										</IntentPrefetchLink>
 										<p className="mt-1 flex items-center gap-2 truncate text-xs text-[var(--muted)]">
 											{isNew ? (
-												<span className="inline-flex shrink-0 items-center rounded bg-[var(--accent)] px-1 py-0.5 text-[9px] font-bold uppercase text-white">
+												<span className="inline-flex shrink-0 items-center rounded bg-[var(--accent-fill)] px-1 py-0.5 text-[9px] font-bold uppercase text-white">
 													Mới
 												</span>
 											) : null}

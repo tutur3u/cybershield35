@@ -118,7 +118,7 @@ export function LocalPasswordDialog({
 					<button
 						type="submit"
 						disabled={saving || !currentPassword || !newPassword}
-						className="h-10 rounded-md bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+						className="h-10 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{saving ? "Đang lưu..." : "Đổi mật khẩu"}
 					</button>

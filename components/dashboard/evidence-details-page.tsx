@@ -371,4 +371,4 @@ function stanceLabel(value: string) { return ({ supportive: "Ủng hộ", oppose
 
 const eyebrowClass = "text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
 const actionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]";
-const primaryActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-3 text-xs font-extrabold text-white transition hover:brightness-110";
+const primaryActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-xs font-extrabold text-white transition hover:brightness-110";
