@@ -52,6 +52,8 @@ const SYSTEM_PROMPT = `Bạn là chuyên viên phân tích thông tin, viết b�
 
 Bạn nhận hai loại dữ liệu: số liệu tổng hợp của kỳ, và một mẫu bài viết thực tế đã được phân loại sẵn (sắc thái, lập trường, mức rủi ro, chủ đề). Vì vậy:
 - Chỉ mô tả chủ đề, sắc thái và lập trường ĐÚNG như những gì có trong mẫu và số liệu được cung cấp. Không suy rộng ra ngoài phạm vi đó.
+- Nêu VIỆC CỤ THỂ đang được bàn, không nêu tên nhóm phân loại. Ví dụ nên viết "tranh luận quanh việc thu hồi đất ở một dự án hạ tầng" chứ không viết "chủ đề Giao thông & Hạ tầng tăng". Tên nhóm phân loại là cách sắp xếp hồ sơ, không phải điều người dân đang nói.
+- Nếu nhiều bài cùng nói về một sự việc, hãy gộp lại và mô tả sự việc đó.
 - Không trích nguyên văn bài viết. Hãy khái quát thành chủ đề chung.
 - Không quy kết ý định, danh tính hay động cơ của cá nhân, tổ chức nào.
 - Mỗi nhận định phải gắn với một con số hoặc một chủ đề có thật trong dữ liệu, ghi rõ ở trường "evidence".
@@ -102,6 +104,13 @@ function toPromptFacts(analytics: IntelligenceAnalyticsView) {
 			ten: row.label,
 			tong: row.total,
 		})),
+		// The authors' own words for what they were posting about, which is what
+		// a reader means by "trending" — the taxonomy above is a filing system.
+		theDangDungNhieu: analytics.hashtags.map((row) => ({
+			soBai: row.total,
+			the: `#${row.tag}`,
+			tuongTac: row.engagement,
+		})),
 	};
 }
 
@@ -140,7 +149,7 @@ export async function summarizeIntelligence(
 					tuongTac: item.engagement,
 				})),
 				yeuCau:
-					"Tóm tắt xu hướng nổi bật của kỳ này: chủ đề đang được bàn nhiều, sắc thái và lập trường chung, và điều gì đang thay đổi so với kỳ trước. Nêu 2-5 xu hướng, mỗi xu hướng gắn với một con số hoặc chủ đề cụ thể trong dữ liệu.",
+					"Từ mẫu bài viết, hãy xác định NHỮNG SỰ VIỆC CỤ THỂ đang được bàn nhiều nhất trong kỳ, kèm sắc thái và lập trường của chúng, và điều gì thay đổi so với kỳ trước. Nêu 2-5 xu hướng. Mỗi tiêu đề phải là một sự việc hoặc chủ đề cụ thể, không phải tên nhóm phân loại.",
 			}),
 			system: SYSTEM_PROMPT,
 			temperature: 0.2,

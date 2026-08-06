@@ -60,12 +60,14 @@ export function AnalyticsHeadline({
 				value={riskByLevel.high.toLocaleString("vi-VN")}
 			/>
 			<MetricTile
+				caption={`${riskByLevel.high.toLocaleString("vi-VN")} trên ${total.toLocaleString("vi-VN")} bài`}
 				help="Tỷ lệ bài rủi ro cao trên tổng số bài trong kỳ."
 				icon={TrendingUp}
 				label="Tỷ trọng rủi ro cao"
 				value={`${highShare}%`}
 			/>
 			<MetricTile
+				caption={`${reach.high.toLocaleString("vi-VN")} trên ${totalReach.toLocaleString("vi-VN")} lượt tương tác`}
 				help="Phần tương tác (like, bình luận, chia sẻ) rơi vào nhóm rủi ro cao. Số bài ít vẫn có thể chiếm phần lớn lượng lan truyền."
 				icon={Flame}
 				label="Lan truyền rủi ro cao"
@@ -86,6 +88,7 @@ function delta(current: number, previous: number | undefined) {
 }
 
 function MetricTile({
+	caption,
 	delta: change,
 	help,
 	icon: Icon,
@@ -93,6 +96,15 @@ function MetricTile({
 	tone,
 	value,
 }: {
+	/**
+	 * What to print under a tile that is a ratio rather than a level.
+	 *
+	 * A share of the current window has no previous-period equivalent, so it is
+	 * given the two figures it was computed from instead. The first version fell
+	 * through to the "no previous period" line, which reads as missing data on a
+	 * metric that was never a comparison.
+	 */
+	caption?: string;
 	delta?: { absolute?: number; percent?: number } | null;
 	help: string;
 	icon: LucideIcon;
@@ -140,17 +152,11 @@ function MetricTile({
 						</span>
 					) : null}
 				</div>
-				{change ? (
-					<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
-						so với kỳ trước
-					</p>
-				) : (
-					/* Said out loud rather than left blank: an empty slot where the
-						other tiles show a delta reads as "no change". */
-					<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
-						không có kỳ trước để so sánh
-					</p>
-				)}
+				<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
+					{/* Said out loud rather than left blank: an empty slot where the
+						other tiles carry a line reads as "no change". */}
+					{caption ?? (change ? "so với kỳ trước" : "không có kỳ trước để so sánh")}
+				</p>
 			</div>
 		</DashboardTooltip>
 	);

@@ -788,6 +788,19 @@ export type IntelligenceSummaryView = {
 	}>;
 };
 
+/**
+ * A hashtag people actually wrote, with how far it travelled.
+ *
+ * The topic taxonomy is a filing system; this is the subject in the authors'
+ * own words, which is what "what is trending" actually means.
+ */
+export type IntelligenceHashtagStat = {
+	engagement: number;
+	highRiskCount: number;
+	tag: string;
+	total: number;
+};
+
 /** A post that travelled, whatever its risk level. */
 export type IntelligenceLoudestPost = {
 	engagement: number;
@@ -807,6 +820,8 @@ export type IntelligenceRiskTrendPoint = {
 
 export type IntelligenceAnalyticsView = {
 	generatedAt: string;
+	/** Hashtags written by the authors themselves, ranked by use. */
+	hashtags: IntelligenceHashtagStat[];
 	/** Posts that travelled furthest in the window, by total engagement. */
 	loudest: IntelligenceLoudestPost[];
 	/** Topics ranked by how much they moved, not how big they are. */

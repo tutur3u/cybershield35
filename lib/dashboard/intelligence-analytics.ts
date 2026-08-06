@@ -55,6 +55,7 @@ async function getCachedIntelligenceAnalytics(
 		reachRows,
 		momentumRows,
 		loudestRows,
+		hashtagRows,
 		totalsRows,
 	] = await Promise.all([
 		adminSqlClient<Array<{ level: string; total: number }>>`
@@ -217,29 +218,97 @@ async function getCachedIntelligenceAnalytics(
 				) > 0
 			`
 			: Promise.resolve([]),
+		/*
+		 * One row per post, not per time it was scraped.
+		 *
+		 * A page re-scanned daily stores the same post again each time, so the
+		 * unfiltered ranking was three copies of one dolphin story followed by two
+		 * copies of the next thing. Collapsed on the author and the opening of the
+		 * text — the engagement count drifts between captures, so it cannot be part
+		 * of the key — keeping the highest reading of each.
+		 */
 		adminSqlClient<
 			Array<{
 				author: string | null;
+				display_name: string | null;
 				engagement: number;
 				id: string;
 				quote: string;
 				risk_level: string;
 			}>
 		>`
+			with scored as (
+				select
+					id,
+					author,
+					risk_level::text as risk_level,
+					left(quote, 180) as quote,
+					nullif(lower(regexp_replace(trim(coalesce(author, '')), '^@|\\s+', '', 'g')), '') as handle,
+					lower(regexp_replace(left(quote, 120), '\\s+', ' ', 'g')) as fingerprint,
+					(
+						case when coalesce(engagement->>'reactions', '') ~ '^\\d+$' then (engagement->>'reactions')::bigint else 0 end
+						+ case when coalesce(engagement->>'comments', '') ~ '^\\d+$' then (engagement->>'comments')::bigint else 0 end
+						+ case when coalesce(engagement->>'shares', '') ~ '^\\d+$' then (engagement->>'shares')::bigint else 0 end
+					)::bigint as engagement
+				from evidence_items
+				${within}
+			),
+			deduped as (
+				select distinct on (handle, fingerprint) *
+				from scored
+				order by handle, fingerprint, engagement desc
+			)
 			select
-				id,
-				author,
-				risk_level::text as risk_level,
-				left(quote, 180) as quote,
+				d.id,
+				d.author,
+				d.risk_level,
+				d.quote,
+				d.engagement,
 				(
-					case when coalesce(engagement->>'reactions', '') ~ '^\\d+$' then (engagement->>'reactions')::bigint else 0 end
-					+ case when coalesce(engagement->>'comments', '') ~ '^\\d+$' then (engagement->>'comments')::bigint else 0 end
-					+ case when coalesce(engagement->>'shares', '') ~ '^\\d+$' then (engagement->>'shares')::bigint else 0 end
-				)::bigint as engagement
-			from evidence_items
-			${within}
-			order by engagement desc
-			limit 5
+					select nullif(trim(ts.display_name), '')
+					from tracked_sources ts
+					where nullif(lower(split_part(regexp_replace(ts.normalized_url, '^https?://(www\\.)?facebook\\.com/', '', 'i'), '/', 1)), '') = d.handle
+					order by ts.updated_at desc
+					limit 1
+				) as display_name
+			from deduped d
+			order by d.engagement desc
+			limit 6
+		`,
+		/*
+		 * What people are actually posting about, in their own words.
+		 *
+		 * The topic taxonomy is a filing system — "Chính trị và Quản lý Nhà nước"
+		 * is a shelf, not a subject, and tells a reader nothing about what was
+		 * being discussed this week. Hashtags are written by the authors
+		 * themselves, so they name the specific thing, and they are cheap to count
+		 * exactly rather than infer.
+		 */
+		adminSqlClient<
+			Array<{ engagement: number; high: number; tag: string; total: number }>
+		>`
+			select
+				tag,
+				count(*)::int as total,
+				count(*) filter (where risk_level = 'high')::int as high,
+				coalesce(sum(engagement), 0)::bigint as engagement
+			from (
+				select
+					lower(regexp_replace(match[1], '[.,!?:;)\\]]+$', '')) as tag,
+					risk_level,
+					(
+						case when coalesce(e.engagement->>'reactions', '') ~ '^\\d+$' then (e.engagement->>'reactions')::bigint else 0 end
+						+ case when coalesce(e.engagement->>'comments', '') ~ '^\\d+$' then (e.engagement->>'comments')::bigint else 0 end
+						+ case when coalesce(e.engagement->>'shares', '') ~ '^\\d+$' then (e.engagement->>'shares')::bigint else 0 end
+					) as engagement
+				from evidence_items e,
+					lateral regexp_matches(e.quote, '#([[:alnum:]_]{2,40})', 'g') as match
+				${days ? adminSqlClient`where e.created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
+			) tags
+			where length(tag) > 1
+			group by tag
+			order by count(*) desc, sum(engagement) desc
+			limit 12
 		`,
 		/*
 		 * The same counts one window back, for the headline deltas. Without them
@@ -299,6 +368,12 @@ async function getCachedIntelligenceAnalytics(
 					total: Number(previous.previous_total),
 				}
 			: null,
+		hashtags: hashtagRows.map((row) => ({
+			engagement: Number(row.engagement),
+			highRiskCount: Number(row.high),
+			tag: row.tag,
+			total: Number(row.total),
+		})),
 		loudest: loudestRows
 			.filter((row) => Number(row.engagement) > 0)
 			.map((row) => ({
@@ -307,7 +382,10 @@ async function getCachedIntelligenceAnalytics(
 				id: row.id,
 				quote: row.quote,
 				riskLevel: row.risk_level,
-				source: pageIdentity({ author: row.author }).name,
+				source: pageIdentity({
+					author: row.author,
+					displayName: row.display_name,
+				}).name,
 			})),
 		momentum: momentumRows
 			.map((row) => ({

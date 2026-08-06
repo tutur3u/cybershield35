@@ -376,12 +376,55 @@ export function IntelligenceAnalyticsWorkspace({
 							{ color: RISK_COLORS.low, label: "Rủi ro thấp", value: analytics.reach.low },
 						].map((row) => ({
 							label: row.label,
-							meta: `${row.value.toLocaleString("vi-VN")} tương tác`,
+							// No `meta` with the figure in it: BarList already prints the
+							// total, so passing it again rendered "508.005 · 508.005".
+							meta: "tương tác",
 							segments: [{ color: row.color, label: row.label, value: row.value }],
 						}))}
 					/>
 				) : (
 					<ChartEmptyState message="Chưa ghi nhận tương tác nào." />
+				)}
+			</ChartFrame>
+
+			{/*
+				What people wrote, not which shelf it was filed on. The topic panel
+				above ranks a taxonomy — "Chính trị và Quản lý Nhà nước" is a folder,
+				not a subject — while these are the authors' own words for the
+				specific thing being discussed.
+			*/}
+			<ChartFrame
+				description="Thẻ được người đăng dùng nhiều nhất trong kỳ — chủ đề cụ thể đang được bàn."
+				table={{
+					headers: ["Thẻ", "Số bài", "Rủi ro cao", "Tương tác"],
+					rows: analytics.hashtags.map((tag) => [
+						`#${tag.tag}`,
+						tag.total,
+						tag.highRiskCount,
+						tag.engagement,
+					]),
+				}}
+				title="Đang được bàn nhiều"
+			>
+				{analytics.hashtags.length ? (
+					<div className="flex flex-wrap gap-1.5 px-1">
+						{analytics.hashtags.map((tag) => (
+							<IntentPrefetchLink
+								className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-bold transition ${
+									tag.highRiskCount
+										? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-strong)] hover:border-[var(--danger-strong)]"
+										: "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--muted-strong)] hover:border-[var(--border-strong)]"
+								}`}
+								href={`/evidence?q=${encodeURIComponent(`#${tag.tag}`)}`}
+								key={tag.tag}
+							>
+								#{tag.tag}
+								<span className="tabular-nums opacity-70">{tag.total}</span>
+							</IntentPrefetchLink>
+						))}
+					</div>
+				) : (
+					<ChartEmptyState message="Chưa có thẻ nào xuất hiện đủ nhiều trong kỳ." />
 				)}
 			</ChartFrame>
 
