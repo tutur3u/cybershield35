@@ -264,3 +264,43 @@ describe("a killed publish cannot strand its article", () => {
 		expect(scheduler).toContain("await reclaimStalledPublicationJobs()");
 	});
 });
+
+describe("a post card previews, rather than reprints, its post", () => {
+	const card = read("components/dashboard/evidence-timeline/timeline-card.tsx");
+
+	test("the author leads, the domain follows", () => {
+		// "facebook.com" was the loudest line on every card while the account it
+		// belonged to sat grey beneath it at half the size.
+		expect(card).toContain("post.author ?? post.sourceLabel ??");
+		expect(card).toContain("place-items-center rounded-full");
+	});
+
+	test("long posts are clamped instead of printed whole", () => {
+		// Each card was a page of its own; the full text is one click away.
+		expect(card).toContain("line-clamp-6");
+	});
+
+	test("a summary that repeats the quote is dropped", () => {
+		// Providers often store the opening of the quote as the summary, so the
+		// card printed the same sentence twice before saying anything new.
+		expect(card).toContain("!post.quote.startsWith(post.summary.slice(0, 60))");
+	});
+
+	test("topics are capped and counted", () => {
+		expect(card).toContain("post.topicSlugs.slice(0, 3)");
+		expect(card).toContain("+{hiddenTopicCount}");
+	});
+
+	test("zero engagement is not reported", () => {
+		// Three zeros on every card said only that nobody had reacted yet, in the
+		// same weight as the numbers that matter.
+		expect(card).toContain("function EngagementCount");
+		expect(card).toContain("if (!value) return null;");
+	});
+
+	test("judgements come before hashtags", () => {
+		expect(card.indexOf('<ClassificationBadge kind="sentiment"')).toBeLessThan(
+			card.indexOf("{shownTopics.map"),
+		);
+	});
+});

@@ -57,6 +57,15 @@ export function TimelineCard({
 	onTriage: (id: string) => void;
 	post: TimelinePost;
 }) {
+	// Providers often store the opening of the quote as the summary, so the card
+	// printed the same sentence twice before saying anything new.
+	const summary =
+		post.summary && !post.quote.startsWith(post.summary.slice(0, 60))
+			? post.summary
+			: null;
+	const shownTopics = post.topicSlugs.slice(0, 3);
+	const hiddenTopicCount = post.topicSlugs.length - shownTopics.length;
+
 	return (
 		<article
 			data-evidence-id={post.id}
@@ -74,16 +83,24 @@ export function TimelineCard({
 				/>
 			) : null}
 			<div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-				<div className="min-w-0">
-					<p className="flex min-w-0 items-center gap-2 truncate text-sm font-extrabold text-[var(--foreground)]">
-						{post.sourceLabel ?? post.author ?? intelligenceProviderLabel(post.provider)}
-					</p>
-					<p className="mt-1 text-xs font-semibold text-[var(--muted)]">
-						{post.author ? `${post.author} · ` : ""}
-						{formatPublished(post.publishedAt ?? post.createdAt)}
-						{" · thu thập "}
-						{relativeTime(post.createdAt, currentTime)}
-					</p>
+				<div className="flex min-w-0 items-center gap-2.5">
+					<span
+						aria-hidden
+						className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--surface-soft)] text-[13px] font-extrabold text-[var(--muted-strong)]"
+					>
+						{(post.author ?? post.sourceLabel ?? "?").trim().charAt(0).toUpperCase()}
+					</span>
+					<span className="min-w-0">
+						<span className="block truncate text-[13px] font-extrabold text-[var(--foreground)]">
+							{post.author ?? post.sourceLabel ?? intelligenceProviderLabel(post.provider)}
+						</span>
+						<span className="mt-0.5 block truncate text-[11px] font-semibold text-[var(--muted)]">
+							{post.sourceLabel && post.author ? `${post.sourceLabel} · ` : ""}
+							{formatPublished(post.publishedAt ?? post.createdAt)}
+							{" · "}
+							{relativeTime(post.createdAt, currentTime)}
+						</span>
+					</span>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<PageTrustBadge classification={post.pageClassification} />
@@ -95,33 +112,43 @@ export function TimelineCard({
 
 			<IntentPrefetchLink
 				href={post.href}
-				className="mt-4 block whitespace-pre-wrap text-[15px] font-semibold leading-7 text-[var(--foreground)] hover:text-[var(--accent-strong)]"
+				className="mt-3 block line-clamp-6 whitespace-pre-wrap text-[14px] leading-6 font-medium text-[var(--foreground)] transition hover:text-[var(--accent-strong)]"
 			>
 				{post.quote}
 			</IntentPrefetchLink>
-			{post.summary && post.summary !== post.quote ? (
-				<p className="mt-2 text-sm leading-6 text-[var(--muted)]">{post.summary}</p>
+			{summary ? (
+				<p className="mt-2 line-clamp-2 text-[12.5px] leading-5 text-[var(--muted)]">
+					{summary}
+				</p>
 			) : null}
 
-			<div className="mt-4 flex flex-wrap gap-2">
-				{post.topicSlugs.map((slug) => (
+			<div className="mt-3 flex flex-wrap items-center gap-1.5">
+				<ClassificationBadge kind="sentiment" value={post.sentiment} />
+				<ClassificationBadge kind="stance" value={post.stance} />
+				{shownTopics.map((slug) => (
 					<IntentPrefetchLink
-						key={slug}
+						className="rounded-md bg-[var(--surface-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--muted-strong)] transition hover:text-[var(--accent-strong)]"
 						href={`/topics/${slug}`}
-						className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[11px] font-bold text-[var(--accent-strong)]"
+						key={slug}
 					>
 						#{slug}
 					</IntentPrefetchLink>
 				))}
-				<ClassificationBadge kind="sentiment" value={post.sentiment} />
-				<ClassificationBadge kind="stance" value={post.stance} />
+				{hiddenTopicCount ? (
+					<IntentPrefetchLink
+						className="rounded-md px-1.5 py-1 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]"
+						href={post.href}
+					>
+						+{hiddenTopicCount}
+					</IntentPrefetchLink>
+				) : null}
 			</div>
 
 			<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--muted)]">
-					<span>👍 {post.engagement.reactions.toLocaleString("vi-VN")}</span>
-					<span>💬 {post.engagement.comments.toLocaleString("vi-VN")}</span>
-					<span>↗ {post.engagement.shares.toLocaleString("vi-VN")}</span>
+				<div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-[var(--muted)]">
+					<EngagementCount icon="👍" value={post.engagement.reactions} />
+					<EngagementCount icon="💬" value={post.engagement.comments} />
+					<EngagementCount icon="↗" value={post.engagement.shares} />
 					{post.triage.assigneeDisplayName ? (
 						<span className="inline-flex items-center gap-1">
 							<Users size={13} /> {post.triage.assigneeDisplayName}
@@ -194,6 +221,16 @@ export function TimelineCard({
 				</div>
 			</div>
 		</article>
+	);
+}
+
+/** A count worth showing, or nothing at all. */
+function EngagementCount({ icon, value }: { icon: string; value: number }) {
+	if (!value) return null;
+	return (
+		<span>
+			{icon} {value.toLocaleString("vi-VN")}
+		</span>
 	);
 }
 
