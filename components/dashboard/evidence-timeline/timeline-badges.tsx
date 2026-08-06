@@ -4,6 +4,11 @@ import { Pin, Scale, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import type { EvidenceTriageView, TimelinePost } from "@/components/dashboard/types";
 
+import {
+	sentimentLabel,
+	stanceLabel,
+} from "@/lib/domain/evidence-classification";
+
 import { triageLabels } from "./timeline-utils";
 
 export function TriageBadge({ status }: { status: EvidenceTriageView["status"] }) {
@@ -98,10 +103,43 @@ export function DueBadge({
 	);
 }
 
-export function NewBadge() {
+/**
+ * Sentiment and stance, each in its own colour.
+ *
+ * These were the same grey chip as every tag beside them, so the two judgements
+ * a reader scans for — is this angry, and is it against us — were the least
+ * visible things on the card. Tone follows meaning rather than decoration:
+ * criticism and negativity read as warning, support and positivity as calm.
+ */
+export function ClassificationBadge({
+	kind,
+	value,
+}: {
+	kind: "sentiment" | "stance";
+	value: string;
+}) {
+	const label =
+		kind === "sentiment" ? sentimentLabel(value) : stanceLabel(value);
+	// Nothing to say about a post that concerns no agency or policy.
+	if (kind === "stance" && value === "unknown") return null;
+
 	return (
-		<span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-			Mới
+		<span
+			className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-bold ${CLASSIFICATION_TONES[value] ?? "bg-[var(--neutral-soft)] text-[var(--muted-strong)]"}`}
+		>
+			{label}
 		</span>
 	);
 }
+
+const CLASSIFICATION_TONES: Record<string, string> = {
+	critical:
+		"bg-[var(--danger-soft)] text-[var(--danger-strong)] ring-1 ring-[var(--danger-border)]",
+	negative:
+		"bg-[var(--danger-soft)] text-[var(--danger-strong)] ring-1 ring-[var(--danger-border)]",
+	neutral: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]",
+	positive:
+		"bg-[var(--success-soft)] text-[var(--success-strong)] ring-1 ring-[var(--success-border)]",
+	supportive:
+		"bg-[var(--success-soft)] text-[var(--success-strong)] ring-1 ring-[var(--success-border)]",
+};

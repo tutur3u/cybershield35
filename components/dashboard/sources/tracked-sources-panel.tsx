@@ -12,6 +12,15 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+
 import type { TrackedSourceView } from "@/components/dashboard/types";
 import {
 	DashboardTooltip,
@@ -51,6 +60,7 @@ export function TrackedSourcesPanel({
 	sources: TrackedSourceView[];
 }) {
 	const scanRuns = useScanRuns();
+	const [addOpen, setAddOpen] = useState(false);
 	const [displayName, setDisplayName] = useState("");
 	const [editingName, setEditingName] = useState("");
 	const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
@@ -96,19 +106,21 @@ export function TrackedSourcesPanel({
 		});
 	}
 
+	/** Reports whether the source was added, so the dialog knows to close. */
 	async function createAndScan() {
 		if (!url.trim()) {
 			setCreateError("Hãy dán địa chỉ trang hoặc website cần theo dõi.");
-			return;
+			return false;
 		}
 		setCreateError("");
 		const created = await onCreateTrackedSource({ displayName, url });
 		if (!created) {
 			setCreateError("Không thêm được nguồn. Kiểm tra lại địa chỉ và thử lần nữa.");
-			return;
+			return false;
 		}
 		setDisplayName("");
 		setUrl("");
+		return true;
 	}
 
 	async function saveSourceName(source: TrackedSourceView) {
@@ -127,43 +139,71 @@ export function TrackedSourcesPanel({
 			<PanelHeader
 				title="Nguồn theo dõi"
 				description="Trang và website công khai được quét lại mỗi ngày khi đang bật."
-			/>
-
-			<div className="border-b border-[var(--border)] bg-[var(--surface-soft)] p-4">
-				<p className="text-[12px] font-bold text-[var(--foreground)]">Thêm nguồn mới</p>
-				<div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_auto]">
-					<input
-						value={url}
-						onChange={(event) => setUrl(event.target.value)}
-						placeholder="https://facebook.com/ten-trang"
-						className={inputClass}
-					/>
-					<input
-						value={displayName}
-						onChange={(event) => setDisplayName(event.target.value)}
-						placeholder="Tên hiển thị (không bắt buộc)"
-						className={inputClass}
-					/>
+				action={
 					<button
+						className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)]"
+						onClick={() => setAddOpen(true)}
 						type="button"
-						disabled={isCreating}
-						onClick={() => void createAndScan()}
-						className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
 					>
 						<Plus size={15} /> Thêm nguồn
 					</button>
-				</div>
-				{createError ? (
-					<p className="mt-2 text-[11px] font-bold text-[var(--danger-strong)]">
-						{createError}
-					</p>
-				) : (
-					<p className="mt-2 text-[11px] font-semibold text-[var(--muted)]">
-						Sau khi thêm, bấm “Quét ngay” để lấy nội dung mới và theo dõi tiến trình
-						ngay tại đây.
-					</p>
-				)}
-			</div>
+				}
+			/>
+
+			{/*
+				Behind a dialog rather than pinned above the list. Adding a source is
+				occasional; the list is what the page is for, and a permanent form
+				pushed it down the screen every visit.
+			*/}
+			<Dialog onOpenChange={setAddOpen} open={addOpen}>
+				<DialogContent className="border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--foreground)] sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Thêm nguồn theo dõi</DialogTitle>
+						<DialogDescription className="text-[var(--muted-strong)]">
+							Dán liên kết trang Facebook công khai hoặc website. Sau khi thêm,
+							bấm “Quét ngay” để lấy nội dung đầu tiên.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-2">
+						<input
+							className={inputClass}
+							onChange={(event) => setUrl(event.target.value)}
+							placeholder="https://facebook.com/ten-trang"
+							value={url}
+						/>
+						<input
+							className={inputClass}
+							onChange={(event) => setDisplayName(event.target.value)}
+							placeholder="Tên hiển thị (không bắt buộc)"
+							value={displayName}
+						/>
+						{createError ? (
+							<p className="text-[11px] font-bold text-[var(--danger-strong)]">
+								{createError}
+							</p>
+						) : null}
+					</div>
+					<DialogFooter className="gap-2">
+						<button
+							className="inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)]"
+							onClick={() => setAddOpen(false)}
+							type="button"
+						>
+							Hủy
+						</button>
+						<button
+							className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-strong)] disabled:opacity-60"
+							disabled={isCreating}
+							onClick={async () => {
+								if (await createAndScan()) setAddOpen(false);
+							}}
+							type="button"
+						>
+							<Plus size={15} /> Thêm nguồn
+						</button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<div className="grid gap-3 border-b border-[var(--border)] p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
 				<label className="relative min-w-0">
@@ -343,17 +383,19 @@ export function TrackedSourcesPanel({
 	);
 }
 
+/**
+ * Only the off state is worth a badge.
+ *
+ * Every row on this page is a tracked source, so "Đang theo dõi" repeated the
+ * page's own title on each line and crowded out the one value that changes
+ * behaviour.
+ */
 function ActiveBadge({ isActive }: { isActive: boolean }) {
+	if (isActive) return null;
 	return (
-		<span
-			className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] font-bold ${
-				isActive
-					? "bg-[var(--success-soft)] text-[var(--success-strong)]"
-					: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]"
-			}`}
-		>
+		<span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md bg-[var(--neutral-soft)] px-2 text-[10px] font-bold text-[var(--muted-strong)]">
 			<Power size={11} />
-			{isActive ? "Đang theo dõi" : "Đã tắt"}
+			Đã tắt
 		</span>
 	);
 }

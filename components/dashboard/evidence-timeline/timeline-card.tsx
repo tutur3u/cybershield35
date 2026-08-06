@@ -20,8 +20,8 @@ import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 import {
 	Badge,
+	ClassificationBadge,
 	DueBadge,
-	NewBadge,
 	PageTrustBadge,
 	TriageBadge,
 } from "./timeline-badges";
@@ -32,8 +32,6 @@ import {
 	formatPublished,
 	groupByVietnamDay,
 	relativeTime,
-	sentimentLabel,
-	stanceLabel,
 } from "./timeline-utils";
 
 export function TimelineCard({
@@ -73,7 +71,6 @@ export function TimelineCard({
 				<div className="min-w-0">
 					<p className="flex min-w-0 items-center gap-2 truncate text-sm font-extrabold text-[var(--foreground)]">
 						{post.sourceLabel ?? post.author ?? intelligenceProviderLabel(post.provider)}
-						{isNew ? <NewBadge /> : null}
 					</p>
 					<p className="mt-1 text-xs font-semibold text-[var(--muted)]">
 						{post.author ? `${post.author} · ` : ""}
@@ -110,8 +107,8 @@ export function TimelineCard({
 						#{slug}
 					</IntentPrefetchLink>
 				))}
-				<Badge label={sentimentLabel(post.sentiment)} />
-				<Badge label={stanceLabel(post.stance)} />
+				<ClassificationBadge kind="sentiment" value={post.sentiment} />
+				<ClassificationBadge kind="stance" value={post.stance} />
 			</div>
 
 			<div className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
@@ -206,20 +203,28 @@ export function TimelineDayGroups({
 				).length;
 				return (
 					<section key={day} aria-labelledby={`day-${day}`}>
-						<div className="sticky top-[168px] z-[5] mb-2 flex items-center gap-3 bg-[var(--background)]/90 py-2 backdrop-blur">
+						{/*
+							Not sticky. It used to pin itself below the toolbar at a
+							hard-coded offset, which stopped matching the moment the
+							toolbar changed height — leaving the date floating over the
+							card above it, translucent and attached to nothing. A date
+							separator only has to mark where one day ends; it does not
+							need to follow the reader down the page.
+						*/}
+						<div className="mb-3 flex items-center gap-3">
 							<h2
+								className="shrink-0 text-[13px] font-extrabold tracking-tight text-[var(--foreground)]"
 								id={`day-${day}`}
-								className="text-sm font-extrabold text-[var(--foreground)]"
 							>
 								{formatDay(day)}
 							</h2>
 							{freshCount ? (
-								<span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-strong)]">
+								<span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-strong)]">
 									<Zap size={10} /> {freshCount} mới
 								</span>
 							) : null}
 							<span className="h-px flex-1 bg-[var(--border)]" />
-							<span className="text-xs font-semibold text-[var(--muted)]">
+							<span className="shrink-0 text-[11px] font-semibold text-[var(--muted)]">
 								{items.length} bài
 							</span>
 						</div>

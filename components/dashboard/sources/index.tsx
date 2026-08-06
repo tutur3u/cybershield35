@@ -13,11 +13,8 @@ import { useState } from "react";
 import type { DashboardPageProps } from "@/components/dashboard/dashboard-pages";
 import { IntelligenceSourcesWorkspace } from "@/components/dashboard/intelligence-widgets";
 import { PageHeader, QueueCard } from "@/components/dashboard/page-widgets";
-import { SocialLogoGrid } from "@/components/dashboard/social-logo-grid";
 import {
 	DashboardTooltip,
-	Panel,
-	PanelHeader,
 } from "@/components/dashboard/ui-primitives";
 
 import { SourceAutomationPanel } from "./automation-panel";
@@ -58,7 +55,6 @@ export function SourcesPage(props: DashboardPageProps) {
 							onUpdateTrackedSource={props.onUpdateTrackedSource}
 							sources={props.trackedSources}
 						/>
-						<SupportedSourcesPanel />
 					</>
 				) : null}
 				{activeTab === "pages" ? <FacebookPageTrustPanel /> : null}
@@ -180,16 +176,3 @@ function SourceTabs({
 	);
 }
 
-function SupportedSourcesPanel() {
-	return (
-		<Panel>
-			<PanelHeader
-				title="Nguồn được hỗ trợ"
-				description="Hiện hỗ trợ trang Facebook công khai và liên kết website tùy chỉnh."
-			/>
-			<div className="p-4">
-				<SocialLogoGrid />
-			</div>
-		</Panel>
-	);
-}
