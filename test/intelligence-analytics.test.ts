@@ -149,8 +149,15 @@ describe("the summary is a stored checkpoint, not a cache", () => {
 	});
 
 	test("only one reader generates, however many are looking", () => {
-		expect(stored).toContain("onConflictDoNothing");
 		expect(stored).toContain("export async function claimSummaryGeneration");
+		expect(stored).toContain("on conflict (time_range) do update");
+	});
+
+	test("an abandoned claim expires instead of deadlocking", () => {
+		// It deadlocked exactly once: an attempt was abandoned mid-flight, the
+		// placeholder stayed, and no later reader could take it over.
+		expect(stored).toContain("const CLAIM_TTL_MS");
+		expect(stored).toContain("intelligence_summaries.generated_at < ");
 	});
 
 	test("the claim placeholder is never served as an answer", () => {

@@ -192,6 +192,23 @@ export function intelligenceAnalyticsQueryOptions(
  * the server regenerates it at most every half hour anyway — refetching sooner
  * just re-downloads the same paragraph.
  */
+/**
+ * Asks the server to produce a summary for this window.
+ *
+ * Separate from the query because it is a job, not a read: it takes tens of
+ * seconds, and the panel keeps polling the fast read while it runs. The server
+ * claims the work, so calling this twice starts one run.
+ */
+export async function requestIntelligenceSummary(
+	filters: IntelligenceFilters = {},
+) {
+	const params = serializeIntelligenceFilters(filters);
+	return fetchJson<{ claimed?: boolean; status?: string }>(
+		`/api/intelligence/summary?${new URLSearchParams(params).toString()}`,
+		{ method: "POST" },
+	);
+}
+
 export function intelligenceSummaryQueryOptions(
 	filters: IntelligenceFilters = {},
 ) {
@@ -751,10 +768,11 @@ export async function fetchManagedSchedulerExecutions(
 	};
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(url, {
 		credentials: "same-origin",
 		headers: { Accept: "application/json" },
+		...init,
 	});
 	const payload = await response.json().catch(() => null);
 

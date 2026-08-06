@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
 	ArrowRight,
 	LoaderCircle,
@@ -11,7 +12,14 @@ import {
 } from "lucide-react";
 
 import type { IntelligenceFilters } from "@/components/dashboard/types";
-import { intelligenceSummaryQueryOptions } from "@/lib/dashboard/client-queries";
+import {
+	intelligenceSummaryQueryOptions,
+	requestIntelligenceSummary,
+} from "@/lib/dashboard/client-queries";
+import {
+	dashboardQueryKeys,
+	serializeIntelligenceFilters,
+} from "@/lib/dashboard/query-keys";
 
 /**
  * What the window says, in words.
@@ -26,7 +34,28 @@ import { intelligenceSummaryQueryOptions } from "@/lib/dashboard/client-queries"
  * checking it against the chart beside it takes a glance rather than trust.
  */
 export function AnalyticsSummary({ filters }: { filters: IntelligenceFilters }) {
+	const queryClient = useQueryClient();
 	const summaryQuery = useQuery(intelligenceSummaryQueryOptions(filters));
+	const generateMutation = useMutation({
+		mutationFn: () => requestIntelligenceSummary(filters),
+		onSettled: () => {
+			void queryClient.invalidateQueries({
+				queryKey: dashboardQueryKeys.intelligenceSummary(
+					serializeIntelligenceFilters(filters),
+				),
+			});
+		},
+	});
+
+	const needsGenerating = summaryQuery.data?.status === "generating";
+	/*
+	 * Asked for once, when the page first learns none is stored. The server-side
+	 * claim is what actually prevents duplicates; this only avoids firing the
+	 * request again on every poll.
+	 */
+	useEffect(() => {
+		if (needsGenerating && generateMutation.isIdle) generateMutation.mutate();
+	}, [generateMutation, needsGenerating]);
 
 	/*
 	 * A labelled wait, not a bare pulse.

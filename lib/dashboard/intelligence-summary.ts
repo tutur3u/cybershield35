@@ -116,18 +116,28 @@ export async function getIntelligenceSummary(
  */
 const GENERATING = "__generating__";
 
+/**
+ * How long a claim is honoured before anyone may take it over.
+ *
+ * A claim that never expires is a deadlock, and it deadlocked: the first
+ * attempt was abandoned mid-flight, the placeholder stayed, every later reader
+ * saw "generating" and none of them could claim it. Generation takes under a
+ * minute, so two is generous and still recovers quickly.
+ */
+const CLAIM_TTL_MS = 2 * 60 * 1000;
+
 export async function claimSummaryGeneration(range: RangeKey) {
-	const inserted = await adminDb
-		.insert(intelligenceSummaries)
-		.values({
-			fingerprint: GENERATING,
-			generatedAt: new Date(),
-			payload: {},
-			timeRange: range,
-		})
-		.onConflictDoNothing({ target: intelligenceSummaries.timeRange })
-		.returning({ timeRange: intelligenceSummaries.timeRange });
-	return inserted.length > 0;
+	const cutoff = new Date(Date.now() - CLAIM_TTL_MS);
+	const claimed = await adminSqlClient<Array<{ time_range: string }>>`
+		insert into intelligence_summaries (time_range, fingerprint, payload, generated_at)
+		values (${range}, ${GENERATING}, '{}'::jsonb, now())
+		on conflict (time_range) do update
+			set generated_at = now()
+			where intelligence_summaries.fingerprint = ${GENERATING}
+				and intelligence_summaries.generated_at < ${cutoff.toISOString()}::timestamptz
+		returning time_range
+	`;
+	return claimed.length > 0;
 }
 
 async function readStoredSummary(range: RangeKey) {
