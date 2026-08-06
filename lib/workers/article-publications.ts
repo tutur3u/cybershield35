@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 
 import type { ChatActor } from "@/lib/chat/types";
@@ -185,6 +185,60 @@ export async function cancelScheduledArticle(
 		}
 		return article ?? null;
 	});
+}
+
+/**
+ * How long a claimed publication may sit before the queue takes it back.
+ *
+ * Generous against the few minutes a real Zalo round trip takes, because
+ * requeuing a job that is merely slow would publish the same article twice.
+ */
+const STALLED_PUBLICATION_MS = 20 * 60 * 1000;
+
+/**
+ * Returns jobs whose worker never came back, and unsticks their articles.
+ *
+ * A request killed mid-flight — the sixty-second budget was too small for a
+ * Zalo round trip — left the job locked in `running` and the article in
+ * `syncing`. Nothing reclaimed either, so the article could not be published,
+ * edited or retried: every path refuses while a publication is in progress. It
+ * stayed that way until someone noticed and fixed the row by hand.
+ */
+export async function reclaimStalledPublicationJobs() {
+	const cutoff = new Date(Date.now() - STALLED_PUBLICATION_MS);
+	const reclaimed = await adminDb
+		.update(articlePublicationJobs)
+		.set({
+			errorMessage:
+				"Thao tác trước bị gián đoạn quá lâu và đã được đưa lại vào hàng đợi.",
+			lockedAt: null,
+			scheduledAt: new Date(),
+			status: "retrying",
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(articlePublicationJobs.status, "running"),
+				lt(articlePublicationJobs.lockedAt, cutoff),
+			),
+		)
+		.returning({ articleId: articlePublicationJobs.articleId });
+
+	for (const job of reclaimed) {
+		// The article is released too, or it stays unpublishable and uneditable
+		// while the retry waits its turn.
+		await adminDb
+			.update(articles)
+			.set({
+				publicationStatus: sql`case when ${articles.remoteArticleId} is null
+					then 'not_synced'::article_publication_status
+					else 'hidden'::article_publication_status end`,
+				updatedAt: new Date(),
+			})
+			.where(eq(articles.id, job.articleId));
+	}
+
+	return reclaimed.length;
 }
 
 export async function processArticlePublicationJob(jobId: string) {

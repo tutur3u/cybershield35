@@ -152,10 +152,10 @@ export function PublishSections(props: PublishRailProps) {
 						*/}
 						<Field label="Đăng lên tài khoản">
 							{props.accounts.accounts.length === 1 ? (
-								<div className="flex items-center gap-2.5 rounded-lg border border-[var(--success-border)] bg-[var(--success-soft)] px-3 py-2.5">
+								<div className="flex items-center gap-2.5 rounded-lg border border-[var(--accent)]/50 bg-[var(--accent-soft)] px-3 py-2.5">
 									<Check
 										size={15}
-										className="shrink-0 text-[var(--success-strong)]"
+										className="shrink-0 text-[var(--accent-strong)]"
 									/>
 									<span className="min-w-0">
 										<span className="block truncate text-[12px] font-bold text-[var(--foreground)]">
@@ -381,7 +381,7 @@ function TargetButton({
 			onClick={onClick}
 			className={`rounded-lg border p-2.5 text-left transition ${
 				active
-					? "border-[var(--brand)] bg-[var(--success-soft)] text-[var(--foreground)]"
+					? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
 					: "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
 			}`}
 		>

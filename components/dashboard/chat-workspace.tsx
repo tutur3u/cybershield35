@@ -316,7 +316,7 @@ export function ChatWorkspace({
               <button
                 type="button"
                 onClick={createChat}
-                className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-xs font-extrabold text-white"
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--accent-fill)] px-4 text-xs font-extrabold text-white"
               >
                 <Plus size={15} /> Tạo cuộc trò chuyện riêng tư
               </button>
@@ -800,7 +800,7 @@ function ConversationWorkspace({
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
                 <div
-                  className="h-full rounded-full bg-[var(--brand)] transition-[width]"
+                  className="h-full rounded-full bg-[var(--accent-fill)] transition-[width]"
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
@@ -890,7 +890,7 @@ function ConversationWorkspace({
                   </PromptInputTools>
                   <PromptInputSubmit
                     aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
-                    className="size-8 rounded-lg bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-strong)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
+                    className="size-8 rounded-lg bg-[var(--accent-fill)] text-white shadow-sm hover:bg-[var(--accent-fill-hover)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
                     disabled={isBusy}
                     onStop={chat.stop}
                     status={chat.status}

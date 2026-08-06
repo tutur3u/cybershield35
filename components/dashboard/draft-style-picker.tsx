@@ -63,7 +63,7 @@ export function DraftStylePicker(props: {
 									aria-hidden="true"
 									className={`grid size-5 shrink-0 place-items-center rounded-full border ${
 										selected
-											? "border-[var(--brand)] bg-[var(--brand)] text-white"
+											? "border-[var(--brand)] bg-[var(--accent-fill)] text-white"
 											: "border-[var(--border-strong)] text-transparent"
 									}`}
 								>

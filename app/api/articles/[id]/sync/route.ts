@@ -13,7 +13,14 @@ import {
 	processArticlePublicationJob,
 } from "@/lib/workers/article-publications";
 
-export const maxDuration = 60;
+/*
+ * The Zalo call runs inside this request so the operator gets an answer rather
+ * than a spinner. Sixty seconds was not enough for it: creating an article,
+ * waiting for Zalo to verify the operation and reading it back can exceed that,
+ * and when the function was killed the client saw a bare 504 — "Thao tác không
+ * thành công." — while the job stayed locked and the article stuck in `syncing`.
+ */
+export const maxDuration = 300;
 
 export async function POST(
 	request: Request,

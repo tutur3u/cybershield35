@@ -266,7 +266,7 @@ export function DraftReview({
 												editedBody.trim() === draft.body.trim()
 											}
 											onClick={() => void saveManualEdit()}
-											className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-55"
+											className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-55"
 										>
 											{isSaving ? (
 												<LoaderCircle className="animate-spin" size={14} />
@@ -430,7 +430,7 @@ export function DraftReview({
 								type="button"
 								disabled={isSaving || pendingStatus !== null || draft.status === "approved"}
 								onClick={() => void submitReview("approved")}
-								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--brand)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-55"
+								className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[12px] font-bold text-white transition whitespace-nowrap hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-55"
 							>
 								{pendingStatus === "approved" ? <LoaderCircle className="animate-spin" size={14} /> : <CheckCircle2 size={14} />} Phê duyệt
 							</button>

@@ -113,7 +113,7 @@ export function ToggleRow({
 			<span
 				aria-hidden
 				className={`relative inline-flex h-6 w-11 shrink-0 rounded-full p-0.5 transition ${
-					checked ? "bg-[var(--brand)]" : "bg-[var(--border-strong)]"
+					checked ? "bg-[var(--accent-fill)]" : "bg-[var(--border-strong)]"
 				}`}
 			>
 				<span
@@ -301,8 +301,14 @@ export const textareaClass =
 	"w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-[13px] leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/15";
 export const primaryButton =
 	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-50";
+/**
+ * The publish action. Named for its old green styling; it is the same blue as
+ * every other primary button now, because "this is the main action here" and
+ * "this succeeded" are different messages and only one of them belongs on a
+ * button nobody has pressed yet.
+ */
 export const successButton =
-	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--brand)] px-3.5 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50";
+	"inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--accent-fill)] px-3.5 text-[12px] font-bold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-fill-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-50";
 export const secondaryButton =
 	"inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[12px] font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-50";
 export const smallButton =

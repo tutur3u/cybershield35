@@ -214,3 +214,53 @@ describe("the fanpage rows stop repeating themselves", () => {
 		expect(panel).not.toContain("Chỉ tạo bản nháp nội bộ, không tự động đăng bài.");
 	});
 });
+
+describe("primary actions are one colour", () => {
+	test("no solid button fills with the brand green any more", () => {
+		// Green on a button nobody has pressed says "this succeeded" about an
+		// action not yet taken; success belongs on the result, not the control.
+		for (const file of [
+			"components/dashboard/article-editor/shared.tsx",
+			"components/dashboard/article-editor/editor-header.tsx",
+			"components/dashboard/chat-workspace.tsx",
+			"components/dashboard/drafts-workspace.tsx",
+		]) {
+			const source = read(file);
+			expect(source).not.toContain("bg-[var(--brand)]");
+			expect(source).not.toContain("hover:bg-[var(--brand-strong)]");
+		}
+	});
+
+	test("choosing an option reads as selection, not success", () => {
+		const rail = read("components/dashboard/article-editor/publish-rail.tsx");
+		expect(rail).toContain(
+			'? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"',
+		);
+		// Done-states keep their green: a finished step really did succeed.
+		expect(rail).toContain('item.done ? "text-[var(--success-strong)]"');
+	});
+});
+
+describe("a killed publish cannot strand its article", () => {
+	const worker = read("lib/workers/article-publications.ts");
+	const scheduler = read("lib/managed-scheduler/server.ts");
+
+	test("the Zalo round trip gets a realistic budget", () => {
+		// Sixty seconds was not enough to create, verify and read back an article,
+		// and the killed function surfaced as a bare "Thao tác không thành công."
+		for (const name of ["sync", "publish", "hide", "live-update"]) {
+			expect(read(`app/api/articles/[id]/${name}/route.ts`)).toContain(
+				"export const maxDuration = 300;",
+			);
+		}
+	});
+
+	test("a job left running is reclaimed, and its article released", () => {
+		// Every path refuses while a publication is in progress, so a locked job
+		// made the article unpublishable, uneditable and unretryable at once.
+		expect(worker).toContain("export async function reclaimStalledPublicationJobs");
+		expect(worker).toContain("lt(articlePublicationJobs.lockedAt, cutoff)");
+		expect(worker).toContain("'not_synced'::article_publication_status");
+		expect(scheduler).toContain("await reclaimStalledPublicationJobs()");
+	});
+});

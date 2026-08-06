@@ -19,7 +19,10 @@ import {
 	cronHeartbeats,
 	managedSchedulerIntegrations,
 } from "@/lib/db/schema";
-import { processDueArticlePublications } from "@/lib/workers/article-publications";
+import {
+	processDueArticlePublications,
+	reclaimStalledPublicationJobs,
+} from "@/lib/workers/article-publications";
 import { reconcileZaloRemotePresence } from "@/lib/workers/zalo-presence-reconciliation";
 import { reassessStoredEvidenceRisk } from "@/lib/workers/evidence-risk";
 import {
@@ -436,6 +439,9 @@ async function drainScanQueue() {
 
 async function executeVercelCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
+		// Before draining: a job left locked by a killed request blocks its article
+		// from every path, and nothing else would ever release it.
+		const reclaimed = await reclaimStalledPublicationJobs().catch(() => 0);
 		const publications = await processDueArticlePublications(5);
 		// Runs alongside the queue rather than on its own schedule: a pointer to a
 		// draft that is no longer on the OA is exactly what the queue's own
@@ -447,7 +453,7 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 		// many as the concurrency cap allows and the rest wait. This tick is what
 		// keeps them moving — without it a capped queue would sit until tomorrow.
 		const scans = await drainScanQueue();
-		return { ...publications, remotePresence: presence, scans };
+		return { ...publications, reclaimed, remotePresence: presence, scans };
 	}
 
 	const reconciliation = await reconcileFacebookPageSources();

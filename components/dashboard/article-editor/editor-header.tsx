@@ -295,7 +295,7 @@ function PublishButton({
 				)}
 				<DashboardTooltip content="Bản ẩn đã có trên Zalo OA. Hiển thị công khai với người theo dõi.">
 					<button
-						className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+						className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--accent-fill)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-50"
 						disabled={disabled}
 						onClick={() => onPublishAction("publish")}
 						type="button"
@@ -342,7 +342,7 @@ function PublishButton({
 				type="button"
 				disabled={blocked || disabled}
 				onClick={onPublish}
-				className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+				className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--accent-fill)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--accent-fill-hover)] disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{publishing ? (
 					<LoaderCircle size={15} className="animate-spin" />
