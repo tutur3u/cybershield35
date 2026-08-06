@@ -13,36 +13,36 @@ import {
 } from "@/lib/domain/tracked-sources";
 
 describe("tracked sources", () => {
-	test("ships the two configured Facebook pages as active default seeds", () => {
-		expect(defaultTrackedSourceSeeds).toHaveLength(2);
-		expect(defaultTrackedSourceSeeds).toEqual([
+	test("ships no seed sources unless the environment names them", () => {
+		// Which pages a unit follows is operational information about an
+		// investigation, not a property of the software, and this repository may
+		// be published.
+		delete process.env.CYBERSHIELD35_SEED_SOURCE_URLS;
+		expect(defaultTrackedSourceSeeds()).toEqual([]);
+
+		process.env.CYBERSHIELD35_SEED_SOURCE_URLS =
+			"https://www.facebook.com/example-page";
+		expect(defaultTrackedSourceSeeds()).toEqual([
 			expect.objectContaining({
-				displayName: "example-page",
+				isActive: true,
 				normalizedUrl: "https://www.facebook.com/example-page",
 				provider: "apify_facebook_posts",
 				type: "facebook_page",
-				isActive: true,
-			}),
-			expect.objectContaining({
-				displayName: "example-fanpage",
-				normalizedUrl: "https://www.facebook.com/example-fanpage",
-				provider: "apify_facebook_posts",
-				type: "facebook_page",
-				isActive: true,
 			}),
 		]);
+		delete process.env.CYBERSHIELD35_SEED_SOURCE_URLS;
 	});
 
 	test("normalizes tracked source input without persisting credentials", () => {
 		expect(
-			toTrackedSourceSeed("facebook.com/example-fanpage", "Fanpage ví dụ"),
+			toTrackedSourceSeed("facebook.com/example-page", "Trang ví dụ"),
 		).toEqual({
-			displayName: "Fanpage ví dụ",
-			normalizedUrl: "https://facebook.com/example-fanpage",
+			displayName: "Trang ví dụ",
+			normalizedUrl: "https://facebook.com/example-page",
 			provider: "apify_facebook_posts",
 			type: "facebook_page",
 			isActive: true,
-			metadata: { label: "example-fanpage" },
+			metadata: { label: "example-page" },
 		});
 	});
 
@@ -51,16 +51,11 @@ describe("tracked sources", () => {
 		const migration = readFileSync("drizzle/0008_blue_zemo.sql", "utf8");
 
 		expect(worker).not.toContain("ensureDefaultTrackedSources");
-		expect(migration).toContain("INSERT INTO \"tracked_sources\"");
-		expect(migration).toContain(
-			"https://www.facebook.com/example-page",
-		);
-		expect(migration).toContain(
-			"https://www.facebook.com/example-fanpage",
-		);
-		expect(migration).toContain(
-			'ON CONFLICT ("normalized_url") DO UPDATE SET',
-		);
+		// The seed INSERT named two real pages; it is gone, and the migration says
+		// where the seeds live now.
+		expect(migration).not.toContain('INSERT INTO "tracked_sources"');
+		expect(migration).not.toContain("facebook.com/");
+		expect(migration).toContain("CYBERSHIELD35_SEED_SOURCE_URLS");
 	});
 
 	test("classifies active tracked source automation states deterministically", () => {

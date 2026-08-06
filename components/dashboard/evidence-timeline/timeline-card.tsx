@@ -65,9 +65,9 @@ export function TimelineCard({
 			: null;
 	/*
 	 * The name the team saved for the page, not the handle the scraper captured.
-	 * The card used to lead with "example-org" — or worse, "facebook.com" — while
-	 * "Tổ chức ví dụ", the name the team chose and reads everywhere else in the
-	 * product, was nowhere on it.
+	 * The card used to lead with the scraped handle — or worse, with
+	 * "facebook.com" — while the name the team gave that page, and reads
+	 * everywhere else in the product, was nowhere on it.
 	 */
 	const name =
 		post.pageDisplayName ??
@@ -75,8 +75,8 @@ export function TimelineCard({
 		post.author ??
 		intelligenceProviderLabel(post.provider);
 	const rawHandle = post.pageUsername ?? post.author ?? null;
-	// Only a handle: dropping it when it merely repeats the name avoids
-	// "Tổ chức ví dụ / @Tổ chức ví dụ".
+	// Dropped when it merely repeats the name, which would otherwise print the
+	// same words twice with an @ in front of the second.
 	const handle =
 		rawHandle && rawHandle.toLowerCase() !== name.toLowerCase()
 			? rawHandle.replace(/^@/u, "")

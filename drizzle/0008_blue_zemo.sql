@@ -3,34 +3,9 @@ CREATE INDEX "counter_argument_drafts_job_created_idx" ON "counter_argument_draf
 CREATE INDEX "evidence_items_job_created_idx" ON "evidence_items" USING btree ("scan_job_id","created_at");--> statement-breakpoint
 CREATE INDEX "provider_runs_job_started_idx" ON "provider_runs" USING btree ("scan_job_id","started_at");--> statement-breakpoint
 CREATE INDEX "scan_jobs_created_at_idx" ON "scan_jobs" USING btree ("created_at");--> statement-breakpoint
-INSERT INTO "tracked_sources" (
-	"display_name",
-	"normalized_url",
-	"type",
-	"provider",
-	"is_active",
-	"metadata"
-)
-VALUES
-	(
-		'example-page',
-		'https://www.facebook.com/example-page',
-		'facebook_page',
-		'apify_facebook_posts',
-		true,
-		'{"label":"example-page"}'::jsonb
-	),
-	(
-		'example-fanpage',
-		'https://www.facebook.com/example-fanpage',
-		'facebook_page',
-		'apify_facebook_posts',
-		true,
-		'{"label":"example-fanpage"}'::jsonb
-	)
-ON CONFLICT ("normalized_url") DO UPDATE SET
-	"type" = excluded."type",
-	"provider" = excluded."provider",
-	"is_active" = excluded."is_active",
-	"metadata" = excluded."metadata",
-	"updated_at" = now();
+-- The seed INSERT that stood here named two real Facebook pages. Which pages a
+-- unit follows is operational information about an investigation, not a
+-- property of the software, and this repository may be published, so the seeds
+-- moved to CYBERSHIELD35_SEED_SOURCE_URLS. Existing databases keep the rows
+-- this migration already created; a fresh one starts empty and is seeded from
+-- the environment.

@@ -10,14 +10,21 @@ export type TrackedSourceSeed = {
 	metadata: Record<string, unknown>;
 };
 
-const defaultTrackedSourceUrls = [
-	"https://www.facebook.com/example-page",
-	"https://www.facebook.com/example-fanpage",
-] as const;
-
-export const defaultTrackedSourceSeeds = defaultTrackedSourceUrls.map((url) =>
-	toTrackedSourceSeed(url),
-);
+/**
+ * Seed sources, read from the environment rather than written down here.
+ *
+ * Which pages a unit follows is operational information about an investigation,
+ * not a property of the software, and this repository may be published. The
+ * list lived in the source with two real pages in it; it now comes from
+ * `CYBERSHIELD35_SEED_SOURCE_URLS` and is empty by default.
+ */
+export function defaultTrackedSourceSeeds(): TrackedSourceSeed[] {
+	return (process.env.CYBERSHIELD35_SEED_SOURCE_URLS ?? "")
+		.split(",")
+		.map((url) => url.trim())
+		.filter(Boolean)
+		.map((url) => toTrackedSourceSeed(url));
+}
 
 export function toTrackedSourceSeed(
 	input: string,
