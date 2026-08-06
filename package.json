@@ -14,6 +14,7 @@
 	},
 	"scripts": {
 		"build": "node node_modules/next/dist/bin/next build",
+		"brand:generate": "bun --conditions react-server scripts/generate-brand-assets.tsx",
 		"db:analyze-intelligence": "bun --conditions react-server scripts/analyze-intelligence-db.ts",
 		"db:backfill-intelligence": "bun --conditions react-server scripts/backfill-intelligence.ts",
 		"db:backfill-topics": "bun --conditions react-server scripts/backfill-topics.ts",

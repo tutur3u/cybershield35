@@ -33,18 +33,46 @@ const beVietnam = Be_Vietnam_Pro({
 	display: "swap",
 });
 
+const SITE_URL = "https://cybershield35.ttr.gg";
+const SITE_DESCRIPTION =
+	"Giám sát thông tin công khai và phản hồi truyền thông: quét nguồn theo lịch, phân tích rủi ro bằng AI, soạn và xuất bản bài viết lên Zalo OA.";
+
+/**
+ * `metadataBase` decides the host every relative metadata URL resolves against
+ * — the Open Graph image included. It pointed at a host the product no longer
+ * runs on, so a link shared to Zalo or Facebook asked the wrong origin for its
+ * preview image and got nothing back.
+ */
 export const metadata: Metadata = {
 	title: {
-		default: "CyberShield 35 | AI For Life",
+		default: "CyberShield 35 | Giám sát thông tin công khai",
 		template: "%s | CyberShield 35",
 	},
-	description:
-		"Bảng điều khiển phân tích thảo luận công khai, bằng chứng và lập luận phản hồi cho AI For Life.",
+	description: SITE_DESCRIPTION,
 	applicationName: "CyberShield 35",
-	authors: [{ name: "AI For Life", url: "https://ai.daklak.gov.vn" }],
-	creator: "AI For Life",
-	publisher: "Dak Lak AI",
-	metadataBase: new URL("https://ai.daklak.gov.vn"),
+	authors: [
+		{ name: "Công an phường Ea Kao", url: "https://zalo.me/2629920369363080604" },
+		{ name: "Tuturuuu", url: "https://tuturuuu.com" },
+	],
+	creator: "Tuturuuu",
+	publisher: "Công an phường Ea Kao",
+	metadataBase: new URL(SITE_URL),
+	// Part of an entry to the Đắk Lắk "AI For Life" competition. Recorded here
+	// as well as in the sidebar so it survives a page being shared on its own.
+	category: "Sản phẩm dự thi AI For Life (ai.daklak.gov.vn)",
+	openGraph: {
+		description: SITE_DESCRIPTION,
+		locale: "vi_VN",
+		siteName: "CyberShield 35",
+		title: "CyberShield 35 | Giám sát thông tin công khai",
+		type: "website",
+		url: SITE_URL,
+	},
+	twitter: {
+		card: "summary_large_image",
+		description: SITE_DESCRIPTION,
+		title: "CyberShield 35 | Giám sát thông tin công khai",
+	},
 	other: {
 		"zalo-platform-site-verification":
 			"KuA_2BQz2XGqc8OsrROIC36ZlIpTrMTsCp4p",

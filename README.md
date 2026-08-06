@@ -1,7 +1,7 @@
 # CyberShield 35
 
 Hệ thống theo dõi thông tin và soạn bài phản hồi có dẫn chứng, dành cho đội ngũ
-vận hành của AI For Life.
+vận hành của Công an phường Ea Kao.
 
 <p>
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16.3-000?logo=nextdotjs&logoColor=white">
@@ -15,6 +15,9 @@ vận hành của AI For Life.
 
 **Đơn vị chủ quản:** [Công an phường Ea Kao](https://zalo.me/2629920369363080604) ·
 **Phát triển & cung cấp công nghệ:** [Tuturuuu](https://tuturuuu.com)
+
+> **Sản phẩm dự thi.** CyberShield 35 là một phần bài dự thi gửi tới
+> [AI For Life — ai.daklak.gov.vn](https://ai.daklak.gov.vn).
 
 ---
 
@@ -318,6 +321,9 @@ Nếu màn hình đăng nhập báo thiếu hoặc sai cấu hình trên Vercel:
 
 **Stakeholder:** [Công an phường Ea Kao](https://zalo.me/2629920369363080604) ·
 **Developer & technology provider:** [Tuturuuu](https://tuturuuu.com)
+
+> **Competition entry.** CyberShield 35 forms part of a submission to
+> [AI For Life — ai.daklak.gov.vn](https://ai.daklak.gov.vn).
 
 **Contents** — [What CS35 does](#what-cybershield-35-does) ·
 [Architecture](#architecture) · [Workflow](#the-five-step-workflow) ·

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="CyberShield 35">
+	<!--
+		A shield, filled and deliberately coarse.
+
+		The tab icon is read at 16px, where a stroked glyph collapses into grey
+		mush. An earlier version carried a thin check inside a smaller shield: at
+		full size it was fine, at 16 the check dissolved and the tile's corner
+		radius ate the shield's shoulders. So the shield fills most of the field
+		and the check is cut as a wedge out of it rather than drawn on top —
+		negative space survives downsampling in a way that thin strokes do not.
+	-->
+	<rect width="64" height="64" rx="13" fill="#2563eb" />
+	<path
+		fill="#ffffff"
+		d="M32 7.5c-.75 0-1.48.25-2.07.72C25.1 12 20.2 13.6 16.5 13.6A2.6 2.6 0 0 0 13.9 16.2v16.4c0 8.9 5.9 15.2 16.5 19.6.77.32 1.43.32 2.2 0 10.6-4.4 16.5-10.7 16.5-19.6V16.2a2.6 2.6 0 0 0-2.6-2.6c-3.7 0-8.6-1.6-13.43-5.38A3.3 3.3 0 0 0 32 7.5Zm11.2 15.9-13.6 15.4a2 2 0 0 1-3.02-.04l-5.9-7.1a2 2 0 0 1 3.08-2.56l4.4 5.3 11.98-13.57a2 2 0 0 1 3.06 2.57Z"
+	/>
+</svg>

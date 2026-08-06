@@ -38,6 +38,7 @@ import {
 	Settings,
 	Landmark,
 	Sun,
+	Trophy,
 	UserRound,
 	X,
 } from "lucide-react";
@@ -379,6 +380,12 @@ export function Sidebar({
 								icon={Code2}
 								name="Tuturuuu"
 								role="Phát triển & công nghệ"
+							/>
+							<AttributionLink
+								href="https://ai.daklak.gov.vn"
+								icon={Trophy}
+								name="AI For Life"
+								role="Sản phẩm dự thi"
 							/>
 						</div>
 					</div>
