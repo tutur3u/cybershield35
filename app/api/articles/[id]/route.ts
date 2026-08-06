@@ -9,6 +9,7 @@ import {
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { validationMessage } from "@/lib/http/validation-message";
 
 export async function GET(
 	request: Request,
@@ -53,7 +54,10 @@ export async function PATCH(
 			: Response.json({ error: "Không tìm thấy bài viết." }, { status: 404 });
 	} catch (error) {
 		if (error instanceof z.ZodError) {
-			return Response.json({ error: z.treeifyError(error) }, { status: 400 });
+			return Response.json(
+				{ error: validationMessage(error, "Nội dung bài viết chưa hợp lệ.") },
+				{ status: 400 },
+			);
 		}
 		return Response.json(
 			{

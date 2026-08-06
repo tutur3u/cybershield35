@@ -157,6 +157,14 @@ export function useArticleEditor(articleId: string) {
 			await fetchJson(`/api/articles/${articleId}`, {
 				body: JSON.stringify({
 					...draft,
+					// "Thêm ảnh" inserts an empty block for the picker to fill, so an
+					// author who adds one and saves without choosing a file was sending
+					// an image with no image — which the API rightly refused, blocking
+					// the save behind a validation error about a block they had not
+					// finished. An unfilled placeholder is not content; it is dropped.
+					blocks: draft.blocks.filter(
+						(block) => block.type !== "image" || block.url.trim().length > 0,
+					),
 					targetOaConnectionId: targetOaConnectionId || null,
 				}),
 				headers: { "Content-Type": "application/json" },
