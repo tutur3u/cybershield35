@@ -272,14 +272,9 @@ describe("a post card previews, rather than reprints, its post", () => {
 		// "facebook.com" was the loudest line on every card, and even once the
 		// author replaced it the card showed the scraped handle rather than the
 		// name the team gave the page and reads everywhere else.
-		expect(card).toContain("post.pageDisplayName ??");
-		expect(card).toContain("post.pageUsername ?? post.author");
+		expect(card).toContain("pageIdentity({");
 		expect(card).toContain("place-items-center rounded-full");
-	});
-
-	test("a handle that merely repeats the name is dropped", () => {
-		// Otherwise the card prints the same words twice, the second with an @.
-		expect(card).toContain("rawHandle.toLowerCase() !== name.toLowerCase()");
+		expect(card).toContain("@{handle}");
 	});
 
 	test("long posts are clamped instead of printed whole", () => {

@@ -40,6 +40,7 @@ import {
 	relatedEvidenceQueryOptions,
 } from "@/lib/dashboard/client-queries";
 import { dashboardQueryKeys } from "@/lib/dashboard/query-keys";
+import { pageIdentity } from "@/lib/domain/page-identity";
 import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 const EvidenceTriageSheet = dynamic(
@@ -128,12 +129,22 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 		);
 	}
 
+	// The same name-and-handle pair the timeline card leads with, so following a
+	// card through to its detail does not rename the page on the way.
+	const page = pageIdentity({
+		author: evidence.author,
+		displayName: evidence.pageDisplayName,
+		fallback: intelligenceProviderLabel(evidence.provider),
+		handle: evidence.pageUsername,
+		sourceUrl: evidence.sourceUrl,
+	});
+
 	return (
 		<div className="space-y-5" data-evidence-id={evidence.id}>
 			<PageHeader
 				icon={Database}
 				title="Chi tiết bằng chứng"
-				description={`${evidence.sourceLabel ?? "Nguồn công khai"} · ${formatPublished(evidence.publishedAt ?? evidence.createdAt)}`}
+				description={`${page.name}${page.handle ? ` (@${page.handle})` : ""} · ${formatPublished(evidence.publishedAt ?? evidence.createdAt)}`}
 				actions={
 					<>
 						<IntentPrefetchLink href="/evidence" className={actionClass}>
@@ -249,7 +260,10 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						<PanelHeader title="Ngữ cảnh & nguồn" action={<PageTrustBadge classification={evidence.pageClassification} />} />
 						<dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-4 p-4 text-xs">
 							<Detail label="Evidence ID" value={evidence.id} mono />
-							<Detail label="Tác giả" value={evidence.author ?? "Không rõ"} />
+							<Detail
+								label="Trang nguồn"
+								value={page.handle ? `${page.name} · @${page.handle}` : page.name}
+							/>
 							<Detail label="Provider" value={intelligenceProviderLabel(evidence.provider)} />
 							<Detail label="Cảm xúc" value={sentimentLabel(evidence.sentiment)} />
 							<Detail label="Lập trường" value={stanceLabel(evidence.stance)} />

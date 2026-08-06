@@ -274,6 +274,8 @@ export type DashboardScan = {
 	sourceType: SourceType;
 	provider: ProviderName;
 	title: string;
+	/** The account handle behind the name, when the source is a page. */
+	sourceHandle: string | null;
 	sourceLabel: string;
 	riskLevel: RiskLevel;
 	progress: number;

@@ -27,6 +27,14 @@ import {
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
 import { resolveDraftGenerationStyle } from "@/lib/domain/draft-style";
+import {
+	facebookHandleFromUrl,
+	trackedSourceNameForHandle,
+} from "@/lib/db/page-name";
+import {
+	facebookHandleFromUrlText,
+	pageIdentity,
+} from "@/lib/domain/page-identity";
 import { detectSource } from "@/lib/domain/source-detection";
 import { invalidateEvidenceSemanticProfile } from "@/lib/workers/evidence-semantics";
 import {
@@ -184,6 +192,9 @@ export async function findScanByClientRequestId(clientRequestId: string) {
 			sourceType: sources.type,
 			status: scanJobs.status,
 			title: sources.title,
+			trackedSourceName: trackedSourceNameForHandle(
+				facebookHandleFromUrl(sources.normalizedUrl),
+			),
 		})
 		.from(scanJobs)
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
@@ -277,6 +288,9 @@ export async function listScansPage(input?: {
 			errorMessage: scanJobs.errorMessage,
 			sourceType: sources.type,
 			title: sources.title,
+			trackedSourceName: trackedSourceNameForHandle(
+				facebookHandleFromUrl(sources.normalizedUrl),
+			),
 			normalizedUrl: sources.normalizedUrl,
 			fileName: sources.fileName,
 			riskLevel: analyses.riskLevel,
@@ -1265,6 +1279,9 @@ async function getScanSummary(id: string) {
 			errorMessage: scanJobs.errorMessage,
 			sourceType: sources.type,
 			title: sources.title,
+			trackedSourceName: trackedSourceNameForHandle(
+				facebookHandleFromUrl(sources.normalizedUrl),
+			),
 			normalizedUrl: sources.normalizedUrl,
 			fileName: sources.fileName,
 			riskLevel: analyses.riskLevel,
@@ -1317,13 +1334,25 @@ function toDashboardScan(row: {
 	sourceType: SourceType;
 	status: ScanStatus;
 	title: string | null;
+	trackedSourceName?: string | null;
 }) {
+	/*
+	 * The name the team currently uses, not the one frozen into `sources.title`
+	 * when the first scan was created. Renaming a source on /sources used to
+	 * leave the queue calling it by its old handle forever.
+	 */
+	const identity = pageIdentity({
+		displayName: row.trackedSourceName ?? row.title,
+		fallback: row.fileName ?? row.normalizedUrl,
+		handle: facebookHandleFromUrlText(row.normalizedUrl),
+	});
 	return {
 		id: row.id,
 		status: row.status,
 		provider: row.provider,
 		sourceType: row.sourceType,
-		title: row.title ?? row.fileName ?? row.normalizedUrl ?? "Nguồn chưa đặt tên",
+		title: identity.name,
+		sourceHandle: identity.handle,
 		sourceLabel: labelForSource(row.sourceType),
 		riskLevel: row.riskLevel ?? "medium",
 		progress: progressForStatus(row.status),

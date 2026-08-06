@@ -5,6 +5,10 @@ import { eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { TimelinePost } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
 import {
+	facebookHandleFromAuthor,
+	trackedSourceNameForHandle,
+} from "@/lib/db/page-name";
+import {
 	evidenceItems,
 	evidenceTopics,
 	evidenceTriage,
@@ -69,6 +73,10 @@ export const facebookPageProfileJoin = or(
 		sql<string | null>`nullif(lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g')), '')`,
 	),
 );
+
+const evidenceHandleExpr = facebookHandleFromAuthor(evidenceItems.author);
+const trackedSourceNameExpr = trackedSourceNameForHandle(evidenceHandleExpr);
+
 export const publishedMicros = sql<number>`floor(extract(epoch from ${effectivePublishedAt}) * 1000000)`;
 export const triageUpdatedMicros = sql<number>`floor(extract(epoch from ${effectiveTriageUpdatedAt}) * 1000000)`;
 export const collectedMicros = sql<number>`floor(extract(epoch from ${evidenceItems.createdAt}) * 1000000)`;
@@ -81,11 +89,12 @@ export const timelinePostSelection = {
 	engagementTotal: engagementScore,
 	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
 	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
-	// The name the team gave the page, and its handle. The join was already here
-	// for the classification; the card was left showing the raw scraped author
-	// because these two columns were never carried across.
-	pageDisplayName: facebookPageProfiles.displayName,
-	pageUsername: facebookPageProfiles.username,
+	// The name the team gave the page, and its handle — always both, so a card
+	// can lead with the name a reader recognises and still say which account it
+	// came from. The tracked source wins because that is the field the team
+	// actually edits.
+	pageDisplayName: sql<string | null>`coalesce(${trackedSourceNameExpr}, nullif(trim(${facebookPageProfiles.displayName}), ''))`,
+	pageUsername: sql<string | null>`coalesce(nullif(lower(trim(${facebookPageProfiles.username})), ''), ${evidenceHandleExpr})`,
 	id: evidenceItems.id,
 	originalImageUrl: sql<string | null>`${evidenceItems.metadata}->>'originalImageUrl'`,
 	provider: evidenceItems.provider,

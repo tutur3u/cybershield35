@@ -3,7 +3,12 @@ import "server-only";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { adminDb } from "@/lib/db/client";
+import {
+	facebookHandleFromUrl,
+	trackedSourceNameForHandle,
+} from "@/lib/db/page-name";
 import { evidenceItems, scanJobEvents, scanJobs, sources } from "@/lib/db/schema";
+import { pageIdentity } from "@/lib/domain/page-identity";
 import type { ScanPipelineStage } from "@/lib/operations/telemetry";
 
 /**
@@ -65,6 +70,9 @@ export async function listActiveScanProgress(limit = 6) {
 			fileName: sources.fileName,
 			normalizedUrl: sources.normalizedUrl,
 			title: sources.title,
+			trackedSourceName: trackedSourceNameForHandle(
+				facebookHandleFromUrl(sources.normalizedUrl),
+			),
 		})
 		.from(scanJobs)
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
@@ -89,6 +97,9 @@ export async function getScanProgress(
 			startedAt: scanJobs.startedAt,
 			status: scanJobs.status,
 			title: sources.title,
+			trackedSourceName: trackedSourceNameForHandle(
+				facebookHandleFromUrl(sources.normalizedUrl),
+			),
 		})
 		.from(scanJobs)
 		.innerJoin(sources, eq(scanJobs.sourceId, sources.id))
@@ -169,7 +180,12 @@ export async function getScanProgress(
 				? (job.errorMessage ??
 					"Đang chờ tới lượt xử lý. Bấm Chạy scan ngay nếu muốn xử lý trước.")
 				: (latest?.message ?? null),
-		title: job.title ?? job.fileName ?? job.normalizedUrl ?? "Nguồn chưa đặt tên",
+		// The team's current name for the source, not the label frozen into
+		// `sources.title` when the very first scan of it was created.
+		title: pageIdentity({
+			displayName: job.trackedSourceName ?? job.title,
+			fallback: job.fileName ?? job.normalizedUrl,
+		}).name,
 	};
 }
 

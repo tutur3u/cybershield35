@@ -168,8 +168,18 @@ export function QueueCard({
 								<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 									{scan.title}
 								</p>
-								<p className="mt-1 truncate text-[11px] text-[var(--muted)]">
-									{scan.sourceLabel} - {providerLabel(scan.provider)}
+								<p className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--muted)]">
+									{scan.sourceHandle ? (
+										<>
+											<span className="truncate font-semibold">
+												@{scan.sourceHandle}
+											</span>
+											<span aria-hidden>·</span>
+										</>
+									) : null}
+									<span className="shrink-0">
+										{scan.sourceLabel} · {providerLabel(scan.provider)}
+									</span>
 								</p>
 								{scan.errorMessage ? (
 									<p className="mt-1 line-clamp-2 text-[11px] font-semibold text-[var(--danger-strong)]">

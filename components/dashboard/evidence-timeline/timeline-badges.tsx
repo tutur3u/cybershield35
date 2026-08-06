@@ -11,7 +11,16 @@ import {
 
 import { triageLabels } from "./timeline-utils";
 
+/**
+ * The triage state, when there is one.
+ *
+ * "Mới" is the state every post starts in, so badging it put the same grey chip
+ * on every card in the timeline — a column of identical labels that told a
+ * reader nothing and crowded out the badges that did. Untouched is the absence
+ * of triage, and absence reads better as nothing than as a word.
+ */
 export function TriageBadge({ status }: { status: EvidenceTriageView["status"] }) {
+	if (status === "new") return null;
 	const accent = status === "action_required" || status === "reviewing";
 	return (
 		<span

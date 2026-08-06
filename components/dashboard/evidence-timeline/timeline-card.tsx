@@ -23,6 +23,7 @@ import {
 import { intelligenceProviderLabel } from "@/components/dashboard/intelligence-workspace-shared";
 import type { TimelinePost } from "@/components/dashboard/types";
 import { RiskPill } from "@/components/dashboard/ui-primitives";
+import { pageIdentity } from "@/lib/domain/page-identity";
 import { explainEvidenceRisk } from "@/lib/domain/risk-explanation";
 
 import {
@@ -69,18 +70,13 @@ export function TimelineCard({
 	 * "facebook.com" — while the name the team gave that page, and reads
 	 * everywhere else in the product, was nowhere on it.
 	 */
-	const name =
-		post.pageDisplayName ??
-		post.sourceLabel ??
-		post.author ??
-		intelligenceProviderLabel(post.provider);
-	const rawHandle = post.pageUsername ?? post.author ?? null;
-	// Dropped when it merely repeats the name, which would otherwise print the
-	// same words twice with an @ in front of the second.
-	const handle =
-		rawHandle && rawHandle.toLowerCase() !== name.toLowerCase()
-			? rawHandle.replace(/^@/u, "")
-			: null;
+	const { handle, name } = pageIdentity({
+		author: post.author,
+		displayName: post.pageDisplayName,
+		fallback: intelligenceProviderLabel(post.provider),
+		handle: post.pageUsername,
+		sourceUrl: post.sourceUrl,
+	});
 	const shownTopics = post.topicSlugs.slice(0, 3);
 	const hiddenTopicCount = post.topicSlugs.length - shownTopics.length;
 

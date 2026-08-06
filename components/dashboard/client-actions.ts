@@ -760,6 +760,9 @@ function buildPendingScan(
 		sourceType: sourceTypeForPendingScan(options),
 		provider: providerForPendingScan(options),
 		title,
+		// The optimistic row shows what was typed; the handle arrives with the
+		// server's own projection on the next refresh.
+		sourceHandle: null,
 		sourceLabel: sourceLabelForType(sourceTypeForPendingScan(options)),
 		riskLevel: "medium",
 		progress: 0,

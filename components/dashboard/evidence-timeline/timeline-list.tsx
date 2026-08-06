@@ -9,6 +9,7 @@ import {
 	intelligenceProviderLabel,
 } from "@/components/dashboard/intelligence-workspace-shared";
 import type { TimelinePost } from "@/components/dashboard/types";
+import { pageIdentity } from "@/lib/domain/page-identity";
 
 import { TriageBadge } from "./timeline-badges";
 
@@ -38,6 +39,13 @@ export function TimelineDenseList({
 						const post = posts[row.index];
 						if (!post) return null;
 						const isNew = Date.parse(post.createdAt) > lastSeenMs;
+						const { handle, name } = pageIdentity({
+							author: post.author,
+							displayName: post.pageDisplayName,
+							fallback: intelligenceProviderLabel(post.provider),
+							handle: post.pageUsername,
+							sourceUrl: post.sourceUrl,
+						});
 						return (
 							<div
 								key={post.id}
@@ -56,15 +64,13 @@ export function TimelineDenseList({
 										>
 											{post.quote}
 										</IntentPrefetchLink>
-										<p className="mt-1 flex items-center gap-2 truncate text-xs text-[var(--muted)]">
-											{isNew ? (
-												<span className="inline-flex shrink-0 items-center rounded bg-[var(--accent-fill)] px-1 py-0.5 text-[9px] font-bold uppercase text-white">
-													Mới
-												</span>
+										<p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-[var(--muted)]">
+											<span className="truncate font-semibold text-[var(--muted-strong)]">
+												{name}
+											</span>
+											{handle ? (
+												<span className="truncate">@{handle}</span>
 											) : null}
-											{post.sourceLabel ??
-												post.author ??
-												intelligenceProviderLabel(post.provider)}
 										</p>
 									</div>
 									<div className="text-xs font-semibold text-[var(--muted)]">
@@ -76,9 +82,17 @@ export function TimelineDenseList({
 									<button
 										type="button"
 										onClick={() => onTriage(post.id)}
-										className="justify-self-start"
+										className="justify-self-start rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
 									>
-										<TriageBadge status={post.triage.status} />
+										{/* Untouched posts carry no badge, so the column needs its
+											own affordance or the row loses its way into triage. */}
+										{post.triage.status === "new" ? (
+											<span className="inline-flex h-6 items-center rounded-md border border-dashed border-[var(--border-strong)] px-2 text-[11px] font-bold text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)]">
+												Xử lý
+											</span>
+										) : (
+											<TriageBadge status={post.triage.status} />
+										)}
 									</button>
 								</div>
 							</div>
