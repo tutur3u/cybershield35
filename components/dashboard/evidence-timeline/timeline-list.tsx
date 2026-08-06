@@ -11,7 +11,7 @@ import {
 import type { TimelinePost } from "@/components/dashboard/types";
 import { pageIdentity } from "@/lib/domain/page-identity";
 
-import { TriageBadge } from "./timeline-badges";
+import { EngagementRow, TriageBadge } from "./timeline-badges";
 
 export function TimelineDenseList({
 	lastSeenMs,
@@ -56,7 +56,9 @@ export function TimelineDenseList({
 								}`}
 								style={{ transform: `translateY(${row.start}px)` }}
 							>
-								<div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
+								{/* The middle column carries three figures rather than one
+									total now, so it needs the room the breakdown asks for. */}
+								<div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_120px] sm:items-center">
 									<div className="min-w-0">
 										<IntentPrefetchLink
 											href={post.href}
@@ -75,9 +77,15 @@ export function TimelineDenseList({
 									</div>
 									<div className="text-xs font-semibold text-[var(--muted)]">
 										<p>{formatIntelligenceDate(post.publishedAt ?? post.createdAt)}</p>
-										<p className="mt-1">
-											{post.engagement.total.toLocaleString("vi-VN")} tương tác
-										</p>
+										{/*
+											The same treatment the cards use: icons rather than the
+											word "tương tác", and nothing at all when there has been
+											no engagement. "0 tương tác" filled the column on the
+											quietest rows and said only that nobody had reacted yet.
+										*/}
+										<span className="mt-1 flex">
+											<EngagementRow engagement={post.engagement} />
+										</span>
 									</div>
 									<button
 										type="button"
