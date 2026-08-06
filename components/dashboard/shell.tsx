@@ -21,7 +21,7 @@ import {
 	CheckCircle2,
 	ChevronDown,
 	ChevronRight,
-	CircleHelp,
+	Code2,
 	Coins,
 	ExternalLink,
 	KeyRound,
@@ -36,6 +36,7 @@ import {
 	PanelLeftClose,
 	PanelLeftOpen,
 	Settings,
+	Landmark,
 	Sun,
 	UserRound,
 	X,
@@ -46,7 +47,6 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import {
 	navSections,
 	overviewNavItem,
-	quickLinks,
 	type NavItem,
 } from "@/components/dashboard/dashboard-data";
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
@@ -361,61 +361,78 @@ export function Sidebar({
 					<div
 						className={`mt-auto border-t border-[var(--divider)] p-3 ${chatRoute && chatMenuOpen ? "hidden" : collapsed ? "hidden lg:hidden" : "hidden lg:block"}`}
 					>
-						<div>
-							<p className="px-3 text-[11px] font-bold tracking-[0.01em] text-[color:var(--muted)]">
-								Trợ giúp
-							</p>
-							<div className="mt-1 space-y-0.5">
-								{quickLinks.map((link) => (
-									<IntentPrefetchLink
-										key={link.href}
-										href={link.href}
-										className={`flex h-8 items-center gap-2 rounded-md px-2 text-[11px] font-medium transition ${
-											pathname === link.href
-												? "bg-[var(--success-soft)] text-[color:var(--brand-strong)]"
-												: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
-										}`}
-									>
-										<CircleHelp aria-hidden size={13} />
-										<span className="truncate">{link.label}</span>
-									</IntentPrefetchLink>
-								))}
-							</div>
-						</div>
 						{/*
-							Who owns this and who built it. Kept in the shell so it travels
+							Who owns this and who built it, kept in the shell so it travels
 							with every page rather than living on one that is easy to miss.
+							Built as two links rather than a paragraph: both are places
+							someone may actually want to go.
 						*/}
-						<div className="mt-3 space-y-1 border-t border-[var(--divider)] px-3 pt-3">
-							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
-								Đơn vị chủ quản
-								<br />
-								<a
-									className="font-bold text-[color:var(--muted-strong)] underline-offset-2 hover:text-[color:var(--foreground)] hover:underline"
-									href="https://zalo.me/2629920369363080604"
-									rel="noreferrer"
-									target="_blank"
-								>
-									Công an phường Ea Kao
-								</a>
-							</p>
-							<p className="text-[10px] leading-4 font-semibold text-[color:var(--muted)]">
-								Phát triển &amp; cung cấp công nghệ
-								<br />
-								<a
-									className="font-bold text-[color:var(--muted-strong)] underline-offset-2 hover:text-[color:var(--foreground)] hover:underline"
-									href="https://tuturuuu.com"
-									rel="noreferrer"
-									target="_blank"
-								>
-									Tuturuuu
-								</a>
-							</p>
+						<p className="px-2 text-[10px] font-bold tracking-wide text-[color:var(--muted)] uppercase">
+							Sản phẩm của
+						</p>
+						<div className="mt-1.5 space-y-0.5">
+							<AttributionLink
+								href="https://zalo.me/2629920369363080604"
+								icon={Landmark}
+								name="Công an phường Ea Kao"
+								role="Đơn vị chủ quản"
+							/>
+							<AttributionLink
+								href="https://tuturuuu.com"
+								icon={Code2}
+								name="Tuturuuu"
+								role="Phát triển & công nghệ"
+							/>
 						</div>
 					</div>
 				</div>
 			</aside>
 		</>
+	);
+}
+
+/**
+ * One attributed party: who they are, and what they did.
+ *
+ * The role sits above the name because it is the part a reader is scanning
+ * for — "who owns this" and "who built this" are different questions, and the
+ * names alone answer neither.
+ */
+function AttributionLink({
+	href,
+	icon: Icon,
+	name,
+	role,
+}: {
+	href: string;
+	icon: typeof Landmark;
+	name: string;
+	role: string;
+}) {
+	return (
+		<a
+			className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-[var(--surface-soft)]"
+			href={href}
+			rel="noreferrer"
+			target="_blank"
+		>
+			<span className="grid size-7 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface-soft)] text-[color:var(--muted-strong)] transition group-hover:border-[var(--border-strong)] group-hover:text-[color:var(--foreground)]">
+				<Icon aria-hidden size={13} />
+			</span>
+			<span className="min-w-0 flex-1">
+				<span className="block text-[9px] leading-3 font-bold tracking-wide text-[color:var(--muted)] uppercase">
+					{role}
+				</span>
+				<span className="block truncate text-[11px] leading-4 font-bold text-[color:var(--muted-strong)] transition group-hover:text-[color:var(--foreground)]">
+					{name}
+				</span>
+			</span>
+			<ExternalLink
+				aria-hidden
+				className="shrink-0 text-[color:var(--muted)] opacity-0 transition group-hover:opacity-100"
+				size={11}
+			/>
+		</a>
 	);
 }
 

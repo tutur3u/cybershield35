@@ -68,12 +68,6 @@ export const navItems: NavItem[] = [
 	...navSections.flatMap((section) => section.items),
 ];
 
-export const quickLinks = [
-	{ label: "Quy trình 5 bước", href: "/guides/5-step-process" },
-	{ label: "Hướng dẫn sử dụng", href: "/guides/user-guide" },
-	{ label: "Chính sách & Quy định", href: "/guides/policies" },
-];
-
 export const sourceTabs = [
 	{ id: "url", label: "URL / Mạng xã hội" },
 	{ id: "file", label: "Tải tệp" },

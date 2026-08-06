@@ -70,7 +70,8 @@ describe("the product says who owns and who built it", () => {
 		expect(shell).toContain("Công an phường Ea Kao");
 		expect(shell).toContain("https://zalo.me/2629920369363080604");
 		expect(shell).toContain("https://tuturuuu.com");
-		expect(shell).toContain("Phát triển &amp; cung cấp công nghệ");
+		expect(shell).toContain("Phát triển & công nghệ");
+		expect(shell).toContain("Đơn vị chủ quản");
 	});
 
 	test("the README names them in both languages", () => {
@@ -151,5 +152,26 @@ describe("solid buttons stay legible on a dark page", () => {
 		);
 		expect(hook).toContain('document.addEventListener("scroll", read, {');
 		expect(hook).toContain("capture: true");
+	});
+});
+
+describe("the sidebar footer carries attribution, not a link dump", () => {
+	const shell = read("components/dashboard/shell.tsx");
+	const data = read("components/dashboard/dashboard-data.ts");
+
+	test("the help link list is gone from the sidebar", () => {
+		expect(shell).not.toContain("Trợ giúp");
+		expect(shell).not.toContain("quickLinks");
+		// And the list itself, since nothing else read it.
+		expect(data).not.toContain("quickLinks");
+	});
+
+	test("each party reads as a destination, with its role above its name", () => {
+		// "Who owns this" and "who built this" are different questions, and the
+		// names alone answer neither.
+		expect(shell).toContain("function AttributionLink");
+		expect(shell).toContain("Sản phẩm của");
+		expect(shell).toContain("role={");
+		expect(shell).toContain('target="_blank"');
 	});
 });
