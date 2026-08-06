@@ -1,14 +1,14 @@
 import {
 	Activity,
-	Database,
+	ChartArea,
 	FileSearch,
 	History,
 	LayoutDashboard,
-	Layers3,
 	MessageCircle,
 	MessageSquareText,
 	Newspaper,
 	Radar,
+	Timeline,
 	UsersRound,
 	type LucideIcon,
 } from "lucide-react";
@@ -46,8 +46,8 @@ export const navSections: NavSection[] = [
 			// Analysis before the timeline: it answers "what is going on" in one
 			// screen, and the timeline is where you go once you know what to look
 			// for. Reading the raw feed first is the slower way round.
-			{ label: "Phân tích", href: "/intelligence", icon: Layers3 },
-			{ label: "Dòng thời gian", href: "/evidence", icon: Database },
+			{ label: "Phân tích", href: "/intelligence", icon: ChartArea },
+			{ label: "Dòng thời gian", href: "/evidence", icon: Timeline },
 			{ label: "Bài viết", href: "/articles", icon: Newspaper },
 		],
 	},
