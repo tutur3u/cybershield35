@@ -451,13 +451,17 @@ async function drainScanQueue() {
  */
 async function warmIntelligenceSummary() {
 	try {
-		const { getIntelligenceSummary } = await import(
-			"@/lib/dashboard/intelligence-summary"
-		);
-		const summary = await getIntelligenceSummary({ timeRange: "30d" });
-		return { warmed: Boolean(summary) };
+		const { intelligenceSummaryIsStale, regenerateIntelligenceSummary } =
+			await import("@/lib/dashboard/intelligence-summary");
+		// Skips the model entirely on a run that collected nothing new, which is
+		// most of them.
+		if (!(await intelligenceSummaryIsStale("30d"))) {
+			return { warmed: false, unchanged: true };
+		}
+		const summary = await regenerateIntelligenceSummary("30d");
+		return { unchanged: false, warmed: Boolean(summary) };
 	} catch {
-		return { warmed: false };
+		return { unchanged: false, warmed: false };
 	}
 }
 

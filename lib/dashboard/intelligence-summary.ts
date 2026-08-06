@@ -1,9 +1,10 @@
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
+import { eq } from "drizzle-orm";
 
 import type { IntelligenceFilters } from "@/components/dashboard/types";
-import { dashboardIntelligenceTag } from "@/lib/dashboard/cache-tags";
+import { adminDb, adminSqlClient } from "@/lib/db/client";
+import { intelligenceSummaries } from "@/lib/db/schema";
 import {
 	getIntelligenceAnalytics,
 	getIntelligenceEvidenceSample,
@@ -13,54 +14,137 @@ import {
 	type IntelligenceSummary,
 } from "@/lib/llm/intelligence-summary";
 
+type RangeKey = "7d" | "30d" | "90d" | "all";
+
 /**
- * The written summary, generated once per window rather than per reader.
+ * The written read of a window, stored rather than cached.
  *
- * This is the only part of the analysis page that costs money to produce, and
- * the answer is identical for everybody looking at the same window — so it is
- * cached far harder than the charts beside it. Half an hour of staleness on a
- * paragraph of narrative is a fair trade for not running a model on every page
- * view; the numbers it describes refresh on their own five-minute cycle and are
- * always the live ones.
+ * It began in Next's `"use cache"`, which for a dynamic route handler is held
+ * per serverless instance. Instances are short-lived and numerous, so nearly
+ * every reader landed on a cold one and paid the forty seconds to regenerate —
+ * on every refresh, for ever. Tagging made it worse: twenty-five call sites
+ * invalidate the intelligence tag, so even a warm instance was cleared within
+ * minutes.
  *
- * Refreshed on its own timer rather than with the rest of the intelligence
- * data: see the tag note below for why sharing that tag made it uncacheable.
+ * A row in Postgres survives all of that. The read is one indexed lookup, and
+ * the model runs only when the thing it describes has actually changed.
+ */
+
+/**
+ * What the summary was computed from.
+ *
+ * The count and the newest timestamp in the window. Equal fingerprints mean
+ * nothing has been collected since, so the stored answer is still the right
+ * one — no model call can improve it. A completed scan moves both, which is
+ * exactly when regenerating is worth the cost.
+ */
+async function fingerprintFor(range: RangeKey) {
+	const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : null;
+	const rows = await adminSqlClient<Array<{ newest: string | null; total: number }>>`
+		select
+			count(*)::int as total,
+			coalesce(max(created_at)::text, 'none') as newest
+		from evidence_items
+		${days ? adminSqlClient`where created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
+	`;
+	const row = rows[0];
+	return `${row?.total ?? 0}:${row?.newest ?? "none"}`;
+}
+
+function normalizeRange(value?: string): RangeKey {
+	return value === "7d" || value === "90d" || value === "all" ? value : "30d";
+}
+
+/**
+ * Serves the stored summary, and regenerates only when the data has moved.
+ *
+ * A stale row is returned as-is rather than held while a new one is produced:
+ * a paragraph describing last hour's shape is worth far more to somebody
+ * opening the page than a spinner. The refresh happens on the next scheduled
+ * run, which is the path that should be paying for it.
  */
 export async function getIntelligenceSummary(
 	filters: IntelligenceFilters = {},
 ): Promise<IntelligenceSummary | null> {
-	const range =
-		filters.timeRange === "7d" ||
-		filters.timeRange === "90d" ||
-		filters.timeRange === "all"
-			? filters.timeRange
-			: "30d";
-	return getCachedIntelligenceSummary(range);
+	const range = normalizeRange(filters.timeRange);
+	const [stored, fingerprint] = await Promise.all([
+		readStoredSummary(range),
+		fingerprintFor(range),
+	]);
+
+	if (stored && stored.fingerprint === fingerprint) return stored.summary;
+	if (stored) return stored.summary;
+
+	// Nothing stored at all: generate once so the first reader is not left with
+	// an empty panel, then every reader after them is served from the row.
+	return regenerateIntelligenceSummary(range);
 }
 
-async function getCachedIntelligenceSummary(
-	range: "7d" | "30d" | "90d" | "all",
-): Promise<IntelligenceSummary | null> {
-	"use cache";
-	cacheLife({ expire: 7200, revalidate: 1800, stale: 1800 });
-	/*
-	 * Its own tag only, deliberately not the broad intelligence one.
-	 *
-	 * Twenty-five call sites invalidate `DASHBOARD_INTELLIGENCE_TAG`, and with
-	 * scans running through the day something clears it every few minutes. The
-	 * summary was tagged with it, so the cache never survived long enough to be
-	 * read: every reader regenerated it from cold and waited the full forty
-	 * seconds, every single refresh.
-	 *
-	 * Half an hour behind the charts is the right trade for a paragraph about
-	 * trends — it describes the shape of a window, not a live count — and the
-	 * daily job warms it besides.
-	 */
-	cacheTag(dashboardIntelligenceTag("summary"));
+async function readStoredSummary(range: RangeKey) {
+	const [row] = await adminDb
+		.select({
+			fingerprint: intelligenceSummaries.fingerprint,
+			payload: intelligenceSummaries.payload,
+		})
+		.from(intelligenceSummaries)
+		.where(eq(intelligenceSummaries.timeRange, range))
+		.limit(1);
+	if (!row) return null;
+	return {
+		fingerprint: row.fingerprint,
+		summary: row.payload as unknown as IntelligenceSummary,
+	};
+}
 
-	const [analytics, samples] = await Promise.all([
+/**
+ * Produces a summary and stores it. Called by the scheduler after a scan run,
+ * and once by the first reader of a window that has never been summarised.
+ *
+ * Returns null without writing when there is nothing to say — no model
+ * configured, or an empty window — so an absent row keeps meaning "not yet
+ * generated" rather than "generated and empty".
+ */
+export async function regenerateIntelligenceSummary(
+	range: RangeKey = "30d",
+): Promise<IntelligenceSummary | null> {
+	const [analytics, samples, fingerprint] = await Promise.all([
 		getIntelligenceAnalytics({ timeRange: range }),
 		getIntelligenceEvidenceSample({ timeRange: range }),
+		fingerprintFor(range),
 	]);
-	return summarizeIntelligence(analytics, samples);
+	const summary = await summarizeIntelligence(analytics, samples);
+	if (!summary) return null;
+
+	await adminDb
+		.insert(intelligenceSummaries)
+		.values({
+			fingerprint,
+			generatedAt: new Date(),
+			payload: summary as unknown as Record<string, unknown>,
+			timeRange: range,
+		})
+		.onConflictDoUpdate({
+			target: intelligenceSummaries.timeRange,
+			set: {
+				fingerprint,
+				generatedAt: new Date(),
+				payload: summary as unknown as Record<string, unknown>,
+			},
+		});
+
+	return summary;
+}
+
+/**
+ * Whether the stored summary still describes the current data.
+ *
+ * Lets the scheduler skip the model entirely on a run that collected nothing
+ * new, which is most of them.
+ */
+export async function intelligenceSummaryIsStale(range: RangeKey = "30d") {
+	const [stored, fingerprint] = await Promise.all([
+		readStoredSummary(range),
+		fingerprintFor(range),
+	]);
+	return !stored || stored.fingerprint !== fingerprint;
 }

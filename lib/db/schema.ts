@@ -1175,6 +1175,34 @@ export const managedSchedulerIntegrations = pgTable(
 	],
 );
 
+/**
+ * The written trend summary, kept where it survives.
+ *
+ * It lived in Next's `"use cache"`, which for a dynamic route handler is held
+ * per serverless instance — and instances are short-lived and numerous, so
+ * nearly every reader landed on a cold one and paid the forty seconds to
+ * regenerate. Storing it makes the read a single indexed row.
+ *
+ * `fingerprint` is what the summary was computed from: the evidence count and
+ * newest timestamp in the window. Matching means nothing has been collected
+ * since, so the stored answer is still the right one and can be served
+ * outright. Not matching means a scan has landed and it is worth regenerating —
+ * which is the only thing that should trigger the cost.
+ */
+export const intelligenceSummaries = pgTable(
+	"intelligence_summaries",
+	{
+		timeRange: text("time_range").primaryKey(),
+		fingerprint: text("fingerprint").notNull(),
+		payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+		model: text("model"),
+		generatedAt: timestamp("generated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [index("intelligence_summaries_generated_idx").on(table.generatedAt)],
+);
+
 export const intelligenceDailyRollups = pgTable(
 	"intelligence_daily_rollups",
 	{

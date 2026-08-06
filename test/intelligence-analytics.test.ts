@@ -72,12 +72,13 @@ describe("what the trend summary is allowed to do", () => {
 		expect(summary).toContain('ghi rõ ở trường "evidence"');
 	});
 
-	test("the model runs once per window, not once per reader", () => {
-		// It is the only part of this page that costs money to produce and the
-		// answer is identical for everyone looking at the same window.
-		expect(cached).toContain('"use cache"');
-		expect(cached).toContain("cacheLife(");
-		expect(cached).toContain("dashboardIntelligenceTag(\"summary\")");
+	test("the model runs when the data moves, not when a reader arrives", () => {
+		// It is the only part of this page that costs money to produce, and the
+		// answer is identical for everyone looking at the same window. It used to
+		// lean on `"use cache"`, which a dynamic route holds per serverless
+		// instance — see the stored-checkpoint suite below for why that failed.
+		expect(cached).toContain("intelligenceSummaryIsStale");
+		expect(cached).toContain("export async function regenerateIntelligenceSummary");
 	});
 });
 
@@ -96,5 +97,49 @@ describe("analytics read from real rows", () => {
 
 	test("the comparison window is the same length as the one it follows", () => {
 		expect(analytics).toContain("${days * 2}");
+	});
+});
+
+describe("the summary is a stored checkpoint, not a cache", () => {
+	const stored = readFileSync("lib/dashboard/intelligence-summary.ts", "utf8");
+	const scheduler = readFileSync("lib/managed-scheduler/server.ts", "utf8");
+	const schema = readFileSync("lib/db/schema.ts", "utf8");
+
+	test("it survives in Postgres rather than in an instance", () => {
+		// `"use cache"` in a dynamic route handler is held per serverless
+		// instance; instances are short-lived, so nearly every reader landed on a
+		// cold one and paid the full generation on every refresh.
+		expect(schema).toContain("export const intelligenceSummaries = pgTable(");
+		expect(schema).toContain('"intelligence_summaries"');
+		expect(stored).toContain("intelligenceSummaries");
+		// Asserted on the API rather than the directive string, which appears in
+		// the file's own explanation of why it no longer uses it.
+		expect(stored).not.toContain("cacheLife(");
+		expect(stored).not.toContain("cacheTag(");
+	});
+
+	test("regeneration is keyed to the data having actually changed", () => {
+		// The count and newest timestamp in the window: a completed scan moves
+		// both, and nothing else does.
+		expect(stored).toContain("async function fingerprintFor");
+		expect(stored).toContain("coalesce(max(created_at)::text, 'none') as newest");
+	});
+
+	test("a stale summary is served rather than withheld", () => {
+		// Last hour's read beats a spinner for somebody opening the page; the
+		// refresh belongs to the scheduled run that should be paying for it.
+		const read = stored.slice(stored.indexOf("export async function getIntelligenceSummary"));
+		expect(read).toContain("if (stored) return stored.summary;");
+	});
+
+	test("a run that collected nothing new never calls the model", () => {
+		expect(scheduler).toContain("intelligenceSummaryIsStale");
+		expect(scheduler).toContain("unchanged: true");
+	});
+
+	test("an empty result is not stored as though it were an answer", () => {
+		// Otherwise a missing row stops meaning "not yet generated".
+		const regen = stored.slice(stored.indexOf("export async function regenerateIntelligenceSummary"));
+		expect(regen).toContain("if (!summary) return null;");
 	});
 });
