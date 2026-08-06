@@ -190,8 +190,24 @@ function cmsUrl(suffix: string) {
  * alone for the publication guard to report; taking the whole sync down here
  * would replace a clear message with an obscure one.
  */
+export type CoverOutcome =
+	/** Already served from our own origin. */
+	| "already-hosted"
+	/** Copied into CMS storage on this run. */
+	| "rehosted"
+	/** The source answered, so a real run would copy it. */
+	| "reachable"
+	/** The source is gone — only a person can supply a new image. */
+	| "unreachable"
+	/** The source answered but CMS refused the copy. */
+	| "upload-failed"
+	| "missing"
+	| "none";
+
 export async function rehostForeignArticleImages(input: {
 	articleId: string;
+	/** Reports what a real run would do without writing anything. */
+	dryRun?: boolean;
 	requestOrigin: string;
 	session: TuturuuuAdminSession;
 }) {
@@ -200,7 +216,7 @@ export async function rehostForeignArticleImages(input: {
 		.from(articles)
 		.where(eq(articles.id, input.articleId))
 		.limit(1);
-	if (!article) return { failed: 0, rehosted: 0 };
+	if (!article) return { cover: "missing" as CoverOutcome, failed: 0, rehosted: 0 };
 
 	const isForeign = (url: string | null): url is string =>
 		Boolean(url?.startsWith("http")) &&
@@ -208,17 +224,27 @@ export async function rehostForeignArticleImages(input: {
 
 	let failed = 0;
 	let rehosted = 0;
+	// Reported separately from the count, because "the source is gone" and "the
+	// upload failed" need different answers: one needs a new image from a person,
+	// the other will work on the next attempt.
+	let cover: CoverOutcome = article.coverUrl ? "already-hosted" : "none";
 	const blocks = [...article.blocks];
 
 	if (isForeign(article.coverUrl)) {
 		const file = await downloadRemoteImage(article.coverUrl);
-		if (!file) failed += 1;
-		else {
+		if (!file) {
+			cover = "unreachable";
+			failed += 1;
+		} else if (input.dryRun) {
+			cover = "reachable";
+		} else {
 			try {
 				// Also rewrites articles.coverUrl, so nothing else needs updating.
 				await uploadArticleCmsMedia({ ...input, file, kind: "cover" });
+				cover = "rehosted";
 				rehosted += 1;
 			} catch {
+				cover = "upload-failed";
 				failed += 1;
 			}
 		}
@@ -226,6 +252,7 @@ export async function rehostForeignArticleImages(input: {
 
 	for (const [index, block] of blocks.entries()) {
 		if (block.type !== "image" || !isForeign(block.url)) continue;
+		if (input.dryRun) continue;
 		const file = await downloadRemoteImage(block.url);
 		if (!file) {
 			failed += 1;
@@ -252,7 +279,7 @@ export async function rehostForeignArticleImages(input: {
 			.where(eq(articles.id, article.id));
 	}
 
-	return { failed, rehosted };
+	return { cover, failed, rehosted };
 }
 
 async function downloadRemoteImage(url: string) {

@@ -888,7 +888,7 @@ describe("images are hosted where Zalo can reach them", () => {
 		// The publication guard reports it with a message the operator can act on;
 		// failing here would replace that with something obscure.
 		expect(media).toContain("failed += 1;");
-		expect(media).toContain("return { failed, rehosted };");
+		expect(media).toContain("return { cover, failed, rehosted };");
 	});
 
 	test("an image Zalo cannot fetch fails once, not four times", () => {
@@ -935,5 +935,35 @@ describe("CMS storage sets itself up", () => {
 		expect(media).not.toContain(
 			"Tuturuuu CMS chưa được cấu hình bộ sưu tập ảnh bài viết.",
 		);
+	});
+});
+
+describe("the cover backlog can be swept before it rots", () => {
+	const route = readFileSync(
+		new URL("../app/api/articles/rehost-covers/route.ts", import.meta.url),
+		"utf8",
+	);
+	const media = readFileSync(
+		new URL("../lib/articles/cms-media.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("a dead source is named rather than counted as a failure", () => {
+		// "The source is gone" and "the upload failed" need opposite answers: one
+		// needs a new image from a person, the other works on the next attempt.
+		expect(media).toContain('cover = "unreachable";');
+		expect(media).toContain('cover = "upload-failed";');
+		expect(route).toContain("outcomes[result.cover].push({");
+	});
+
+	test("it reports before it writes", () => {
+		expect(route).toContain("apply: z.boolean().default(false)");
+		expect(route).toContain("dryRun: !apply");
+		expect(media).toContain("} else if (input.dryRun) {");
+	});
+
+	test("covers already on our origin are left alone", () => {
+		expect(route).toContain("not like");
+		expect(route).toContain("remaining");
 	});
 });
