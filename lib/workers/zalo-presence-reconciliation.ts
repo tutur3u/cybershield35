@@ -125,11 +125,30 @@ export async function reconcileZaloRemotePresence({
 		}
 	}
 
-	return {
+	const result = {
 		cleared: dryRun ? 0 : cleared,
 		clearedTitles,
 		present,
 		scanned: candidates.length,
 		skipped,
 	};
+
+	// Recorded because "we checked and Zalo has it" and "we could not check" are
+	// indistinguishable from the outside otherwise — and that is precisely the
+	// question asked when someone cannot find a draft on the OA.
+	if (!dryRun && candidates.length) {
+		await adminDb
+			.insert(auditEvents)
+			.values({
+				action: "article_remote_presence_checked",
+				// The run covers a batch rather than one article, so the connection
+				// stands in as the entity it is about.
+				entityId: [...byConnection.keys()].join(",") || "none",
+				entityType: "zalo_connection",
+				payload: result,
+			})
+			.catch(() => undefined);
+	}
+
+	return result;
 }

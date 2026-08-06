@@ -14,6 +14,7 @@ import {
 	PanelRightClose,
 	PanelRightOpen,
 	Save,
+	RefreshCw,
 	Send,
 	Undo2,
 	X,
@@ -65,6 +66,7 @@ export function EditorHeader({
 	publishTarget,
 	railOpen,
 	stage,
+	synced,
 	title,
 	versionCount,
 }: {
@@ -74,7 +76,7 @@ export function EditorHeader({
 	dirty: boolean;
 	oaId: string | null;
 	onPublish: () => void;
-	onPublishAction: (action: "hide") => void;
+	onPublishAction: (action: "hide" | "publish" | "sync") => void;
 	onReview: (status: string) => void;
 	onSave: () => void;
 	onToggleRail: () => void;
@@ -82,6 +84,8 @@ export function EditorHeader({
 	publishTarget: ZaloPublishTarget;
 	railOpen: boolean;
 	stage: number;
+	/** The draft on the OA matches what is in the editor. */
+	synced: boolean;
 	title: string;
 	versionCount: number;
 }) {
@@ -167,14 +171,17 @@ export function EditorHeader({
 					)}
 					<PublishButton
 						blockers={blockers}
+						busy={busy}
 						disabled={Boolean(busy)}
 						live={article.publicationStatus === "published"}
 						liveUrl={zaloPublicArticleUrl(article.remoteArticleId, oaId)}
 						onPublish={onPublish}
-						onUnpublish={() => onPublishAction("hide")}
+						onPublishAction={onPublishAction}
 						publishStep={publishStep}
 						publishTarget={publishTarget}
 						publishing={busy === "publish"}
+						staged={publicationStatus === "hidden"}
+						synced={synced}
 					/>
 					<button
 						type="button"
@@ -198,25 +205,33 @@ export function EditorHeader({
  */
 function PublishButton({
 	blockers,
+	busy,
 	disabled,
 	live,
 	liveUrl,
 	onPublish,
-	onUnpublish,
+	onPublishAction,
 	publishStep,
 	publishTarget,
 	publishing,
+	staged,
+	synced,
 }: {
 	blockers: string[];
+	busy: string;
 	disabled: boolean;
 	/** Already visible to followers on the OA. */
 	live: boolean;
 	liveUrl: string | null;
 	onPublish: () => void;
-	onUnpublish: () => void;
+	onPublishAction: (action: "hide" | "publish" | "sync") => void;
 	publishStep: PublishStep;
 	publishTarget: ZaloPublishTarget;
 	publishing: boolean;
+	/** A hidden draft already exists on the OA. */
+	staged: boolean;
+	/** The draft on the OA matches what is in the editor. */
+	synced: boolean;
 }) {
 	// Offering "publish" on something already published is an action with no
 	// meaning. What an operator wants there is to see it, or to take it down.
@@ -239,7 +254,7 @@ function PublishButton({
 					<button
 						className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--danger-border)] px-4 text-[12px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-50"
 						disabled={disabled}
-						onClick={onUnpublish}
+						onClick={() => onPublishAction("hide")}
 						type="button"
 					>
 						{publishing ? (
@@ -248,6 +263,49 @@ function PublishButton({
 							<EyeOff size={15} />
 						)}
 						Gỡ khỏi Zalo
+					</button>
+				</DashboardTooltip>
+			</div>
+		);
+	}
+
+	// A draft already on the OA cannot be "put on the OA" again. The step the
+	// operator is actually on is making it public — which is what the stepper
+	// above already says — so the primary button says the same thing rather than
+	// offering an upload that would change nothing.
+	if (staged) {
+		return (
+			<div className="flex items-center gap-2">
+				{synced ? null : (
+					<DashboardTooltip content="Bản ẩn trên Zalo cũ hơn nội dung đang soạn. Đồng bộ lại trước khi hiển thị công khai.">
+						<button
+							className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--warning-border)] px-3 text-[12px] font-bold text-[var(--warning-strong)] transition hover:bg-[var(--warning-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+							disabled={disabled}
+							onClick={() => onPublishAction("sync")}
+							type="button"
+						>
+							{busy === "sync" ? (
+								<LoaderCircle size={15} className="animate-spin" />
+							) : (
+								<RefreshCw size={15} />
+							)}
+							Đồng bộ lại bản ẩn
+						</button>
+					</DashboardTooltip>
+				)}
+				<DashboardTooltip content="Bản ẩn đã có trên Zalo OA. Hiển thị công khai với người theo dõi.">
+					<button
+						className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 text-[12px] font-bold text-white transition hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={disabled}
+						onClick={() => onPublishAction("publish")}
+						type="button"
+					>
+						{busy === "publish" ? (
+							<LoaderCircle size={15} className="animate-spin" />
+						) : (
+							<Send size={15} />
+						)}
+						Hiển thị công khai
 					</button>
 				</DashboardTooltip>
 			</div>

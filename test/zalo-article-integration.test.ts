@@ -763,3 +763,43 @@ describe("a pointer to a draft that is gone is not a warning", () => {
 		expect(worker).toContain('action: "article_remote_pointer_cleared",');
 	});
 });
+
+describe("the primary action says what the next step is", () => {
+	const header = readFileSync(
+		new URL("../components/dashboard/article-editor/editor-header.tsx", import.meta.url),
+		"utf8",
+	);
+
+	test("a draft already on the OA is offered publishing, not another upload", () => {
+		// The label used to come from the local publish target, so an article
+		// already staged as hidden read "Đưa lên Zalo (ẩn)" — an action that would
+		// change nothing, while the stepper above said the next step was going
+		// public.
+		expect(header).toContain("if (staged) {");
+		expect(header).toContain("Hiển thị công khai");
+		expect(header).toContain('onPublishAction("publish")');
+		// Re-syncing is offered only when the OA copy is behind the editor.
+		expect(header).toContain("{synced ? null : (");
+		expect(header).toContain("Đồng bộ lại bản ẩn");
+	});
+
+	test("the staged branch is reached before the target-driven label", () => {
+		expect(header.indexOf("if (staged) {")).toBeLessThan(
+			header.indexOf("const blocked = blockers.length > 0;"),
+		);
+	});
+});
+
+describe("a presence check records what it saw", () => {
+	const worker = readFileSync(
+		new URL("../lib/workers/zalo-presence-reconciliation.ts", import.meta.url),
+		"utf8",
+	);
+
+	test("checked and present is distinguishable from could not check", () => {
+		// Otherwise "Zalo has it" and "we never asked" look identical afterwards —
+		// which is the question when a draft cannot be found on the OA.
+		expect(worker).toContain('action: "article_remote_presence_checked"');
+		expect(worker).toContain("payload: result");
+	});
+});

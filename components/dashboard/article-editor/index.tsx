@@ -99,6 +99,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				onToggleRail={() => setRailOpen((value) => !value)}
 				publishStep={editor.publishStep}
 				publishTarget={editor.publishTarget}
+				synced={synced}
 				railOpen={railOpen}
 				stage={editorStage(article, synced)}
 				title={draft.title}
