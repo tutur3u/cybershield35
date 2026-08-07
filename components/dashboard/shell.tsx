@@ -538,8 +538,8 @@ function CollapsedSidebarTooltip({
 				<TooltipContent
 					align="center"
 					side="right"
-					sideOffset={10}
-					className="pointer-events-none hidden max-w-[240px] border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_12px_30px_rgb(0_0_0/0.22)] [&>svg]:bg-[var(--surface)] [&>svg]:fill-[var(--surface)] lg:flex"
+					sideOffset={8}
+					className="pointer-events-none hidden max-w-[240px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_10px_28px_rgb(0_0_0/0.18)] [&>svg]:hidden lg:flex"
 				>
 					{content}
 				</TooltipContent>

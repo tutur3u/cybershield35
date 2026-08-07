@@ -1265,6 +1265,7 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain('from "@/components/ui/tooltip"');
 		expect(shell).toContain("CollapsedSidebarTooltip");
 		expect(shell).toContain("<TooltipTrigger asChild>{children}</TooltipTrigger>");
+		expect(shell).toContain("[&>svg]:hidden");
 		expect(shell).toContain('side="right"');
 		expect(shell).toContain("bg-[var(--surface)]");
 		expect(shell).toContain("text-[var(--foreground)]");
