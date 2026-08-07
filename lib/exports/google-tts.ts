@@ -6,6 +6,7 @@ const DEFAULT_TUTURUUU_TTS_MODEL =
 const DEFAULT_GOOGLE_TTS_VOICE = "Puck";
 const GOOGLE_TTS_TIMEOUT_MS = 60_000;
 const SAMPLE_RATE = 24_000;
+const RETRYABLE_TTS_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 export async function generateVietnameseSpeech(
 	text: string,
@@ -133,37 +134,51 @@ async function generateWithTuturuuu(
 		const baseUrl =
 			process.env.TUTURUUU_AI_BASE_URL?.trim() ??
 			"https://tuturuuu.com/api/v1/external-ai";
-		const response = await (options.fetchImpl ?? fetch)(
-			`${baseUrl.replace(/\/+$/u, "")}/audio/speech`,
-			{
-				body: JSON.stringify({
-					input: text,
-					instructions:
-						"Đọc tiếng Việt tự nhiên, rõ ràng, điềm tĩnh; ngắt nghỉ theo dấu câu và không thêm lời dẫn.",
-					model:
-						process.env.TUTURUUU_TTS_MODEL?.trim() ??
-						DEFAULT_TUTURUUU_TTS_MODEL,
-					response_format: "wav",
-					voice: process.env.TUTURUUU_TTS_VOICE?.trim() ?? "Kore",
-				}),
-				headers: {
-					Authorization: `Bearer ${options.accessToken}`,
-					"Content-Type": "application/json",
-					"X-Tuturuuu-Workspace-Id": options.workspaceId,
+		for (let attempt = 1; attempt <= 2; attempt += 1) {
+			const response = await (options.fetchImpl ?? fetch)(
+				`${baseUrl.replace(/\/+$/u, "")}/audio/speech`,
+				{
+					body: JSON.stringify({
+						input: text,
+						instructions:
+							"Đọc tiếng Việt tự nhiên, rõ ràng, điềm tĩnh; ngắt nghỉ theo dấu câu và không thêm lời dẫn.",
+						model:
+							process.env.TUTURUUU_TTS_MODEL?.trim() ??
+							DEFAULT_TUTURUUU_TTS_MODEL,
+						response_format: "wav",
+						voice: process.env.TUTURUUU_TTS_VOICE?.trim() ?? "Kore",
+					}),
+					headers: {
+						Authorization: `Bearer ${options.accessToken}`,
+						"Content-Type": "application/json",
+						"X-Tuturuuu-Workspace-Id": options.workspaceId,
+					},
+					method: "POST",
+					signal,
 				},
-				method: "POST",
-				signal,
-			},
-		);
-		if (!response.ok) {
-			console.error("Tuturuuu TTS export failed", { status: response.status });
-			throw new SpeechGenerationError(
-				"Không thể tạo bản đọc qua Tuturuuu AI lúc này.",
-				"provider_error",
-				response.status === 403 ? 403 : 502,
 			);
+			if (response.ok) return Buffer.from(await response.arrayBuffer());
+			const retrying =
+				attempt === 1 && RETRYABLE_TTS_STATUSES.has(response.status);
+			const log = retrying ? console.warn : console.error;
+			log("Tuturuuu TTS export failed", {
+				attempt,
+				retrying,
+				status: response.status,
+			});
+			if (!retrying) {
+				throw new SpeechGenerationError(
+					"Không thể tạo bản đọc qua Tuturuuu AI lúc này.",
+					"provider_error",
+					response.status === 403 ? 403 : 502,
+				);
+			}
 		}
-		return Buffer.from(await response.arrayBuffer());
+		throw new SpeechGenerationError(
+			"Không thể tạo bản đọc qua Tuturuuu AI lúc này.",
+			"provider_error",
+			502,
+		);
 	} catch (error) {
 		if (error instanceof SpeechGenerationError) throw error;
 		if (controller.signal.aborted) {

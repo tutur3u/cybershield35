@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 mock.module("server-only", () => ({}));
 
@@ -114,6 +115,29 @@ describe("content exports", () => {
 		expect(result).toEqual(wav);
 	});
 
+	test("retries one transient Tuturuuu TTS failure", async () => {
+		let attempts = 0;
+		const wav = Buffer.from("RIFFretry-wave");
+		const fetchImpl = mock(async () => {
+			attempts += 1;
+			return attempts === 1
+				? new Response("upstream unavailable", { status: 502 })
+				: new Response(wav, { headers: { "Content-Type": "audio/wav" } });
+		}) as typeof fetch;
+		const { generateVietnameseSpeech } = await import(
+			"@/lib/exports/google-tts"
+		);
+
+		const result = await generateVietnameseSpeech("Nội dung tiếng Việt.", {
+			accessToken: "ttr_app_session-token",
+			fetchImpl,
+			workspaceId: "workspace-1",
+		});
+
+		expect(attempts).toBe(2);
+		expect(result).toEqual(wav);
+	});
+
 	test("requires authentication before producing an export", async () => {
 		delete process.env.AUTH_LOCAL_BYPASS;
 		const { POST } = await import("@/app/api/exports/route");
@@ -197,5 +221,18 @@ describe("content exports", () => {
 
 		expect(normalizeExportFileName(`  ${"Tên".repeat(60)}  `).length).toBe(120);
 		expect(normalizeExportFileName("   ")).toBe("cybershield35-export");
+	});
+
+	test("keeps object URLs alive until Chrome has claimed the download", () => {
+		const source = readFileSync(
+			"components/dashboard/export-actions.tsx",
+			"utf8",
+		);
+
+		expect(source).toContain("if (!blob.size || mediaType !== exportMediaTypes[format])");
+		expect(source).toContain(
+			"setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_LIFETIME_MS)",
+		);
+		expect(source).not.toContain("anchor.remove();\n\t\t\tURL.revokeObjectURL(url);");
 	});
 });

@@ -10,6 +10,14 @@ import { useState } from "react";
 
 type ExportFormat = "docx" | "pdf" | "wav";
 
+const exportMediaTypes: Record<ExportFormat, string> = {
+	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	pdf: "application/pdf",
+	wav: "audio/wav",
+};
+
+const OBJECT_URL_LIFETIME_MS = 60_000;
+
 const exportOptions: Array<{
 	format: ExportFormat;
 	icon: LucideIcon;
@@ -69,14 +77,22 @@ export function ExportActions({
 			}
 
 			const blob = await response.blob();
+			const mediaType = response.headers.get("content-type")?.split(";", 1)[0];
+			if (!blob.size || mediaType !== exportMediaTypes[format]) {
+				throw new Error("Tệp xuất trả về không hợp lệ. Vui lòng thử lại.");
+			}
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement("a");
 			anchor.href = url;
 			anchor.download = `${exportFileName}.${format}`;
+			anchor.style.display = "none";
 			document.body.append(anchor);
 			anchor.click();
 			anchor.remove();
-			URL.revokeObjectURL(url);
+			// Chrome may not have consumed the blob by the time click() returns.
+			// Revoking it synchronously can cancel the download while the UI still
+			// reports success, so keep it alive long enough for the browser to claim.
+			setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_LIFETIME_MS);
 			setStatus(
 				format === "wav"
 					? "Đã tải bản đọc tiếng Việt xuống thiết bị."
