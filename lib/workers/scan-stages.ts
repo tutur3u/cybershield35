@@ -24,7 +24,6 @@ import {
 } from "@/lib/providers/errors";
 import { runtimeMode } from "@/lib/runtime/client-runtime";
 import { classifyPersistedEvidenceRisk } from "@/lib/workers/evidence-risk";
-import { enqueueEvidenceDraftJobs } from "@/lib/workers/facebook-page-jobs";
 import { syncTopicsForScan } from "@/lib/workers/topics";
 
 /**
@@ -178,13 +177,11 @@ export async function scoreEvidenceRisk(scanJobId: string) {
 		.select()
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, scanJobId));
-	const automatedDraftCount = await enqueueEvidenceDraftJobs(scored);
 
 	await recordScanEvent({
 		eventType: "evidence_persisted",
 		message: "Bằng chứng chuẩn hóa đã được lưu và chấm mức rủi ro.",
 		metadata: {
-			automatedDraftCount,
 			evidenceCount: scored.length,
 			riskRescored: scoring.updated,
 		},

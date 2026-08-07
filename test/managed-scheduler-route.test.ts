@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const originalEnv = { ...process.env };
 const scanResults: Array<Record<string, unknown>> = [];
-const draftResults: Array<Record<string, unknown>> = [];
 const heartbeats: Array<{ serviceName: string; metadata: Record<string, unknown> }> = [];
 
 const enqueueDueTrackedSources = mock(async () => ({
@@ -13,7 +12,6 @@ const enqueueDueTrackedSources = mock(async () => ({
 }));
 const reconcileFacebookPageSources = mock(async () => ({ reconciled: 3, total: 3 }));
 const processNextJob = mock(async () => scanResults.shift() ?? { processed: false });
-const processNextAutomatedDraftJob = mock(async () => draftResults.shift() ?? { processed: false });
 const reassessStoredEvidenceRisk = mock(async () => ({ checked: 12, updated: 4 }));
 const refreshIntelligenceRollupsBestEffort = mock(async () => undefined);
 
@@ -30,7 +28,6 @@ mock.module("@/lib/workers/scans", () => ({
 	// to answer that too.
 	scanCapacityRemaining: async () => 6,
 }));
-mock.module("@/lib/workers/draft-automation", () => ({ processNextAutomatedDraftJob }));
 mock.module("@/lib/workers/article-publications", () => ({
 	processDueArticlePublications: async () => ({ processed: 0 }),
 }));
@@ -48,12 +45,10 @@ function request(token?: string) {
 beforeEach(() => {
 	process.env = { ...originalEnv, CRON_SECRET: "cron-secret", AUTH_LOCAL_BYPASS: "true", NODE_ENV: "development" };
 	scanResults.length = 0;
-	draftResults.length = 0;
 	heartbeats.length = 0;
 	enqueueDueTrackedSources.mockClear();
 	reconcileFacebookPageSources.mockClear();
 	processNextJob.mockClear();
-	processNextAutomatedDraftJob.mockClear();
 	reassessStoredEvidenceRisk.mockClear();
 	refreshIntelligenceRollupsBestEffort.mockClear();
 });
@@ -68,16 +63,16 @@ describe("daily scan orchestrator", () => {
 		expect((await GET(request())).status).toBe(401);
 	});
 
-	test("reconciles, enqueues, drains scans and automation, then records one heartbeat", async () => {
+	test("reconciles, enqueues and drains scans without drafting, then records one heartbeat", async () => {
 		scanResults.push({ processed: true, scanId: "existing-scan" }, { processed: false });
-		draftResults.push({ processed: true, draftId: "draft-1" }, { processed: false });
 		const { GET } = await import("@/app/api/cron/scans/run-daily/route");
 		const response = await GET(request("cron-secret"));
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(body).toMatchObject({
-			automatedDraftsProcessed: 1,
+			automatedDraftIds: [],
+			automatedDraftsProcessed: 0,
 			enqueued: 2,
 			jobKey: "daily-scans",
 			processed: 1,

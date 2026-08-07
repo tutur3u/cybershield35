@@ -33,16 +33,6 @@ export const articleContentSchema = z
 	})
 	.strict();
 
-export const articleCreateSchema = articleContentSchema
-	.extend({
-		originDraftId: z.string().uuid().optional(),
-		originEvidenceItemId: z.string().uuid().optional(),
-		originScanJobId: z.string().uuid().optional(),
-		originatingChatId: z.string().uuid().optional(),
-		targetOaConnectionId: z.string().uuid().nullable().optional(),
-	})
-	.strict();
-
 export const articleUpdateSchema = articleContentSchema
 	.partial()
 	.extend({

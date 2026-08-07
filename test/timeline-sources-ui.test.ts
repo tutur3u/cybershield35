@@ -206,12 +206,10 @@ describe("the fanpage rows stop repeating themselves", () => {
 		expect(panel).not.toContain("<span>Chọn một</span>");
 	});
 
-	test("classification and the auto-draft switch share one row", () => {
+	test("classification remains without an auto-draft switch", () => {
 		expect(panel).toContain('className="flex flex-wrap items-center gap-2"');
-		expect(panel).toContain("Tự động soạn nháp");
-		// The paragraph under the switch became a tooltip.
-		expect(panel).toContain("<DashboardTooltip");
-		expect(panel).not.toContain("Chỉ tạo bản nháp nội bộ, không tự động đăng bài.");
+		expect(panel).not.toContain("Tự động soạn nháp");
+		expect(panel).not.toContain('role="switch"');
 	});
 });
 

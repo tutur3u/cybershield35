@@ -16,6 +16,7 @@ import type {
 	TimelinePage,
 	TimelinePost,
 } from "@/components/dashboard/types";
+import { createArticleFromEvidence } from "@/lib/articles/client-queries";
 import {
 	intelligenceFacebookPagesQueryOptions,
 	timelineFacetsQueryOptions,
@@ -83,13 +84,12 @@ export function EvidenceTimeline() {
 	// lives in the browser rather than in shared workspace state.
 	useEffect(() => {
 		const stored = window.localStorage.getItem(LAST_SEEN_STORAGE_KEY);
-		if (stored) {
-			setLastSeenAt(stored);
-			return;
+		const marker = stored ?? new Date().toISOString();
+		if (!stored) {
+			window.localStorage.setItem(LAST_SEEN_STORAGE_KEY, marker);
 		}
-		const now = new Date().toISOString();
-		window.localStorage.setItem(LAST_SEEN_STORAGE_KEY, now);
-		setLastSeenAt(now);
+		const frame = window.requestAnimationFrame(() => setLastSeenAt(marker));
+		return () => window.cancelAnimationFrame(frame);
 	}, []);
 
 	const lastSeenMs = lastSeenAt ? Date.parse(lastSeenAt) : Number.POSITIVE_INFINITY;
@@ -150,16 +150,7 @@ export function EvidenceTimeline() {
 			setArticleBusyId(post.id);
 			setArticleError("");
 			try {
-				const response = await fetch(`/api/evidence/${post.id}/article`, {
-					body: JSON.stringify({}),
-					cache: "no-store",
-					headers: { "Content-Type": "application/json" },
-					method: "POST",
-				});
-				const payload = await response.json().catch(() => null);
-				if (!response.ok) {
-					throw new Error(payload?.error ?? "Không thể soạn bài viết từ nội dung này.");
-				}
+				const payload = await createArticleFromEvidence(post.id);
 				router.push(String(payload.href));
 			} catch (error) {
 				setArticleError(

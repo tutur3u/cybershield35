@@ -37,7 +37,6 @@ const processNextJob = mock(async () => {
 	if (!scanId) return { processed: false };
 	return { processed: true, scanId };
 });
-const processNextAutomatedDraftJob = mock(async () => ({ processed: false as const }));
 const reconcileFacebookPageSources = mock(async () => ({
 	linked: 0,
 	tracked: 0,
@@ -81,9 +80,6 @@ mock.module("@/lib/workers/scans", () => ({
 	scanCapacityRemaining: async () => 6,
 }));
 
-mock.module("@/lib/workers/draft-automation", () => ({
-	processNextAutomatedDraftJob,
-}));
 
 mock.module("@/lib/db/client", () => ({
 	adminDb: {
@@ -115,7 +111,6 @@ beforeEach(() => {
 	queuedScanIds.length = 0;
 	enqueueDueTrackedSources.mockClear();
 	processNextJob.mockClear();
-	processNextAutomatedDraftJob.mockClear();
 	reconcileFacebookPageSources.mockClear();
 	reassessStoredEvidenceRisk.mockClear();
 	refreshIntelligenceRollupsBestEffort.mockClear();
@@ -194,7 +189,6 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
 		// Two queued scans plus the call that reports the queue is empty.
 		expect(processNextJob).toHaveBeenCalledTimes(3);
-		expect(processNextAutomatedDraftJob).toHaveBeenCalledTimes(1);
 		expect(globalThis.fetch).not.toHaveBeenCalled();
 	});
 

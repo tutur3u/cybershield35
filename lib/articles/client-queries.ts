@@ -52,9 +52,26 @@ export const articleQueryKeys = {
 export type ArticleListFilters = {
 	q?: string;
 	review?: string;
-	sort?: "title" | "updated_asc" | "updated_desc";
+	sort?: "created_asc" | "created_desc" | "title" | "updated_asc" | "updated_desc";
 	state?: string;
 };
+
+export type EvidenceArticleCreation = {
+	article: { id: string };
+	href: string;
+	mode: "ai" | "scaffold";
+};
+
+export function createArticleFromEvidence(evidenceId: string) {
+	return fetchArticleJson<EvidenceArticleCreation>(
+		`/api/evidence/${encodeURIComponent(evidenceId)}/article`,
+		{
+			body: JSON.stringify({}),
+			headers: { "Content-Type": "application/json" },
+			method: "POST",
+		},
+	);
+}
 
 export function articleCatalogInfiniteQueryOptions(
 	scope: "local" | "zalo",

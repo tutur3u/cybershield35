@@ -134,6 +134,8 @@ export async function POST(
 				),
 			)
 			.limit(1);
+		// One evidence item may support multiple editorial treatments. Every explicit
+		// request creates a fresh article; never reuse a prior originEvidenceItemId.
 		const article = await createArticle(
 			{
 				...content,

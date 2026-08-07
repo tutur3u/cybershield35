@@ -175,18 +175,21 @@ describe("Zalo OA security and article contract", () => {
 	});
 
 	test("removes automatic draft synchronization and gates all Zalo operations", () => {
-		const automation = readFileSync("lib/articles/automation.ts", "utf8");
 		const schema = readFileSync("lib/db/schema.ts", "utf8");
 		const policy = readFileSync("lib/articles/publication-policy.ts", "utf8");
 		const publications = readFileSync(
 			"lib/workers/article-publications.ts",
 			"utf8",
 		);
+		const scanStages = readFileSync("lib/workers/scan-stages.ts", "utf8");
+		const scheduler = readFileSync("lib/managed-scheduler/server.ts", "utf8");
 
 		expect(schema).toContain('autoSyncDrafts: boolean("auto_sync_drafts")');
 		expect(schema).toContain(".default(false)");
-		expect(automation).toContain('zaloStatus: "awaiting_explicit_approval"');
-		expect(automation).not.toContain('"sync_hidden"');
+		expect(scanStages).not.toContain("enqueueEvidenceDraftJobs");
+		expect(scheduler).toContain("automatedDraftIds: []");
+		expect(scheduler).toContain("automatedDraftsProcessed: 0");
+		expect(scheduler).not.toContain("processNextAutomatedDraftJob");
 		expect(policy).toContain('return reviewStatus === "approved"');
 		expect(publications).toContain(
 			'validateOperation(article, "hide", new Date(), actor.id)',

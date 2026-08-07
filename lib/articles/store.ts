@@ -45,7 +45,7 @@ export async function listArticles() {
 			zaloOaConnections,
 			eq(articles.targetOaConnectionId, zaloOaConnections.id),
 		)
-		.orderBy(desc(articles.updatedAt), desc(articles.id));
+		.orderBy(desc(articles.createdAt), desc(articles.id));
 }
 
 export async function listArticlesPage(input: {
@@ -53,7 +53,7 @@ export async function listArticlesPage(input: {
 	limit: number;
 	query?: string;
 	review?: "approved" | "draft" | "needs_review" | "rejected";
-	sort?: "title" | "updated_asc" | "updated_desc";
+	sort?: "created_asc" | "created_desc" | "title" | "updated_asc" | "updated_desc";
 	state?: "archived" | "draft" | "published";
 }) {
 	const limit = Math.min(25, Math.max(1, Math.floor(input.limit)));
@@ -63,7 +63,16 @@ export async function listArticlesPage(input: {
 		input.review ? eq(articles.reviewStatus, input.review) : undefined,
 		input.state ? eq(articles.state, input.state) : undefined,
 	].filter(Boolean);
-	const order = input.sort === "title" ? [asc(articles.title), asc(articles.id)] : input.sort === "updated_asc" ? [asc(articles.updatedAt), asc(articles.id)] : [desc(articles.updatedAt), desc(articles.id)];
+	const order =
+		input.sort === "title"
+			? [asc(articles.title), asc(articles.id)]
+			: input.sort === "updated_asc"
+				? [asc(articles.updatedAt), asc(articles.id)]
+				: input.sort === "updated_desc"
+					? [desc(articles.updatedAt), desc(articles.id)]
+					: input.sort === "created_asc"
+						? [asc(articles.createdAt), asc(articles.id)]
+						: [desc(articles.createdAt), desc(articles.id)];
 	const rows = await adminDb
 		.select({
 			article: articles,
@@ -94,7 +103,7 @@ export async function getCachedArticlesPage(input: {
 	limit: number;
 	query?: string;
 	review?: "approved" | "draft" | "needs_review" | "rejected";
-	sort?: "title" | "updated_asc" | "updated_desc";
+	sort?: "created_asc" | "created_desc" | "title" | "updated_asc" | "updated_desc";
 	state?: "archived" | "draft" | "published";
 }) {
 	"use cache";

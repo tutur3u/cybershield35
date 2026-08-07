@@ -235,7 +235,7 @@ export const facebookPageProfiles = pgTable(
 		classification: facebookPageClassificationEnum("classification")
 			.default("uncategorized")
 			.notNull(),
-		autoDraftEnabled: boolean("auto_draft_enabled").default(true).notNull(),
+		autoDraftEnabled: boolean("auto_draft_enabled").default(false).notNull(),
 		updatedByUserId: text("updated_by_user_id").notNull(),
 		updatedByDisplayName: text("updated_by_display_name"),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

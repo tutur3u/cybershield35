@@ -1,9 +1,5 @@
-import { z } from "zod";
-
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
-import { createArticle, getCachedArticlesPage } from "@/lib/articles/store";
-import { articleCreateSchema } from "@/lib/articles/schemas";
-import { actorFromAuth } from "@/lib/chat/http";
+import { getCachedArticlesPage } from "@/lib/articles/store";
 import { publicErrorMessage } from "@/lib/http/public-error";
 import { getCachedZaloArticleCatalogPage } from "@/lib/zalo/articles";
 
@@ -35,7 +31,14 @@ export async function GET(request: Request) {
 				limit,
 				query: url.searchParams.get("q")?.trim() || undefined,
 				review: review === "approved" || review === "draft" || review === "needs_review" || review === "rejected" ? review : undefined,
-				sort: sort === "title" || sort === "updated_asc" || sort === "updated_desc" ? sort : undefined,
+				sort:
+					sort === "created_asc" ||
+					sort === "created_desc" ||
+					sort === "title" ||
+					sort === "updated_asc" ||
+					sort === "updated_desc"
+						? sort
+						: undefined,
 				state: state === "archived" || state === "draft" || state === "published" ? state : undefined,
 			});
 			return Response.json(
@@ -143,30 +146,5 @@ function parseCatalogCursor(value: string | null): CatalogCursor {
 		};
 	} catch {
 		return fallback;
-	}
-}
-
-export async function POST(request: Request) {
-	const auth = await requireAdminSession(request);
-	if ("error" in auth) {
-		return Response.json({ error: auth.error }, { status: auth.status });
-	}
-	try {
-		const input = articleCreateSchema.parse(await request.json());
-		const article = await createArticle(input, actorFromAuth(auth));
-		return Response.json(
-			{ article },
-			{ status: 201, headers: authHeaders(auth) },
-		);
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return Response.json({ error: z.treeifyError(error) }, { status: 400 });
-		}
-		return Response.json(
-			{
-				error: publicErrorMessage(error, "Không thể tạo bài viết."),
-			},
-			{ status: 500, headers: authHeaders(auth) },
-		);
 	}
 }

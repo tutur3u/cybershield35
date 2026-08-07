@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import {
-	automatedDraftPolicy,
 	facebookPageIdentity,
 } from "@/lib/domain/facebook-page-policy";
-import { DEFAULT_DRAFT_VOICE } from "@/lib/domain/draft-style";
 import { assessEvidenceRisk } from "@/lib/domain/evidence-risk";
 
 describe("Facebook page policy", () => {
@@ -21,58 +19,6 @@ describe("Facebook page policy", () => {
 			pageKey: "id:123456",
 			username: "trusted.page",
 		});
-	});
-
-	test("drafts constructive trusted content and counterarguments for at-risk pages", () => {
-		expect(
-			automatedDraftPolicy({
-				classification: "trusted",
-				riskLevel: "low",
-				sentiment: "positive",
-				stance: "supportive",
-			}),
-		).toMatchObject({
-			draftKind: "response",
-			generationReason: "trusted_constructive_content",
-			voice: DEFAULT_DRAFT_VOICE,
-		});
-		expect(
-			automatedDraftPolicy({
-				classification: "at_risk",
-				riskLevel: "medium",
-			}),
-		).toMatchObject({
-			draftKind: "counter_argument",
-			generationReason: "at_risk_page",
-			voice: DEFAULT_DRAFT_VOICE,
-		});
-	});
-
-	test("drafts neutral coverage without supporting or opposing the source", () => {
-		expect(
-			automatedDraftPolicy({
-				classification: "neutral",
-				riskLevel: "high",
-				sentiment: "negative",
-				stance: "opposed",
-			}),
-		).toMatchObject({
-			draftKind: "response",
-			generationReason: "neutral_page",
-			tone: "Khách quan, cân bằng, rõ ràng",
-			voice: DEFAULT_DRAFT_VOICE,
-		});
-	});
-
-	test("does not amplify ambiguous trusted-page content automatically", () => {
-		expect(
-			automatedDraftPolicy({
-				classification: "trusted",
-				riskLevel: "high",
-				sentiment: "negative",
-				stance: "opposed",
-			}),
-		).toBeNull();
 	});
 
 	test("scores each item by its content instead of the page classification", () => {

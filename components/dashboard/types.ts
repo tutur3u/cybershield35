@@ -608,12 +608,6 @@ export type TimelineHead = {
 };
 
 export type IntelligenceFacebookPageOption = {
-	autoDraftEnabled: boolean;
-	automation: {
-		completed: number;
-		failed: number;
-		pending: number;
-	};
 	classification: FacebookPageClassification;
 	evidenceCount: number;
 	facebookId: string | null;

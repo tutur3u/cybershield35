@@ -7,7 +7,6 @@ import { z } from "zod";
 import { searchAttachmentChunks } from "@/lib/chat/attachments";
 import { articleBlockSchema } from "@/lib/articles/schemas";
 import {
-	createArticle as createArticleRecord,
 	getArticleDetail,
 	listArticles,
 	updateArticle,
@@ -248,51 +247,6 @@ export function createChatTools(context: ToolContext) {
 					});
 					revalidateDashboardIntelligence("activity");
 					return { draftId: draft.id, href: `/drafts/${draft.id}`, status: draft.status };
-				}),
-		}),
-		createArticle: tool({
-			description:
-				"Lưu một bài viết nội bộ cần con người duyệt. Công cụ này không đồng bộ hoặc xuất bản lên Zalo.",
-			inputSchema: z
-				.object({
-					author: z.string().trim().max(50).default(""),
-					blocks: z.array(articleBlockSchema).min(1).max(100),
-					commentsEnabled: z.boolean().default(true),
-					coverUrl: z.string().url().max(2_000).nullable().optional(),
-					description: z.string().trim().max(300).default(""),
-					evidenceId: z.string().uuid().optional(),
-					scanId: z.string().uuid().optional(),
-					targetOaConnectionId: z.string().uuid().nullable().optional(),
-					title: z.string().trim().max(150).default(""),
-				})
-				.refine(
-					(value) => Boolean(value.evidenceId || value.scanId),
-					"Cần evidenceId hoặc scanId.",
-				),
-			needsApproval: true,
-			execute: async (input, options) =>
-				recordTool(context, "createArticle", options.toolCallId, safeKeys(input), async () => {
-					const article = await createArticleRecord(
-						{
-							author: input.author,
-							blocks: input.blocks,
-							commentsEnabled: input.commentsEnabled,
-							coverUrl: input.coverUrl,
-							description: input.description,
-							originEvidenceItemId: input.evidenceId,
-							originScanJobId: input.scanId,
-							originatingChatId: context.conversationId,
-							targetOaConnectionId: input.targetOaConnectionId,
-							title: input.title,
-						},
-						context.actor,
-					);
-					return {
-						articleId: article.id,
-						href: `/articles/${article.id}`,
-						publicationStatus: article.publicationStatus,
-						reviewStatus: article.reviewStatus,
-					};
 				}),
 		}),
 		updateArticleDraft: tool({

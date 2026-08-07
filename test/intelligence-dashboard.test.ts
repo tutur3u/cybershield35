@@ -100,16 +100,12 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(shared).toContain("facebookPage");
 	});
 
-	test("keeps automatic draft controls actionable and explains blocked pages", () => {
+	test("keeps page classification while removing automatic drafting controls", () => {
 		const pagePanel = read("components/dashboard/sources/facebook-page-panel.tsx");
 
-		expect(pagePanel).toContain('role="switch"');
-		expect(pagePanel).toContain("Tự động soạn bản nháp cho ${page.label}");
-		// The explanation moved into a tooltip: it is identical on every page, and
-		// printing it under all five said nothing the first one had not.
-		expect(pagePanel).toContain(
-			"Chọn cách xử lý trước để bật tự động soạn bản nháp.",
-		);
+		expect(pagePanel).not.toContain('role="switch"');
+		expect(pagePanel).not.toContain("Tự động soạn nháp");
+		expect(pagePanel).toContain("Việc quét không tự động tạo bản nháp hoặc bài viết.");
 		expect(pagePanel).toContain('classification: "neutral"');
 		expect(pagePanel).toContain("feedbackByPage");
 		expect(pagePanel).toContain("updateCachedPage");

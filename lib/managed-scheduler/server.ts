@@ -30,7 +30,6 @@ import {
 	processNextJob,
 	scanCapacityRemaining,
 } from "@/lib/workers/scans";
-import { processNextAutomatedDraftJob } from "@/lib/workers/draft-automation";
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
 import { logOperation } from "@/lib/operations/telemetry";
 
@@ -489,7 +488,6 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	const enqueued = await enqueueDueTrackedSources();
 
 	const scanIds = enqueued.scans.map((scan) => scan.scanId);
-	const automatedDraftIds: string[] = [];
 	let failed = 0;
 	let processed = 0;
 
@@ -498,25 +496,14 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	processed += drained.processed;
 	failed += drained.failed;
 
-	let automatedDraftsProcessed = 0;
-	for (let index = 0; index < DAILY_DRAIN_LIMIT; index += 1) {
-		const result = await processNextAutomatedDraftJob();
-		if (!result.processed) break;
-		automatedDraftsProcessed += 1;
-		if ("draftId" in result && result.draftId) {
-			automatedDraftIds.push(result.draftId);
-		}
-		if ("error" in result && result.error) failed += 1;
-	}
-
 	await refreshIntelligenceRollupsBestEffort("daily-orchestrator");
 	// Last, so it reads the rollups this run just produced rather than the ones
 	// it replaced.
 	const summary = await warmIntelligenceSummary();
 
 	return {
-		automatedDraftIds,
-		automatedDraftsProcessed,
+		automatedDraftIds: [],
+		automatedDraftsProcessed: 0,
 		summaryWarmed: summary.warmed,
 		enqueued: enqueued.enqueued,
 		failed,

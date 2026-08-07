@@ -176,6 +176,13 @@
       "when": 1786046124661,
       "tag": "0024_cooing_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786096835198,
+      "tag": "0025_retire_automatic_drafting",
+      "breakpoints": true
     }
   ]
 }

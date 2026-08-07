@@ -7,7 +7,7 @@ import { ensureFacebookPageTracked } from "@/lib/workers/tracked-sources";
 
 const bodySchema = z
 	.object({
-		autoDraftEnabled: z.boolean().default(true),
+		autoDraftEnabled: z.boolean().optional(),
 		classification: z.enum(["uncategorized", "trusted", "neutral", "at_risk"]),
 		displayName: z.string().trim().min(1).max(200),
 		facebookPageId: z.string().trim().min(1).max(200).nullable(),
@@ -31,10 +31,6 @@ export async function PATCH(request: Request) {
 		const body = bodySchema.parse(await request.json());
 		const result = await updateFacebookPagePolicy({
 			...body,
-			autoDraftEnabled:
-				body.classification === "uncategorized"
-					? false
-					: body.autoDraftEnabled,
 			actor: {
 				displayName: auth.session.user.displayName ?? null,
 				id: auth.session.user.id,
@@ -50,9 +46,9 @@ export async function PATCH(request: Request) {
 		revalidateDashboardIntelligence("timeline");
 		return Response.json(
 			{
-				enqueued: result.enqueued,
+				enqueued: 0,
 				profile: {
-					autoDraftEnabled: result.profile.autoDraftEnabled,
+					autoDraftEnabled: false,
 					classification: result.profile.classification,
 					pageKey: result.profile.pageKey,
 					updatedAt: result.profile.updatedAt.toISOString(),

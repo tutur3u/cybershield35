@@ -9,7 +9,6 @@ import {
 	Search,
 	ShieldAlert,
 	ShieldCheck,
-	Sparkles,
 	type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -19,7 +18,6 @@ import type {
 	IntelligenceFacebookPageOption,
 } from "@/components/dashboard/types";
 import {
-	DashboardTooltip,
 	Panel,
 	PanelHeader,
 } from "@/components/dashboard/ui-primitives";
@@ -82,24 +80,17 @@ export function FacebookPageTrustPanel() {
 
 	async function savePolicy(
 		page: IntelligenceFacebookPageOption,
-		patch: Partial<
-			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
-		>,
+		patch: Pick<IntelligenceFacebookPageOption, "classification">,
 	) {
-		const classification = patch.classification ?? page.classification;
-		const autoDraftEnabled =
-			classification === "uncategorized"
-				? false
-				: (patch.autoDraftEnabled ?? page.autoDraftEnabled);
+		const classification = patch.classification;
 
 		setSavingKeys((current) => new Set(current).add(page.pageKey));
-		updateCachedPage(page.pageKey, { autoDraftEnabled, classification });
+		updateCachedPage(page.pageKey, { classification });
 		try {
 			const response = await fetch(
 				"/api/intelligence/facebook-pages/classification",
 				{
 					body: JSON.stringify({
-						autoDraftEnabled,
 						classification,
 						displayName: page.label,
 						facebookPageId: page.facebookId,
@@ -115,17 +106,10 @@ export function FacebookPageTrustPanel() {
 			if (!response.ok) {
 				throw new Error(payload?.error ?? "Không thể lưu phân loại trang.");
 			}
-			const enqueued = Number(payload?.enqueued) || 0;
-			const savedAutoDraftEnabled =
-				payload?.profile?.autoDraftEnabled ?? autoDraftEnabled;
 			setFeedbackByPage((current) => ({
 				...current,
 				[page.pageKey]: {
-					message: savedAutoDraftEnabled
-						? enqueued
-							? `Đã bật · ${enqueued.toLocaleString("vi-VN")} bài đang chờ soạn bản nháp.`
-							: "Đã bật · Bài mới từ trang này sẽ tự động có bản nháp chờ duyệt."
-						: "Đã tắt · Hệ thống sẽ không tạo thêm bản nháp tự động.",
+					message: "Đã lưu phân loại trang.",
 					tone: "success",
 				},
 			}));
@@ -177,14 +161,7 @@ export function FacebookPageTrustPanel() {
 		<Panel>
 			<PanelHeader
 				title="Phân loại trang theo dõi"
-				description="Chọn cách CS35 xử lý từng trang: ủng hộ nguồn đáng tin, viết trung lập, hoặc phản biện nguồn có rủi ro. Mọi bản nháp đều chờ người duyệt."
-				action={
-					<span className="inline-flex h-8 items-center gap-2 rounded-md bg-[var(--accent-soft)] px-3 text-[11px] font-bold text-[var(--accent-strong)]">
-						<Sparkles size={14} />
-						{pages.reduce((sum, page) => sum + page.automation.pending, 0)} bản nháp đang
-						chờ
-					</span>
-				}
+				description="Phân loại từng trang để diễn giải rủi ro và ngữ cảnh bằng chứng. Việc quét không tự động tạo bản nháp hoặc bài viết."
 			/>
 			<div className="grid gap-3 border-b border-[var(--border)] p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
 				<label className="relative min-w-0">
@@ -295,16 +272,13 @@ function FacebookPagePolicyRow({
 	feedback?: PagePolicyFeedback;
 	onDismissRun: () => void;
 	onSave: (
-		patch: Partial<
-			Pick<IntelligenceFacebookPageOption, "autoDraftEnabled" | "classification">
-		>,
+		patch: Pick<IntelligenceFacebookPageOption, "classification">,
 	) => Promise<void>;
 	onScanNow: () => Promise<void>;
 	page: IntelligenceFacebookPageOption;
 	run?: ReturnType<typeof useScanRuns>["runs"][string];
 	saving: boolean;
 }) {
-	const automationUnavailable = page.classification === "uncategorized";
 	const scanning = run ? !["completed", "failed"].includes(run.phase) : false;
 
 	return (
@@ -321,8 +295,6 @@ function FacebookPagePolicyRow({
 				</p>
 				<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-[var(--muted)]">
 					<span>{page.evidenceCount} bài đã thu thập</span>
-					<span>{page.automation.pending} bản nháp đang chờ</span>
-					<span>{page.automation.completed} đã soạn</span>
 				</div>
 				<button
 					type="button"
@@ -364,9 +336,7 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={ShieldCheck}
 						label="Đáng tin"
-						onClick={() =>
-							onSave({ autoDraftEnabled: true, classification: "trusted" })
-						}
+						onClick={() => onSave({ classification: "trusted" })}
 						tone="success"
 					/>
 					<PagePolicyButton
@@ -374,9 +344,7 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={Scale}
 						label="Trung lập"
-						onClick={() =>
-							onSave({ autoDraftEnabled: true, classification: "neutral" })
-						}
+						onClick={() => onSave({ classification: "neutral" })}
 						tone="neutral"
 					/>
 					<PagePolicyButton
@@ -384,9 +352,7 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={ShieldAlert}
 						label="Có rủi ro"
-						onClick={() =>
-							onSave({ autoDraftEnabled: true, classification: "at_risk" })
-						}
+						onClick={() => onSave({ classification: "at_risk" })}
 						tone="danger"
 					/>
 					<PagePolicyButton
@@ -394,60 +360,9 @@ function FacebookPagePolicyRow({
 						disabled={saving}
 						icon={Radar}
 						label="Chưa rõ"
-						onClick={() =>
-							onSave({ autoDraftEnabled: false, classification: "uncategorized" })
-						}
+						onClick={() => onSave({ classification: "uncategorized" })}
 						tone="neutral"
 					/>
-
-					<span className="mx-1 hidden h-6 w-px bg-[var(--divider)] sm:block" />
-
-					{/*
-						The toggle keeps its own label but loses the paragraph: what it
-						does is the same on every page, and saying so five times told
-						nobody anything they did not learn the first time.
-					*/}
-					<DashboardTooltip
-						content={
-							automationUnavailable
-								? "Chọn cách xử lý trước để bật tự động soạn bản nháp."
-								: "Tạo bản nháp nội bộ chờ duyệt. Không bao giờ tự đăng bài."
-						}
-					>
-						<button
-							aria-checked={page.autoDraftEnabled && !automationUnavailable}
-							aria-label={`Tự động soạn bản nháp cho ${page.label}`}
-							className={`inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-								page.autoDraftEnabled && !automationUnavailable
-									? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-									: "border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)] hover:border-[var(--border-strong)]"
-							}`}
-							disabled={saving || automationUnavailable}
-							onClick={() =>
-								void onSave({ autoDraftEnabled: !page.autoDraftEnabled })
-							}
-							role="switch"
-							type="button"
-						>
-							<span
-								aria-hidden
-								className={`relative inline-flex h-4 w-7 shrink-0 rounded-full p-0.5 transition ${
-									page.autoDraftEnabled && !automationUnavailable
-										? "bg-[var(--accent)]"
-										: "bg-[var(--border-strong)]"
-								}`}
-							>
-								<span
-									className={`size-3 rounded-full bg-white shadow-sm transition ${
-										page.autoDraftEnabled && !automationUnavailable
-											? "translate-x-3"
-											: "translate-x-0"
-									}`}
-								/>
-							</span>
-							Tự động soạn nháp
-						</button>
-					</DashboardTooltip>
 				</div>
 				{feedback ? (
 					<p

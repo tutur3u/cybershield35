@@ -12,7 +12,6 @@ import {
 	Loader,
 	LoaderCircle,
 	Newspaper,
-	Plus,
 	Search,
 	Send,
 } from "lucide-react";
@@ -46,7 +45,7 @@ export function ArticlesWorkspace() {
 	const deferredSearch = useDeferredValue(search.trim());
 	const [review, setReview] = useState("all");
 	const [state, setState] = useState("all");
-	const [sort, setSort] = useState<ArticleListFilters["sort"]>("updated_desc");
+	const [sort, setSort] = useState<ArticleListFilters["sort"]>("created_desc");
 	const [importOpen, setImportOpen] = useState(false);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [bulkNotice, setBulkNotice] = useState("");
@@ -166,7 +165,7 @@ export function ArticlesWorkspace() {
 				</label>
 				<Filter value={review} onChange={setReview} label="Trạng thái duyệt" options={[["all", "Mọi trạng thái"], ["needs_review", "Cần duyệt"], ["approved", "Đã duyệt"], ["rejected", "Từ chối"], ["draft", "Bản nháp"]]} />
 				<Filter value={state} onChange={setState} label="Trạng thái đăng" options={[["all", "Tất cả"], ["draft", "Chưa đăng"], ["published", "Đã đăng"], ["archived", "Đã lưu trữ"]]} />
-				<Filter value={sort ?? "updated_desc"} onChange={(value) => setSort(value as ArticleListFilters["sort"])} label="Sắp xếp" options={[["updated_desc", "Mới cập nhật"], ["updated_asc", "Cũ cập nhật"], ["title", "Theo tiêu đề"]]} icon />
+				<Filter value={sort ?? "created_desc"} onChange={(value) => setSort(value as ArticleListFilters["sort"])} label="Sắp xếp" options={[["created_desc", "Mới tạo"], ["created_asc", "Cũ tạo"], ["updated_desc", "Mới cập nhật"], ["updated_asc", "Cũ cập nhật"], ["title", "Theo tiêu đề"]]} icon />
 				<button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"><FileDown size={14} /> Nhập từ Zalo</button>
 				<DashboardTooltip content="Gỡ các bản ẩn CS35 còn sót trên Zalo OA. Chỉ đụng tới bản ẩn do CS35 tạo; bài đang hiển thị và bài của OA không bị ảnh hưởng.">
 					<button
@@ -183,7 +182,6 @@ export function ArticlesWorkspace() {
 						Dọn bản ẩn Zalo
 					</button>
 				</DashboardTooltip>
-				<Link href="/articles/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-[11px] font-bold text-white"><Plus size={14} /> Bài viết mới</Link>
 			</div>
 
 			{/* The bulk bar carries its own notice, but cleanup runs with nothing

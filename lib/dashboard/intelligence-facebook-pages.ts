@@ -5,7 +5,6 @@ import { desc, eq, sql } from "drizzle-orm";
 import type { IntelligenceFacebookPageOption } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
 import {
-	draftAutomationJobs,
 	evidenceItems,
 	facebookPageProfiles,
 	trackedSources,
@@ -17,7 +16,7 @@ export async function listIntelligenceFacebookPages(): Promise<
 	IntelligenceFacebookPageOption[]
 > {
 	const facebookIdExpr = sql<string | null>`${evidenceItems.metadata}->>'facebookId'`;
-	const [evidenceRows, trackedRows, profiles, automationRows] = await Promise.all([
+	const [evidenceRows, trackedRows, profiles] = await Promise.all([
 		adminDb
 			.select({
 				evidenceCount: sql<number>`count(*)::int`,
@@ -41,15 +40,6 @@ export async function listIntelligenceFacebookPages(): Promise<
 			.where(eq(trackedSources.provider, "apify_facebook_posts"))
 			.orderBy(desc(trackedSources.updatedAt)),
 		adminDb.select().from(facebookPageProfiles),
-		adminDb
-			.select({
-				completed: sql<number>`count(*) filter (where ${draftAutomationJobs.status} = 'completed')::int`,
-				failed: sql<number>`count(*) filter (where ${draftAutomationJobs.status} = 'failed')::int`,
-				pageKey: draftAutomationJobs.pageKey,
-				pending: sql<number>`count(*) filter (where ${draftAutomationJobs.status} in ('queued', 'running', 'retrying'))::int`,
-			})
-			.from(draftAutomationJobs)
-			.groupBy(draftAutomationJobs.pageKey),
 	]);
 	const profileByKey = new Map(profiles.map((profile) => [profile.pageKey, profile]));
 	const profileByFacebookId = new Map(
@@ -62,7 +52,6 @@ export async function listIntelligenceFacebookPages(): Promise<
 			profile.username ? [[profile.username, profile] as const] : [],
 		),
 	);
-	const automationByKey = new Map(automationRows.map((row) => [row.pageKey, row]));
 	const pagesByKey = new Map<string, IntelligenceFacebookPageOption>();
 
 	for (const row of evidenceRows) {
@@ -79,15 +68,8 @@ export async function listIntelligenceFacebookPages(): Promise<
 				: undefined) ??
 			(identity.username ? profileByUsername.get(identity.username) : undefined);
 		const pageKey = profile?.pageKey ?? identity.pageKey;
-		const automation = automationByKey.get(pageKey);
 		const value = username ?? cleanText(row.facebookId) ?? identity.pageKey;
 		pagesByKey.set(pageKey, {
-			autoDraftEnabled: profile?.autoDraftEnabled ?? false,
-			automation: {
-				completed: automation?.completed ?? 0,
-				failed: automation?.failed ?? 0,
-				pending: automation?.pending ?? 0,
-			},
 			classification: profile?.classification ?? "uncategorized",
 			evidenceCount: Number(row.evidenceCount) || 0,
 			facebookId: cleanText(row.facebookId),
@@ -126,14 +108,7 @@ export async function listIntelligenceFacebookPages(): Promise<
 		const value = username ?? row.id;
 		const current = pagesByKey.get(pageKey) ?? matchingEvidencePage;
 		const profile = matchingProfile ?? profileByKey.get(pageKey);
-		const automation = automationByKey.get(pageKey);
 		pagesByKey.set(pageKey, {
-			autoDraftEnabled: profile?.autoDraftEnabled ?? false,
-			automation: {
-				completed: automation?.completed ?? 0,
-				failed: automation?.failed ?? 0,
-				pending: automation?.pending ?? 0,
-			},
 			classification: profile?.classification ?? "uncategorized",
 			evidenceCount: current?.evidenceCount ?? 0,
 			facebookId: current?.facebookId ?? null,
