@@ -30,7 +30,6 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const [railOpen, setRailOpen] = useState(true);
 	const { detail, draft } = editor;
 
-	if (detail.isPending || !draft) return <ArticleEditorSkeleton />;
 	if (detail.isError || !detail.data) {
 		return (
 			<div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-5 text-sm font-semibold text-[var(--danger-strong)]">
@@ -38,6 +37,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 			</div>
 		);
 	}
+	if (detail.isPending || !draft) return <ArticleEditorSkeleton />;
 
 	const article = detail.data.article;
 	const hasBody = draft.blocks.some((block) =>

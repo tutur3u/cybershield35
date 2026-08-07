@@ -183,13 +183,6 @@
       "when": 1786096835198,
       "tag": "0025_retire_automatic_drafting",
       "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1786097728791,
-      "tag": "0026_allow_coverless_zalo_publications",
-      "breakpoints": true
     }
   ]
 }

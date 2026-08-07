@@ -60,6 +60,16 @@ describe("Zalo OA security and article contract", () => {
 		expect(rail).toContain('article.reviewStatus !== "approved"');
 	});
 
+	test("shows article-load errors instead of an endless editor skeleton", () => {
+		const editor = readFileSync(
+			"components/dashboard/article-editor/index.tsx",
+			"utf8",
+		);
+		expect(editor.indexOf("detail.isError")).toBeLessThan(
+			editor.indexOf("detail.isPending || !draft"),
+		);
+	});
+
 	test("keeps Zalo import outside the server-driven canonical article list", () => {
 		const workspace = readFileSync(
 			"components/dashboard/articles-workspace.tsx",
@@ -954,8 +964,9 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(syncRoute).toContain('code: error.code');
 		expect(syncRoute).toContain('omitCoverImage: input.omitCoverImage');
 		expect(worker).toContain('readonly code = "ZALO_COVER_UPLOAD_FAILED"');
-		expect(worker).toContain("job.omitCoverImage");
-		expect(worker).toContain("const pendingToken = job.omitCoverImage");
+		expect(worker).toContain("publicationOmitsCover(job)");
+		expect(worker).toContain("const pendingToken = omitCoverImage");
+		expect(worker).toContain('COVERLESS_FINGERPRINT_PREFIX = "without-cover:"');
 		expect(editor).toContain('error.code !== "ZALO_COVER_UPLOAD_FAILED"');
 		expect(editor).toContain('cancelLabel: "Hủy đăng"');
 		expect(editor).toContain('confirmLabel: "Tiếp tục không ảnh bìa"');

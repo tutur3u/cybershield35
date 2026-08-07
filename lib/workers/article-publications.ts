@@ -41,6 +41,9 @@ type PublicationOperation =
 	| "hide"
 	| "update_visible";
 
+const COVERLESS_FINGERPRINT_PREFIX = "without-cover:";
+const COVERED_FINGERPRINT_PREFIX = "with-cover:";
+
 export async function enqueueArticlePublication(
 	articleId: string,
 	operation: PublicationOperation,
@@ -88,7 +91,7 @@ export async function enqueueArticlePublication(
 				);
 	}
 
-	const fingerprint = createHash("sha256")
+	const fingerprintHash = createHash("sha256")
 		.update(
 			[
 				articleId,
@@ -99,11 +102,15 @@ export async function enqueueArticlePublication(
 			].join(":"),
 		)
 		.digest("hex");
+	const fingerprint = `${
+		options.omitCoverImage
+			? COVERLESS_FINGERPRINT_PREFIX
+			: COVERED_FINGERPRINT_PREFIX
+	}${fingerprintHash}`;
 	const [job] = await adminDb
 		.insert(articlePublicationJobs)
 		.values({
 			articleId,
-			omitCoverImage: options.omitCoverImage ?? false,
 			operation,
 			requestFingerprint: fingerprint,
 			requestedByDisplayName: actor.displayName,
@@ -546,7 +553,8 @@ async function executePublicationOperation(
 		job.operation === "sync_hidden" || job.operation === "hide"
 			? "hide"
 			: "show";
-	const content = toZaloContent(article, status, job.omitCoverImage);
+	const omitCoverImage = publicationOmitsCover(job);
+	const content = toZaloContent(article, status, omitCoverImage);
 	// Checked here rather than left to Zalo's own payload validation, which
 	// throws a plain error the queue then retries. A missing title is not a
 	// transport hiccup — it is the same on the fourth attempt as the first, and
@@ -597,7 +605,7 @@ async function executePublicationOperation(
 	}
 	let operationToken: string;
 	try {
-		const pendingToken = job.omitCoverImage
+		const pendingToken = omitCoverImage
 			? null
 			: job.remoteOperationToken ?? article.remoteOperationToken;
 		// A pending token resumes an operation that was already in flight. Once we
@@ -624,7 +632,7 @@ async function executePublicationOperation(
 		const verified = await verifyWithRetry(accessToken, operationToken);
 		remoteArticleId = verified.id;
 	} catch (error) {
-		if (!job.omitCoverImage && isZaloCoverImageRejection(error)) {
+		if (!omitCoverImage && isZaloCoverImageRejection(error)) {
 			throw new ZaloCoverImageError();
 		}
 		if (!remoteArticleId && job.operation === "sync_hidden") {
@@ -661,7 +669,7 @@ async function executePublicationOperation(
 			payload: {
 				actorId: job.requestedByUserId,
 				jobId: job.id,
-				omitCoverImage: job.omitCoverImage,
+				omitCoverImage,
 				operation: job.operation,
 				remoteArticleId,
 			},
@@ -776,6 +784,12 @@ function isZaloCoverImageRejection(error: unknown) {
 	return ["cover", "photo_url", "cover_url", "ảnh bìa"].some((term) =>
 		detail.includes(term),
 	);
+}
+
+function publicationOmitsCover(
+	job: typeof articlePublicationJobs.$inferSelect,
+) {
+	return job.requestFingerprint.startsWith(COVERLESS_FINGERPRINT_PREFIX);
 }
 
 async function verifyWithRetry(accessToken: string, token: string) {
