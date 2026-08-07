@@ -91,6 +91,7 @@ export async function fitArticleContentFields(
 		body: bodyText,
 		description: content.description,
 		descriptionLimit: ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+		rewriteEvenIfFitting: true,
 		title: content.title,
 		titleLimit: ZALO_EDITORIAL_TITLE_LIMIT,
 	}).catch(() => null);
@@ -175,9 +176,28 @@ function normalizeDescription(
 			.replace(/\s*\n+\s*/gu, " ")
 			.replace(/\s{2,}/gu, " ")
 			.trim();
-		if (description.length >= 20) return truncateText(description, 280);
+		if (isUsefulDescription(description, title)) {
+			return truncateText(description, 280);
+		}
 	}
 	return "Bản nháp đang chờ biên tập viên kiểm tra nội dung và nguồn thông tin.";
+}
+
+const CONTINUATION_LEAD =
+	/^(?:bên cạnh đó|do đó|đồng thời|ngoài ra|nhờ đó|qua đó|từ đó|tuy nhiên|vì vậy|còn|lại|mà|nhưng|nên|và)(?=$|[\s,;:–—-])/iu;
+
+function isUsefulDescription(value: string, title: string) {
+	if (
+		value.length < 20 ||
+		CONTINUATION_LEAD.test(value) ||
+		/đang chờ biên tập viên/iu.test(value)
+	) {
+		return false;
+	}
+	const descriptionText = comparableText(value);
+	const titleText = comparableText(title);
+	if (!descriptionText) return false;
+	return !titleText || descriptionText !== titleText;
 }
 
 function cleanArticleBody(value: string, title: string) {

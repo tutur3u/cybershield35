@@ -151,6 +151,42 @@ describe("automated article draft preparation", () => {
 		expect(content.title).not.toContain("🚨");
 	});
 
+	test("rejects a continuation fragment as the article excerpt", () => {
+		const seed = buildAutomatedArticleSeed({
+			body: "Nội dung gốc.",
+			draftKind: "response",
+			evidence: {
+				metadata: {},
+				quote: "Nội dung nguồn",
+				summary:
+					"Ứng dụng mới giúp người dân xử lý thủ tục thuận tiện hơn trong đời sống hằng ngày.",
+			},
+		});
+		const content = normalizeAutomatedArticleContent(seed, {
+			author: "CyberShield35",
+			blocks: [
+				{
+					content:
+						"Ứng dụng cung cấp nhiều chức năng hỗ trợ người dân trong đời sống hằng ngày.",
+					id: "text-1",
+					type: "text",
+				},
+			],
+			commentsEnabled: true,
+			coverUrl: null,
+			description: "lại nhiều tiện ích cho đời sống",
+			reviewNotes: [],
+			title: "Ứng dụng hỗ trợ đời sống hằng ngày",
+		});
+
+		expect(content.description).toBe(
+			"Ứng dụng cung cấp nhiều chức năng hỗ trợ người dân trong đời sống hằng ngày.",
+		);
+		expect(content.description).not.toContain(
+			"lại nhiều tiện ích cho đời sống",
+		);
+	});
+
 	test("nothing reaches Zalo without an approval, not even a hidden draft", () => {
 		// Staging unapproved drafts on the OA was tried and withdrawn: it filled
 		// someone else's content manager with things nobody had agreed to publish.
