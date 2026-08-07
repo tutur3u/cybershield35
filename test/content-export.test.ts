@@ -85,7 +85,9 @@ describe("content exports", () => {
 
 	test("routes authenticated external-app TTS through Tuturuuu AI", async () => {
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
-		const wav = Buffer.from("RIFFmock-wave");
+		const pcm = Buffer.from([1, 2, 3, 4]);
+		const { pcmToWav } = await import("@/lib/exports/google-tts");
+		const wav = pcmToWav(pcm);
 		const fetchImpl = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
 			calls.push({ input, init });
 			return new Response(wav, {
@@ -112,12 +114,14 @@ describe("content exports", () => {
 		);
 		expect(headers.get("X-Tuturuuu-Workspace-Id")).toBe("workspace-1");
 		expect(body.model).toBe("google/gemini-3.1-flash-tts-preview");
-		expect(result).toEqual(wav);
+		expect(result.subarray(44)).toEqual(pcm);
 	});
 
 	test("retries one transient Tuturuuu TTS failure", async () => {
 		let attempts = 0;
-		const wav = Buffer.from("RIFFretry-wave");
+		const pcm = Buffer.from([5, 6, 7, 8]);
+		const { pcmToWav } = await import("@/lib/exports/google-tts");
+		const wav = pcmToWav(pcm);
 		const fetchImpl = mock(async () => {
 			attempts += 1;
 			return attempts === 1
@@ -135,7 +139,50 @@ describe("content exports", () => {
 		});
 
 		expect(attempts).toBe(2);
-		expect(result).toEqual(wav);
+		expect(result.subarray(44)).toEqual(pcm);
+	});
+
+	test("splits article-length speech and joins chunks into one WAV", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const { generateVietnameseSpeech, pcmToWav, splitSpeechText } = await import(
+			"@/lib/exports/google-tts"
+		);
+		const content = [
+			"Đây là câu đầu tiên của bài viết. ".repeat(12),
+			"Đây là đoạn tiếp theo cần được đọc tự nhiên. ".repeat(12),
+		].join("\n\n");
+		const expectedChunks = splitSpeechText(content, 400);
+		const fetchImpl = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+			calls.push({ input, init });
+			const index = calls.length;
+			return new Response(pcmToWav(Buffer.from([index, index + 1])), {
+				headers: { "Content-Type": "audio/wav" },
+			});
+		}) as typeof fetch;
+
+		const result = await generateVietnameseSpeech(content, {
+			accessToken: "ttr_app_session-token",
+			fetchImpl,
+			workspaceId: "workspace-1",
+		});
+
+		expect(calls).toHaveLength(expectedChunks.length);
+		expect(expectedChunks.length).toBeGreaterThan(1);
+		for (const call of calls) {
+			const body = JSON.parse(String(call.init?.body));
+			expect(body.input.length).toBeLessThanOrEqual(400);
+		}
+		expect(result.subarray(0, 4).toString()).toBe("RIFF");
+		expect(result.subarray(8, 12).toString()).toBe("WAVE");
+		expect(result.length).toBeGreaterThan(44 + expectedChunks.length * 2);
+	});
+
+	test("keeps every speech chunk within the provider limit", async () => {
+		const { splitSpeechText } = await import("@/lib/exports/google-tts");
+		const chunks = splitSpeechText(`Mở ${"x".repeat(850)} để kiểm tra.`, 400);
+
+		expect(chunks.length).toBeGreaterThan(2);
+		expect(chunks.every((chunk) => chunk.length <= 400)).toBe(true);
 	});
 
 	test("requires authentication before producing an export", async () => {

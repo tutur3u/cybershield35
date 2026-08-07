@@ -27,6 +27,8 @@ const bodySchema = z
 	})
 	.strict();
 
+export const maxDuration = 300;
+
 const formats = {
 	docx: {
 		extension: "docx",

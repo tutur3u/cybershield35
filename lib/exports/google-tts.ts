@@ -5,6 +5,9 @@ const DEFAULT_TUTURUUU_TTS_MODEL =
 	"google/gemini-3.1-flash-tts-preview";
 const DEFAULT_GOOGLE_TTS_VOICE = "Puck";
 const GOOGLE_TTS_TIMEOUT_MS = 60_000;
+const TUTURUUU_TTS_CHUNK_CHARS = 400;
+const TUTURUUU_TTS_CONCURRENCY = 6;
+const TTS_CHUNK_PAUSE_MS = 200;
 const SAMPLE_RATE = 24_000;
 const RETRYABLE_TTS_STATUSES = new Set([429, 500, 502, 503, 504]);
 
@@ -125,6 +128,36 @@ async function generateWithTuturuuu(
 		workspaceId: string;
 	},
 ) {
+	const chunks = splitSpeechText(text, TUTURUUU_TTS_CHUNK_CHARS);
+	const wavChunks = await mapWithConcurrency(
+		chunks,
+		TUTURUUU_TTS_CONCURRENCY,
+		(chunk, chunkIndex) =>
+			requestTuturuuuSpeech(chunk, {
+				...options,
+				chunkCount: chunks.length,
+				chunkIndex,
+			}),
+	);
+	const pause = Buffer.alloc((SAMPLE_RATE * 2 * TTS_CHUNK_PAUSE_MS) / 1_000);
+	const pcmChunks = wavChunks.flatMap((wav, index) => {
+		const pcm = pcmFromWav(wav);
+		return index === wavChunks.length - 1 ? [pcm] : [pcm, pause];
+	});
+	return pcmToWav(Buffer.concat(pcmChunks));
+}
+
+async function requestTuturuuuSpeech(
+	text: string,
+	options: {
+		accessToken: string;
+		chunkCount: number;
+		chunkIndex: number;
+		fetchImpl?: typeof fetch;
+		signal?: AbortSignal;
+		workspaceId: string;
+	},
+) {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), GOOGLE_TTS_TIMEOUT_MS);
 	const signal = options.signal
@@ -163,6 +196,8 @@ async function generateWithTuturuuu(
 			const log = retrying ? console.warn : console.error;
 			log("Tuturuuu TTS export failed", {
 				attempt,
+				chunkCount: options.chunkCount,
+				chunkIndex: options.chunkIndex,
 				retrying,
 				status: response.status,
 			});
@@ -196,6 +231,82 @@ async function generateWithTuturuuu(
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+export function splitSpeechText(text: string, maxChars: number) {
+	const units = text
+		.trim()
+		.split(/(?<=[.!?…])\s+|\n+/u)
+		.flatMap((unit) => splitLongSpeechUnit(unit.trim(), maxChars))
+		.filter(Boolean);
+	const chunks: string[] = [];
+	for (const unit of units) {
+		const previous = chunks.at(-1);
+		if (previous && previous.length + unit.length + 1 <= maxChars) {
+			chunks[chunks.length - 1] = `${previous} ${unit}`;
+		} else {
+			chunks.push(unit);
+		}
+	}
+	return chunks.length ? chunks : [text.trim()];
+}
+
+function splitLongSpeechUnit(unit: string, maxChars: number) {
+	if (unit.length <= maxChars) return [unit];
+	const chunks: string[] = [];
+	let current = "";
+	for (const word of unit.split(/\s+/u)) {
+		if (word.length > maxChars) {
+			if (current) chunks.push(current);
+			for (let offset = 0; offset < word.length; offset += maxChars) {
+				chunks.push(word.slice(offset, offset + maxChars));
+			}
+			current = "";
+			continue;
+		}
+		if (!current || current.length + word.length + 1 <= maxChars) {
+			current = current ? `${current} ${word}` : word;
+		} else {
+			chunks.push(current);
+			current = word;
+		}
+	}
+	if (current) chunks.push(current);
+	return chunks;
+}
+
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	concurrency: number,
+	worker: (item: T, index: number) => Promise<R>,
+) {
+	const results = new Array<R>(items.length);
+	let nextIndex = 0;
+	await Promise.all(
+		Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+			while (nextIndex < items.length) {
+				const index = nextIndex;
+				nextIndex += 1;
+				results[index] = await worker(items[index] as T, index);
+			}
+		}),
+	);
+	return results;
+}
+
+function pcmFromWav(wav: Buffer) {
+	if (
+		wav.length < 44 ||
+		wav.subarray(0, 4).toString() !== "RIFF" ||
+		wav.subarray(8, 12).toString() !== "WAVE"
+	) {
+		throw new SpeechGenerationError(
+			"Phản hồi Tuturuuu TTS không chứa âm thanh WAV hợp lệ.",
+			"missing_audio",
+			502,
+		);
+	}
+	return wav.subarray(44);
 }
 
 export class SpeechGenerationError extends Error {
