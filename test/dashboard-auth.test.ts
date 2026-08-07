@@ -1257,6 +1257,7 @@ describe("dashboard auth gate", () => {
 
 	test("collapsed sidebar navigation uses accessible theme-aware tooltips", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
+		const tooltip = readFileSync("components/ui/tooltip.tsx", "utf8");
 		const layoutShell = readFileSync(
 			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
@@ -1265,7 +1266,8 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain('from "@/components/ui/tooltip"');
 		expect(shell).toContain("CollapsedSidebarTooltip");
 		expect(shell).toContain("<TooltipTrigger asChild>{children}</TooltipTrigger>");
-		expect(shell).toContain("[&>svg]:hidden");
+		expect(shell).toContain("hideArrow");
+		expect(tooltip).toContain("hideArrow ? null");
 		expect(shell).toContain('side="right"');
 		expect(shell).toContain("bg-[var(--surface)]");
 		expect(shell).toContain("text-[var(--foreground)]");

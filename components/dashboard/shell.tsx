@@ -537,9 +537,10 @@ function CollapsedSidebarTooltip({
 				<TooltipTrigger asChild>{children}</TooltipTrigger>
 				<TooltipContent
 					align="center"
+					hideArrow
 					side="right"
 					sideOffset={8}
-					className="pointer-events-none hidden max-w-[240px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_10px_28px_rgb(0_0_0/0.18)] [&>svg]:hidden lg:flex"
+					className="pointer-events-none hidden max-w-[240px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_10px_28px_rgb(0_0_0/0.18)] lg:flex"
 				>
 					{content}
 				</TooltipContent>
