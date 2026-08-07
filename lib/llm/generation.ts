@@ -592,6 +592,7 @@ export async function generateArticleRevision(options: {
     | "rewrite"
     | "shorten"
     | "expand"
+    | "description"
     | "title_description"
     | "claim_check";
   content: ArticleContent;
@@ -637,6 +638,10 @@ export async function generateArticleRevision(options: {
       extraContext: options.context,
       instruction: options.instruction,
       outputRequirements: {
+        descriptionOnly:
+          options.action === "description"
+            ? "Chỉ viết lại trích yếu từ nội dung và bằng chứng; giữ nguyên mọi trường khác."
+            : undefined,
         keepImageBlocksUnlessAsked: true,
         returnCompleteArticle: true,
         reviewNotes:

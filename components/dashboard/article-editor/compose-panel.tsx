@@ -1,7 +1,14 @@
 "use client";
 
-import { FileText, ImagePlus, Plus, Type } from "lucide-react";
-import { useState } from "react";
+import {
+	FileText,
+	ImagePlus,
+	LoaderCircle,
+	Plus,
+	Sparkles,
+	Type,
+} from "lucide-react";
+import { useId, useState } from "react";
 
 import type { ArticleContent } from "@/lib/articles/schemas";
 import {
@@ -26,19 +33,28 @@ import {
 
 export function ComposePanel({
 	articleId,
+	busy,
 	draft,
 	onChange,
 	onCoverUnavailable,
 	onImageBlockUnavailable,
+	onRegenerateDescription,
 }: {
 	articleId: string;
+	busy: string;
 	draft: ArticleContent;
 	onChange: (next: ArticleContent) => void;
 	onCoverUnavailable: () => void;
 	onImageBlockUnavailable: (blockId: string) => void;
+	onRegenerateDescription: () => void;
 }) {
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
 	const [dropIndex, setDropIndex] = useState<number | null>(null);
+	const descriptionId = useId();
+	const regeneratingDescription = busy === "ai:description";
+	const hasBody = draft.blocks.some(
+		(block) => block.type === "text" && block.content.trim().length > 40,
+	);
 
 	function reorder(from: number, to: number) {
 		if (from === to) return;
@@ -95,22 +111,55 @@ export function ComposePanel({
 							/>
 						</Field>
 					</div>
-					<Field
-						count={`${draft.description.length}/${ZALO_EDITORIAL_DESCRIPTION_LIMIT}`}
-						hint="Một đến hai câu hoàn chỉnh tóm tắt nội dung; đây là đoạn hiển thị khi chia sẻ."
-						label="Trích yếu"
-					>
+					<div className="min-w-0">
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<label
+								className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted-strong)]"
+								htmlFor={descriptionId}
+							>
+								Trích yếu
+							</label>
+							<div className="flex items-center gap-2">
+								<button
+									aria-busy={regeneratingDescription}
+									aria-label="Tạo lại trích yếu bằng AI"
+									className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-[11px] font-bold text-[var(--accent-strong)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+									disabled={Boolean(busy) || !hasBody}
+									onClick={onRegenerateDescription}
+									title={
+										hasBody
+											? "Tạo đề xuất trích yếu mới từ nội dung và bằng chứng"
+											: "Cần có nội dung bài viết trước"
+									}
+									type="button"
+								>
+									{regeneratingDescription ? (
+										<LoaderCircle className="animate-spin" size={12} />
+									) : (
+										<Sparkles size={12} />
+									)}
+									{regeneratingDescription ? "Đang tạo…" : "Tạo lại bằng AI"}
+								</button>
+								<span className="text-[11px] font-semibold text-[var(--muted)]">
+									{draft.description.length}/{ZALO_EDITORIAL_DESCRIPTION_LIMIT}
+								</span>
+							</div>
+						</div>
+						<p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
+							Một đến hai câu hoàn chỉnh tóm tắt nội dung; đây là đoạn hiển thị khi chia sẻ.
+						</p>
 						<textarea
+							id={descriptionId}
 							value={draft.description}
 							maxLength={ZALO_EDITORIAL_DESCRIPTION_LIMIT}
 							rows={3}
 							onChange={(event) =>
 								onChange({ ...draft, description: event.target.value })
 							}
-							className={textareaClass}
+							className={`${textareaClass} mt-2`}
 							placeholder="Tóm tắt điều người đọc sẽ nhận được sau khi đọc bài."
 						/>
-					</Field>
+					</div>
 					<Field
 						hint="Ảnh ngang 16:9 hiển thị đầu bài và khi chia sẻ. Ảnh hỏng sẽ tự động được gỡ."
 						label="Ảnh bìa"

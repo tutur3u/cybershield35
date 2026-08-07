@@ -15,6 +15,7 @@ export type AiActionKey =
 	| "rewrite"
 	| "shorten"
 	| "expand"
+	| "description"
 	| "title_description"
 	| "claim_check";
 

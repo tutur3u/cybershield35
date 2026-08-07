@@ -29,16 +29,17 @@ export async function POST(
 		if (!detail) {
 			return Response.json({ error: "Không tìm thấy bài viết." }, { status: 404 });
 		}
+		const currentContent = {
+			author: detail.article.author,
+			blocks: detail.article.blocks,
+			commentsEnabled: detail.article.commentsEnabled,
+			coverUrl: detail.article.coverUrl,
+			description: detail.article.description,
+			title: detail.article.title,
+		};
 		const proposal = await generateArticleRevision({
 			...input,
-			content: {
-				author: detail.article.author,
-				blocks: detail.article.blocks,
-				commentsEnabled: detail.article.commentsEnabled,
-				coverUrl: detail.article.coverUrl,
-				description: detail.article.description,
-				title: detail.article.title,
-			},
+			content: currentContent,
 			evidence: detail.evidence.map((item) => ({
 				id: item.id,
 				quote: item.quote,
@@ -46,6 +47,14 @@ export async function POST(
 			})),
 			session: auth.session,
 		});
+		if (input.action === "description") {
+			// A field-level shortcut must never smuggle unrelated model edits into
+			// the review dialog. Only its newly generated excerpt is retained.
+			const generatedDescription = proposal.description;
+			Object.assign(proposal, currentContent, {
+				description: generatedDescription,
+			});
+		}
 		// Models regularly overshoot the Zalo caps by a few words. Rewrite the
 		// headline to fit before the operator compares it, so the diff they review
 		// is the same text that would be stored.
@@ -56,12 +65,13 @@ export async function POST(
 				.join("\n\n"),
 			description: proposal.description,
 			descriptionLimit: ZALO_EDITORIAL_DESCRIPTION_LIMIT,
+			rewriteEvenIfFitting: input.action === "description",
 			title: proposal.title,
 			titleLimit: ZALO_EDITORIAL_TITLE_LIMIT,
 		}).catch(() => null);
 		if (fitted) {
 			proposal.description = fitted.description;
-			proposal.title = fitted.title;
+			if (input.action !== "description") proposal.title = fitted.title;
 		}
 
 		return Response.json(

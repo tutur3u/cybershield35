@@ -67,6 +67,7 @@ export const articleAiSchema = z
 			"rewrite",
 			"shorten",
 			"expand",
+			"description",
 			"title_description",
 			"claim_check",
 		]),

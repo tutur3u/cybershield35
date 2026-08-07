@@ -5,6 +5,7 @@ import {
 	reconcilePublicationOnReview,
 	visiblePublicationError,
 } from "@/lib/articles/publication-reconcile";
+import { articleAiSchema } from "@/lib/articles/schemas";
 
 mock.module("server-only", () => ({}));
 
@@ -68,6 +69,33 @@ describe("Zalo OA security and article contract", () => {
 		expect(editor.indexOf("detail.isError")).toBeLessThan(
 			editor.indexOf("detail.isPending || !draft"),
 		);
+	});
+
+	test("offers compact AI regeneration for the excerpt only", () => {
+		const editor = readFileSync(
+			"components/dashboard/article-editor/index.tsx",
+			"utf8",
+		);
+		const compose = readFileSync(
+			"components/dashboard/article-editor/compose-panel.tsx",
+			"utf8",
+		);
+		const schema = readFileSync("lib/articles/schemas.ts", "utf8");
+		const route = readFileSync("app/api/articles/[id]/ai/route.ts", "utf8");
+
+		expect(compose).toContain('aria-label="Tạo lại trích yếu bằng AI"');
+		expect(compose).toContain('busy === "ai:description"');
+		expect(editor).toContain('editor.askAi("description")');
+		expect(schema).toContain('"description",');
+		expect(articleAiSchema.parse({ action: "description" }).action).toBe(
+			"description",
+		);
+		// The model returns a complete article shape, but the field shortcut must
+		// discard every generated change except the requested excerpt.
+		expect(route).toContain("const generatedDescription = proposal.description;");
+		expect(route).toContain("Object.assign(proposal, currentContent");
+		expect(route).toContain("description: generatedDescription");
+		expect(route).toContain('input.action !== "description"');
 	});
 
 	test("keeps Zalo import outside the server-driven canonical article list", () => {

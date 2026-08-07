@@ -142,10 +142,12 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 						<TabsContent value="compose">
 							<ComposePanel
 								articleId={articleId}
+								busy={editor.busy}
 								draft={draft}
 								onChange={editor.setDraft}
 								onCoverUnavailable={editor.dropCover}
 								onImageBlockUnavailable={editor.dropImageBlock}
+								onRegenerateDescription={() => void editor.askAi("description")}
 							/>
 						</TabsContent>
 
