@@ -139,9 +139,23 @@ export async function fetchJson<T = unknown>(
 					? body.error
 					: JSON.stringify(body.error)
 				: "Thao tác không thành công.";
-		throw new Error(message);
+		const code =
+			body && typeof body === "object" && "code" in body && typeof body.code === "string"
+				? body.code
+				: null;
+		throw new FetchJsonError(message, code);
 	}
 	return body as T;
+}
+
+export class FetchJsonError extends Error {
+	constructor(
+		message: string,
+		readonly code: string | null,
+	) {
+		super(message);
+		this.name = "FetchJsonError";
+	}
 }
 
 export function relativeTime(value: string) {

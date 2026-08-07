@@ -9,7 +9,7 @@ import { articleQueryKeys } from "@/lib/articles/client-queries";
 
 import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
 
-import { fetchJson } from "./shared";
+import { fetchJson, FetchJsonError } from "./shared";
 import type {
 	AiProposal,
 	PublishStep,
@@ -225,6 +225,49 @@ export function useArticleEditor(articleId: string) {
 		[articleId, confirm, detail.data?.article, dirty, refresh, runAction, save],
 	);
 
+	const runZaloRequest = useCallback(
+		async (
+			action: "sync" | "publish" | "live-update" | "hide",
+			omitCoverImage = false,
+		): Promise<boolean | null> => {
+			const request = (withoutCover: boolean) =>
+				fetchJson(`/api/articles/${articleId}/${action}`, {
+					body: JSON.stringify({ omitCoverImage: withoutCover }),
+					headers: { "Content-Type": "application/json" },
+					method: "POST",
+				});
+
+			try {
+				await request(omitCoverImage);
+				return omitCoverImage;
+			} catch (error) {
+				if (
+					omitCoverImage ||
+					!(error instanceof FetchJsonError) ||
+					error.code !== "ZALO_COVER_UPLOAD_FAILED"
+				) {
+					throw error;
+				}
+
+				const continueWithoutCover = await confirm({
+					cancelLabel: "Hủy đăng",
+					confirmLabel: "Tiếp tục không ảnh bìa",
+					description:
+						"Zalo OA không thể tải ảnh bìa. Bạn có thể hủy để kiểm tra lại ảnh, hoặc tiếp tục đăng bài với ảnh bìa trống. Ảnh đã lưu trong CyberShield35 vẫn được giữ nguyên.",
+					title: "Không thể tải ảnh bìa lên Zalo OA",
+				});
+				if (!continueWithoutCover) {
+					await refresh();
+					return null;
+				}
+
+				await request(true);
+				return true;
+			}
+		},
+		[articleId, confirm, refresh],
+	);
+
 	const publishAction = useCallback(
 		async (action: "sync" | "publish" | "live-update" | "hide") => {
 			if (dirty && !(await save())) return;
@@ -253,7 +296,8 @@ export function useArticleEditor(articleId: string) {
 				}));
 			if (!confirmed) return;
 			await runAction(action, async () => {
-				await fetchJson(`/api/articles/${articleId}/${action}`, { method: "POST" });
+				const result = await runZaloRequest(action);
+				if (result === null) return;
 				setNotice({
 					text:
 						action === "sync"
@@ -268,7 +312,7 @@ export function useArticleEditor(articleId: string) {
 				await refresh();
 			});
 		},
-		[confirm, articleId, dirty, refresh, runAction, save],
+		[confirm, dirty, refresh, runAction, runZaloRequest, save],
 	);
 
 	/**
@@ -299,10 +343,12 @@ export function useArticleEditor(articleId: string) {
 				method: "POST",
 			});
 			setPublishStep("syncing");
-			await fetchJson(`/api/articles/${articleId}/sync`, { method: "POST" });
+			const omitCoverImage = await runZaloRequest("sync");
+			if (omitCoverImage === null) return;
 			if (goingPublic) {
 				setPublishStep("publishing");
-				await fetchJson(`/api/articles/${articleId}/publish`, { method: "POST" });
+				const published = await runZaloRequest("publish", omitCoverImage);
+				if (published === null) return;
 			}
 			setPublishStep(null);
 			setNotice({
@@ -313,7 +359,7 @@ export function useArticleEditor(articleId: string) {
 			});
 			await refresh();
 		}).finally(() => setPublishStep(null));
-	}, [confirm, articleId, dirty, publishTarget, refresh, runAction, save]);
+	}, [confirm, articleId, dirty, publishTarget, refresh, runAction, runZaloRequest, save]);
 
 	/**
 	 * Preview path: pushes a hidden copy to Zalo without revealing it, so an editor

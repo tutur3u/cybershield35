@@ -516,6 +516,30 @@ describe("Zalo OA security and article contract", () => {
 		expect(verified.id).toBe("remote-article-id");
 	});
 
+	test("sends an explicitly empty cover when publishing without one", async () => {
+		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		globalThis.fetch = mock(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				calls.push({ input, init });
+				return Response.json({ data: { token: "coverless-token" }, error: 0 });
+			},
+		) as unknown as typeof fetch;
+		const { createZaloArticle } = await import("@/lib/zalo/client");
+
+		await createZaloArticle("access-token", {
+			author: "CyberShield35",
+			blocks: [{ content: "Nội dung.", id: "block-1", type: "text" }],
+			commentsEnabled: true,
+			coverUrl: null,
+			description: "Mô tả.",
+			status: "show",
+			title: "Bài không ảnh bìa",
+		});
+
+		const createBody = JSON.parse(String(calls[0]?.init?.body));
+		expect(createBody.cover.photo_url).toBe("");
+	});
+
 	test("removes a hidden Zalo article through the official CRUD endpoint", async () => {
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		globalThis.fetch = mock(
@@ -871,6 +895,13 @@ describe("images are hosted where Zalo can reach them", () => {
 		new URL("../lib/workers/article-publications.ts", import.meta.url),
 		"utf8",
 	);
+	const editor = readFileSync(
+		new URL(
+			"../components/dashboard/article-editor/use-article-editor.ts",
+			import.meta.url,
+		),
+		"utf8",
+	);
 
 	test("a foreign image is copied into CMS storage before syncing", () => {
 		// Automated drafts inherit the source post's image, which lives behind a
@@ -917,6 +948,18 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(worker).toContain(
 			'throw new PublicationContentError("Mô tả bài viết là bắt buộc.")',
 		);
+	});
+
+	test("a failed cover offers cancel or a coverless retry", () => {
+		expect(syncRoute).toContain('code: error.code');
+		expect(syncRoute).toContain('omitCoverImage: input.omitCoverImage');
+		expect(worker).toContain('readonly code = "ZALO_COVER_UPLOAD_FAILED"');
+		expect(worker).toContain("job.omitCoverImage");
+		expect(worker).toContain("const pendingToken = job.omitCoverImage");
+		expect(editor).toContain('error.code !== "ZALO_COVER_UPLOAD_FAILED"');
+		expect(editor).toContain('cancelLabel: "Hủy đăng"');
+		expect(editor).toContain('confirmLabel: "Tiếp tục không ảnh bìa"');
+		expect(editor).toContain("await request(true)");
 	});
 });
 

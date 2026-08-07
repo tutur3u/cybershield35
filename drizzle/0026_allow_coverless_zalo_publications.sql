@@ -1,0 +1,1 @@
+ALTER TABLE "article_publication_jobs" ADD COLUMN "omit_cover_image" boolean DEFAULT false NOT NULL;

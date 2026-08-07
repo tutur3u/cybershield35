@@ -1103,6 +1103,7 @@ export const articlePublicationJobs = pgTable(
 		maxAttempts: integer("max_attempts").default(4).notNull(),
 		lockedAt: timestamp("locked_at", { withTimezone: true }),
 		remoteOperationToken: text("remote_operation_token"),
+		omitCoverImage: boolean("omit_cover_image").default(false).notNull(),
 		requestFingerprint: text("request_fingerprint").notNull(),
 		errorMessage: text("error_message"),
 		requestedByUserId: text("requested_by_user_id").notNull(),

@@ -202,7 +202,6 @@ function toZaloArticlePayload(content: ZaloArticleContent) {
 	if (!content.description.trim()) {
 		throw new Error("Mô tả bài viết là bắt buộc.");
 	}
-	if (!content.coverUrl) throw new Error("Ảnh bìa bài viết là bắt buộc.");
 	if (!content.blocks.length) throw new Error("Bài viết cần ít nhất một khối nội dung.");
 	return {
 		author: content.author,
@@ -228,7 +227,9 @@ function toZaloArticlePayload(content: ZaloArticleContent) {
 		comment: content.commentsEnabled ? "show" : "hide",
 		cover: {
 			cover_type: "photo",
-			photo_url: content.coverUrl,
+			// Zalo accepts an empty URL when the operator explicitly chooses to
+			// continue after the cover cannot be uploaded.
+			photo_url: content.coverUrl ?? "",
 			status: "show",
 		},
 		description: content.description,

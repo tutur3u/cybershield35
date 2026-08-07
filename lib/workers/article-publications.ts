@@ -46,6 +46,7 @@ export async function enqueueArticlePublication(
 	operation: PublicationOperation,
 	actor: ChatActor,
 	scheduledAt = new Date(),
+	options: { omitCoverImage?: boolean } = {},
 ) {
 	const [article] = await adminDb
 		.select()
@@ -93,6 +94,7 @@ export async function enqueueArticlePublication(
 				articleId,
 				operation,
 				article.contentHash,
+				options.omitCoverImage ? "without-cover" : "with-cover",
 				scheduledAt.toISOString(),
 			].join(":"),
 		)
@@ -101,6 +103,7 @@ export async function enqueueArticlePublication(
 		.insert(articlePublicationJobs)
 		.values({
 			articleId,
+			omitCoverImage: options.omitCoverImage ?? false,
 			operation,
 			requestFingerprint: fingerprint,
 			requestedByDisplayName: actor.displayName,
@@ -117,6 +120,7 @@ export async function enqueueArticlePublication(
 			payload: {
 				actorId: actor.id,
 				jobId: job.id,
+				omitCoverImage: options.omitCoverImage ?? false,
 				scheduledAt: scheduledAt.toISOString(),
 			},
 		});
@@ -542,7 +546,7 @@ async function executePublicationOperation(
 		job.operation === "sync_hidden" || job.operation === "hide"
 			? "hide"
 			: "show";
-	const content = toZaloContent(article, status);
+	const content = toZaloContent(article, status, job.omitCoverImage);
 	// Checked here rather than left to Zalo's own payload validation, which
 	// throws a plain error the queue then retries. A missing title is not a
 	// transport hiccup — it is the same on the fourth attempt as the first, and
@@ -593,8 +597,9 @@ async function executePublicationOperation(
 	}
 	let operationToken: string;
 	try {
-		const pendingToken =
-			job.remoteOperationToken ?? article.remoteOperationToken;
+		const pendingToken = job.omitCoverImage
+			? null
+			: job.remoteOperationToken ?? article.remoteOperationToken;
 		// A pending token resumes an operation that was already in flight. Once we
 		// know the article it belonged to is gone, resuming it would wait on an
 		// answer about something deleted instead of making a new article.
@@ -619,6 +624,9 @@ async function executePublicationOperation(
 		const verified = await verifyWithRetry(accessToken, operationToken);
 		remoteArticleId = verified.id;
 	} catch (error) {
+		if (!job.omitCoverImage && isZaloCoverImageRejection(error)) {
+			throw new ZaloCoverImageError();
+		}
 		if (!remoteArticleId && job.operation === "sync_hidden") {
 			remoteArticleId = await reconcileCreatedArticle(accessToken, article.title);
 		}
@@ -653,6 +661,7 @@ async function executePublicationOperation(
 			payload: {
 				actorId: job.requestedByUserId,
 				jobId: job.id,
+				omitCoverImage: job.omitCoverImage,
 				operation: job.operation,
 				remoteArticleId,
 			},
@@ -680,6 +689,15 @@ class PublicationNotPermittedError extends Error {}
  * under three identical failures in the meantime.
  */
 class PublicationContentError extends Error {}
+
+export class ZaloCoverImageError extends PublicationContentError {
+	readonly code = "ZALO_COVER_UPLOAD_FAILED";
+
+	constructor() {
+		super("Zalo OA không thể tải ảnh bìa của bài viết.");
+		this.name = "ZaloCoverImageError";
+	}
+}
 
 function validateOperation(
 	article: typeof articles.$inferSelect,
@@ -735,6 +753,7 @@ function validateOperation(
 function toZaloContent(
 	article: typeof articles.$inferSelect,
 	status: "hide" | "show",
+	omitCoverImage = false,
 ): ZaloArticleContent {
 	const prepared = prepareZaloArticleContent({
 		author: article.author,
@@ -746,9 +765,17 @@ function toZaloContent(
 	});
 	return {
 		...prepared,
-		coverUrl: prepared.coverUrl ?? null,
+		coverUrl: omitCoverImage ? null : prepared.coverUrl ?? null,
 		status,
 	};
+}
+
+function isZaloCoverImageRejection(error: unknown) {
+	if (!(error instanceof ZaloApiError)) return false;
+	const detail = `${error.message} ${JSON.stringify(error.details)}`.toLowerCase();
+	return ["cover", "photo_url", "cover_url", "ảnh bìa"].some((term) =>
+		detail.includes(term),
+	);
 }
 
 async function verifyWithRetry(accessToken: string, token: string) {
@@ -793,8 +820,15 @@ async function validateRemoteImages(content: ZaloArticleContent) {
 		(item): item is { cover: boolean; url: string } => Boolean(item.url),
 	);
 	for (const item of urls) {
-		const url = new URL(item.url);
+		let url: URL;
+		try {
+			url = new URL(item.url);
+		} catch {
+			if (item.cover) throw new ZaloCoverImageError();
+			throw new PublicationContentError("URL ảnh trong nội dung không hợp lệ.");
+		}
 		if (!["http:", "https:"].includes(url.protocol)) {
+			if (item.cover) throw new ZaloCoverImageError();
 			throw new PublicationContentError("Ảnh bài viết phải dùng URL HTTP hoặc HTTPS công khai.");
 		}
 		const response = await probeRemoteImage(url);
@@ -806,19 +840,19 @@ async function validateRemoteImages(content: ZaloArticleContent) {
 		// case rather than the rare one. Saying so here costs one failed attempt
 		// and names something the operator can fix.
 		if (!response?.ok) {
+			if (item.cover) throw new ZaloCoverImageError();
 			throw new PublicationContentError(
-				item.cover
-					? "Zalo OA không tải được ảnh bìa từ nguồn gốc. Hãy tải ảnh bìa lên trong trình biên tập rồi đăng lại."
-					: "Zalo OA không tải được một ảnh trong nội dung. Hãy tải ảnh đó lên trong trình biên tập rồi đăng lại.",
+				"Zalo OA không tải được một ảnh trong nội dung. Hãy tải ảnh đó lên trong trình biên tập rồi đăng lại.",
 			);
 		}
 		const contentType = response.headers.get("content-type") ?? "";
 		if (contentType && !contentType.startsWith("image/")) {
+			if (item.cover) throw new ZaloCoverImageError();
 			throw new PublicationContentError("URL ảnh không trả về định dạng hình ảnh.");
 		}
 		const size = Number(response.headers.get("content-length") ?? "0");
 		if (item.cover && size > 1024 * 1024) {
-			throw new PublicationContentError("Ảnh bìa Zalo phải nhỏ hơn hoặc bằng 1 MB.");
+			throw new ZaloCoverImageError();
 		}
 	}
 }
