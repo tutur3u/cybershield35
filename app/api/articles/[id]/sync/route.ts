@@ -8,6 +8,7 @@ import {
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
 import { publicErrorMessage } from "@/lib/http/public-error";
+import { logOperation } from "@/lib/operations/telemetry";
 import {
 	enqueueArticlePublication,
 	processArticlePublicationJob,
@@ -51,6 +52,23 @@ export async function POST(
 		) {
 			throw new ZaloCoverImageError();
 		}
+		/*
+		 * CMS publication also writes a delivery audit event. That write can fail
+		 * after the entry itself has already become public, which used to abort the
+		 * request and leave the publication job queued forever. Treat that response
+		 * as inconclusive: the worker below probes every image anonymously and is
+		 * therefore the authoritative gate for whether Zalo can actually fetch it.
+		 */
+		await publishArticleCmsMedia(id, auth.session).catch((error) => {
+			logOperation(
+				"article_cms_publish_inconclusive",
+				{
+					articleId: id,
+					errorType: error instanceof Error ? error.name : "UnknownError",
+				},
+				"warn",
+			);
+		});
 		const job = await enqueueArticlePublication(
 			id,
 			"sync_hidden",
@@ -58,7 +76,6 @@ export async function POST(
 			undefined,
 			{ omitCoverImage: input.omitCoverImage },
 		);
-		await publishArticleCmsMedia(id, auth.session);
 		const result = await processArticlePublicationJob(job.id);
 		return Response.json({ job: result }, { headers: authHeaders(auth) });
 	} catch (error) {

@@ -928,6 +928,24 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(media).toContain('"User-Agent"');
 	});
 
+	test("a CMS audit failure falls through to the public image probe", () => {
+		// The CMS can return 500 after making the entry public when its delivery
+		// audit insert fails. The worker's anonymous fetch is the reliable answer
+		// to whether Zalo can use the image, and must still run in that case.
+		expect(syncRoute).toContain(
+			"await publishArticleCmsMedia(id, auth.session).catch((error) => {",
+		);
+		expect(syncRoute).toContain('"article_cms_publish_inconclusive"');
+		expect(
+			syncRoute.indexOf("await publishArticleCmsMedia(id, auth.session)"),
+		).toBeLessThan(
+			syncRoute.indexOf("enqueueArticlePublication("),
+		);
+		expect(syncRoute.indexOf("enqueueArticlePublication(")).toBeLessThan(
+			syncRoute.indexOf("processArticlePublicationJob(job.id)"),
+		);
+	});
+
 	test("one bad image does not take the whole sync down", () => {
 		// The publication guard reports it with a message the operator can act on;
 		// failing here would replace that with something obscure.
