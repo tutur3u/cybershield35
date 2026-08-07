@@ -15,6 +15,12 @@ import {
 } from "@tuturuuu/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@tuturuuu/ui/avatar";
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
 	ArrowLeft,
 	Bell,
 	Check,
@@ -43,7 +49,13 @@ import {
 	X,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+	useEffect,
+	useState,
+	useSyncExternalStore,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 
 import {
 	navSections,
@@ -227,39 +239,48 @@ export function Sidebar({
 								<div
 									className={`${collapsed ? "hidden lg:flex" : "hidden"} flex-1 flex-col items-center gap-2 px-3 py-3`}
 								>
-									<IntentPrefetchLink
-										aria-label="Chat"
-										className="grid size-10 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--brand-strong)]"
-										href="/chat"
-										title="Chat"
+									<CollapsedSidebarTooltip content="Chat" enabled={collapsed}>
+										<IntentPrefetchLink
+											aria-label="Chat"
+											className="grid size-10 place-items-center rounded-md bg-[var(--surface-soft)] text-[var(--brand-strong)]"
+											href="/chat"
+										>
+											<MessageCircle size={16} />
+										</IntentPrefetchLink>
+									</CollapsedSidebarTooltip>
+									<CollapsedSidebarTooltip
+										content="Tất cả chức năng"
+										enabled={collapsed}
 									>
-										<MessageCircle size={16} />
-									</IntentPrefetchLink>
-									<IntentPrefetchLink
-										href="/"
-										aria-label="Tất cả chức năng"
-										title="Tất cả chức năng"
-										className="grid size-10 place-items-center rounded-md text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
-									>
-										<LayoutGrid size={16} />
-									</IntentPrefetchLink>
+										<IntentPrefetchLink
+											href="/"
+											aria-label="Tất cả chức năng"
+											className="grid size-10 place-items-center rounded-md text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
+										>
+											<LayoutGrid size={16} />
+										</IntentPrefetchLink>
+									</CollapsedSidebarTooltip>
 								</div>
 							</>
 						) : (
 							<div className="space-y-1 px-3 py-3">
 								{chatRoute ? (
-									<button
-										type="button"
-										onClick={() => setChatMenuOpen(true)}
-										aria-label={collapsed ? "Trở lại Chat" : undefined}
-										title={collapsed ? "Trở lại Chat" : undefined}
-										className={`mb-2 flex h-9 w-full items-center gap-2 rounded-md bg-[var(--success-soft)] px-3 text-[11px] font-bold text-[var(--brand-strong)] ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+									<CollapsedSidebarTooltip
+										content="Trở lại Chat"
+										enabled={collapsed}
 									>
-										<MessageCircle size={16} />
-										<span className={collapsed ? "lg:hidden" : ""}>
-											Trở lại Chat
-										</span>
-									</button>
+										<button
+											type="button"
+											onClick={() => setChatMenuOpen(true)}
+											aria-label={collapsed ? "Trở lại Chat" : undefined}
+											className={`mb-2 flex h-9 w-full items-center gap-2 rounded-md bg-[var(--success-soft)] px-3 text-[11px] font-bold text-[var(--brand-strong)] ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+										>
+											<MessageCircle size={16} />
+											<span className={collapsed ? "lg:hidden" : ""}>
+												Trở lại Chat
+											</span>
+										</button>
+									</CollapsedSidebarTooltip>
 								) : null}
 								<SidebarNavLink
 									collapsed={collapsed}
@@ -333,33 +354,44 @@ export function Sidebar({
 														so in practice nobody checks what the AI costs.
 													*/}
 													{section.id === "organization" && aiUsageHref ? (
-														<a
-															aria-label={
-																collapsed ? "Mức dùng AI trên Tuturuuu" : undefined
-															}
-															className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold text-[color:var(--muted-strong)] outline-none transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
-																collapsed
-																	? "lg:justify-center lg:gap-0 lg:px-0"
-																	: "justify-start"
-															}`}
-															href={aiUsageHref}
-															onClick={() => setMobileOpen(false)}
-															rel="noopener noreferrer"
-															target="_blank"
-															title={collapsed ? "Mức dùng AI trên Tuturuuu" : undefined}
+														<CollapsedSidebarTooltip
+															content="Mức dùng AI trên Tuturuuu"
+															enabled={collapsed}
 														>
-															<Coins aria-hidden className="shrink-0" size={17} strokeWidth={2} />
-															<span
-																className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
+															<a
+																aria-label={
+																	collapsed
+																		? "Mức dùng AI trên Tuturuuu"
+																		: undefined
+																}
+																className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold text-[color:var(--muted-strong)] outline-none transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
+																	collapsed
+																		? "lg:justify-center lg:gap-0 lg:px-0"
+																		: "justify-start"
+																}`}
+																href={aiUsageHref}
+																onClick={() => setMobileOpen(false)}
+																rel="noopener noreferrer"
+																target="_blank"
 															>
-																Mức dùng AI
-															</span>
-															<ExternalLink
-																aria-hidden
-																className={`shrink-0 opacity-60 ${collapsed ? "lg:hidden" : ""}`}
-																size={12}
-															/>
-														</a>
+																<Coins
+																	aria-hidden
+																	className="shrink-0"
+																	size={17}
+																	strokeWidth={2}
+																/>
+																<span
+																	className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
+																>
+																	Mức dùng AI
+																</span>
+																<ExternalLink
+																	aria-hidden
+																	className={`shrink-0 opacity-60 ${collapsed ? "lg:hidden" : ""}`}
+																	size={12}
+																/>
+															</a>
+														</CollapsedSidebarTooltip>
 													) : null}
 												</div>
 											) : null}
@@ -463,25 +495,56 @@ function SidebarNavLink({
 }) {
 	const active = isNavActive(pathname, item.href);
 	return (
-		<IntentPrefetchLink
-			aria-current={active ? "page" : undefined}
-			aria-label={collapsed ? item.label : undefined}
-			className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold outline-none transition before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-transparent before:transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
-				collapsed ? "lg:justify-center lg:gap-0 lg:px-0" : "justify-start"
-			} ${
-				active
-					? "bg-[var(--accent-soft)] text-[color:var(--accent-strong)] before:bg-[var(--accent)]"
-					: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
-			}`}
-			href={item.href}
-			onClick={onNavigate}
-			title={collapsed ? item.label : undefined}
-		>
-			<item.icon aria-hidden className="shrink-0" size={17} strokeWidth={2} />
-			<span className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}>
-				{item.label}
-			</span>
-		</IntentPrefetchLink>
+		<CollapsedSidebarTooltip content={item.label} enabled={collapsed}>
+			<IntentPrefetchLink
+				aria-current={active ? "page" : undefined}
+				aria-label={collapsed ? item.label : undefined}
+				className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold outline-none transition before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-transparent before:transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
+					collapsed ? "lg:justify-center lg:gap-0 lg:px-0" : "justify-start"
+				} ${
+					active
+						? "bg-[var(--accent-soft)] text-[color:var(--accent-strong)] before:bg-[var(--accent)]"
+						: "text-[color:var(--muted-strong)] hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)]"
+				}`}
+				href={item.href}
+				onClick={onNavigate}
+			>
+				<item.icon aria-hidden className="shrink-0" size={17} strokeWidth={2} />
+				<span
+					className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
+				>
+					{item.label}
+				</span>
+			</IntentPrefetchLink>
+		</CollapsedSidebarTooltip>
+	);
+}
+
+function CollapsedSidebarTooltip({
+	children,
+	content,
+	enabled,
+}: {
+	children: ReactElement;
+	content: ReactNode;
+	enabled: boolean;
+}) {
+	if (!enabled) return children;
+
+	return (
+		<TooltipProvider delayDuration={140}>
+			<Tooltip>
+				<TooltipTrigger asChild>{children}</TooltipTrigger>
+				<TooltipContent
+					align="center"
+					side="right"
+					sideOffset={10}
+					className="pointer-events-none hidden max-w-[240px] border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[11px] font-semibold leading-4 text-[var(--foreground)] shadow-[0_12px_30px_rgb(0_0_0/0.22)] [&>svg]:bg-[var(--surface)] [&>svg]:fill-[var(--surface)] lg:flex"
+				>
+					{content}
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 

@@ -1255,17 +1255,20 @@ describe("dashboard auth gate", () => {
 		expect(shell).toContain("aria-label={collapsed ? \"Mở rộng sidebar\" : \"Thu gọn sidebar\"}");
 	});
 
-	test("collapsed sidebar navigation uses native accessible labels", () => {
+	test("collapsed sidebar navigation uses accessible theme-aware tooltips", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 		const layoutShell = readFileSync(
 			"components/dashboard/dashboard-layout-shell.tsx",
 			"utf8",
 		);
 
-		expect(shell).not.toContain("@tuturuuu/ui/tooltip");
-		expect(shell).not.toContain("TooltipProvider");
-		expect(shell).not.toContain("TooltipTrigger");
-		expect(shell).not.toContain("TooltipContent");
+		expect(shell).toContain('from "@/components/ui/tooltip"');
+		expect(shell).toContain("CollapsedSidebarTooltip");
+		expect(shell).toContain("<TooltipTrigger asChild>{children}</TooltipTrigger>");
+		expect(shell).toContain('side="right"');
+		expect(shell).toContain("bg-[var(--surface)]");
+		expect(shell).toContain("text-[var(--foreground)]");
+		expect(shell).toContain("hidden max-w-[240px]");
 		expect(shell).toContain("aria-label={collapsed ? item.label : undefined}");
 		expect(shell).toContain("collapsed ? item.label : undefined");
 		expect(shell).toContain("aria-current={active ? \"page\" : undefined}");
