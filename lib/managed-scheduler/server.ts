@@ -424,14 +424,16 @@ async function drainScanQueue() {
   // remain retryable on the next daily run and must not repeat collection.
   try {
     const { reconcileApifyCosts, syncProviderCosts } = await import("@/lib/costs/server");
-    if (process.env.APIFY_ACCOUNT_DEDICATED_TO_CS35 === "true") {
-      const { reconcileApifyAccountHistory } = await import("@/lib/costs/account-history");
-      await reconcileApifyAccountHistory([new Date().toISOString().slice(0,10)], true);
-    }
-    await reconcileApifyCosts(5);
-    await syncProviderCosts();
-  } catch {
-    logOperation("provider_cost_reconciliation_pending", {}, "warn");
+    const { reconcileApifyAccountHistory } = await import("@/lib/costs/account-history");
+    const { runCostMaintenance } = await import("@/lib/costs/maintenance");
+    await runCostMaintenance([
+      ...(process.env.APIFY_ACCOUNT_DEDICATED_TO_CS35 === "true" ? [{ stage: "account_history", run: () => reconcileApifyAccountHistory([new Date().toISOString().slice(0,10)], true) }] : []),
+      { stage: "run_reconciliation", run: () => reconcileApifyCosts(5) },
+      { stage: "delivery", run: () => syncProviderCosts() },
+    ], result => logOperation("provider_cost_maintenance", result,
+      result.status === "completed" || result.status === "ready" || result.status === "disabled" ? "info" : "warn"));
+  } catch (error) {
+    logOperation("provider_cost_reconciliation_pending", { errorType: error instanceof Error ? error.name : "UnknownError" }, "warn");
   }
   const capacity = Math.min(DAILY_DRAIN_LIMIT, await scanCapacityRemaining());
 	const scanIds: string[] = [];
