@@ -42,7 +42,7 @@ export type OperationsQueueStatus = {
 
 export type OperationsServiceView = {
 	ageSeconds: number | null;
-	health: "healthy" | "stale" | "unknown";
+	health: "healthy" | "stale" | "unknown" | "inactive";
 	label: string;
 	lastSeenAt: string | null;
 	serviceName: string;

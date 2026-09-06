@@ -1,5 +1,5 @@
 import "server-only";
-import { cronOverdueWindowMs } from "@/lib/managed-scheduler/health";
+import { cronOverdueWindowMs, isHistoricalCronService } from "@/lib/managed-scheduler/health";
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
@@ -246,7 +246,7 @@ function toServiceView(
 			: 3 * 60;
 	return {
 		ageSeconds,
-		health: ageSeconds <= staleAfter ? "healthy" : "stale",
+		health: isHistoricalCronService(row.serviceName, ageSeconds) ? "inactive" : ageSeconds <= staleAfter ? "healthy" : "stale",
 		label: serviceLabel(row.serviceName),
 		lastSeenAt: row.lastSeenAt.toISOString(),
 		serviceName: row.serviceName,
