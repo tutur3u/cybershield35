@@ -1,4 +1,5 @@
 import "server-only";
+import { cronOverdueWindowMs } from "./health";
 
 import { createHash, timingSafeEqual } from "node:crypto";
 
@@ -606,7 +607,7 @@ function toVercelCronJobStatus(
 	const lastRunAt = lastExecution?.startedAt ?? row?.lastSeenAt.toISOString() ?? null;
 	const nextRunAt = nextRunForSchedule(job.schedule, now).toISOString();
 	const overdueSince =
-		row && now.getTime() - row.lastSeenAt.getTime() > overdueWindowMs(job.schedule)
+		row && now.getTime() - row.lastSeenAt.getTime() > cronOverdueWindowMs(job.schedule)
 			? row.lastSeenAt.toISOString()
 			: null;
 
@@ -749,11 +750,6 @@ function nextRunForSchedule(schedule: string, from: Date) {
 	next.setUTCMinutes(0, 0, 0);
 	next.setUTCHours(next.getUTCHours() + 1);
 	return next;
-}
-
-function overdueWindowMs(schedule: string) {
-	if (schedule === "0 0 * * *") return 30 * 60 * 60_000;
-	return schedule === "*/30 * * * *" ? 75 * 60_000 : 75 * 60_000;
 }
 
 function safeCronError(error: unknown) {

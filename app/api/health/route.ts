@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { desc } from "drizzle-orm";
 
 import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
 import { DASHBOARD_HEALTH_TAG } from "@/lib/dashboard/cache-tags";
@@ -18,7 +19,7 @@ async function getHealthSnapshot() {
 	const providers = getProviderAvailability();
 	const [databaseResult, cronResult] = await Promise.allSettled([
 		checkDatabase(),
-		adminDb.select().from(cronHeartbeats).limit(1),
+		adminDb.select().from(cronHeartbeats).orderBy(desc(cronHeartbeats.lastSeenAt)).limit(1),
 	]);
 	const database =
 		databaseResult.status === "fulfilled"

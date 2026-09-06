@@ -30,6 +30,17 @@ mock.module("@/lib/workers/scans", () => ({
 }));
 mock.module("@/lib/workers/article-publications", () => ({
 	processDueArticlePublications: async () => ({ processed: 0 }),
+	reclaimStalledPublicationJobs: async () => 0,
+}));
+mock.module("@/lib/workers/zalo-presence-reconciliation", () => ({
+	reconcileZaloRemotePresence: async () => ({ checked: 0 }),
+}));
+mock.module("@/lib/costs/server", () => ({
+	reconcileApifyCosts: async () => ({ confirmed: 0 }),
+	syncProviderCosts: async () => ({ synced: 0, status: "ready" }),
+}));
+mock.module("@/lib/costs/account-history", () => ({
+	reconcileApifyAccountHistory: async () => ({ days: 0, totalUsd: 0 }),
 }));
 mock.module("@/lib/workers/evidence-risk", () => ({ reassessStoredEvidenceRisk }));
 mock.module("@/lib/db/client", () => ({

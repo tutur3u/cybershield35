@@ -1,4 +1,5 @@
 import "server-only";
+import { cronOverdueWindowMs } from "@/lib/managed-scheduler/health";
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
@@ -236,8 +237,10 @@ function toServiceView(
 		0,
 		Math.round((now.getTime() - row.lastSeenAt.getTime()) / 1000),
 	);
-	const staleAfter = row.serviceName.includes("enqueue-tracked-sources")
-		? 30 * 60 * 60
+	const staleAfter = row.serviceName.includes("daily-scans") || row.serviceName.includes("enqueue-tracked-sources")
+		? cronOverdueWindowMs("0 0 * * *") / 1000
+		: row.serviceName.includes("process-article-publications")
+			? cronOverdueWindowMs("*/5 * * * *") / 1000
 		: row.serviceName.includes("process-queue")
 			? 75 * 60
 			: 3 * 60;
@@ -261,6 +264,8 @@ function durationMs(startedAt: Date | null, completedAt: Date | null) {
 }
 
 function serviceLabel(serviceName: string) {
+	if (serviceName.includes("daily-scans")) return "Cron quét hằng ngày";
+	if (serviceName.includes("process-article-publications")) return "Cron xuất bản bài viết";
 	if (serviceName.includes("enqueue-tracked-sources")) return "Cron xếp nguồn";
 	if (serviceName.includes("process-queue")) return "Cron xử lý hàng đợi";
 	if (serviceName.includes("worker")) return "Worker xử lý scan";
