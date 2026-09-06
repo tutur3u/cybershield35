@@ -1,4 +1,5 @@
 import "server-only";
+import { getTuturuuuMachineToken } from "@/lib/tuturuuu/machine-credential";
 
 const DEFAULT_GOOGLE_TTS_MODEL = "gemini-3.1-flash-tts-preview";
 const DEFAULT_TUTURUUU_TTS_MODEL =
@@ -31,7 +32,7 @@ export async function generateVietnameseSpeech(
 			workspaceId: options.workspaceId,
 		});
 	}
-  const machineToken = process.env.TUTURUUU_AI_APP_TOKEN?.trim();
+  const machineToken = getTuturuuuMachineToken();
   const machineWorkspace = process.env.TUTURUUU_AI_WORKSPACE_ID?.trim()
     || process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim();
   if (machineToken && machineWorkspace) {

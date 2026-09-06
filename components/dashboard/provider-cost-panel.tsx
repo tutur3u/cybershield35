@@ -43,8 +43,8 @@ export function ProviderCostPanel() {
         {!data.accountStorageReady ? <p>Đang chờ cập nhật cơ sở dữ liệu để lưu tổng chi phí tài khoản.</p> : null}
         {data.accountMonths.length ? <div className="space-y-2 rounded-lg border border-[var(--border)] p-3">
           <h3 className="font-semibold">Tổng chi phí tài khoản Apify chuyên dùng cho CS35</h3>
-          <p className="text-xs text-[var(--muted)]">Bao gồm phí sự kiện, dữ liệu và lưu trữ do Apify báo cáo. Đã bao gồm chi phí các lượt bên dưới; không cộng hai bảng với nhau.</p>
-          {data.accountMonths.map(month => <div key={month.month} className="flex flex-wrap justify-between gap-2 border-b border-[var(--border)] py-2"><span>{month.month} · {month.days} ngày · {month.synced}/{month.days} đã đồng bộ</span><strong>{usd(month.amountUsd)}</strong></div>)}
+          <p className="text-xs text-[var(--muted)]">Bao gồm phí sự kiện, dữ liệu và lưu trữ do Apify báo cáo. Mỗi bản ghi là một ngày của một tài khoản; nhiều tài khoản có thể cùng ngày. Đã bao gồm chi phí các lượt bên dưới; không cộng hai bảng với nhau.</p>
+          {data.accountMonths.map(month => <div key={month.month} className="flex flex-wrap justify-between gap-2 border-b border-[var(--border)] py-2"><span>{month.month} · {month.days} bản ghi ngày · {month.synced}/{month.days} đã đồng bộ</span><strong>{usd(month.amountUsd)}</strong></div>)}
         </div> : null}
         <h3 className="font-semibold">Chi tiết lượt chạy còn truy cập được</h3>
         {data.missingRunIds ? <p>{data.missingRunIds} lượt thiếu mã Apify nên chưa thể xác minh chi phí.</p> : null}
@@ -53,7 +53,7 @@ export function ProviderCostPanel() {
         {data.studioUrl ? <a href={data.studioUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">Mở chi phí trong AI Studio <ExternalLink size={13} /></a> : null}
       </> : null}
       {mutation.isError ? <p role="alert">{mutation.error.message}</p> : null}
-      {mutation.data ? <p role="status">Đã xác minh {mutation.data.reconciliation.confirmed}/{mutation.data.reconciliation.attempted} lượt; {mutation.data.reconciliation.unavailable} lượt chưa truy cập được. Đã đồng bộ {mutation.data.sync.synced} lượt.{mutation.data.sync.status !== "ready" ? " Đồng bộ chưa hoàn tất; kiểm tra cấu hình Tuturuuu hoặc thử lại." : ""}</p> : null}
+      {mutation.data ? <p role="status">Đã xác minh {mutation.data.reconciliation.confirmed}/{mutation.data.reconciliation.attempted} lượt; {mutation.data.reconciliation.unavailable} lượt chưa truy cập được. Đã đồng bộ {mutation.data.sync.synced} bản ghi chi phí.{mutation.data.sync.status !== "ready" ? " Đồng bộ chưa hoàn tất; kiểm tra cấu hình Tuturuuu hoặc thử lại." : ""}</p> : null}
     </div>
   </Panel>;
 }

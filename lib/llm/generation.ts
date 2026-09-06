@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { getTuturuuuMachineToken } from "@/lib/tuturuuu/machine-credential";
 import { createOpenAI } from "@ai-sdk/openai";
 import { APICallError, generateText, Output, streamText } from "ai";
 
@@ -184,7 +185,7 @@ export function getInteractiveModelRuntime(
  * issued.
  */
 function getMachineModelRuntime() {
-  const token = cleanSecret(process.env.TUTURUUU_AI_APP_TOKEN);
+  const token = getTuturuuuMachineToken();
   const workspaceId = cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID) ?? cleanSecret(process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID);
   if (!token || !workspaceId) return null;
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { getTuturuuuMachineToken } from "@/lib/tuturuuu/machine-credential";
 
 import { ApifyClient } from "apify-client";
 import { adminSqlClient as sql } from "@/lib/db/client";
@@ -49,7 +50,7 @@ export async function reconcileApifyCosts(limit = 25, apply = true) {
 }
 
 export async function syncProviderCosts(accessToken?: string, workspaceId?: string | null) {
-  const token = accessToken ?? process.env.TUTURUUU_AI_APP_TOKEN?.trim();
+  const token = accessToken ?? getTuturuuuMachineToken();
   const workspace = workspaceId ?? process.env.TUTURUUU_AI_WORKSPACE_ID?.trim()
     ?? process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim();
   if (process.env.TUTURUUU_PROVIDER_COST_SYNC_ENABLED !== "true") return { synced: 0, status: "disabled" };
@@ -112,7 +113,7 @@ export async function getProviderCostOverview() {
     accountStorageReady: Boolean(storage?.ready),
     accountMonths: accountMonths.map(row => ({month:row.month, days:row.days, amountUsd:Number(row.amount_usd), synced:row.synced})),
     missingRunIds: coverage?.missing_run_ids ?? 0,
-    machineAiConfigured: Boolean(process.env.TUTURUUU_AI_APP_TOKEN?.trim() && workspace),
+    machineAiConfigured: Boolean(getTuturuuuMachineToken() && workspace),
     syncEnabled: process.env.TUTURUUU_PROVIDER_COST_SYNC_ENABLED === "true",
     studioUrl: workspace ? `https://ai.tuturuuu.com/${encodeURIComponent(workspace)}/usage#provider-costs` : null,
   };

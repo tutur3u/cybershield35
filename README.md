@@ -941,7 +941,7 @@ charges on top of run totals.
 Deploy AI Studio's `20260906100000_external_provider_costs.sql` migration and
 `POST /v1/provider-costs` endpoint before setting
 `TUTURUUU_PROVIDER_COST_SYNC_ENABLED=true`. Background sync uses
-`TUTURUUU_AI_APP_TOKEN`, an approved AI Studio key bound to the CS35 external app,
+`TUTURUUU_AI_APP_TOKEN` or the existing `TUTURUUU_AI_API_KEY`, an approved AI Studio key bound to the CS35 external app,
 and `TUTURUUU_AI_WORKSPACE_ID` (or the CS35 workspace ID fallback). Manual sync
 can use the signed-in user's platform session. Until enabled, costs stay local
 and the UI explicitly shows the pending integration.
