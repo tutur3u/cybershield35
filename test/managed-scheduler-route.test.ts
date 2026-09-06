@@ -94,6 +94,7 @@ describe("daily scan orchestrator", () => {
 		expect(reconcileFacebookPageSources).toHaveBeenCalledTimes(1);
 		expect(enqueueDueTrackedSources).toHaveBeenCalledTimes(1);
 		expect(reassessStoredEvidenceRisk).toHaveBeenCalledTimes(1);
+		expect(reassessStoredEvidenceRisk).toHaveBeenCalledWith(12, { onlyOutdated: true });
 		expect(refreshIntelligenceRollupsBestEffort).toHaveBeenCalledTimes(1);
 		expect(heartbeats).toHaveLength(1);
 		expect(heartbeats[0]?.serviceName).toBe("vercel-cron:daily-scans");

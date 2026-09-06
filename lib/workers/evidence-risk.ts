@@ -54,7 +54,7 @@ type ScoredEvidence = {
  * Re-scores stored evidence with the LLM classifier, then re-ranks every
  * projection so dashboards reflect the new posture instead of the previous one.
  */
-export async function reassessStoredEvidenceRisk(limit = 5_000) {
+export async function reassessStoredEvidenceRisk(limit = 5_000, options: { onlyOutdated?: boolean } = {}) {
 	// Rows the current classifier has not seen come first, newest within that.
 	// Ordering purely by recency meant a repeated run re-read the same newest
 	// page forever and never reached the backlog it existed to clear.
@@ -62,6 +62,7 @@ export async function reassessStoredEvidenceRisk(limit = 5_000) {
 		select id, quote, summary, author, source_label, engagement, metadata,
 			risk_level, sentiment, stance
 		from evidence_items
+		where ${!options.onlyOutdated} or coalesce((metadata->>'classifierVersion')::int, 0) < ${CLASSIFIER_VERSION}
 		order by
 			case
 				when coalesce((metadata->>'classifierVersion')::int, 0) >= ${CLASSIFIER_VERSION}
@@ -219,6 +220,7 @@ function hasAssessmentChanged(
 		? row.metadata.riskCategories
 		: [];
 	return (
+		(assessment.source === "llm" && row.metadata?.classifierVersion !== CLASSIFIER_VERSION) ||
 		assessment.level !== row.risk_level ||
 		(assessment.sentiment !== null && assessment.sentiment !== row.sentiment) ||
 		(assessment.stance !== null && assessment.stance !== row.stance) ||

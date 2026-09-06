@@ -498,7 +498,9 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	}
 
 	const reconciliation = await reconcileFacebookPageSources();
-	const riskReassessment = await reassessStoredEvidenceRisk();
+	// One batch of outdated rows fits the cron budget and avoids rebilling the
+	// entire already-classified corpus on every daily run.
+	const riskReassessment = await reassessStoredEvidenceRisk(12, { onlyOutdated: true });
 	const enqueued = await enqueueDueTrackedSources();
 
 	const scanIds = enqueued.scans.map((scan) => scan.scanId);
