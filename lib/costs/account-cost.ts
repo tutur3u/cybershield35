@@ -19,3 +19,9 @@ export function parseApifyBillingCycle(data: unknown) {
   }
   return daily;
 }
+/** postgres-js timestamps are strings after Drizzle installs its parsers. */
+export function providerCostTimestamp(value: string) {
+  const timestamp = new Date(value);
+  if (!Number.isFinite(timestamp.getTime())) throw new Error("Invalid provider cost timestamp");
+  return timestamp.toISOString();
+}

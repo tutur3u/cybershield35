@@ -1,7 +1,7 @@
 import "server-only";
 import { adminSqlClient as sql } from "@/lib/db/client";
 
-import { parseApifyBillingCycle } from "./account-cost";
+import { parseApifyBillingCycle, providerCostTimestamp } from "./account-cost";
 
 /** Account totals can replace run totals only for an explicitly dedicated account. */
 export async function reconcileApifyAccountHistory(dates: string[], apply = false) {
@@ -43,8 +43,8 @@ export async function reconcileApifyAccountHistory(dates: string[], apply = fals
 }
 
 export async function syncAccountCosts(token: string, workspace: string, baseUrl: string) {
-  const rows = await sql<Array<{ id: string; account_id: string; day: string; amount_usd: string; observed_at: Date }>>`
-    select id, account_id, day::text, amount_usd::text, observed_at from provider_account_costs
+  const rows = await sql<Array<{ id: string; account_id: string; day: string; amount_usd: string; observed_at: string }>>`
+    select id, account_id, day::text, amount_usd::text, observed_at::text from provider_account_costs
     where synced_at is null or synced_workspace_id is distinct from ${workspace}
     order by day limit 100
   `;
@@ -54,13 +54,13 @@ export async function syncAccountCosts(token: string, workspace: string, baseUrl
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Tuturuuu-Workspace-Id': workspace },
       body: JSON.stringify({ provider:'apify', externalRunId:row.id, service:'account_usage', amountUsd:Number(row.amount_usd),
         currency:'USD', source:'provider_api', granularity:'account_day', accountId:row.account_id,
-        occurredAt:`${row.day}T00:00:00.000Z`, observedAt:row.observed_at.toISOString() }), signal:AbortSignal.timeout(15_000),
+        occurredAt:`${row.day}T00:00:00.000Z`, observedAt:providerCostTimestamp(row.observed_at) }), signal:AbortSignal.timeout(15_000),
     });
     if (!response.ok) return {synced,status:`upstream_${response.status}`};
     const receipt = await response.json().catch(()=>null);
     if (receipt?.accepted !== true || receipt.externalRunId !== row.id) return {synced,status:'invalid_receipt'};
     await sql`update provider_account_costs set synced_at=now(), synced_workspace_id=${workspace}
-      where id=${row.id} and observed_at=${row.observed_at.toISOString()}::timestamptz`;
+      where id=${row.id} and observed_at=${row.observed_at}::timestamptz`;
     synced++;
   }
   return {synced,status:'ready'};
