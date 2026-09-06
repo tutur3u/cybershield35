@@ -58,6 +58,7 @@ describe("AI report output", () => {
       generation.indexOf("export async function generateInDepthReport"),
       generation.indexOf("export async function generateArticleRevision"),
     );
-    expect(reportFunction).not.toContain("maxOutputTokens");
+    // Gateway defaults to 2,048 tokens; long reports need an explicit bounded budget.
+    expect(reportFunction).toContain("maxOutputTokens: 12000");
   });
 });

@@ -130,10 +130,12 @@ export async function classifyPersistedEvidenceRisk(evidenceIds: string[]) {
 		})
 		.from(evidenceItems)
 		.where(inArray(evidenceItems.id, evidenceIds));
-	const scored = await scoreEvidenceRows(rows as StoredEvidenceRisk[]);
+	// Analysis-only retries must not pay to classify already current rows again.
+	const pending = rows.filter((row) => row.metadata?.classifierVersion !== CLASSIFIER_VERSION);
+	const scored = await scoreEvidenceRows(pending as StoredEvidenceRisk[]);
 	let updated = 0;
 
-	for (const row of rows as StoredEvidenceRisk[]) {
+	for (const row of pending as StoredEvidenceRisk[]) {
 		const assessment = scored.get(row.id);
 		if (!assessment || !hasAssessmentChanged(row, assessment)) continue;
 		await adminDb

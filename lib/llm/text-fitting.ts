@@ -55,6 +55,8 @@ export async function fitArticleHeadline(input: {
 		for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
 			try {
 				const { output } = await generateText({
+					headers: { "X-Tuturuuu-Operation": "text-fitting" },
+					maxOutputTokens: 2048,
 					model: runtime.model,
 					output: Output.object({ schema: headlineSchema }),
 					prompt: JSON.stringify({
@@ -121,6 +123,8 @@ export async function fitSummary(
 	if (runtime) {
 		try {
 			const { output } = await generateText({
+				headers: { "X-Tuturuuu-Operation": "text-fitting" },
+				maxOutputTokens: 2048,
 				model: runtime.model,
 				output: Output.object({ schema: summarySchema }),
 				prompt: JSON.stringify({

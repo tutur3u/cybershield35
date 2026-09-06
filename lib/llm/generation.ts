@@ -162,7 +162,7 @@ export function getInteractiveModelRuntime(
       },
     };
   }
-  const fallback = getModelRuntime();
+  const fallback = getChatModelRuntime();
   if (!fallback) return null;
   return fallback;
 }
@@ -186,12 +186,15 @@ export function getInteractiveModelRuntime(
  */
 function getMachineModelRuntime() {
   const token = getTuturuuuMachineToken();
-  const workspaceId = cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID) ?? cleanSecret(process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID);
+  const workspaceId =
+    cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID) ??
+    cleanSecret(process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID);
   if (!token || !workspaceId) return null;
 
   const allowed = getAllowedAiModels();
   const configured = process.env.TUTURUUU_AI_MODEL?.trim();
-  const model = configured && allowed.includes(configured) ? configured : allowed[0]!;
+  const model =
+    configured && allowed.includes(configured) ? configured : allowed[0]!;
   const provider = createOpenAI({
     apiKey: token,
     baseURL:
@@ -225,6 +228,16 @@ export async function analyzeEvidence(
   evidence: Array<
     Pick<EvidenceItemRow, "id" | "quote" | "summary" | "riskLevel">
   >,
+  audit?: {
+    scanId: string;
+    onUsage: (receipt: {
+      requestId: string | null;
+      inputTokens: number;
+      outputTokens: number;
+      reasoningTokens: number;
+      finishReason: string;
+    }) => Promise<void>;
+  },
 ): Promise<AnalysisOutput> {
   const model = getModel();
   if (!model) throw new Error("LLM provider is not configured");
@@ -233,6 +246,21 @@ export async function analyzeEvidence(
 
   const { output } = await generateText({
     model,
+    headers: {
+      "X-Tuturuuu-Operation": "scan-analysis",
+      "X-Tuturuuu-Entity-Id": audit?.scanId,
+    },
+    onEnd: async ({ steps, usage, finishReason }) => {
+      await audit?.onUsage({
+        requestId: steps.at(-1)?.response.id ?? null,
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+        reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
+        finishReason,
+      });
+    },
+    maxOutputTokens: 16_384,
+    abortSignal: AbortSignal.timeout(180_000),
     output: Output.object({ schema: analysisOutputSchema }),
     system: `You are a meticulous evidence-grounded civic information analyst. Return Vietnamese analysis only. Distinguish facts, interpretations, and missing context. Write summaries in fluent, idiomatic Vietnamese without mechanical openings or bureaucratic filler. Do not infer identity or intent, and do not recommend automated posting.
 
@@ -271,7 +299,7 @@ export async function generateCounterArgument(
 ): Promise<CounterArgumentOutput> {
   const runtime = options.session
     ? getInteractiveModelRuntime(options.session)
-    : getModelRuntime();
+    : getChatModelRuntime();
   if (!runtime || options.evidence.length === 0) {
     throw new Error(
       !runtime
@@ -282,6 +310,8 @@ export async function generateCounterArgument(
   const draftKind = options.draftKind ?? "counter_argument";
 
   const { output } = await generateText({
+    headers: { "X-Tuturuuu-Operation": "draft-generation" },
+    maxOutputTokens: 8192,
     model: runtime.model,
     output: Output.object({ schema: counterArgumentOutputSchema }),
     system: `You create internal communication drafts for human review. Follow the requested editorial intent exactly. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose; citations are returned separately. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
@@ -373,7 +403,7 @@ export async function reviseCounterArgument(options: {
 }): Promise<CounterArgumentOutput> {
   const runtime = options.session
     ? getInteractiveModelRuntime(options.session)
-    : getModelRuntime();
+    : getChatModelRuntime();
   if (!runtime || options.evidence.length === 0) {
     throw new Error(
       !runtime
@@ -384,6 +414,8 @@ export async function reviseCounterArgument(options: {
   const draftKind = options.draftKind ?? "counter_argument";
 
   const { output } = await generateText({
+    headers: { "X-Tuturuuu-Operation": "draft-revision" },
+    maxOutputTokens: 8192,
     model: runtime.model,
     output: Output.object({ schema: counterArgumentOutputSchema }),
     system: `You revise internal communication drafts for human review. Follow the operator's editing instruction and the selected editorial intent while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
@@ -438,6 +470,8 @@ export async function generateChatReply(
   if (!resolvedModel) throw new Error("LLM provider is not configured");
 
   const { text } = await generateText({
+    headers: { "X-Tuturuuu-Operation": "chat-reply" },
+    maxOutputTokens: 4096,
     model: resolvedModel.model,
     system: `You are CyberShield 35's internal civic information analysis assistant. Answer in Vietnamese by default. Match the depth to the operator's request: concise for quick questions, but thorough and structured for analysis, planning, writing, and reports. Separate verified facts, interpretations, uncertainties, and recommended next steps. Never invent evidence or claim access to secrets. Do not recommend automated posting, and refuse requests for demographic targeting or manipulation. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
     prompt: buildChatPrompt(messages),
@@ -543,6 +577,8 @@ export async function generateInDepthReport(options: {
       : "Soạn báo cáo hoàn chỉnh, rõ ràng, có căn cứ, gồm tóm tắt điều hành, các mục được yêu cầu, phát hiện chính, giới hạn và khuyến nghị. Mục tiêu khoảng 1.000-1.600 từ nếu dữ liệu đủ.",
   });
   const reportStream = streamText({
+    headers: { "X-Tuturuuu-Operation": "report-generation" },
+    maxOutputTokens: 12000,
     model: runtime.model,
     system: `${system} Trả về văn bản thuần, không JSON, không Markdown và không dùng dấu sao để định dạng. Dùng tiêu đề mục viết hoa trên dòng riêng.`,
     prompt: stripAiPromptEmoji(reportPrompt),
@@ -609,11 +645,12 @@ export async function generateArticleRevision(options: {
 }): Promise<ArticleAiOutput> {
   const runtime = options.session
     ? getInteractiveModelRuntime(options.session, options.model)
-    : getModelRuntime();
+    : getChatModelRuntime();
   if (!runtime) throw new Error("LLM provider is not configured");
   const { output } = await generateText({
     maxOutputTokens:
       options.action === "expand" || options.action === "draft" ? 6_000 : 4_000,
+    headers: { "X-Tuturuuu-Operation": "article-revision" },
     model: runtime.model,
     output: Output.object({ schema: articleAiOutputSchema }),
     system: [

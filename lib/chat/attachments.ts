@@ -282,6 +282,8 @@ async function extractAttachmentText(input: {
 		const runtime = getChatModelRuntime();
 		if (!runtime) throw new Error("LLM provider is required for image processing");
 		const { text } = await generateText({
+			headers: { "X-Tuturuuu-Operation": "attachment-extraction" },
+			maxOutputTokens: 8192,
 			model: runtime.model,
 			messages: [
 				{

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import {
@@ -74,10 +74,48 @@ export async function recordScanClaimed(job: ClaimedScanJob) {
  * Collects from the provider and writes the evidence rows.
  *
  * By far the slowest and least reliable stage — it waits on somebody else's
- * crawler — which is why it is worth isolating: a retry should re-run this and
- * nothing else.
+ * crawler. Once evidence is persisted, later-stage retries reuse it instead
+ * of starting another billable collection for the same scan.
  */
 export async function collectEvidence(job: ClaimedScanJob) {
+	const [completedRun] = await adminDb
+		.select()
+		.from(providerRuns)
+		.where(
+			and(
+				eq(providerRuns.scanJobId, job.id),
+				eq(providerRuns.status, "completed"),
+			),
+		)
+		.orderBy(desc(providerRuns.startedAt))
+		.limit(1);
+	if (completedRun) {
+		const saved = await adminDb
+			.select({ id: evidenceItems.id })
+			.from(evidenceItems)
+			.where(eq(evidenceItems.scanJobId, job.id));
+		// Older runs have no checkpoint, but their bulk evidence insert is atomic.
+		// New checkpoints also distinguish a successful empty collection.
+		if (saved.length || completedRun.output?.collectionPersisted === true) {
+			await recordScanEvent({
+				eventType: "provider_reused",
+				message: "Dùng lại dữ liệu đã thu thập; không gọi lại provider.",
+				metadata: {
+					providerRunId: completedRun.id,
+					evidenceCount: saved.length,
+				},
+				scanJobId: job.id,
+				stage: "provider",
+				status: "completed",
+			});
+			return {
+				credentialSource: "server" as const,
+				evidenceCount: saved.length,
+				mode: "live" as const,
+			};
+		}
+	}
+
 	const [source] = await adminDb
 		.select()
 		.from(sources)
@@ -110,22 +148,62 @@ export async function collectEvidence(job: ClaimedScanJob) {
 	});
 
 	let result;
-  try {
-    result = await runProvider(job.provider, source, {
-      onRunUpdate: async (output) => {
-        await adminDb.update(providerRuns).set({ output }).where(eq(providerRuns.id, run.id));
-      },
-    });
-  } catch (error) {
-    await adminDb.update(providerRuns).set({ status: "failed", completedAt: new Date(),
-      errorMessage: operatorMessageFor(error) }).where(eq(providerRuns.id, run.id));
-    throw error;
-  }
+	try {
+		result = await runProvider(job.provider, source, {
+			onRunUpdate: async (output) => {
+				await adminDb
+					.update(providerRuns)
+					.set({ output })
+					.where(eq(providerRuns.id, run.id));
+			},
+		});
+	} catch (error) {
+		await adminDb
+			.update(providerRuns)
+			.set({
+				status: "failed",
+				completedAt: new Date(),
+				errorMessage: operatorMessageFor(error),
+			})
+			.where(eq(providerRuns.id, run.id));
+		throw error;
+	}
 
-	await adminDb
-		.update(providerRuns)
-		.set({ completedAt: new Date(), output: result.raw, status: "completed" })
-		.where(eq(providerRuns.id, run.id));
+	const inserted = await adminDb.transaction(async (tx) => {
+		const rows = result.evidence.length
+			? await tx
+					.insert(evidenceItems)
+					.values(
+						result.evidence.map((item) => ({
+							author: item.author,
+							engagement: item.engagement,
+							metadata: item.metadata,
+							provider: result.provider,
+							publishedAt: item.publishedAt,
+							quote: item.quote,
+							riskLevel: item.riskLevel,
+							scanJobId: job.id,
+							sentiment: item.sentiment,
+							sourceId: source.id,
+							sourceLabel: item.sourceLabel,
+							sourceUrl: item.sourceUrl,
+							stance: item.stance,
+							summary: item.summary,
+						})),
+					)
+					.returning({ id: evidenceItems.id })
+			: [];
+		await tx
+			.update(providerRuns)
+			.set({
+				completedAt: new Date(),
+				output: { ...result.raw, collectionPersisted: true },
+				status: "completed",
+			})
+			.where(eq(providerRuns.id, run.id));
+		return rows;
+	});
+
 	await recordScanEvent({
 		eventType: "provider_completed",
 		message: "Provider đã hoàn tất thu thập dữ liệu.",
@@ -137,30 +215,6 @@ export async function collectEvidence(job: ClaimedScanJob) {
 		stage: "provider",
 		status: "completed",
 	});
-
-	const inserted = result.evidence.length
-		? await adminDb
-				.insert(evidenceItems)
-				.values(
-					result.evidence.map((item) => ({
-						author: item.author,
-						engagement: item.engagement,
-						metadata: item.metadata,
-						provider: result.provider,
-						publishedAt: item.publishedAt,
-						quote: item.quote,
-						riskLevel: item.riskLevel,
-						scanJobId: job.id,
-						sentiment: item.sentiment,
-						sourceId: source.id,
-						sourceLabel: item.sourceLabel,
-						sourceUrl: item.sourceUrl,
-						stance: item.stance,
-						summary: item.summary,
-					})),
-				)
-				.returning({ id: evidenceItems.id })
-		: [];
 
 	return {
 		credentialSource: result.credentialSource,
@@ -223,7 +277,19 @@ export async function analyzeScan(scanJobId: string) {
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, scanJobId));
 
-	const analysis = await analyzeEvidence(evidence);
+	const analysis = await analyzeEvidence(evidence, {
+		scanId: scanJobId,
+		onUsage: async (receipt) => {
+			await recordScanEvent({
+				eventType: "ai_usage_recorded",
+				message: "Đã ghi nhận lượt gọi AI; tra cứu request ID trong AI Studio.",
+				scanJobId,
+				stage: "analysis",
+				status: "completed",
+				metadata: { ...receipt, operation: "scan-analysis" },
+			});
+		},
+	});
 
 	await adminDb
 		.insert(analyses)
@@ -387,7 +453,8 @@ export async function failScan(input: {
 		payload: { message, nextStatus },
 	});
 	await recordScanEvent({
-		eventType: nextStatus === "retrying" ? "scan_retry_scheduled" : "scan_failed",
+		eventType:
+			nextStatus === "retrying" ? "scan_retry_scheduled" : "scan_failed",
 		message:
 			nextStatus === "retrying"
 				? "Scan gặp lỗi và đã được lên lịch thử lại."
@@ -395,7 +462,8 @@ export async function failScan(input: {
 		metadata: {
 			attempt: input.attempts,
 			durationMs: Date.now() - input.startedAtMs,
-			errorType: input.error instanceof Error ? input.error.name : "UnknownError",
+			errorType:
+				input.error instanceof Error ? input.error.name : "UnknownError",
 			nextStatus,
 		},
 		scanJobId: input.scanJobId,

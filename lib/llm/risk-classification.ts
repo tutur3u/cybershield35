@@ -106,6 +106,8 @@ async function classifyBatch(
 ) {
 	const known = new Set(batch.map((item) => item.id));
 	const { output } = await generateText({
+			headers: { "X-Tuturuuu-Operation": "evidence-classification" },
+			maxOutputTokens: 8192,
 		model,
 		abortSignal: AbortSignal.timeout(60_000),
 		output: Output.object({ schema: evidenceRiskClassificationSchema }),

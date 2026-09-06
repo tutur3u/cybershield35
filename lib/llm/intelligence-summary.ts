@@ -209,6 +209,8 @@ export async function summarizeIntelligence(
 
 	try {
 		const { output } = await generateText({
+			headers: { "X-Tuturuuu-Operation": "intelligence-summary" },
+			maxOutputTokens: 4096,
 			model: runtime.model,
 			output: Output.object({ schema: summarySchema }),
 			prompt: JSON.stringify({
