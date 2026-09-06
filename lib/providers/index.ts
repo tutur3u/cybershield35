@@ -1,17 +1,18 @@
 import type { ProviderName, SourceRow } from "@/lib/db/schema";
 
-import type { ProviderResult } from "./types";
+import type { ProviderContext, ProviderResult } from "./types";
 
 export async function runProvider(
 	provider: ProviderName,
 	source: SourceRow,
+	context?: ProviderContext,
 ): Promise<ProviderResult> {
 	switch (provider) {
 		case "apify_facebook_posts":
 		case "apify_facebook_comments":
 		case "apify_facebook_groups": {
 			const { createApifyAdapter } = await import("./apify");
-			return createApifyAdapter(provider)(source);
+			return createApifyAdapter(provider)(source, context);
 		}
 		case "firecrawl": {
 			const { runFirecrawl } = await import("./firecrawl");

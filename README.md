@@ -914,3 +914,58 @@ If the login screen reports missing or invalid configuration on Vercel:
 - Redeploy the latest `main` build after changing environment variables.
 - Verify that `TUTURUUU_API_BASE_URL` ends in `/api/v1` and that
   `CYBERSHIELD35_APP_SECRET` is set server-side.
+
+### Provider costs and retrospective Apify reconciliation
+
+The Operations page shows Apify totals by original run month (UTC), confirmed
+coverage, missing run IDs, and Tuturuuu synchronization receipts. Totals are
+provider-reported USD, not invoices or workspace AI credits. Unavailable costs
+remain unknown rather than becoming zero.
+
+Run `bun --conditions react-server scripts/reconcile-provider-costs.ts` to preview
+historical charges for up to 500 saved CS35 run IDs. Add `--apply` to persist them;
+add `--sync` to deliver confirmed records to AI Studio. Repeated delivery uses the
+same external run ID and does not add another charge. The daily scheduler also
+reconciles a small batch, and the Operations button reconciles 10 runs at a time.
+This fetches existing runs; it does not execute or restart a scraper. Runs deleted
+by Apify cannot be priced exactly from the saved item count or today's Store price.
+A shared account's monthly invoice must not be assigned wholesale to CS35.
+
+Apify's `usageTotalUsd` includes the run's applicable event/platform charges.
+Costs immediately after completion can be preliminary, so reconciliation waits
+at least 10 seconds before confirming a terminal run. API-reported totals are
+not a substitute for invoice reconciliation: subscription discounts, taxes and
+unreported services are outside this view. Do not add the same monthly account
+charges on top of run totals.
+
+Deploy AI Studio's `20260906100000_external_provider_costs.sql` migration and
+`POST /v1/provider-costs` endpoint before setting
+`TUTURUUU_PROVIDER_COST_SYNC_ENABLED=true`. Background sync uses
+`TUTURUUU_AI_APP_TOKEN`, an approved AI Studio key bound to the CS35 external app,
+and `TUTURUUU_AI_WORKSPACE_ID` (or the CS35 workspace ID fallback). Manual sync
+can use the signed-in user's platform session. Until enabled, costs stay local
+and the UI explicitly shows the pending integration.
+
+Machine AI requests use `TUTURUUU_AI_MACHINE_BASE_URL`, defaulting to
+`https://ai.tuturuuu.com/v1`; the older `/api/v1/external-ai` endpoint only accepts
+user app sessions. Image extraction, speech and batch AI prefer the machine
+credential when configured. Direct-provider fallback is still available when it
+is absent and is flagged on Operations as missing AI Studio coverage. Firecrawl,
+Browser Use, and historical direct AI usage have no reconciled USD ledger here;
+the Apify subtotal must not be presented as total application spend.
+
+For a **dedicated CS35 Apify account only**, set
+`APIFY_ACCOUNT_DEDICATED_TO_CS35=true` and apply the additive CS35 migration
+`0026_faulty_texas_twister.sql` before importing billing history:
+
+```sh
+bun --conditions react-server scripts/reconcile-provider-costs.ts --account-history --dates=2026-06-15,2026-07-15,2026-08-15,2026-09-06 --apply
+```
+
+This imports deduplicated daily account totals from Apify's historical monthly
+usage API, including pay-per-event extras (such as date-ordered fetching), storage,
+and data transfer. It verifies daily totals against the post-discount cycle total
+and refuses to guess if they differ. Only daily totals and account identity are
+stored; raw billing details are not retained. AI Studio aggregates daily account
+records in place of covered run records, so the two views must not be added.
+Historical backfills can recover usage even when the corresponding runs expired.

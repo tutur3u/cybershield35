@@ -52,8 +52,8 @@ export type ChatInputMessage = {
 export type ChatReplyOutput = {
   content: string;
   mode: "live";
-  provider: "openai" | "google";
-  credentialSource: CredentialSource;
+  provider: "openai" | "google" | "tuturuuu";
+  credentialSource: CredentialSource | "machine-credential";
 };
 
 export function resolveLlmRuntime(): LlmRuntime | null {
@@ -103,7 +103,7 @@ function getModelRuntime() {
 }
 
 export function getChatModelRuntime() {
-  return getModelRuntime();
+  return getMachineModelRuntime() ?? getModelRuntime();
 }
 
 export function getAllowedAiModels() {
@@ -185,7 +185,7 @@ export function getInteractiveModelRuntime(
  */
 function getMachineModelRuntime() {
   const token = cleanSecret(process.env.TUTURUUU_AI_APP_TOKEN);
-  const workspaceId = cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID);
+  const workspaceId = cleanSecret(process.env.TUTURUUU_AI_WORKSPACE_ID) ?? cleanSecret(process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID);
   if (!token || !workspaceId) return null;
 
   const allowed = getAllowedAiModels();
@@ -194,8 +194,8 @@ function getMachineModelRuntime() {
   const provider = createOpenAI({
     apiKey: token,
     baseURL:
-      process.env.TUTURUUU_AI_BASE_URL?.trim() ??
-      "https://tuturuuu.com/api/v1/external-ai",
+      process.env.TUTURUUU_AI_MACHINE_BASE_URL?.trim() ??
+      "https://ai.tuturuuu.com/v1",
     headers: { "X-Tuturuuu-Workspace-Id": workspaceId },
     name: "tuturuuu-ai",
   });
@@ -433,7 +433,7 @@ export async function reviseCounterArgumentWithEvidenceFallback(
 export async function generateChatReply(
   messages: ChatInputMessage[],
 ): Promise<ChatReplyOutput> {
-  const resolvedModel = getModelRuntime();
+  const resolvedModel = getMachineModelRuntime() ?? getModelRuntime();
   if (!resolvedModel) throw new Error("LLM provider is not configured");
 
   const { text } = await generateText({

@@ -1,3 +1,4 @@
+import { readApifyCost } from "@/lib/costs/apify-cost";
 import { ApifyClient } from "apify-client";
 import { fitTextToLimit } from "@/lib/domain/text-fit";
 
@@ -19,7 +20,7 @@ const actorByProvider = {
 export function createApifyAdapter(
 	provider: keyof typeof actorByProvider,
 ): ProviderAdapter {
-	return async (source) => {
+	return async (source, context) => {
 		const credential = resolveCredential(process.env.APIFY_TOKEN);
 		if (!credential) {
 			throw new ProviderCollectionError({
@@ -43,7 +44,15 @@ export function createApifyAdapter(
 		let run: Awaited<ReturnType<ReturnType<typeof client.actor>["call"]>>;
 		let items: Record<string, unknown>[];
 		try {
-			run = await client.actor(actorByProvider[provider]).call(actorInput);
+			run = await client.actor(actorByProvider[provider]).start(actorInput);
+            const snapshot = () => ({ runId: run.id, defaultDatasetId: run.defaultDatasetId,
+              cost: readApifyCost(run) });
+            await context?.onRunUpdate?.(snapshot());
+            run = await client.run(run.id).waitForFinish();
+            await context?.onRunUpdate?.(snapshot());
+            if (run.status !== "SUCCEEDED") {
+              throw new Error(`Apify run ended with status ${run.status}`);
+            }
 			({ items } = await client
 				.dataset<Record<string, unknown>>(run.defaultDatasetId)
 				.listItems({ limit: 80, clean: true }));
@@ -57,6 +66,7 @@ export function createApifyAdapter(
 			credentialSource: credential.source,
 			raw: {
 				runId: run.id,
+				cost: readApifyCost(run),
 				defaultDatasetId: run.defaultDatasetId,
 				itemCount: items.length,
 				items,

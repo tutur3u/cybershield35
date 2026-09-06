@@ -45,6 +45,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
 	cacheComponents: true,
+	// This Workflow dependency resolves its process entrypoint at runtime.
+	serverExternalPackages: ["xdg-app-paths"],
 	images: {
 		/*
 		 * Only our own media is optimised. Pointing the optimiser at arbitrary

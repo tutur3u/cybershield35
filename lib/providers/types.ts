@@ -28,4 +28,8 @@ export type ProviderResult = {
 	evidence: NormalizedEvidence[];
 };
 
-export type ProviderAdapter = (source: SourceRow) => Promise<ProviderResult>;
+export type ProviderContext = {
+  /** Persist external identity before waiting or reading a billable run's dataset. */
+  onRunUpdate?: (output: Record<string, unknown>) => Promise<void>;
+};
+export type ProviderAdapter = (source: SourceRow, context?: ProviderContext) => Promise<ProviderResult>;

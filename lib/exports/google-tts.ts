@@ -31,6 +31,14 @@ export async function generateVietnameseSpeech(
 			workspaceId: options.workspaceId,
 		});
 	}
+  const machineToken = process.env.TUTURUUU_AI_APP_TOKEN?.trim();
+  const machineWorkspace = process.env.TUTURUUU_AI_WORKSPACE_ID?.trim()
+    || process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim();
+  if (machineToken && machineWorkspace) {
+    return generateWithTuturuuu(text, { accessToken: machineToken, workspaceId: machineWorkspace,
+      fetchImpl: options.fetchImpl, signal: options.signal,
+      baseUrl: process.env.TUTURUUU_AI_MACHINE_BASE_URL?.trim() || "https://ai.tuturuuu.com/v1" });
+  }
 	const apiKey =
 		process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GOOGLE_API_KEY;
 	if (!apiKey) {
@@ -123,6 +131,7 @@ async function generateWithTuturuuu(
 	text: string,
 	options: {
 		accessToken: string;
+    baseUrl?: string;
 		fetchImpl?: typeof fetch;
 		signal?: AbortSignal;
 		workspaceId: string;
@@ -151,6 +160,7 @@ async function requestTuturuuuSpeech(
 	text: string,
 	options: {
 		accessToken: string;
+    baseUrl?: string;
 		chunkCount: number;
 		chunkIndex: number;
 		fetchImpl?: typeof fetch;
@@ -165,6 +175,7 @@ async function requestTuturuuuSpeech(
 		: controller.signal;
 	try {
 		const baseUrl =
+      options.baseUrl ??
 			process.env.TUTURUUU_AI_BASE_URL?.trim() ??
 			"https://tuturuuu.com/api/v1/external-ai";
 		for (let attempt = 1; attempt <= 2; attempt += 1) {

@@ -45,7 +45,10 @@ describe("first-class Chat platform", () => {
     const tools = read("lib/chat/tools.ts");
     expect(route).toContain('input.thinkingMode === "deep" ? 12 : 6');
     expect(route).toContain("sendReasoning: true");
-    expect(tools.match(/needsApproval: true/g)?.length).toBe(6);
+    for (const name of ["createDraft", "updateArticleDraft", "runScanNow", "createScanFromAttachment", "updateEvidenceTriage"]) {
+      const definition = tools.slice(tools.indexOf(`${name}: tool({`)).split("execute:")[0];
+      expect(definition).toContain("needsApproval: true");
+    }
     expect(tools).not.toContain("publishArticle");
     expect(tools).not.toContain("scheduleArticle");
     expect(tools).toContain("createDraft");

@@ -109,7 +109,18 @@ export async function collectEvidence(job: ClaimedScanJob) {
 		status: "running",
 	});
 
-	const result = await runProvider(job.provider, source);
+	let result;
+  try {
+    result = await runProvider(job.provider, source, {
+      onRunUpdate: async (output) => {
+        await adminDb.update(providerRuns).set({ output }).where(eq(providerRuns.id, run.id));
+      },
+    });
+  } catch (error) {
+    await adminDb.update(providerRuns).set({ status: "failed", completedAt: new Date(),
+      errorMessage: operatorMessageFor(error) }).where(eq(providerRuns.id, run.id));
+    throw error;
+  }
 
 	await adminDb
 		.update(providerRuns)

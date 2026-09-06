@@ -419,7 +419,20 @@ async function writeSchedulerHeartbeat(
  * queue depth would otherwise land on the provider all at once.
  */
 async function drainScanQueue() {
-	const capacity = Math.min(DAILY_DRAIN_LIMIT, await scanCapacityRemaining());
+	// Reconcile prior runs before scheduling new paid collection. Billing failures
+  // remain retryable on the next daily run and must not repeat collection.
+  try {
+    const { reconcileApifyCosts, syncProviderCosts } = await import("@/lib/costs/server");
+    if (process.env.APIFY_ACCOUNT_DEDICATED_TO_CS35 === "true") {
+      const { reconcileApifyAccountHistory } = await import("@/lib/costs/account-history");
+      await reconcileApifyAccountHistory([new Date().toISOString().slice(0,10)], true);
+    }
+    await reconcileApifyCosts(5);
+    await syncProviderCosts();
+  } catch {
+    logOperation("provider_cost_reconciliation_pending", {}, "warn");
+  }
+  const capacity = Math.min(DAILY_DRAIN_LIMIT, await scanCapacityRemaining());
 	const scanIds: string[] = [];
 	let failed = 0;
 	let processed = 0;

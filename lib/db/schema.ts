@@ -3,6 +3,7 @@ import {
 	date,
 	index,
 	integer,
+	numeric,
 	jsonb,
 	halfvec,
 	pgEnum,
@@ -1461,3 +1462,15 @@ export type LocalAccountRow = typeof localAccounts.$inferSelect;
 export type LocalAccountSessionRow = typeof localAccountSessions.$inferSelect;
 export type IntelligenceActivityRollupRow =
 	typeof intelligenceActivityRollups.$inferSelect;
+
+/** Dedicated provider-account daily totals, independent of scan retention. */
+export const providerAccountCosts = pgTable("provider_account_costs", {
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(),
+  accountId: text("account_id").notNull(),
+  day: date("day").notNull(),
+  amountUsd: numeric("amount_usd", { precision: 24, scale: 12 }).notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  syncedWorkspaceId: text("synced_workspace_id"),
+}, (table) => [uniqueIndex("provider_account_costs_account_day_idx").on(table.provider, table.accountId, table.day)]);

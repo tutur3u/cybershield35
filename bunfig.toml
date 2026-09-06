@@ -1,4 +1,4 @@
 [install]
 linker = "isolated"
-globalStore = true
+globalStore = false
 publicHoistPattern = ["*"]

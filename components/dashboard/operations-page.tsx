@@ -22,6 +22,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import { ProviderCostPanel } from "./provider-cost-panel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import type {
 	OperationsJobView,
@@ -111,6 +112,7 @@ export function OperationsPage() {
 			{overview ? (
 				<>
 					<HealthBanner health={health} overview={overview} />
+                    <ProviderCostPanel />
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 						<MetricCard icon={Clock3} label="Đang chờ / thử lại" value={`${overview.queue.queued} / ${overview.queue.retrying}`} help={overview.oldestQueuedAgeSeconds === null ? "Hàng đợi đang trống" : `Mục cũ nhất đã chờ ${formatDuration(overview.oldestQueuedAgeSeconds * 1000)}`} tone={overview.queue.retrying ? "warning" : "neutral"} />
 						<MetricCard icon={Activity} label="Đang xử lý" value={overview.queue.running.toLocaleString("vi-VN")} help="Scan đã được worker khóa và đang chạy" tone={overview.queue.running ? "accent" : "neutral"} />
