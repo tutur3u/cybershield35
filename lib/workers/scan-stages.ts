@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import {
@@ -15,6 +15,7 @@ import {
 	type ScanStatus,
 } from "@/lib/db/schema";
 import { adminDb } from "@/lib/db/client";
+import { uniqueEvidenceObservations } from "@/lib/domain/evidence-observations";
 import { analyzeEvidence } from "@/lib/llm/generation";
 import { recordScanEvent } from "@/lib/operations/telemetry";
 import { runProvider } from "@/lib/providers";
@@ -267,15 +268,18 @@ export async function analyzeScan(scanJobId: string) {
 		status: "running",
 	});
 
-	const evidence = await adminDb
+	const observations = await adminDb
 		.select({
 			id: evidenceItems.id,
+			sourceUrl: evidenceItems.sourceUrl,
 			quote: evidenceItems.quote,
 			riskLevel: evidenceItems.riskLevel,
 			summary: evidenceItems.summary,
 		})
 		.from(evidenceItems)
-		.where(eq(evidenceItems.scanJobId, scanJobId));
+		.where(eq(evidenceItems.scanJobId, scanJobId))
+		.orderBy(asc(evidenceItems.createdAt), asc(evidenceItems.id));
+	const evidence = uniqueEvidenceObservations(observations);
 
 	const analysis = await analyzeEvidence(evidence, {
 		scanId: scanJobId,

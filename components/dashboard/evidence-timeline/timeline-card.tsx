@@ -123,7 +123,7 @@ export function TimelineCard({
 								className="shrink-0"
 								title={formatPublished(post.publishedAt ?? post.createdAt)}
 							>
-								{relativeTime(post.createdAt, currentTime)}
+								{relativeTime(post.publishedAt ?? post.createdAt, currentTime)}
 							</span>
 						</span>
 					</span>

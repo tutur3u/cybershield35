@@ -288,7 +288,21 @@ export function timelineConditionsFor(filters: TimelineFilters): SQL[] {
 }
 
 function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
-	const conditions: Array<SQL | undefined> = [];
+	// Collapse identical observations caused by a retry of the same scan.
+	// Keep every underlying row addressable for audit, and never hide a row
+	// that already has collaborative triage or notes.
+	const conditions: Array<SQL | undefined> = [sql`(
+		${evidenceTriage.evidenceItemId} is not null
+		or exists (select 1 from evidence_triage_notes n where n.evidence_item_id = ${evidenceItems.id})
+		or not exists (
+			select 1 from evidence_items prior
+			where prior.scan_job_id = ${evidenceItems.scanJobId}
+			and nullif(trim(prior.source_url), '') is not null
+			and prior.source_url = ${evidenceItems.sourceUrl}
+			and prior.quote = ${evidenceItems.quote}
+			and (prior.created_at, prior.id) < (${evidenceItems.createdAt}, ${evidenceItems.id})
+		)
+	)`];
 	const range = vietnamDateRange(filters);
 	conditions.push(
 		range.from ? atOrAfter(effectivePublishedAt, range.from) : undefined,
