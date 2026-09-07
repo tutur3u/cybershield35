@@ -51,6 +51,10 @@ bun --conditions react-server scripts/import-vercel-costs.ts \
 
 The default is dry-run. Add `--apply` after reviewing record counts and totals.
 Imports are transactional and idempotent; amount changes clear the sync receipt.
+Never-billed zero-dollar entries are omitted, while zero-dollar corrections to
+existing charges are retained. Bulk inserts avoid one network round trip per row.
+Daily attribution follows the provider's charge-period start date, which can
+precede the requested export boundary when billing periods overlap it.
 **Release the provider-aware `syncAccountCosts` implementation before importing
 non-Apify rows.** Earlier workers hard-code Apify in the outbound payload.
 

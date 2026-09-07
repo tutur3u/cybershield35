@@ -4,6 +4,7 @@ const chargeSchema = z.object({
 	ChargePeriodStart: z.string(),
 	ServiceName: z.string(),
 	BilledCost: z.number().finite(),
+	BillingCurrency: z.string().optional(),
 	PricingUnit: z.string().optional(),
 });
 export function parseVercelCharges(text: string, projectId: string) {
@@ -21,6 +22,8 @@ export function parseVercelCharges(text: string, projectId: string) {
 		)
 			continue;
 		const charge = chargeSchema.parse(value);
+		if (charge.BillingCurrency && charge.BillingCurrency !== "USD")
+			throw new Error("Unsupported billing currency");
 		if (charge.PricingUnit && charge.PricingUnit !== "USD")
 			throw new Error("Unsupported billing currency");
 		const day = new Date(charge.ChargePeriodStart).toISOString().slice(0, 10);
@@ -38,4 +41,15 @@ export function parseVercelCharges(text: string, projectId: string) {
 			"Negative daily adjustments require invoice reconciliation",
 		);
 	return rows;
+}
+
+/** Retain zero corrections to existing charges, but omit never-billed entries. */
+export function selectVercelCostsForImport(
+	rows: ReturnType<typeof parseVercelCharges>,
+	existingKeys = new Set<string>(),
+) {
+	return rows.filter(
+		(row) =>
+			row.amountUsd > 0 || existingKeys.has(`${row.accountId}:${row.day}`),
+	);
 }

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { parseVercelCharges } from "../lib/costs/vercel-billing";
+import {
+	parseVercelCharges,
+	selectVercelCostsForImport,
+} from "../lib/costs/vercel-billing";
 const charge = {
 	Tags: { ProjectId: "prj_cs35" },
 	ChargePeriodStart: "2026-09-07T00:00:00Z",
@@ -8,6 +11,16 @@ const charge = {
 	EffectiveCost: 5,
 	PricingUnit: "USD",
 };
+test("omits empty charges but retains zero-dollar corrections for existing ledger entries", () => {
+	const rows = [
+		{ accountId: "cpu", day: "2026-09-07", amountUsd: 0 },
+		{ accountId: "memory", day: "2026-09-07", amountUsd: 0 },
+		{ accountId: "network", day: "2026-09-07", amountUsd: 0.1 },
+	];
+	expect(selectVercelCostsForImport(rows, new Set(["cpu:2026-09-07"]))).toEqual(
+		[rows[0], rows[2]],
+	);
+});
 test("attributes only matching project, sums billed cost once and keeps service dimensions", () => {
 	const rows = parseVercelCharges(
 		[
@@ -25,6 +38,12 @@ test("attributes only matching project, sums billed cost once and keeps service 
 	expect(rows.reduce((n, row) => n + row.amountUsd, 0)).toBe(0.6);
 });
 test("rejects malformed matched billing records and unsupported currency", () => {
+	expect(() =>
+		parseVercelCharges(
+			JSON.stringify({ ...charge, BillingCurrency: "EUR" }),
+			"prj_cs35",
+		),
+	).toThrow();
 	expect(() =>
 		parseVercelCharges(
 			JSON.stringify({ ...charge, BilledCost: null }),
