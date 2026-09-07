@@ -77,3 +77,5 @@ The browser suite includes 22 main page/view combinations, four existing detail 
 - Webpack reports an optional `browser-use-sdk` wallet dependency warning (`viem/accounts`). CS35 uses the API-key adapter; wallet/x402 authentication is not used.
 
 - Production webpack build passed and generated all 99 routes.
+
+- Live follow-up: current healthy services plus retired worker history no longer produce a false warning. Added five behavioral health tests; the full suite now passes 550 tests across 68 files. Chat activity is explicitly labeled separately from workspace-wide AI metering.
