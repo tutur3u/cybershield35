@@ -9,6 +9,7 @@ import "server-only";
 import { adminSqlClient as sql } from "@/lib/db/client";
 import { aiStudioWorkspaceUrl } from "@/lib/tuturuuu/ai-studio-links";
 import { summarizeUsage, type UsageOverview } from "./usage";
+import { parseBillingInvoices } from "./invoices";
 
 export async function getUsageOverview(
 	accessToken?: string,
@@ -18,6 +19,7 @@ export async function getUsageOverview(
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim() ||
 		"";
 	const now = new Date();
+	const invoices = parseBillingInvoices(process.env.CS35_BILLING_INVOICES_JSON);
 	const { from } = summarizeUsage([], now);
 	const [storage] = await sql<
 		{ ready: boolean }[]
@@ -99,8 +101,26 @@ export async function getUsageOverview(
 			outputTokens: row.outputTokens,
 			source: "tuturuuu_ai_metering",
 		});
+	for (const invoice of invoices) {
+		if (days.some((row) => row.provider === invoice.provider))
+			throw new Error(
+				"Invoice and consumption coverage require reconciliation before combining",
+			);
+		expenses.push({
+			day: invoice.issuedOn,
+			provider: invoice.provider === "neon" ? "Neon" : "Firecrawl",
+			service: `Hóa đơn ${invoice.reference}`,
+			mode: "Hóa đơn đã thanh toán",
+			amountUsd: invoice.amountUsd,
+			requests: 0,
+			inputTokens: 0,
+			outputTokens: 0,
+			source: "reviewed_provider_invoice",
+		});
+	}
 
 	return {
+		invoices,
 		...summarizeUsage(
 			days
 				.filter((row) => row.provider === "apify")

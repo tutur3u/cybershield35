@@ -5,6 +5,29 @@ including today, current-month and current-day totals. Analytics can switch betw
 30 days and all retained history. CSV exports the underlying provider/model/day
 lines, including the data source, without credentials.
 
+## Display currency and invoice snapshots
+
+Costs default to VND. The selector persists VND/USD locally across Usage,
+Overview, and provider reconciliation. The ledger stays in USD. VND uses the
+dated USD rate from ExchangeRate-API's open endpoint, cached for one day;
+responses older than seven days are rejected. The UI attributes the source and
+labels conversion as an estimate, not a historical payment exchange rate. If
+the rate is unavailable, USD is shown explicitly. CSV includes original USD,
+display currency/amount, applied rate and its timestamp.
+
+`CS35_BILLING_INVOICES_JSON` can hold privately reviewed paid Neon/Firecrawl
+invoice snapshots: provider, reference, issuedOn, amountUsd, currency (`USD`),
+status (`paid`), reviewedOn. Keep the values in private local/runtime
+configuration, never Git. Identical references are deduplicated; conflicting
+snapshots and overlapping invoice/usage provider coverage fail closed. Invoice
+totals are attributed to issue date, not estimated consumption dates.
+
+These snapshots are explicitly labeled `reviewed_provider_invoice` and appear
+in a separate invoice table. They are not sent through Tuturuuu's provider-cost
+API, whose current contract only accepts `provider_api` usage. Browser sign-in
+permits manual billing review; it does not establish an automated invoice API
+connection or install a new persistent credential.
+
 ## Sources and accounting rules
 
 - Apify: daily account totals in `provider_account_costs`, including retrospective

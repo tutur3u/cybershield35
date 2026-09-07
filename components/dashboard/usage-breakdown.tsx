@@ -1,13 +1,7 @@
 "use client";
+import { useCostCurrency } from "./cost-currency";
 import type { UsageOverview } from "@/lib/costs/usage";
 import { Panel, PanelHeader } from "./ui-primitives";
-const usd = (n: number) =>
-	new Intl.NumberFormat("vi-VN", {
-		style: "currency",
-		currency: "USD",
-		maximumFractionDigits: 6,
-	}).format(n);
-
 export function UsageBreakdown({
 	data,
 	period,
@@ -15,6 +9,7 @@ export function UsageBreakdown({
 	data: UsageOverview;
 	period: "30" | "all";
 }) {
+	const { format: usd } = useCostCurrency();
 	const providers =
 		period === "30" ? data.bill.providers30 : data.bill.providers;
 	const services = period === "30" ? data.bill.services30 : data.bill.services;
@@ -47,9 +42,12 @@ export function UsageBreakdown({
 		},
 		{
 			name: "Firecrawl",
-			ready: false,
-			detail:
-				data.firecrawl.status === "ready"
+			ready: Boolean(
+				data.invoices?.some((row) => row.provider === "firecrawl"),
+			),
+			detail: data.invoices?.some((row) => row.provider === "firecrawl")
+				? "Hóa đơn đã thanh toán, tính theo ngày phát hành. Chưa cập nhật hóa đơn tự động."
+				: data.firecrawl.status === "ready"
 					? `Còn ${data.firecrawl.remaining?.toLocaleString("vi-VN")} credit. Kiểm tra tài khoản CS35 ngày 07/09/2026: gói Free, không có hóa đơn. Đây là xác nhận tại thời điểm kiểm tra; chưa đồng bộ hóa đơn tự động.`
 					: "Cần dữ liệu hóa đơn và mức sử dụng Firecrawl.",
 		},
@@ -61,9 +59,10 @@ export function UsageBreakdown({
 		},
 		{
 			name: "Neon",
-			ready: false,
-			detail:
-				"Neon: chưa kết nối dữ liệu hóa đơn. Không coi chi phí chưa nhập là miễn phí.",
+			ready: Boolean(data.invoices?.some((row) => row.provider === "neon")),
+			detail: data.invoices?.some((row) => row.provider === "neon")
+				? "Hóa đơn đã thanh toán, tính theo ngày phát hành. Chưa cập nhật hóa đơn tự động; bản gốc và ngày đối soát được giữ trong cấu hình riêng."
+				: "Neon: chưa kết nối dữ liệu hóa đơn. Không coi chi phí chưa nhập là miễn phí.",
 		},
 	];
 	return (

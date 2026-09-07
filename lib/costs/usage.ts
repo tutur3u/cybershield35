@@ -34,6 +34,7 @@ export function summarizeUsage(days: UsageDay[], now = new Date()) {
 	};
 }
 export type UsageOverview = ReturnType<typeof summarizeUsage> & {
+	invoices?: import("./invoices").BillingInvoice[];
 	bill: ExpenseAnalytics;
 	providerSync: { provider: string; records: number; synced: number }[];
 	browserStatus: string;

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck, Coins, ExternalLink, RefreshCw } from "lucide-react";
+import { CostCurrencyControl, useCostCurrency } from "./cost-currency";
 import { Panel, PanelHeader } from "./ui-primitives";
 
 type Overview = {
@@ -25,15 +26,13 @@ type Overview = {
 	studioUrl: string | null;
 };
 const queryKey = ["provider-costs"];
-const usd = (amount: number) =>
-	new Intl.NumberFormat("vi-VN", {
-		style: "currency",
-		currency: "USD",
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 6,
-	}).format(amount);
-
-export function ProviderCostPanel() {
+export function ProviderCostPanel({
+	hideCurrencyControl = false,
+}: {
+	hideCurrencyControl?: boolean;
+}) {
+	const cost = useCostCurrency();
+	const usd = cost.format;
 	const queryClient = useQueryClient();
 	const query = useQuery<Overview>({
 		queryKey,
@@ -73,6 +72,11 @@ export function ProviderCostPanel() {
 		data?.accountMonths.reduce((sum, month) => sum + month.synced, 0) ?? 0;
 	return (
 		<Panel>
+			{!hideCurrencyControl && (
+				<div className="p-5">
+					<CostCurrencyControl />
+				</div>
+			)}
 			<PanelHeader
 				title="Chi phí nhà cung cấp"
 				description="Apify: tổng chi phí tài khoản và đối soát lượt chạy theo tháng UTC. Tách biệt với tín dụng AI."
@@ -125,8 +129,8 @@ export function ProviderCostPanel() {
 									{days ? usd(total) : "Chưa có dữ liệu"}
 								</p>
 								<p className="mt-1 text-xs text-[var(--muted)]">
-									{data.accountMonths.length} tháng có dữ liệu · USD · không
-									cộng thêm chi phí lượt chạy
+									{data.accountMonths.length} tháng có dữ liệu ·{" "}
+									{cost.effectiveCurrency} · không cộng thêm chi phí lượt chạy
 								</p>
 							</div>
 							<div className="rounded-xl border border-[var(--border)] p-4">
@@ -203,7 +207,9 @@ export function ProviderCostPanel() {
 												<th className="py-2">Tháng UTC</th>
 												<th>Đã xác minh / lượt</th>
 												<th>Đã đồng bộ</th>
-												<th className="text-right">Chi phí xác minh (USD)</th>
+												<th className="text-right">
+													Chi phí xác minh ({cost.effectiveCurrency})
+												</th>
 											</tr>
 										</thead>
 										<tbody>

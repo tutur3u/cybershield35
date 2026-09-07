@@ -8,14 +8,9 @@ import { PageHeader } from "./page-header";
 import { ProviderCostPanel } from "./provider-cost-panel";
 import { QueryFeedback } from "./query-feedback";
 import { Panel, PanelHeader, SecondaryButton } from "./ui-primitives";
+import { CostCurrencyControl, useCostCurrency } from "./cost-currency";
 import { UsageBreakdown } from "./usage-breakdown";
 
-const usd = (n: number) =>
-	new Intl.NumberFormat("vi-VN", {
-		style: "currency",
-		currency: "USD",
-		maximumFractionDigits: 6,
-	}).format(n);
 export const usageQueryOptions = {
 	queryKey: ["usage-overview"],
 	staleTime: 60_000,
@@ -27,6 +22,8 @@ export const usageQueryOptions = {
 };
 export function UsageSummary() {
 	const query = useQuery(usageQueryOptions);
+	const cost = useCostCurrency();
+	const usd = cost.format;
 	return (
 		<Panel className="min-w-0">
 			<PanelHeader
@@ -47,7 +44,8 @@ export function UsageSummary() {
 				onRetry={() => void query.refetch()}
 			/>
 			{query.data && (
-				<div className="px-5 pb-5">
+				<div className="space-y-3 px-5 pb-5">
+					<CostCurrencyControl compact />
 					<p className="text-3xl font-semibold tabular-nums">
 						{query.data.bill.days.length
 							? usd(query.data.bill.last30Days)
@@ -63,6 +61,8 @@ export function UsageSummary() {
 }
 export function UsagePage() {
 	const query = useQuery(usageQueryOptions);
+	const cost = useCostCurrency();
+	const usd = cost.format;
 	const [period, setPeriod] = useState<"30" | "all">("30");
 	const data = query.data;
 	const bill = data?.bill;
@@ -87,7 +87,7 @@ export function UsagePage() {
 				.replace(/^[=+@-]/, "'$&")
 				.replaceAll('"', '""')}"`;
 		const csv = [
-			"day_utc,provider,service,mode,amount_usd,requests,input_tokens,output_tokens,source",
+			"day_utc,provider,service,mode,amount_usd,requests,input_tokens,output_tokens,source,display_currency,display_amount,usd_to_display_rate,rate_updated_at",
 			...bill.lines.map((row) =>
 				[
 					row.day,
@@ -99,6 +99,13 @@ export function UsagePage() {
 					row.inputTokens,
 					row.outputTokens,
 					row.source,
+					cost.effectiveCurrency,
+					(
+						row.amountUsd *
+						(cost.effectiveCurrency === "VND" ? cost.exchange!.rate : 1)
+					).toFixed(9),
+					cost.effectiveCurrency === "VND" ? cost.exchange!.rate : 1,
+					cost.effectiveCurrency === "VND" ? cost.exchange!.updatedAt : "",
 				]
 					.map(cell)
 					.join(","),
@@ -142,7 +149,7 @@ export function UsagePage() {
 				<>
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<p className="text-xs text-[var(--muted)]">
-							USD · Ngày UTC · Tài khoản dành riêng cho CS35
+							Sổ gốc USD · Ngày UTC · Tài khoản dành riêng cho CS35
 						</p>
 						<label className="flex items-center gap-2 text-sm text-[var(--muted)]">
 							Phân tích
@@ -159,6 +166,7 @@ export function UsagePage() {
 							</select>
 						</label>
 					</div>
+					<CostCurrencyControl />
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 						{[
 							{
@@ -210,10 +218,49 @@ export function UsagePage() {
 						</strong>{" "}
 						Apify được tính từ tổng tài khoản, AI từ sổ đo lường Tuturuuu,
 						Browser Use từ chi phí phiên, Vercel từ phí hosting sau tín dụng.
-						Không cộng lại tín dụng AI hoặc biên nhận Apify. Firecrawl và Neon
-						chưa có dữ liệu hóa đơn; xem phạm vi từng nhà cung cấp bên dưới.
+						Không cộng lại tín dụng AI hoặc biên nhận Apify. Hóa đơn đã đối soát
+						được tính theo ngày phát hành; xem phạm vi từng nhà cung cấp bên
+						dưới.
 					</div>
 					<UsageBreakdown data={data} period={period} />
+					{Boolean(data.invoices?.length) && (
+						<Panel>
+							<PanelHeader
+								title="Hóa đơn đã đối soát"
+								description="Ảnh chụp dữ liệu hóa đơn đã thanh toán. Chưa đồng bộ sang Tuturuuu vì API hiện chỉ nhận chi phí sử dụng từ nhà cung cấp."
+							/>
+							<div className="overflow-x-auto p-5">
+								<table
+									className="w-full text-left text-sm"
+									aria-label="Hóa đơn đã đối soát"
+								>
+									<thead>
+										<tr>
+											<th>Nhà cung cấp / Mã hóa đơn</th>
+											<th>Ngày phát hành</th>
+											<th className="text-right">Đã thanh toán</th>
+										</tr>
+									</thead>
+									<tbody>
+										{data.invoices?.map((invoice) => (
+											<tr
+												key={`${invoice.provider}:${invoice.reference}`}
+												className="border-t border-[var(--divider)]"
+											>
+												<td className="py-3">
+													{invoice.provider} · {invoice.reference}
+												</td>
+												<td>{invoice.issuedOn}</td>
+												<td className="text-right tabular-nums">
+													{usd(invoice.amountUsd)}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</Panel>
+					)}
 					<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
 						<Panel className="min-w-0">
 							<PanelHeader
@@ -365,7 +412,7 @@ export function UsagePage() {
 					Đối soát Apify & biên nhận lượt chạy
 				</summary>
 				<div className="p-3 pt-0">
-					<ProviderCostPanel />
+					<ProviderCostPanel hideCurrencyControl />
 				</div>
 			</details>
 		</div>

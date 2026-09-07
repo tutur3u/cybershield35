@@ -50,6 +50,9 @@ const fixture = {
 };
 
 test.beforeEach(async ({ page }) => {
+	await page.route("**/api/costs/exchange-rate", (route) =>
+		route.fulfill({ json: { rate: 26000, updatedAt: "2026-09-07T00:00:00Z" } }),
+	);
 	await page.route("**/api/usage", (route) => route.fulfill({ json: fixture }));
 	await page.route("**/api/**", (route) =>
 		["GET", "HEAD"].includes(route.request().method())
@@ -62,6 +65,13 @@ test("usage ledger, periods, export and responsive layouts", async ({
 	page,
 }, info) => {
 	await page.goto("/usage");
+	await expect(page.getByLabel("Tiền tệ chi phí")).toHaveValue("VND");
+	await expect(
+		page.getByText("143.000", { exact: false }).first(),
+	).toBeVisible();
+	await page.getByLabel("Tiền tệ chi phí").selectOption("USD");
+	await page.reload();
+	await expect(page.getByLabel("Tiền tệ chi phí")).toHaveValue("USD");
 	await expect(
 		page.getByRole("heading", { name: "Mức sử dụng & chi phí" }),
 	).toBeVisible({ timeout: 45000 });
@@ -106,6 +116,19 @@ test("usage ledger, periods, export and responsive layouts", async ({
 		path: info.outputPath("usage-mobile-dark.png"),
 		fullPage: true,
 	});
+});
+
+test("missing exchange rate keeps amounts in explicitly labeled USD", async ({
+	page,
+}) => {
+	await page.route("**/api/costs/exchange-rate", (route) =>
+		route.fulfill({ status: 503, json: { error: "unavailable" } }),
+	);
+	await page.goto("/usage");
+	await expect(
+		page.getByText("Đang hiển thị USD gốc khi chưa có tỷ giá VND."),
+	).toBeVisible();
+	await expect(page.getByText("5,50", { exact: false }).first()).toBeVisible();
 });
 
 test("usage failure is retryable and does not show zero costs", async ({
