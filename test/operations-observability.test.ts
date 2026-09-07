@@ -19,8 +19,10 @@ describe("operations observability", () => {
 		expect(schema).toContain("scan_job_events_job_time_idx");
 		expect(schema).toContain("scan_job_events_stage_status_time_idx");
 		expect(migration).toContain("ON DELETE cascade");
-		expect(migration).toContain('ENABLE ROW LEVEL SECURITY');
-		expect(migration).toContain('REVOKE ALL ON TABLE "public"."scan_job_events" FROM PUBLIC');
+		expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
+		expect(migration).toContain(
+			'REVOKE ALL ON TABLE "public"."scan_job_events" FROM PUBLIC',
+		);
 	});
 
 	test("records every important worker stage without making telemetry fatal", () => {
@@ -44,7 +46,9 @@ describe("operations observability", () => {
 	});
 
 	test("loads independent operations projections concurrently with short cache lifetime", () => {
-		expect(server).toContain('cacheLife({ stale: 10, revalidate: 10, expire: 60 })');
+		expect(server).toContain(
+			"cacheLife({ stale: 10, revalidate: 10, expire: 60 })",
+		);
 		expect(server).toContain("await Promise.all([");
 		expect(server).toContain("oldestQueuedAgeSeconds");
 		expect(server).toContain("successRate");
@@ -52,11 +56,11 @@ describe("operations observability", () => {
 
 	test("ships live Vietnamese queue, pipeline, service, provider, and event UX", () => {
 		expect(page).toContain('title="Vận hành hệ thống"');
-		expect(page).toContain("Pipeline xử lý");
-		expect(page).toContain("Scan gần đây");
-		expect(page).toContain("Dịch vụ & heartbeat");
-		expect(page).toContain("Độ tin cậy provider · 24 giờ");
-		expect(page).toContain("Dòng sự kiện pipeline");
+		expect(page).toContain("Các bước xử lý");
+		expect(page).toContain("Lượt quét gần đây");
+		expect(page).toContain("Tình trạng kết nối");
+		expect(page).toContain("Nhà cung cấp · 24 giờ");
+		expect(page).toContain("Nhật ký xử lý");
 		expect(page).toContain("Tự làm mới 15 giây");
 	});
 

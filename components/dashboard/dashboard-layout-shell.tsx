@@ -10,6 +10,7 @@ import { DashboardAuthProvider } from "@/components/dashboard/dashboard-auth-con
 import { LoginRedirect } from "@/components/auth/login-redirect";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ScanProgressDock } from "@/components/dashboard/scan-progress-dock";
+import { WorkspaceContext } from "./workspace-context";
 import { Sidebar, TopBar } from "@/components/dashboard/shell";
 import { useThemePreference } from "@/components/dashboard/theme";
 import type {
@@ -126,6 +127,9 @@ export function DashboardLayoutShell({
 							sidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]"
 						}`}
 					>
+						<a className="workspace-skip-link" href="#workspace-content">
+							Đi tới nội dung chính
+						</a>
 						<Sidebar
 							aiUsageHref={aiUsageHref}
 							key={chatShell ? "chat-sidebar" : "dashboard-sidebar"}
@@ -162,12 +166,15 @@ export function DashboardLayoutShell({
 								themePreference={preference}
 							/>
 							<div
+								id="workspace-content"
+								tabIndex={-1}
 								className={
 									chatShell
 										? "min-h-0 flex-1 overflow-hidden"
-										: "flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-6"
+										: "workspace-content mx-auto w-full max-w-[1680px] flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7"
 								}
 							>
+								<WorkspaceContext />
 								{children}
 							</div>
 						</section>

@@ -6,16 +6,15 @@ import {
 	LayoutDashboard,
 	MessageCircle,
 	MessageSquareText,
+	MonitorCog,
+	Settings,
 	Newspaper,
 	Radar,
 	Timeline,
 	UsersRound,
 	type LucideIcon,
 } from "lucide-react";
-import {
-	DRAFT_TONES,
-	DRAFT_VOICES,
-} from "@/lib/domain/draft-style";
+import { DRAFT_TONES, DRAFT_VOICES } from "@/lib/domain/draft-style";
 
 import type { ReportSpec } from "@/components/dashboard/types";
 
@@ -61,8 +60,12 @@ export const navSections: NavSection[] = [
 	},
 	{
 		id: "organization",
-		label: "Tổ chức",
-		items: [{ label: "Thành viên", href: "/members", icon: UsersRound }],
+		label: "Quản trị",
+		items: [
+			{ label: "Vận hành", href: "/operations", icon: MonitorCog },
+			{ label: "Thành viên", href: "/members", icon: UsersRound },
+			{ label: "Cấu hình", href: "/settings", icon: Settings },
+		],
 	},
 ];
 
@@ -159,6 +162,8 @@ export const sourceModeIcons = {
 	url: Activity,
 	file: FileSearch,
 	text: MessageSquareText,
+	MonitorCog,
+	Settings,
 };
 
 export const composerOptions = {

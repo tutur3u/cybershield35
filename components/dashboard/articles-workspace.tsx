@@ -1,6 +1,10 @@
 "use client";
 
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQueryClient,
+} from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	ArrowDownAZ,
@@ -18,6 +22,7 @@ import {
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
+import { QueryFeedback } from "./query-feedback";
 import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { SafeImage } from "@/components/dashboard/safe-image";
 import { DashboardTooltip } from "@/components/dashboard/ui-primitives";
@@ -54,8 +59,11 @@ export function ArticlesWorkspace() {
 		() => ({ q: deferredSearch || undefined, review, sort, state }),
 		[deferredSearch, review, sort, state],
 	);
-	const articlesQuery = useInfiniteQuery(articleCatalogInfiniteQueryOptions("local", 12, filters));
-	const articles = articlesQuery.data?.pages.flatMap((page) => page.articles) ?? [];
+	const articlesQuery = useInfiniteQuery(
+		articleCatalogInfiniteQueryOptions("local", 12, filters),
+	);
+	const articles =
+		articlesQuery.data?.pages.flatMap((page) => page.articles) ?? [];
 	const loadMoreRef = useRef<HTMLDivElement>(null);
 	const fetchNextPage = articlesQuery.fetchNextPage;
 	const hasNextPage = articlesQuery.hasNextPage;
@@ -148,9 +156,12 @@ export function ArticlesWorkspace() {
 	useEffect(() => {
 		const node = loadMoreRef.current;
 		if (!node || !hasNextPage || isFetchingNextPage) return;
-		const observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) void fetchNextPage();
-		}, { rootMargin: "300px" });
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) void fetchNextPage();
+			},
+			{ rootMargin: "300px" },
+		);
 		observer.observe(node);
 		return () => observer.disconnect();
 	}, [fetchNextPage, hasNextPage, isFetchingNextPage]);
@@ -160,16 +171,64 @@ export function ArticlesWorkspace() {
 			{confirmDialog}
 			<div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-soft)] xl:flex-row xl:items-center">
 				<label className="relative min-w-0 flex-1">
-					<Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
-					<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tiêu đề, mô tả hoặc tác giả…" className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold outline-none focus:border-[var(--accent)]" />
+					<Search
+						size={15}
+						className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+					/>
+					<input
+						value={search}
+						onChange={(event) => setSearch(event.target.value)}
+						aria-label="Tìm bài viết"
+						placeholder="Tìm tiêu đề, mô tả hoặc tác giả…"
+						className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-sm font-semibold outline-none focus:border-[var(--accent)]"
+					/>
 				</label>
-				<Filter value={review} onChange={setReview} label="Trạng thái duyệt" options={[["all", "Mọi trạng thái"], ["needs_review", "Cần duyệt"], ["approved", "Đã duyệt"], ["rejected", "Từ chối"], ["draft", "Bản nháp"]]} />
-				<Filter value={state} onChange={setState} label="Trạng thái đăng" options={[["all", "Tất cả"], ["draft", "Chưa đăng"], ["published", "Đã đăng"], ["archived", "Đã lưu trữ"]]} />
-				<Filter value={sort ?? "created_desc"} onChange={(value) => setSort(value as ArticleListFilters["sort"])} label="Sắp xếp" options={[["created_desc", "Mới tạo"], ["created_asc", "Cũ tạo"], ["updated_desc", "Mới cập nhật"], ["updated_asc", "Cũ cập nhật"], ["title", "Theo tiêu đề"]]} icon />
-				<button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"><FileDown size={14} /> Nhập từ Zalo</button>
+				<Filter
+					value={review}
+					onChange={setReview}
+					label="Trạng thái duyệt"
+					options={[
+						["all", "Mọi trạng thái"],
+						["needs_review", "Cần duyệt"],
+						["approved", "Đã duyệt"],
+						["rejected", "Từ chối"],
+						["draft", "Bản nháp"],
+					]}
+				/>
+				<Filter
+					value={state}
+					onChange={setState}
+					label="Trạng thái đăng"
+					options={[
+						["all", "Tất cả"],
+						["draft", "Chưa đăng"],
+						["published", "Đã đăng"],
+						["archived", "Đã lưu trữ"],
+					]}
+				/>
+				<Filter
+					value={sort ?? "created_desc"}
+					onChange={(value) => setSort(value as ArticleListFilters["sort"])}
+					label="Sắp xếp"
+					options={[
+						["created_desc", "Mới tạo"],
+						["created_asc", "Cũ tạo"],
+						["updated_desc", "Mới cập nhật"],
+						["updated_asc", "Cũ cập nhật"],
+						["title", "Theo tiêu đề"],
+					]}
+					icon
+				/>
+				<button
+					type="button"
+					onClick={() => setImportOpen(true)}
+					className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
+				>
+					<FileDown size={14} /> Nhập từ Zalo
+				</button>
 				<DashboardTooltip content="Gỡ các bản ẩn CS35 còn sót trên Zalo OA. Chỉ đụng tới bản ẩn do CS35 tạo; bài đang hiển thị và bài của OA không bị ảnh hưởng.">
 					<button
-						className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] disabled:opacity-60"
+						className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)] disabled:opacity-60"
 						disabled={cleanupMutation.isPending}
 						onClick={() => cleanupMutation.mutate(false)}
 						type="button"
@@ -189,7 +248,7 @@ export function ArticlesWorkspace() {
 			{!selectedVisible.length && bulkNotice ? (
 				<p
 					aria-live="polite"
-					className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[12px] font-semibold text-[var(--muted-strong)]"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--muted-strong)]"
 				>
 					{bulkNotice}
 				</p>
@@ -211,7 +270,7 @@ export function ArticlesWorkspace() {
 			) : null}
 
 			<div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)]">
-				<div className="grid grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">
+				<div className="grid grid-cols-[24px_minmax(0,1fr)] sm:grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-xs font-bold uppercase tracking-wide text-[var(--muted)]">
 					<DashboardTooltip
 						content={
 							allVisibleSelected
@@ -232,12 +291,13 @@ export function ArticlesWorkspace() {
 							type="checkbox"
 						/>
 					</DashboardTooltip>
-					<span>Bài viết</span><span>Trạng thái</span>
+					<span>Bài viết</span>
+					<span className="hidden sm:block">Trạng thái</span>
 				</div>
 				{articles.map(({ article }) => (
 					<div
 						key={article.id}
-						className={`grid grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 ${
+						className={`grid grid-cols-[24px_minmax(0,1fr)] sm:grid-cols-[28px_minmax(0,1fr)_200px] items-center gap-3 border-b border-[var(--divider)] px-4 py-3 transition last:border-b-0 ${
 							selected.has(article.id)
 								? "bg-[var(--accent-soft)]"
 								: "hover:bg-[var(--surface-soft)]"
@@ -259,7 +319,10 @@ export function ArticlesWorkspace() {
 							}
 							type="checkbox"
 						/>
-						<Link href={`/articles/${article.id}`} className="flex min-w-0 items-center gap-3">
+						<Link
+							href={`/articles/${article.id}`}
+							className="flex min-w-0 items-center gap-3"
+						>
 							<SafeImage
 								alt=""
 								className="h-12 w-16 shrink-0 rounded-md object-cover"
@@ -272,41 +335,154 @@ export function ArticlesWorkspace() {
 								src={article.coverUrl}
 								width={96}
 							/>
-							<span className="min-w-0"><strong className="block truncate text-[12px] text-[var(--foreground)]">{article.title || "Bài viết chưa đặt tên"}</strong><span className="mt-1 block truncate text-[10px] font-semibold text-[var(--muted)]">{article.description || "Chưa có trích yếu"}</span><span className="mt-1 block text-[9px] text-[var(--muted)]">Cập nhật {formatDate(article.updatedAt)}</span></span>
+							<span className="min-w-0">
+								<strong className="block line-clamp-2 text-sm text-[var(--foreground)]">
+									{article.title || "Bài viết chưa đặt tên"}
+								</strong>
+								<span className="mt-1 block truncate text-xs font-semibold text-[var(--muted)]">
+									{article.description || "Chưa có trích yếu"}
+								</span>
+								<span className="mt-1 block text-xs text-[var(--muted)]">
+									Cập nhật {formatDate(article.updatedAt)}
+								</span>
+							</span>
 						</Link>
-						<ArticleStatusCell
-							reason={article.lastError}
-							remote={Boolean(article.remoteArticleId)}
-							reviewStatus={article.reviewStatus}
-							status={article.publicationStatus}
-						/>
+						<div className="col-start-2 sm:col-start-auto">
+							<ArticleStatusCell
+								reason={article.lastError}
+								remote={Boolean(article.remoteArticleId)}
+								reviewStatus={article.reviewStatus}
+								status={article.publicationStatus}
+							/>
+						</div>
 					</div>
 				))}
-				{articlesQuery.isPending ? <div className="grid min-h-40 place-items-center"><LoaderCircle className="animate-spin text-[var(--accent)]" /></div> : null}
-				{articlesQuery.isError ? <div className="p-8 text-center text-[12px] font-semibold text-[var(--danger-strong)]">{articlesQuery.error.message}</div> : null}
-				{!articles.length && !articlesQuery.isPending ? <div className="p-10 text-center text-[12px] font-semibold text-[var(--muted)]">Không có bài viết phù hợp bộ lọc.</div> : null}
+				{articlesQuery.isPending ? (
+					<div className="grid min-h-40 place-items-center">
+						<LoaderCircle className="animate-spin text-[var(--accent)]" />
+					</div>
+				) : null}
+				<QueryFeedback
+					pending={false}
+					failed={articlesQuery.isError}
+					onRetry={() => void articlesQuery.refetch()}
+				/>
+				{!articles.length &&
+				!articlesQuery.isPending &&
+				!articlesQuery.isError ? (
+					<div className="p-10 text-center text-sm font-semibold text-[var(--muted)]">
+						Không có bài viết phù hợp bộ lọc.
+					</div>
+				) : null}
 			</div>
 			<div ref={loadMoreRef} className="h-1" />
-			{articlesQuery.isFetchingNextPage ? <p className="text-center text-[11px] font-semibold text-[var(--muted)]">Đang tải thêm…</p> : null}
-			<ImportZaloDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={async () => { await queryClient.invalidateQueries({ queryKey: articleQueryKeys.all }); setImportOpen(false); }} />
+			{articlesQuery.isFetchingNextPage ? (
+				<p className="text-center text-xs font-semibold text-[var(--muted)]">
+					Đang tải thêm…
+				</p>
+			) : null}
+			<ImportZaloDialog
+				open={importOpen}
+				onClose={() => setImportOpen(false)}
+				onImported={async () => {
+					await queryClient.invalidateQueries({
+						queryKey: articleQueryKeys.all,
+					});
+					setImportOpen(false);
+				}}
+			/>
 		</div>
 	);
 }
 
-function ImportZaloDialog({ open, onClose, onImported }: { open: boolean; onClose: () => void; onImported: () => Promise<void> }) {
-	const remoteQuery = useInfiniteQuery({ ...articleCatalogInfiniteQueryOptions("zalo", 10), enabled: open });
+function ImportZaloDialog({
+	open,
+	onClose,
+	onImported,
+}: {
+	open: boolean;
+	onClose: () => void;
+	onImported: () => Promise<void>;
+}) {
+	const remoteQuery = useInfiniteQuery({
+		...articleCatalogInfiniteQueryOptions("zalo", 10),
+		enabled: open,
+	});
 	const [notice, setNotice] = useState("");
 	const mutation = useMutation({
-		mutationFn: (remoteArticleId: string) => fetchArticleJson<{ imported: boolean }>("/api/articles/import-zalo", { body: JSON.stringify({ remoteArticleId }), headers: { "Content-Type": "application/json" }, method: "POST" }),
+		mutationFn: (remoteArticleId: string) =>
+			fetchArticleJson<{ imported: boolean }>("/api/articles/import-zalo", {
+				body: JSON.stringify({ remoteArticleId }),
+				headers: { "Content-Type": "application/json" },
+				method: "POST",
+			}),
 		onError: (error) => setNotice(error.message),
-		onSuccess: async () => { setNotice("Đã nhập bài viết vào CS35 để biên tập và duyệt."); await onImported(); },
+		onSuccess: async () => {
+			setNotice("Đã nhập bài viết vào CS35 để biên tập và duyệt.");
+			await onImported();
+		},
 	});
-	const remote = remoteQuery.data?.pages.flatMap((page) => page.zaloArticles) ?? [];
-	return <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}><DialogContent className="max-h-[80vh] overflow-y-auto border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]"><DialogHeader><DialogTitle>Nhập từ Zalo OA</DialogTitle><DialogDescription>Chọn một bài để tạo bản nháp CS35. Bài nhập vẫn cần phê duyệt trước lần đồng bộ tiếp theo.</DialogDescription></DialogHeader><div className="space-y-2">{remote.map((item: RemoteArticle) => <button key={item.remoteArticleId} type="button" disabled={mutation.isPending} onClick={() => mutation.mutate(item.remoteArticleId)} className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--border)] p-3 text-left hover:bg-[var(--surface-soft)] disabled:opacity-60"><span className="min-w-0"><strong className="block truncate text-[12px]">{item.title}</strong><span className="mt-1 block truncate text-[10px] text-[var(--muted)]">{item.oaDisplayName}</span></span><FileDown size={14} className="shrink-0" /></button>)}{remoteQuery.isPending ? <LoaderCircle className="mx-auto animate-spin" /> : null}{!remote.length && !remoteQuery.isPending ? <p className="py-8 text-center text-[11px] text-[var(--muted)]">Không có bài viết Zalo để nhập.</p> : null}{notice ? <p className="text-[11px] font-semibold text-[var(--muted-strong)]">{notice}</p> : null}</div></DialogContent></Dialog>;
+	const remote =
+		remoteQuery.data?.pages.flatMap((page) => page.zaloArticles) ?? [];
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
+		>
+			<DialogContent className="max-h-[80vh] overflow-y-auto border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]">
+				<DialogHeader>
+					<DialogTitle>Nhập từ Zalo OA</DialogTitle>
+					<DialogDescription>
+						Chọn một bài để tạo bản nháp CS35. Bài nhập vẫn cần phê duyệt trước
+						lần đồng bộ tiếp theo.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-2">
+					{remote.map((item: RemoteArticle) => (
+						<button
+							key={item.remoteArticleId}
+							type="button"
+							disabled={mutation.isPending}
+							onClick={() => mutation.mutate(item.remoteArticleId)}
+							className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--border)] p-3 text-left hover:bg-[var(--surface-soft)] disabled:opacity-60"
+						>
+							<span className="min-w-0">
+								<strong className="block truncate text-sm">{item.title}</strong>
+								<span className="mt-1 block truncate text-xs text-[var(--muted)]">
+									{item.oaDisplayName}
+								</span>
+							</span>
+							<FileDown size={14} className="shrink-0" />
+						</button>
+					))}
+					<QueryFeedback
+						pending={remoteQuery.isPending}
+						failed={remoteQuery.isError}
+						onRetry={() => void remoteQuery.refetch()}
+					/>
+					{!remote.length && !remoteQuery.isPending && !remoteQuery.isError ? (
+						<p className="py-8 text-center text-xs text-[var(--muted)]">
+							Không có bài viết Zalo để nhập.
+						</p>
+					) : null}
+					{notice ? (
+						<p className="text-xs font-semibold text-[var(--muted-strong)]">
+							{notice}
+						</p>
+					) : null}
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 type BulkPayload =
-	| { action: "set_review_status"; status: "approved" | "needs_review" | "rejected" | "draft" }
+	| {
+			action: "set_review_status";
+			status: "approved" | "needs_review" | "rejected" | "draft";
+	  }
 	| { action: "sync_hidden" | "publish" | "hide" | "delete" };
 
 /**
@@ -338,10 +514,10 @@ function BulkActionBar({
 			className="flex flex-col gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] p-3 sm:flex-row sm:items-center"
 		>
 			{dialog}
-			<p className="min-w-0 flex-1 text-[12px] font-bold text-[var(--accent-strong)]">
+			<p className="min-w-0 flex-1 text-sm font-bold text-[var(--accent-strong)]">
 				Đã chọn {label}
 				{notice ? (
-					<span className="mt-0.5 block text-[11px] font-semibold text-[var(--muted-strong)]">
+					<span className="mt-0.5 block text-xs font-semibold text-[var(--muted-strong)]">
 						{notice}
 					</span>
 				) : null}
@@ -352,7 +528,9 @@ function BulkActionBar({
 					busy={busy}
 					help={`Đánh dấu ${label} là đã duyệt. Chưa đưa lên Zalo OA.`}
 					label="Phê duyệt"
-					onClick={() => onRun({ action: "set_review_status", status: "approved" })}
+					onClick={() =>
+						onRun({ action: "set_review_status", status: "approved" })
+					}
 				/>
 				<BulkButton
 					busy={busy}
@@ -406,7 +584,7 @@ function BulkActionBar({
 					tone="danger"
 				/>
 				<button
-					className="inline-flex h-9 items-center rounded-md px-2.5 text-[11px] font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
+					className="inline-flex h-9 items-center rounded-md px-2.5 text-xs font-bold text-[var(--muted-strong)] hover:bg-[var(--surface-soft)]"
 					onClick={onClear}
 					type="button"
 				>
@@ -440,7 +618,7 @@ function BulkButton({
 	return (
 		<DashboardTooltip content={help}>
 			<button
-				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-bold transition disabled:opacity-60 ${className}`}
+				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs font-bold transition disabled:opacity-60 ${className}`}
 				disabled={busy}
 				onClick={onClick}
 				type="button"
@@ -452,8 +630,41 @@ function BulkButton({
 	);
 }
 
-function Filter({ icon, label, onChange, options, value }: { icon?: boolean; label: string; onChange: (value: string) => void; options: Array<[string, string]>; value: string }) {
-	return <label className="relative"><span className="sr-only">{label}</span>{icon ? <ArrowDownAZ size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" /> : null}<select value={value} onChange={(event) => onChange(event.target.value)} className={`h-10 min-w-36 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pr-7 text-[11px] font-bold outline-none focus:border-[var(--accent)] ${icon ? "pl-8" : "pl-3"}`}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>;
+function Filter({
+	icon,
+	label,
+	onChange,
+	options,
+	value,
+}: {
+	icon?: boolean;
+	label: string;
+	onChange: (value: string) => void;
+	options: Array<[string, string]>;
+	value: string;
+}) {
+	return (
+		<label className="relative">
+			<span className="sr-only">{label}</span>
+			{icon ? (
+				<ArrowDownAZ
+					size={14}
+					className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+				/>
+			) : null}
+			<select
+				value={value}
+				onChange={(event) => onChange(event.target.value)}
+				className={`h-10 min-w-36 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pr-7 text-xs font-bold outline-none focus:border-[var(--accent)] ${icon ? "pl-8" : "pl-3"}`}
+			>
+				{options.map(([optionValue, optionLabel]) => (
+					<option key={optionValue} value={optionValue}>
+						{optionLabel}
+					</option>
+				))}
+			</select>
+		</label>
+	);
 }
 
 /**
@@ -490,7 +701,7 @@ function ArticleStatusCell({
 					<p className="font-bold">{step.label}</p>
 					<p>{step.help}</p>
 					{step.next ? (
-						<p className="text-[10px] font-medium text-[var(--muted)]">
+						<p className="text-xs font-medium text-[var(--muted)]">
 							Tiếp theo: {step.next}
 						</p>
 					) : null}
@@ -499,7 +710,7 @@ function ArticleStatusCell({
 		>
 			<div className="flex min-w-0 items-center gap-2">
 				<span
-					className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-bold leading-none whitespace-nowrap ${step.className}`}
+					className={`inline-flex h-6 max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-bold leading-none whitespace-nowrap ${step.className}`}
 				>
 					<Icon size={11} />
 					{step.label}
@@ -549,4 +760,9 @@ function StatusTrack({
 	);
 }
 
-function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
+function formatDate(value: string) {
+	return new Intl.DateTimeFormat("vi-VN", {
+		dateStyle: "short",
+		timeStyle: "short",
+	}).format(new Date(value));
+}

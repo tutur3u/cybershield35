@@ -14,11 +14,11 @@ const instantNavigationCases = [
 	},
 	{
 		from: "/operations",
-		heading: "Chủ đề",
-		to: "/topics",
+		heading: "Phân tích",
+		to: "/intelligence",
 	},
 	{
-		from: "/topics",
+		from: "/intelligence",
 		heading: "Dòng thời gian",
 		to: "/evidence",
 	},
@@ -40,27 +40,36 @@ const instantNavigationCases = [
 ] as const;
 
 for (const navigation of instantNavigationCases) {
-	test(`renders ${navigation.to} from the instant navigation cache`, async ({
+	test(`acknowledges ${navigation.to} navigation before dynamic data`, async ({
 		page,
 	}) => {
 		await page.goto(navigation.from);
-		const destination = page
-			.locator(`a[href="${navigation.to}"]`)
-			.first();
+		const destination = page.locator(`a[href="${navigation.to}"]`).first();
 		await destination.hover();
 		await page.waitForLoadState("networkidle");
 
 		await instant(page, async () => {
 			await destination.click();
+			// Request-scoped data is deliberately deferred by instant(). The
+			// cached shell or immediate link feedback must acknowledge the click.
 			await expect(
-				page.getByRole("heading", { exact: true, name: navigation.heading }),
+				page
+					.getByRole("heading", { exact: true, name: navigation.heading })
+					.or(page.getByLabel("Đang tải bảng điều khiển"))
+					.or(page.getByLabel("Đang chuẩn bị dữ liệu phân tích gần nhất"))
+					.or(page.getByLabel("Đang tải Chat"))
+					.or(page.getByRole("status", { name: "Đang mở trang" }))
+					.first(),
 			).toBeVisible();
 		});
 
-		await expect(page).toHaveURL(navigation.to);
+		await expect(page).toHaveURL(navigation.to, { timeout: 30000 });
 		await expect(
-			page.getByLabel("Đang tải bảng điều khiển"),
-		).toHaveCount(0, { timeout: 15_000 });
+			page.getByRole("heading", { exact: true, name: navigation.heading }),
+		).toBeVisible({ timeout: 30000 });
+		await expect(page.getByLabel("Đang tải bảng điều khiển")).toHaveCount(0, {
+			timeout: 15_000,
+		});
 	});
 }
 
@@ -76,7 +85,7 @@ test("does not fetch operational health before settings is opened", async ({
 
 	await page.goto("/");
 	await expect(
-		page.getByRole("heading", { name: "Tổng quan tình báo điều hành" }),
+		page.getByRole("heading", { name: "Tổng quan", exact: true }),
 	).toBeVisible();
 	await page.waitForTimeout(250);
 

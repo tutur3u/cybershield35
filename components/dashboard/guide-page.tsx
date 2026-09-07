@@ -34,6 +34,34 @@ export async function GuidePage({ kind }: { kind: GuideKind }) {
 					</Link>
 				}
 			/>
+			<nav aria-label="Tài liệu hướng dẫn" className="flex flex-wrap gap-2">
+				{[
+					{
+						kind: "user",
+						href: "/guides/user-guide",
+						label: "Bắt đầu sử dụng",
+					},
+					{
+						kind: "process",
+						href: "/guides/5-step-process",
+						label: "Quy trình 5 bước",
+					},
+					{
+						kind: "policies",
+						href: "/guides/policies",
+						label: "Quy tắc sử dụng",
+					},
+				].map((item) => (
+					<Link
+						key={item.kind}
+						href={item.href}
+						aria-current={kind === item.kind ? "page" : undefined}
+						className={`inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-semibold ${kind === item.kind ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--muted-strong)]"}`}
+					>
+						{item.label}
+					</Link>
+				))}
+			</nav>
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
 				<Panel>
 					<PanelHeader
@@ -50,10 +78,10 @@ export async function GuidePage({ kind }: { kind: GuideKind }) {
 									{index + 1}
 								</span>
 								<div className="min-w-0">
-									<h2 className="text-[14px] font-bold text-[var(--foreground)]">
+									<h2 className="text-base font-semibold text-[var(--foreground)]">
 										{step.title}
 									</h2>
-									<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+									<p className="mt-1 text-sm leading-6 text-[var(--muted)]">
 										{step.body}
 									</p>
 								</div>
@@ -73,7 +101,7 @@ export async function GuidePage({ kind }: { kind: GuideKind }) {
 									className="mt-0.5 shrink-0 text-[var(--brand)]"
 									size={16}
 								/>
-								<p className="text-[12px] leading-5 text-[var(--muted-strong)]">
+								<p className="text-sm leading-6 text-[var(--muted-strong)]">
 									{note}
 								</p>
 							</div>
@@ -127,7 +155,8 @@ const guideContent = {
 	user: {
 		icon: FileText,
 		title: "Hướng dẫn sử dụng",
-		description: "Các thao tác chính cho người vận hành dashboard CyberShield 35.",
+		description:
+			"Các thao tác chính cho người vận hành dashboard CyberShield 35.",
 		panelTitle: "Thao tác thường dùng",
 		panelDescription:
 			"Giữ các form trong hộp thoại và sử dụng từng trang cho một nhiệm vụ rõ ràng.",

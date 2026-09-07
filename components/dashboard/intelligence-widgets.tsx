@@ -1,5 +1,7 @@
 "use client";
 
+import { QueryFeedback } from "./query-feedback";
+
 import { Play } from "lucide-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
@@ -54,6 +56,11 @@ export function IntelligenceClaimsWorkspace({
 					description="Mỗi nhận định đi kèm mức tin cậy và các bài viết liên quan."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
+					<QueryFeedback
+						pending={claimsQuery.isPending}
+						failed={claimsQuery.isError}
+						onRetry={() => void claimsQuery.refetch()}
+					/>
 					{claims.map((claim) => (
 						<ClaimRow key={claim.id} claim={claim} />
 					))}
@@ -63,7 +70,7 @@ export function IntelligenceClaimsWorkspace({
 							onClick={() => void claimsQuery.fetchNextPage()}
 						/>
 					) : null}
-					{!claims.length && !claimsQuery.isPending ? (
+					{!claims.length && !claimsQuery.isPending && !claimsQuery.isError ? (
 						<EmptyRow text="Chưa có nhận định phù hợp bộ lọc." />
 					) : null}
 				</div>
@@ -107,6 +114,11 @@ export function IntelligenceSourcesWorkspace({
 					}
 				/>
 				<div className="divide-y divide-[var(--divider)]">
+					<QueryFeedback
+						pending={sourcesQuery.isPending}
+						failed={sourcesQuery.isError}
+						onRetry={() => void sourcesQuery.refetch()}
+					/>
 					{sources.map((source) => (
 						<SourceRow key={source.sourceId} source={source} />
 					))}
@@ -116,7 +128,9 @@ export function IntelligenceSourcesWorkspace({
 							onClick={() => void sourcesQuery.fetchNextPage()}
 						/>
 					) : null}
-					{!sources.length && !sourcesQuery.isPending ? (
+					{!sources.length &&
+					!sourcesQuery.isPending &&
+					!sourcesQuery.isError ? (
 						<EmptyRow text="Không có nguồn phù hợp bộ lọc." />
 					) : null}
 				</div>
@@ -136,8 +150,8 @@ function ClaimRow({ claim }: { claim: IntelligenceClaimRow }) {
 					{claim.claim}
 				</IntentPrefetchLink>
 				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
-					{claim.evidenceCount} nội dung liên quan · {stanceLabel(claim.stance)} ·{" "}
-					{claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
+					{claim.evidenceCount} nội dung liên quan · {stanceLabel(claim.stance)}{" "}
+					· {claim.sourceLabels.slice(0, 2).join(", ") || "chưa có nguồn"}
 				</p>
 				<div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
 					{claim.evidenceHrefs.slice(0, 3).map((href, index) => (
@@ -193,7 +207,9 @@ function SourceRow({ source }: { source: IntelligenceSourceRow }) {
 				</div>
 			</div>
 			<p className="truncate text-[11px] font-semibold text-[var(--muted)]">
-				{source.lastScannedAt ? formatDate(source.lastScannedAt) : "Chưa từng quét"}
+				{source.lastScannedAt
+					? formatDate(source.lastScannedAt)
+					: "Chưa từng quét"}
 			</p>
 			<HealthBadge health={source.health} />
 		</div>

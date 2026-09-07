@@ -495,7 +495,7 @@ function ChatLandingTopBar({
         <History size={14} />
       </button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-extrabold">Chat</p>
+        <h1 className="truncate text-base font-semibold">Chat</h1>
         <p className="hidden text-[10px] text-[var(--muted)] sm:block">
           {loading ? "Đang tải lịch sử…" : `${total} cuộc trò chuyện`}
         </p>

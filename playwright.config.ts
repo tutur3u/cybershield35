@@ -4,6 +4,8 @@ const port = 3100;
 
 export default defineConfig({
 	fullyParallel: false,
+  // Read-only audits use a cold local server and configured remote data.
+  expect: { timeout: 15_000 },
 	outputDir: "test-results",
 	reporter: [["list"], ["html", { open: "never" }]],
 	retries: process.env.CI ? 2 : 0,

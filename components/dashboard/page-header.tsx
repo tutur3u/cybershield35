@@ -13,21 +13,25 @@ export function PageHeader({
 	title: string;
 }) {
 	return (
-		<div className="flex min-w-0 flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow-soft)] sm:flex-row sm:items-center sm:justify-between">
+		<div className="workspace-page-header">
 			<div className="flex min-w-0 items-start gap-3">
-				<span className="grid size-11 shrink-0 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--brand)]">
-					<Icon size={22} />
+				<span className="grid size-12 shrink-0 place-items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--brand-strong)]">
+					<Icon size={22} aria-hidden="true" />
 				</span>
 				<div className="min-w-0">
-					<h1 className="text-[20px] font-bold leading-7 text-[var(--foreground)]">
+					<h1 className="text-2xl font-semibold leading-8 tracking-tight text-[var(--foreground)]">
 						{title}
 					</h1>
-					<p className="mt-1 max-w-3xl text-[13px] leading-5 text-[var(--muted)]">
+					<p className="mt-1.5 max-w-2xl text-sm leading-6 text-[var(--muted)]">
 						{description}
 					</p>
 				</div>
 			</div>
-			{actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+			{actions ? (
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					{actions}
+				</div>
+			) : null}
 		</div>
 	);
 }

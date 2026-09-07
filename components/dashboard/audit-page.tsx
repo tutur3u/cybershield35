@@ -9,7 +9,7 @@ export function AuditPage() {
 			<PageHeader
 				icon={Clock3}
 				title="Nhật ký hoạt động"
-				description="Theo dõi thao tác scan, provider, phân tích và trạng thái duyệt."
+				description="Tra cứu lịch sử thu thập, phân tích và phê duyệt. Chọn một hoạt động để xem nội dung liên quan."
 			/>
 			<IntelligenceActivityStream />
 		</div>

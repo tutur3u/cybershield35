@@ -1411,7 +1411,7 @@ describe("dashboard auth gate", () => {
 		expect(dashboard).not.toContain("settingsDialogOpen");
 		expect(dashboard).not.toContain("<ProviderStatus");
 		expect(pages).not.toContain("<ProviderStatus");
-		expect(data).not.toContain('href: "/settings"');
+		expect(data).toContain('href: "/settings"');
 	});
 
 	test("profile editor uploads avatar files through the Cybershield proxy instead of accepting media links", () => {
@@ -1490,7 +1490,7 @@ describe("dashboard auth gate", () => {
 		expect(trackedSourcesPanel).toContain("Đã tắt");
 		expect(trackedSourcesPanel).toContain("Tắt quét lại tự động hằng ngày");
 		expect(trackedSourcesPanel).toContain("Bật quét lại tự động hằng ngày");
-		expect(sourcesPage).toContain("SourceTabs");
+		expect(sourcesPage).toContain("WorkspaceTabs");
 		expect(automationPanel).toContain("Quét lại tự động");
 		expect(automationPanel).toContain("Nguồn đến hạn");
 		expect(automationPanel).toContain("Quy tắc tự động");

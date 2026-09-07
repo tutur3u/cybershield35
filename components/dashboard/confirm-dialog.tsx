@@ -1,7 +1,7 @@
 "use client";
 
 import { HelpCircle, TriangleAlert } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
 	Dialog,
@@ -38,8 +38,17 @@ export function useConfirmDialog() {
 	// leaving the caller awaiting something that will never resolve.
 	const pendingRef = useRef<PendingRequest | null>(null);
 
+	useEffect(
+		() => () => {
+			pendingRef.current?.resolve(false);
+			pendingRef.current = null;
+		},
+		[],
+	);
+
 	const confirm = useCallback((request: ConfirmRequest) => {
 		return new Promise<boolean>((resolve) => {
+			pendingRef.current?.resolve(false);
 			const next = { ...request, resolve };
 			pendingRef.current = next;
 			setPending(next);

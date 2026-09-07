@@ -23,9 +23,7 @@ import { useState } from "react";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
 import { RelatedEvidencePanel } from "@/components/dashboard/evidence-related-panel";
-import {
-	intelligenceProviderLabel,
-} from "@/components/dashboard/intelligence-workspace-shared";
+import { intelligenceProviderLabel } from "@/components/dashboard/intelligence-workspace-shared";
 import { PageHeader } from "@/components/dashboard/page-header";
 import type {
 	EvidenceSemanticRebuildResult,
@@ -152,18 +150,41 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						<IntentPrefetchLink href="/evidence" className={actionClass}>
 							<ArrowLeft size={14} /> Dòng thời gian
 						</IntentPrefetchLink>
-						<IntentPrefetchLink href={evidence.scanHref} className={actionClass}>
-							<Radar size={14} /> Scan liên quan
+						<IntentPrefetchLink
+							href={evidence.scanHref}
+							className={actionClass}
+						>
+							<Radar size={14} /> Lượt quét liên quan
 						</IntentPrefetchLink>
 					</>
 				}
 			/>
 
-			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-				<Metric icon={Gauge} label="Tương tác" value={evidence.engagement.total.toLocaleString("vi-VN")} />
-				<Metric icon={MessageSquareText} label="Xử lý" value={triageLabels[evidence.triage.status]} />
-				<Metric icon={UserRound} label="Phân công" value={evidence.triage.assigneeDisplayName ?? "Chưa phân công"} />
-				<Metric icon={CalendarClock} label="Hạn xử lý" value={evidence.triage.dueAt ? formatPublished(evidence.triage.dueAt) : "Chưa đặt hạn"} />
+			<div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+				<Metric
+					icon={Gauge}
+					label="Tương tác"
+					value={evidence.engagement.total.toLocaleString("vi-VN")}
+				/>
+				<Metric
+					icon={MessageSquareText}
+					label="Xử lý"
+					value={triageLabels[evidence.triage.status]}
+				/>
+				<Metric
+					icon={UserRound}
+					label="Phân công"
+					value={evidence.triage.assigneeDisplayName ?? "Chưa phân công"}
+				/>
+				<Metric
+					icon={CalendarClock}
+					label="Hạn xử lý"
+					value={
+						evidence.triage.dueAt
+							? formatPublished(evidence.triage.dueAt)
+							: "Chưa đặt hạn"
+					}
+				/>
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -196,7 +217,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 										{explanation.categoryLabels.map((label) => (
 											<span
 												key={label}
-												className="rounded-md bg-[var(--surface)] px-2 py-1 text-[11px] font-bold text-[var(--muted-strong)]"
+												className="rounded-md bg-[var(--surface)] px-2 py-1 text-xs font-bold text-[var(--muted-strong)]"
 											>
 												{label}
 											</span>
@@ -210,7 +231,7 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 										))}
 									</ul>
 								) : null}
-								<p className="mt-3 text-[11px] font-semibold text-[var(--muted)]">
+								<p className="mt-3 text-xs font-semibold text-[var(--muted)]">
 									{explanation.fromModel
 										? "Do mô hình AI phân loại"
 										: "Do bộ quy tắc nội bộ phân loại"}
@@ -233,8 +254,9 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 									referrerPolicy="no-referrer"
 									src={evidence.originalImageUrl}
 								/>
-								<figcaption className="border-t border-[var(--border)] px-3 py-2 text-[10px] font-semibold text-[var(--muted)]">
-									Hình ảnh gốc được giữ lại từ dữ liệu scan để người duyệt đối chiếu.
+								<figcaption className="border-t border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
+									Hình ảnh gốc được giữ lại từ dữ liệu scan để người duyệt đối
+									chiếu.
 								</figcaption>
 							</figure>
 						) : null}
@@ -244,12 +266,18 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 						{evidence.summary && evidence.summary !== evidence.quote ? (
 							<div>
 								<p className={eyebrowClass}>Tóm tắt chuẩn hóa</p>
-								<p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{evidence.summary}</p>
+								<p className="mt-2 text-sm leading-6 text-[var(--muted-strong)]">
+									{evidence.summary}
+								</p>
 							</div>
 						) : null}
 						<div className="flex flex-wrap gap-2">
 							{evidence.topicSlugs.map((slug) => (
-								<IntentPrefetchLink key={slug} href={`/topics/${slug}`} className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1.5 text-xs font-bold text-[var(--accent-strong)]">
+								<IntentPrefetchLink
+									key={slug}
+									href={`/topics/${slug}`}
+									className="rounded-md bg-[var(--accent-soft)] px-2.5 py-1.5 text-xs font-bold text-[var(--accent-strong)]"
+								>
 									#{slug}
 								</IntentPrefetchLink>
 							))}
@@ -259,18 +287,37 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 
 				<div className="space-y-5">
 					<Panel>
-						<PanelHeader title="Ngữ cảnh & nguồn" action={<PageTrustBadge classification={evidence.pageClassification} />} />
+						<PanelHeader
+							title="Ngữ cảnh & nguồn"
+							action={
+								<PageTrustBadge classification={evidence.pageClassification} />
+							}
+						/>
 						<dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-4 p-4 text-xs">
 							<Detail label="Evidence ID" value={evidence.id} mono />
 							<Detail
 								label="Trang nguồn"
-								value={page.handle ? `${page.name} · @${page.handle}` : page.name}
+								value={
+									page.handle ? `${page.name} · @${page.handle}` : page.name
+								}
 							/>
-							<Detail label="Provider" value={intelligenceProviderLabel(evidence.provider)} />
-							<Detail label="Cảm xúc" value={sentimentLabel(evidence.sentiment)} />
+							<Detail
+								label="Provider"
+								value={intelligenceProviderLabel(evidence.provider)}
+							/>
+							<Detail
+								label="Cảm xúc"
+								value={sentimentLabel(evidence.sentiment)}
+							/>
 							<Detail label="Lập trường" value={stanceLabel(evidence.stance)} />
-							<Detail label="Phân loại trang" value={pageClassificationLabel(evidence.pageClassification)} />
-							<Detail label="Tương tác" value={`${evidence.engagement.reactions} phản ứng · ${evidence.engagement.comments} bình luận · ${evidence.engagement.shares} chia sẻ`} />
+							<Detail
+								label="Phân loại trang"
+								value={pageClassificationLabel(evidence.pageClassification)}
+							/>
+							<Detail
+								label="Tương tác"
+								value={`${evidence.engagement.reactions} phản ứng · ${evidence.engagement.comments} bình luận · ${evidence.engagement.shares} chia sẻ`}
+							/>
 						</dl>
 						<div className="grid gap-2 border-t border-[var(--border)] p-4 sm:grid-cols-2 xl:grid-cols-1">
 							<button
@@ -295,15 +342,27 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 												: "Soạn bài từ bằng chứng"}
 							</button>
 							{articleMutation.isError ? (
-								<p aria-live="polite" className="text-xs font-semibold text-[var(--danger-strong)]">
+								<p
+									aria-live="polite"
+									className="text-xs font-semibold text-[var(--danger-strong)]"
+								>
 									{articleMutation.error.message}
 								</p>
 							) : null}
-							<button type="button" onClick={() => setTriageOpen(true)} className={primaryActionClass}>
+							<button
+								type="button"
+								onClick={() => setTriageOpen(true)}
+								className={primaryActionClass}
+							>
 								<MessageSquareText size={14} /> Mở bảng xử lý
 							</button>
 							{evidence.originalPostHref ? (
-								<a href={evidence.originalPostHref} target="_blank" rel="noreferrer" className={actionClass}>
+								<a
+									href={evidence.originalPostHref}
+									target="_blank"
+									rel="noreferrer"
+									className={actionClass}
+								>
 									<ExternalLink size={14} /> Mở bài viết gốc
 								</a>
 							) : null}
@@ -378,35 +437,138 @@ async function requestSemanticRebuild(
 	return body as EvidenceSemanticRebuildResult;
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof Gauge; label: string; value: string }) {
-	return <Panel><div className="flex min-h-24 items-start gap-3 p-4"><span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]"><Icon size={17} /></span><div className="min-w-0"><p className={eyebrowClass}>{label}</p><p className="mt-2 truncate text-sm font-extrabold text-[var(--foreground)]">{value}</p></div></div></Panel>;
+function Metric({
+	icon: Icon,
+	label,
+	value,
+}: {
+	icon: typeof Gauge;
+	label: string;
+	value: string;
+}) {
+	return (
+		<Panel>
+			<div className="flex min-h-24 items-start gap-3 p-4">
+				<span className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+					<Icon size={17} />
+				</span>
+				<div className="min-w-0">
+					<p className={eyebrowClass}>{label}</p>
+					<p className="mt-2 truncate text-sm font-extrabold text-[var(--foreground)]">
+						{value}
+					</p>
+				</div>
+			</div>
+		</Panel>
+	);
 }
 
-function Detail({ label, mono = false, value }: { label: string; mono?: boolean; value: string }) {
-	return <><dt className="font-bold text-[var(--muted)]">{label}</dt><dd className={`min-w-0 break-words font-semibold text-[var(--foreground)] ${mono ? "font-mono text-[11px]" : ""}`}>{value}</dd></>;
+function Detail({
+	label,
+	mono = false,
+	value,
+}: {
+	label: string;
+	mono?: boolean;
+	value: string;
+}) {
+	return (
+		<>
+			<dt className="font-bold text-[var(--muted)]">{label}</dt>
+			<dd
+				className={`min-w-0 break-words font-semibold text-[var(--foreground)] ${mono ? "font-mono text-xs" : ""}`}
+			>
+				{value}
+			</dd>
+		</>
+	);
 }
 
-function PageTrustBadge({ classification }: { classification: TimelinePost["pageClassification"] }) {
+function PageTrustBadge({
+	classification,
+}: {
+	classification: TimelinePost["pageClassification"];
+}) {
 	if (classification === "uncategorized") return null;
-	const Icon = classification === "trusted" ? ShieldCheck : classification === "at_risk" ? ShieldAlert : Scale;
-	return <span className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-extrabold ${classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--accent-soft)] text-[var(--accent-strong)]"}`}><Icon size={13} />{pageClassificationLabel(classification)}</span>;
+	const Icon =
+		classification === "trusted"
+			? ShieldCheck
+			: classification === "at_risk"
+				? ShieldAlert
+				: Scale;
+	return (
+		<span
+			className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-extrabold ${classification === "trusted" ? "bg-[var(--success-soft)] text-[var(--success-strong)]" : classification === "at_risk" ? "bg-[var(--danger-soft)] text-[var(--danger-strong)]" : "bg-[var(--accent-soft)] text-[var(--accent-strong)]"}`}
+		>
+			<Icon size={13} />
+			{pageClassificationLabel(classification)}
+		</span>
+	);
 }
 
-function pageClassificationLabel(classification: TimelinePost["pageClassification"]) {
-	return classification === "trusted" ? "Đáng tin cậy" : classification === "at_risk" ? "Có rủi ro" : classification === "neutral" ? "Trung lập" : "Chưa phân loại";
+function pageClassificationLabel(
+	classification: TimelinePost["pageClassification"],
+) {
+	return classification === "trusted"
+		? "Đáng tin cậy"
+		: classification === "at_risk"
+			? "Có rủi ro"
+			: classification === "neutral"
+				? "Trung lập"
+				: "Chưa phân loại";
 }
 
 function EvidenceDetailLoading() {
-	return <div className="space-y-5" aria-label="Đang tải chi tiết bằng chứng"><div className="h-28 animate-pulse rounded-lg bg-[var(--surface)]" /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-24 animate-pulse rounded-lg bg-[var(--surface)]" />)}</div><div className="h-96 animate-pulse rounded-lg bg-[var(--surface)]" /></div>;
+	return (
+		<div className="space-y-5" aria-label="Đang tải chi tiết bằng chứng">
+			<div className="h-28 animate-pulse rounded-lg bg-[var(--surface)]" />
+			<div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+				{[0, 1, 2, 3].map((item) => (
+					<div
+						key={item}
+						className="h-24 animate-pulse rounded-lg bg-[var(--surface)]"
+					/>
+				))}
+			</div>
+			<div className="h-96 animate-pulse rounded-lg bg-[var(--surface)]" />
+		</div>
+	);
 }
 
 function formatPublished(value: string) {
-	return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
+	return new Intl.DateTimeFormat("vi-VN", {
+		dateStyle: "medium",
+		timeStyle: "short",
+		timeZone: "Asia/Ho_Chi_Minh",
+	}).format(new Date(value));
 }
 
-function sentimentLabel(value: string) { return ({ positive: "Tích cực", negative: "Tiêu cực", neutral: "Trung tính" } as Record<string, string>)[value] ?? value; }
-function stanceLabel(value: string) { return ({ supportive: "Ủng hộ", opposed: "Phản đối", neutral: "Trung lập" } as Record<string, string>)[value] ?? value; }
+function sentimentLabel(value: string) {
+	return (
+		(
+			{
+				positive: "Tích cực",
+				negative: "Tiêu cực",
+				neutral: "Trung tính",
+			} as Record<string, string>
+		)[value] ?? value
+	);
+}
+function stanceLabel(value: string) {
+	return (
+		(
+			{
+				supportive: "Ủng hộ",
+				opposed: "Phản đối",
+				neutral: "Trung lập",
+			} as Record<string, string>
+		)[value] ?? value
+	);
+}
 
-const eyebrowClass = "text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
-const actionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]";
-const primaryActionClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-xs font-extrabold text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-70";
+const eyebrowClass =
+	"text-xs font-extrabold uppercase tracking-[0.12em] text-[var(--muted)]";
+const actionClass =
+	"inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]";
+const primaryActionClass =
+	"inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent-fill)] px-3 text-xs font-extrabold text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-70";

@@ -16,6 +16,8 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
+	useState,
+	useId,
 	useTransition,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -40,6 +42,8 @@ export function IntelligenceFilterBar({
 	showStatus?: boolean;
 }) {
 	const [, startTransition] = useTransition();
+	const [expanded, setExpanded] = useState(false);
+	const filterId = useId();
 	const queryDebounceRef = useRef<number | null>(null);
 	const facebookPagesQuery = useQuery(intelligenceFacebookPagesQueryOptions());
 	const facebookPageOptions = facebookPageSelectOptions(
@@ -64,6 +68,7 @@ export function IntelligenceFilterBar({
 					className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
 				/>
 				<input
+					aria-label="Tìm nội dung phân tích"
 					defaultValue={filters.query ?? ""}
 					onChange={(event) => {
 						const value = event.target.value;
@@ -78,82 +83,103 @@ export function IntelligenceFilterBar({
 					className="h-10 w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-[12px] font-semibold text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
 				/>
 			</label>
-			<FilterSelect
-				icon={ArrowDownAZ}
-				label="Sắp xếp"
-				value={filters.order ?? "newest"}
-				onChange={(value) => setFilter("order", value)}
-				options={[["newest", "Mới nhất"], ["oldest", "Cũ nhất"]]}
-				help="Sắp xếp kết quả theo thời điểm quan sát hoặc cập nhật."
-			/>
-			<FilterSelect
-				icon={Radar}
-				label="Fanpage"
-				value={filters.facebookPage ?? ""}
-				onChange={(value) => setFilter("facebookPage", value)}
-				options={[["", "Tất cả fanpage"], ...facebookPageOptions]}
-				help="Lọc theo fanpage Facebook đã theo dõi. Nhãn hiển thị tên trang, username và Facebook ID nếu hệ thống đã thu thập được."
-			/>
-			<FilterSelect
-				icon={Filter}
-				label="Thời gian"
-				value={filters.timeRange ?? "30d"}
-				onChange={(value) => setFilter("timeRange", value)}
-				options={[
-					["7d", "7 ngày"],
-					["30d", "30 ngày"],
-					["90d", "90 ngày"],
-					["all", "Tất cả"],
-				]}
-				help="Giới hạn rollup và lịch sử hiển thị theo ngày tạo hoặc thời điểm hoạt động."
-			/>
-			<FilterSelect
-				icon={ShieldAlert}
-				label="Rủi ro"
-				value={filters.risk ?? "all"}
-				onChange={(value) => setFilter("risk", value)}
-				options={[
-					["all", "Mọi mức"],
-					["high", "Cao"],
-					["medium", "Trung bình"],
-					["low", "Thấp"],
-				]}
-				help="Lọc nội dung theo mức độ cần ưu tiên."
-			/>
-			{showProvider ? (
+			<button
+				type="button"
+				aria-expanded={expanded}
+				aria-controls={filterId}
+				onClick={() => setExpanded((value) => !value)}
+				className="flex min-h-10 items-center justify-between rounded-lg border border-[var(--border)] px-3 text-sm font-semibold md:hidden"
+			>
+				<span className="inline-flex items-center gap-2">
+					<Filter size={15} />
+					Bộ lọc & sắp xếp
+				</span>
+				<ChevronDown size={15} className={expanded ? "rotate-180" : ""} />
+			</button>
+			<div
+				id={filterId}
+				className={`${expanded ? "grid" : "hidden"} grid-cols-2 gap-2 md:contents`}
+			>
+				<FilterSelect
+					icon={ArrowDownAZ}
+					label="Sắp xếp"
+					value={filters.order ?? "newest"}
+					onChange={(value) => setFilter("order", value)}
+					options={[
+						["newest", "Mới nhất"],
+						["oldest", "Cũ nhất"],
+					]}
+					help="Sắp xếp kết quả theo thời điểm quan sát hoặc cập nhật."
+				/>
 				<FilterSelect
 					icon={Radar}
-					label="Kênh thu thập"
-					value={filters.provider ?? ""}
-					onChange={(value) => setFilter("provider", value)}
-					options={[
-						["", "Tất cả"],
-						["apify_facebook_posts", "Bài viết Facebook"],
-						["apify_facebook_comments", "Bình luận Facebook"],
-						["apify_facebook_groups", "Nhóm Facebook"],
-						["firecrawl", "Website"],
-						["browser_use", "Trang web công khai"],
-						["local_text", "Văn bản nội bộ"],
-					]}
-					help="Chọn loại nguồn đã dùng để thu thập nội dung."
+					label="Fanpage"
+					value={filters.facebookPage ?? ""}
+					onChange={(value) => setFilter("facebookPage", value)}
+					options={[["", "Tất cả fanpage"], ...facebookPageOptions]}
+					help="Lọc theo fanpage Facebook đã theo dõi. Nhãn hiển thị tên trang, username và Facebook ID nếu hệ thống đã thu thập được."
 				/>
-			) : null}
-			{showStatus ? (
 				<FilterSelect
-					icon={Activity}
-					label="Sức khỏe"
-					value={filters.status ?? ""}
-					onChange={(value) => setFilter("status", value)}
+					icon={Filter}
+					label="Thời gian"
+					value={filters.timeRange ?? "30d"}
+					onChange={(value) => setFilter("timeRange", value)}
 					options={[
-						["", "Tất cả"],
-						["healthy", "Ổn định"],
-						["attention", "Cần chú ý"],
-						["blocked", "Bị chặn"],
-						["stale", "Cũ"],
+						["7d", "7 ngày"],
+						["30d", "30 ngày"],
+						["90d", "90 ngày"],
+						["all", "Tất cả"],
 					]}
-					help="Trạng thái được tính từ lần cập nhật gần nhất và các lỗi đang cần xử lý."
+					help="Giới hạn rollup và lịch sử hiển thị theo ngày tạo hoặc thời điểm hoạt động."
 				/>
-			) : null}
+				<FilterSelect
+					icon={ShieldAlert}
+					label="Rủi ro"
+					value={filters.risk ?? "all"}
+					onChange={(value) => setFilter("risk", value)}
+					options={[
+						["all", "Mọi mức"],
+						["high", "Cao"],
+						["medium", "Trung bình"],
+						["low", "Thấp"],
+					]}
+					help="Lọc nội dung theo mức độ cần ưu tiên."
+				/>
+				{showProvider ? (
+					<FilterSelect
+						icon={Radar}
+						label="Kênh thu thập"
+						value={filters.provider ?? ""}
+						onChange={(value) => setFilter("provider", value)}
+						options={[
+							["", "Tất cả"],
+							["apify_facebook_posts", "Bài viết Facebook"],
+							["apify_facebook_comments", "Bình luận Facebook"],
+							["apify_facebook_groups", "Nhóm Facebook"],
+							["firecrawl", "Website"],
+							["browser_use", "Trang web công khai"],
+							["local_text", "Văn bản nội bộ"],
+						]}
+						help="Chọn loại nguồn đã dùng để thu thập nội dung."
+					/>
+				) : null}
+				{showStatus ? (
+					<FilterSelect
+						icon={Activity}
+						label="Sức khỏe"
+						value={filters.status ?? ""}
+						onChange={(value) => setFilter("status", value)}
+						options={[
+							["", "Tất cả"],
+							["healthy", "Ổn định"],
+							["attention", "Cần chú ý"],
+							["blocked", "Bị chặn"],
+							["stale", "Cũ"],
+						]}
+						help="Trạng thái được tính từ lần cập nhật gần nhất và các lỗi đang cần xử lý."
+					/>
+				) : null}
+			</div>
 		</div>
 	);
 }
@@ -258,6 +284,7 @@ export function useIntelligenceFiltersFromUrl(): [
 	const filters = useMemo<IntelligenceFilters>(
 		() => ({
 			facebookPage: searchParams.get("facebookPage") ?? undefined,
+			order: searchParams.get("sort") === "oldest" ? "oldest" : "newest",
 			provider: searchParams.get("provider") ?? undefined,
 			query: searchParams.get("q") ?? undefined,
 			risk:
@@ -275,7 +302,7 @@ export function useIntelligenceFiltersFromUrl(): [
 
 	function setFilter(key: keyof IntelligenceFilters, value: string) {
 		const next = new URLSearchParams(searchParams);
-		const paramKey = key === "query" ? "q" : key;
+		const paramKey = key === "query" ? "q" : key === "order" ? "sort" : key;
 		if (!value || value === "all") {
 			next.delete(paramKey);
 		} else {
@@ -302,7 +329,9 @@ export function intelligenceProviderLabel(provider?: string | null) {
 		firecrawl_parse: "Website",
 		local_text: "Văn bản nội bộ",
 	};
-	return provider ? (labels[provider] ?? "Nguồn dữ liệu khác") : "Chưa xác định kênh";
+	return provider
+		? (labels[provider] ?? "Nguồn dữ liệu khác")
+		: "Chưa xác định kênh";
 }
 
 export function formatIntelligenceDate(value?: string | null) {

@@ -43,7 +43,12 @@ import type {
 	ZaloPublishTarget,
 } from "./types";
 
-const STEPS = ["Soạn nội dung", "Phê duyệt", "Xem trước trên Zalo", "Đăng lên Zalo OA"];
+const STEPS = [
+	"Soạn nội dung",
+	"Phê duyệt",
+	"Xem trước trên Zalo",
+	"Đăng lên Zalo OA",
+];
 
 const PUBLISH_STEP_LABELS: Record<string, string> = {
 	preparing: "Đang chuẩn bị bài viết…",
@@ -103,11 +108,11 @@ export function EditorHeader({
 				>
 					<ArrowLeft size={17} />
 				</Link>
-				<div className="min-w-[12rem] flex-1">
+				<div className="min-w-0 basis-48 flex-1">
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
-						<p className="truncate text-[15px] font-bold text-[var(--foreground)]">
+						<h1 className="line-clamp-2 text-base font-semibold text-[var(--foreground)]">
 							{title || "Bài viết chưa đặt tên"}
-						</p>
+						</h1>
 						<ReviewBadge status={article.reviewStatus} />
 						<StatusChip
 							label={publicationLabel(publicationStatus)}
@@ -115,15 +120,17 @@ export function EditorHeader({
 						/>
 						{article.originDraftId ? (
 							<DashboardTooltip content="Bài được chuẩn bị tự động từ nội dung đã quét và vẫn cần người duyệt trước khi xuất bản.">
-								<span className="inline-flex h-6 items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 text-[11px] font-bold text-[var(--accent-strong)]">
+								<span className="inline-flex h-6 items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 text-xs font-bold text-[var(--accent-strong)]">
 									<Bot size={12} /> Soạn tự động
 								</span>
 							</DashboardTooltip>
 						) : null}
 					</div>
-					<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
+					<p className="mt-1 text-xs font-semibold text-[var(--muted)]">
 						{dirty ? (
-							<span className="text-[var(--warning-strong)]">● Có thay đổi chưa lưu</span>
+							<span className="text-[var(--warning-strong)]">
+								● Có thay đổi chưa lưu
+							</span>
 						) : (
 							`Đã lưu ${relativeTime(article.updatedAt)}`
 						)}
@@ -190,7 +197,11 @@ export function EditorHeader({
 						aria-label={railOpen ? "Ẩn cột xem trước" : "Hiện cột xem trước"}
 						aria-pressed={railOpen}
 					>
-						{railOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+						{railOpen ? (
+							<PanelRightClose size={17} />
+						) : (
+							<PanelRightOpen size={17} />
+						)}
 					</button>
 				</div>
 			</div>
@@ -237,7 +248,7 @@ function PublishButton({
 	// meaning. What an operator wants there is to see it, or to take it down.
 	if (live) {
 		return (
-			<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center gap-2">
 				{liveUrl ? (
 					<DashboardTooltip content="Mở bài viết đang hiển thị trên Zalo OA, đúng như người theo dõi nhìn thấy.">
 						<a
@@ -275,7 +286,7 @@ function PublishButton({
 	// offering an upload that would change nothing.
 	if (staged) {
 		return (
-			<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center gap-2">
 				{synced ? null : (
 					<DashboardTooltip content="Bản ẩn trên Zalo cũ hơn nội dung đang soạn. Đồng bộ lại trước khi hiển thị công khai.">
 						<button
@@ -364,7 +375,7 @@ function EditorStepper({ stage }: { stage: number }) {
 				return (
 					<li key={label} className="flex shrink-0 items-center gap-1">
 						<span
-							className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold ${
+							className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
 								done
 									? "bg-[var(--success-soft)] text-[var(--success-strong)]"
 									: active

@@ -1,5 +1,7 @@
 "use client";
 
+import { QueryFeedback } from "./query-feedback";
+
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
@@ -38,6 +40,11 @@ export function IntelligenceActivityStream({
 				description="Việc đã diễn ra trong hệ thống, liên kết thẳng tới lượt quét, nội dung và bài viết."
 			/>
 			<div className="divide-y divide-[var(--divider)]">
+				<QueryFeedback
+					pending={activityQuery.isPending}
+					failed={activityQuery.isError}
+					onRetry={() => void activityQuery.refetch()}
+				/>
 				{events.map((event) => (
 					<ActivityRow key={event.id} compact={compact} event={event} />
 				))}
@@ -47,7 +54,9 @@ export function IntelligenceActivityStream({
 						onClick={() => void activityQuery.fetchNextPage()}
 					/>
 				) : null}
-				{!events.length && !activityQuery.isPending ? (
+				{!events.length &&
+				!activityQuery.isPending &&
+				!activityQuery.isError ? (
 					<EmptyRow text="Chưa có hoạt động nào được ghi nhận." />
 				) : null}
 			</div>

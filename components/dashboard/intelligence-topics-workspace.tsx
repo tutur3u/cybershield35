@@ -1,5 +1,7 @@
 "use client";
 
+import { QueryFeedback } from "./query-feedback";
+
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { IntelligenceTopicRowView } from "@/components/dashboard/intelligence-topic-row";
@@ -39,10 +41,15 @@ export function IntelligenceTopicsWorkspace({
 			) : null}
 			<Panel>
 				<PanelHeader
-					title="Chủ đề intelligence"
+					title="Chủ đề theo dõi"
 					description="Theo dõi xu hướng, mức độ rủi ro, bằng chứng và các nhận định quan trọng theo từng chủ đề."
 				/>
 				<div className="divide-y divide-[var(--divider)]">
+					<QueryFeedback
+						pending={topicsQuery.isPending}
+						failed={topicsQuery.isError}
+						onRetry={() => void topicsQuery.refetch()}
+					/>
 					{topics.map((topic) => (
 						<IntelligenceTopicRowView key={topic.id} topic={topic} />
 					))}
@@ -52,8 +59,8 @@ export function IntelligenceTopicsWorkspace({
 							onClick={() => void topicsQuery.fetchNextPage()}
 						/>
 					) : null}
-					{!topics.length && !topicsQuery.isPending ? (
-						<EmptyRow text="Chưa có chủ đề intelligence phù hợp bộ lọc." />
+					{!topics.length && !topicsQuery.isPending && !topicsQuery.isError ? (
+						<EmptyRow text="Chưa có chủ đề phù hợp bộ lọc." />
 					) : null}
 				</div>
 			</Panel>

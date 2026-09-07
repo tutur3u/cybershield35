@@ -60,7 +60,9 @@ export function WorkspaceMembersPage({
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
 	const [saving, setSaving] = useState(false);
-	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+	const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+		null,
+	);
 	const loading = membersQuery.isPending && !membersQuery.data;
 	const visibleError =
 		error ||
@@ -70,7 +72,7 @@ export function WorkspaceMembersPage({
 		() => [
 			{ label: "Thành viên", value: data.members.length },
 			{
-				label: "Admin",
+				label: "Quản trị viên",
 				value: data.members.filter((member) => member.role === "admin").length,
 			},
 			{ label: "Đang mời", value: data.invitations.length },
@@ -136,8 +138,7 @@ export function WorkspaceMembersPage({
 			await mutate({
 				body: {
 					confirmDefaultAdminDisable:
-						pendingAction.role === "member" &&
-						data.context.defaultAdminEnabled,
+						pendingAction.role === "member" && data.context.defaultAdminEnabled,
 					role: pendingAction.role,
 				},
 				method: "PATCH",
@@ -180,9 +181,10 @@ export function WorkspaceMembersPage({
 				headers: { "Content-Type": "application/json" },
 				method,
 			});
-			const payload = (await response.json().catch(() => null)) as
-				| { error?: string; message?: string }
-				| null;
+			const payload = (await response.json().catch(() => null)) as {
+				error?: string;
+				message?: string;
+			} | null;
 			if (!response.ok) {
 				throw new Error(errorMessage(payload, "Không thể cập nhật thành viên"));
 			}
@@ -232,7 +234,9 @@ export function WorkspaceMembersPage({
 				))}
 			</div>
 
-			{visibleError ? <AlertMessage tone="danger" message={visibleError} /> : null}
+			{visibleError ? (
+				<AlertMessage tone="danger" message={visibleError} />
+			) : null}
 			{notice ? <AlertMessage tone="success" message={notice} /> : null}
 
 			<Panel>
@@ -397,7 +401,7 @@ function MemberList({
 								member.role === "admin"
 							}
 							onClick={() => onAction({ member, role: "admin", type: "role" })}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-45"
 						>
 							<ShieldCheck size={13} /> Admin
 						</button>
@@ -411,7 +415,7 @@ function MemberList({
 								member.role === "member"
 							}
 							onClick={() => onAction({ member, role: "member", type: "role" })}
-							className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border)] px-3 text-[11px] font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="inline-flex h-9 items-center justify-center rounded-md border border-[var(--border)] px-3 text-xs font-bold text-[var(--muted-strong)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-45"
 						>
 							Member
 						</button>
@@ -424,7 +428,7 @@ function MemberList({
 								member.isCurrentUser
 							}
 							onClick={() => onAction({ member, type: "revoke" })}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--danger-border)] px-3 text-[11px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--danger-border)] px-3 text-xs font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
 						>
 							<Trash2 size={13} /> Thu hồi
 						</button>
@@ -440,11 +444,11 @@ function MemberList({
 						<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 							{invitation.email}
 						</p>
-						<p className="mt-1 text-[11px] font-semibold text-[var(--muted)]">
+						<p className="mt-1 text-xs font-semibold text-[var(--muted)]">
 							Đang chờ chấp nhận
 						</p>
 					</div>
-					<span className="inline-flex h-7 w-fit items-center rounded-md bg-[var(--warning-soft)] px-2.5 text-[11px] font-bold text-[var(--warning-strong)]">
+					<span className="inline-flex h-7 w-fit items-center rounded-md bg-[var(--warning-soft)] px-2.5 text-xs font-bold text-[var(--warning-strong)]">
 						Lời mời
 					</span>
 					<div className="flex justify-start lg:justify-end">
@@ -454,7 +458,7 @@ function MemberList({
 							onClick={() =>
 								onAction({ invitation, type: "remove-invitation" })
 							}
-							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--danger-border)] px-3 text-[11px] font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--danger-border)] px-3 text-xs font-bold text-[var(--danger-strong)] transition hover:bg-[var(--danger-soft)] disabled:cursor-not-allowed disabled:opacity-45"
 						>
 							<Trash2 size={13} /> Gỡ lời mời
 						</button>
@@ -488,7 +492,7 @@ function MemberIdentity({ member }: { member: WorkspaceMemberView }) {
 				<p className="truncate text-[13px] font-bold text-[var(--foreground)]">
 					{member.displayName || member.email || "Thành viên"}
 				</p>
-				<p className="mt-1 truncate text-[11px] font-semibold text-[var(--muted)]">
+				<p className="mt-1 truncate text-xs font-semibold text-[var(--muted)]">
 					{member.email ?? member.id}
 					{member.isCurrentUser ? " - Bạn" : ""}
 				</p>
@@ -501,7 +505,7 @@ function RoleBadge({ member }: { member: WorkspaceMemberView }) {
 	return (
 		<div className="flex flex-wrap gap-2">
 			<span
-				className={`inline-flex h-7 items-center rounded-md px-2.5 text-[11px] font-bold ${
+				className={`inline-flex h-7 items-center rounded-md px-2.5 text-xs font-bold ${
 					member.role === "admin"
 						? "bg-[var(--success-soft)] text-[var(--success-strong)]"
 						: "bg-[var(--neutral-soft)] text-[var(--muted-strong)]"
@@ -510,7 +514,7 @@ function RoleBadge({ member }: { member: WorkspaceMemberView }) {
 				{member.role === "admin" ? "Admin" : "Member"}
 			</span>
 			{member.isCreator ? (
-				<span className="inline-flex h-7 items-center rounded-md bg-[var(--accent-soft)] px-2.5 text-[11px] font-bold text-[var(--accent-strong)]">
+				<span className="inline-flex h-7 items-center rounded-md bg-[var(--accent-soft)] px-2.5 text-xs font-bold text-[var(--accent-strong)]">
 					Chủ sở hữu
 				</span>
 			) : null}
@@ -603,18 +607,17 @@ function confirmationContent(
 	}
 	if (action.type === "revoke") {
 		return {
-			description: action.member.email ?? action.member.displayName ?? action.member.id,
+			description:
+				action.member.email ?? action.member.displayName ?? action.member.id,
 			title: "Thu hồi quyền truy cập?",
 			warning: "Người này sẽ không thể mở workspace trong ứng dụng.",
 		};
 	}
 	if (action.type === "role") {
 		return {
-			description: action.member.email ?? action.member.displayName ?? action.member.id,
-			title:
-				action.role === "admin"
-					? "Cấp quyền admin?"
-					: "Chuyển về member?",
+			description:
+				action.member.email ?? action.member.displayName ?? action.member.id,
+			title: action.role === "admin" ? "Cấp quyền admin?" : "Chuyển về member?",
 			warning:
 				action.role === "member" && defaultAdminEnabled
 					? "Quyền admin mặc định đang bật, thao tác này cũng sẽ tắt admin mặc định cho mọi thành viên."
@@ -625,9 +628,7 @@ function confirmationContent(
 		description: action.enabled
 			? "Mọi thành viên sẽ có quyền quản lý thành viên và vai trò."
 			: "Chỉ các thành viên có role admin riêng mới giữ quyền admin.",
-		title: action.enabled
-			? "Bật admin mặc định?"
-			: "Tắt admin mặc định?",
+		title: action.enabled ? "Bật admin mặc định?" : "Tắt admin mặc định?",
 		warning: action.enabled
 			? undefined
 			: "Hãy đảm bảo vẫn còn ít nhất một admin trước khi tắt.",

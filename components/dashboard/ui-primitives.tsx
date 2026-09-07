@@ -31,7 +31,7 @@ export function Panel({
 }) {
 	return (
 		<section
-			className={`min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] [contain-intrinsic-size:auto_320px] [content-visibility:auto] ${className}`}
+			className={`workspace-panel min-w-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] [contain-intrinsic-size:auto_320px] [content-visibility:auto] ${className}`}
 		>
 			{children}
 		</section>
@@ -48,13 +48,13 @@ export function PanelHeader({
 	action?: ReactNode;
 }) {
 	return (
-		<div className="flex min-w-0 items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+		<div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--divider)] px-5 py-4">
 			<div className="min-w-0">
-				<h2 className="text-[15px] font-bold leading-6 text-[var(--foreground)]">
+				<h2 className="text-[15px] font-semibold leading-6 text-[var(--foreground)]">
 					{title}
 				</h2>
 				{description ? (
-					<p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">
+					<p className="mt-1 max-w-2xl text-[13px] leading-5 text-[var(--muted)]">
 						{description}
 					</p>
 				) : null}
@@ -120,7 +120,10 @@ export function StatusPill({
 			<span
 				className={`inline-flex h-6 min-w-[84px] max-w-full shrink-0 items-center justify-center gap-1 rounded-md px-2.5 text-center text-[11px] font-bold leading-none whitespace-nowrap ${entry.className}`}
 			>
-				<Icon size={11} className={status === "running" ? "animate-spin" : ""} />
+				<Icon
+					size={11}
+					className={status === "running" ? "animate-spin" : ""}
+				/>
 				{entry.label}
 			</span>
 		</DashboardTooltip>
@@ -385,7 +388,7 @@ export function SecondaryButton({
 }) {
 	return (
 		<button
-			 type="button"
+			type="button"
 			disabled={disabled}
 			onClick={onClick}
 			className="inline-flex h-10 max-w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-bold text-[var(--muted-strong)] transition whitespace-nowrap hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-55"
