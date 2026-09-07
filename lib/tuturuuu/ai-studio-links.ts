@@ -15,7 +15,7 @@ const AI_STUDIO_DEFAULT_CURRENCY = "VND";
  * a secret — it sits in the URL bar once you are there — but it has no reason to
  * be in the client bundle for every visitor.
  */
-export function aiStudioWorkspaceUrl(path: "credits" | "usage" | "runs") {
+export function aiStudioWorkspaceUrl(path: "credits" | "usage" | "runs" | "integrations") {
 	const workspaceId = process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID?.trim();
 	if (!workspaceId) return null;
 

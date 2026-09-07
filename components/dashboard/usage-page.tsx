@@ -227,8 +227,9 @@ export function UsagePage() {
 						<Panel>
 							<PanelHeader
 								title="Hóa đơn đã đối soát"
-								description="Ảnh chụp dữ liệu hóa đơn đã thanh toán. Chưa đồng bộ sang Tuturuuu vì API hiện chỉ nhận chi phí sử dụng từ nhà cung cấp."
+								description="Bản chụp hóa đơn đã thanh toán được gửi cùng tác vụ đồng bộ chi phí. Xem biên nhận đã lưu tại mục Tích hợp trong Tuturuuu; hóa đơn mới vẫn cần đối soát và nhập."
 							/>
+              {data.integrationsUrl && <a href={data.integrationsUrl} target="_blank" rel="noreferrer" className="mx-5 mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent-strong)]">Xem biên nhận trong Tuturuuu <ArrowUpRight size={15} /></a>}
 							<div className="overflow-x-auto p-5">
 								<table
 									className="w-full text-left text-sm"

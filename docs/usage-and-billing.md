@@ -23,8 +23,14 @@ snapshots and overlapping invoice/usage provider coverage fail closed. Invoice
 totals are attributed to issue date, not estimated consumption dates.
 
 These snapshots are explicitly labeled `reviewed_provider_invoice` and appear
-in a separate invoice table. They are not sent through Tuturuuu's provider-cost
-API, whose current contract only accepts `provider_api` usage. Browser sign-in
+in a separate invoice table. Cost maintenance and manual reconciliation send them
+to Tuturuuu's app-bound `POST /v1/provider-invoices` endpoint. The Integrations
+page retains the original USD amount, issue/review dates and receipt time.
+Replays are idempotent; conflicting references return 409 and require review.
+These immutable invoice receipts are separate from metered provider usage and
+never debit AI credits. Do not sum overlapping invoice and usage totals.
+Deploy the Tuturuuu migration/API before enabling the CS35 invoice sender.
+Browser sign-in
 permits manual billing review; it does not establish an automated invoice API
 connection or install a new persistent credential.
 

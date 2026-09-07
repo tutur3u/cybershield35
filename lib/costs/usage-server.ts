@@ -156,6 +156,7 @@ export async function getUsageOverview(
 				.sort()
 				.at(-1) ?? null,
 		studioUrl: aiStudioWorkspaceUrl("usage"),
+		integrationsUrl: aiStudioWorkspaceUrl("integrations"),
 		chat: {
 			requests: chat?.requests ?? 0,
 			tokens: Number(chat?.tokens ?? 0),

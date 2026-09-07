@@ -53,7 +53,7 @@ export function ProviderCostPanel({
 					attempted: number;
 					unavailable: number;
 				};
-				sync: { synced: number; status: string };
+				sync: { synced: number; invoicesSynced?: number; status: string };
 			};
 		},
 		onSuccess: async () => {
@@ -259,9 +259,14 @@ export function ProviderCostPanel({
 						{mutation.data.reconciliation.attempted} lượt;{" "}
 						{mutation.data.reconciliation.unavailable} lượt chưa truy cập được.
 						Đã đồng bộ {mutation.data.sync.synced} bản ghi chi phí.
-						{mutation.data.sync.status !== "ready"
-							? " Đồng bộ chưa hoàn tất; kiểm tra cấu hình Tuturuuu hoặc thử lại."
+						{mutation.data.sync.invoicesSynced !== undefined
+							? ` Tuturuuu đã xác nhận ${mutation.data.sync.invoicesSynced} hóa đơn đã lưu.`
 							: ""}
+						{mutation.data.sync.status === "invoice_upstream_409"
+							? " Hóa đơn xung đột với biên nhận đã lưu; cần đối soát trước khi gửi lại."
+							: mutation.data.sync.status !== "ready"
+								? " Đồng bộ chưa hoàn tất; kiểm tra cấu hình Tuturuuu hoặc thử lại."
+								: ""}
 					</p>
 				) : null}
 			</div>

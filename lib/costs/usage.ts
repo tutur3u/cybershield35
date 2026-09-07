@@ -44,6 +44,7 @@ export type UsageOverview = ReturnType<typeof summarizeUsage> & {
 	storageReady: boolean;
 	observedAt: string | null;
 	studioUrl: string | null;
+	integrationsUrl?: string | null;
 	chat: {
 		requests: number;
 		tokens: number;

@@ -7,6 +7,7 @@ import { isConfirmedApifyCost, readApifyCost } from "./apify-cost";
 
 import { syncAccountCosts } from "./account-history";
 import { deliverProviderCost } from "./delivery";
+import { syncBillingInvoices } from "./invoice-sync";
 
 type CostRow = {
 	id: string;
@@ -113,7 +114,12 @@ export async function syncProviderCosts(
 		})}::jsonb where id = ${row.id} and output->'cost'->>'observedAt' = ${cost.observedAt}`;
 		synced++;
 	}
-	return { synced, status: "ready" };
+	const invoices = await syncBillingInvoices({
+		token,
+		workspace,
+		baseUrl: process.env.TUTURUUU_AI_MACHINE_BASE_URL?.trim() || "https://ai.tuturuuu.com/v1",
+	});
+	return { synced, invoicesSynced: invoices.synced, status: invoices.status };
 }
 
 export async function getProviderCostOverview() {
@@ -184,7 +190,7 @@ export async function getProviderCostOverview() {
 		machineAiConfigured: Boolean(getTuturuuuMachineToken() && workspace),
 		syncEnabled: process.env.TUTURUUU_PROVIDER_COST_SYNC_ENABLED === "true",
 		studioUrl: workspace
-			? `https://ai.tuturuuu.com/${encodeURIComponent(workspace)}/usage#provider-costs`
+			? `https://ai.tuturuuu.com/${encodeURIComponent(workspace)}/integrations?currency=VND`
 			: null,
 	};
 }
