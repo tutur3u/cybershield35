@@ -50,7 +50,7 @@ export function UsageBreakdown({
 			ready: false,
 			detail:
 				data.firecrawl.status === "ready"
-					? `Còn ${data.firecrawl.remaining?.toLocaleString("vi-VN")} credit; cần hóa đơn để xác định chi phí USD.`
+					? `Còn ${data.firecrawl.remaining?.toLocaleString("vi-VN")} credit. Kiểm tra tài khoản CS35 ngày 07/09/2026: gói Free, không có hóa đơn. Đây là xác nhận tại thời điểm kiểm tra; chưa đồng bộ hóa đơn tự động.`
 					: "Cần dữ liệu hóa đơn và mức sử dụng Firecrawl.",
 		},
 		{

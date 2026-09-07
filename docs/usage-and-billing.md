@@ -29,6 +29,10 @@ lines, including the data source, without credentials.
   These remain visible coverage gaps until invoice data is connected. Unknown
   costs are never represented as confirmed free usage.
 
+On 2026-09-07 the authenticated Firecrawl billing dashboard for the configured
+CS35 key showed Free ($0/month), no payment method, and no invoices. This is a
+dated account review, not an automatically refreshed invoice integration.
+
 Recorded consumption is not proof of payment, a tax invoice, or an exhaustive
 account bill. The UI identifies missing sources and each report's freshness.
 
