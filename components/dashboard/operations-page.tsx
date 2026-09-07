@@ -28,6 +28,7 @@ import { useConfirmDialog } from "./confirm-dialog";
 import { operationsHealth } from "@/lib/operations/health";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
+import Link from "next/link";
 import { ProviderCostPanel } from "./provider-cost-panel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import type {
@@ -227,7 +228,15 @@ export function OperationsPage() {
 				onChange={selectView}
 			>
 				{view === "costs" ? (
-					<ProviderCostPanel />
+					<div className="space-y-4">
+						<Link
+							href="/usage"
+							className="block rounded-xl border border-[var(--border)] bg-[var(--accent-soft)] p-5 text-sm font-semibold text-[var(--accent-strong)]"
+						>
+							Mở Mức sử dụng: tổng chi phí, 30 ngày và xuất lịch sử →
+						</Link>
+						<ProviderCostPanel />
+					</div>
 				) : overview ? (
 					<>
 						{view === "overview" ? (

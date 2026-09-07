@@ -73,7 +73,10 @@ describe("the AI usage link reaches the sidebar", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
 
 		expect(layout).toContain('aiUsageHref={aiStudioWorkspaceUrl("runs")}');
-		expect(shell).toContain("Mức dùng AI");
+		expect(shell).toContain("AI Studio");
+		expect(
+			readFileSync("components/dashboard/dashboard-data.ts", "utf8"),
+		).toContain('href: "/usage"');
 		expect(shell).toContain('target="_blank"');
 		expect(shell).toContain('rel="noopener noreferrer"');
 	});

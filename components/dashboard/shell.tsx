@@ -355,13 +355,13 @@ export function Sidebar({
 													*/}
 													{section.id === "organization" && aiUsageHref ? (
 														<CollapsedSidebarTooltip
-															content="Mức dùng AI trên Tuturuuu"
+															content="AI Studio trên Tuturuuu"
 															enabled={collapsed}
 														>
 															<a
 																aria-label={
 																	collapsed
-																		? "Mức dùng AI trên Tuturuuu"
+																		? "AI Studio trên Tuturuuu"
 																		: undefined
 																}
 																className={`relative flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-3 text-left text-[12.5px] font-semibold text-[color:var(--muted-strong)] outline-none transition hover:bg-[var(--surface-soft)] hover:text-[color:var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45 ${
@@ -383,7 +383,7 @@ export function Sidebar({
 																<span
 																	className={`min-w-0 flex-1 truncate ${collapsed ? "lg:hidden" : ""}`}
 																>
-																	Mức dùng AI
+																	AI Studio
 																</span>
 																<ExternalLink
 																	aria-hidden

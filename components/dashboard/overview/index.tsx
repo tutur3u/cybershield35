@@ -5,6 +5,8 @@ import { LayoutDashboard, Plus, Radar, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { IntelligenceActivityStream } from "@/components/dashboard/intelligence-activity-stream";
+import { QueryFeedback } from "@/components/dashboard/query-feedback";
+import { UsageSummary } from "@/components/dashboard/usage-page";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { QueueCard } from "@/components/dashboard/page-widgets";
 import type { DashboardScan } from "@/components/dashboard/types";
@@ -38,11 +40,11 @@ export function OverviewPage({
 	const pipelineQuery = useQuery(workflowPipelineQueryOptions());
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5 [&_.workspace-panel]:[content-visibility:visible]">
 			<PageHeader
 				icon={LayoutDashboard}
 				title="Tổng quan"
-				description="Tình trạng công việc hôm nay: nguồn đang quét, nội dung mới, bài chờ duyệt và bài sẵn sàng xuất bản."
+				description="Nắm tình hình, ưu tiên việc cần làm và theo dõi chi phí trong một không gian."
 				actions={
 					<>
 						<Link
@@ -61,16 +63,54 @@ export function OverviewPage({
 				}
 			/>
 
+			<QueryFeedback
+				pending={pipelineQuery.isPending}
+				failed={pipelineQuery.isError}
+				onRetry={() => void pipelineQuery.refetch()}
+			/>
 			<WorkflowStrip pipeline={pipelineQuery.data} />
 
-			<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-				<AttentionPanel filters={filters} />
-				<IntelligenceActivityStream compact limit={8} />
+			<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
+				<div className="space-y-5">
+					<AttentionPanel filters={filters} />
+					<IntelligenceActivityStream compact limit={4} />
+					<Link
+						href="/audit"
+						className="inline-flex text-sm font-semibold text-[var(--accent-strong)]"
+					>
+						Xem thêm hoạt động →
+					</Link>
+				</div>
+				<div className="space-y-5">
+					<UsageSummary />
+					<section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+						<h2 className="font-semibold">Lối tắt công việc</h2>
+						<div className="mt-4 grid gap-3 text-sm">
+							<Link
+								className="rounded-lg bg-[var(--surface-soft)] p-3 hover:text-[var(--accent-strong)]"
+								href="/articles?review=needs_review"
+							>
+								Duyệt bài viết →
+							</Link>
+							<Link
+								className="rounded-lg bg-[var(--surface-soft)] p-3 hover:text-[var(--accent-strong)]"
+								href="/sources?view=queue"
+							>
+								Theo dõi hàng đợi quét →
+							</Link>
+							<Link
+								className="rounded-lg bg-[var(--surface-soft)] p-3 hover:text-[var(--accent-strong)]"
+								href="/operations"
+							>
+								Kiểm tra vận hành →
+							</Link>
+						</div>
+					</section>
+				</div>
 			</div>
 
 			<QueueCard
-				enableInfinite
-				limit={6}
+				limit={4}
 				onDeleteScan={onDeleteScan}
 				onEditScan={onEditScan}
 				onRunScan={onRunScan}

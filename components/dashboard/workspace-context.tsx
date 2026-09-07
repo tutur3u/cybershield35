@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { IntentPrefetchLink } from "./intent-prefetch-link";
 
 const areas = [
+	{ prefix: "/usage", label: "Mức sử dụng", group: "Quản trị", href: "/usage" },
 	{
 		prefix: "/sources",
 		label: "Nguồn & Quét",

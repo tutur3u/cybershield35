@@ -79,3 +79,15 @@ The browser suite includes 22 main page/view combinations, four existing detail 
 - Production webpack build passed and generated all 99 routes.
 
 - Live follow-up: current healthy services plus retired worker history no longer produce a false warning. Added five behavioral health tests; the full suite now passes 550 tests across 68 files. Chat activity is explicitly labeled separately from workspace-wide AI metering.
+
+## Usage and Overview follow-up (2026-09-07)
+
+- `/usage`: dedicated navigation and breadcrumbs, combined-provider summaries,
+  provider/model/activity breakdowns, daily chart/table, all-time/30-day selection,
+  CSV export, source coverage and provider synchronization receipts.
+- `/`: clearer current-workload cards, explicit evidence/time scopes, compact
+  recent activity, expense summary and actionable links; no false loading zeros
+  or false healthy state when priority queries fail.
+- Focused browser fixtures cover desktop/mobile layouts, export, range selection,
+  error retry and Overview-to-Usage navigation. Live billing reads and receipt
+  reconciliation are separate gates; missing Firecrawl/Neon invoices remain visible.

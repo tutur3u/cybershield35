@@ -57,7 +57,12 @@ export function ProviderCostPanel() {
 				sync: { synced: number; status: string };
 			};
 		},
-		onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey }),
+				queryClient.invalidateQueries({ queryKey: ["usage-overview"] }),
+			]);
+		},
 	});
 	const data = query.data;
 	const total =

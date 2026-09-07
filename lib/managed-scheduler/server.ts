@@ -426,8 +426,10 @@ async function drainScanQueue() {
     const { reconcileApifyCosts, syncProviderCosts } = await import("@/lib/costs/server");
     const { reconcileApifyAccountHistory } = await import("@/lib/costs/account-history");
     const { runCostMaintenance } = await import("@/lib/costs/maintenance");
+ const { reconcileBrowserAccountCosts } = await import("@/lib/costs/browser-history");
     await runCostMaintenance([
       ...(process.env.APIFY_ACCOUNT_DEDICATED_TO_CS35 === "true" ? [{ stage: "account_history", run: () => reconcileApifyAccountHistory([new Date().toISOString().slice(0,10)], true) }] : []),
+      { stage: "browser_history", run: () => reconcileBrowserAccountCosts() },
       { stage: "run_reconciliation", run: () => reconcileApifyCosts(5) },
       { stage: "delivery", run: () => syncProviderCosts() },
     ], result => logOperation("provider_cost_maintenance", result,

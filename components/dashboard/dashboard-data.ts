@@ -1,5 +1,6 @@
 import {
 	Activity,
+	Coins,
 	ChartArea,
 	FileSearch,
 	History,
@@ -63,6 +64,7 @@ export const navSections: NavSection[] = [
 		label: "Quản trị",
 		items: [
 			{ label: "Vận hành", href: "/operations", icon: MonitorCog },
+			{ label: "Mức sử dụng", href: "/usage", icon: Coins },
 			{ label: "Thành viên", href: "/members", icon: UsersRound },
 			{ label: "Cấu hình", href: "/settings", icon: Settings },
 		],

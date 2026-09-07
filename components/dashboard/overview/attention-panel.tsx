@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { QueryFeedback } from "../query-feedback";
 import { CheckCircle2 } from "lucide-react";
 
 import { IntentPrefetchLink } from "@/components/dashboard/intent-prefetch-link";
@@ -21,12 +22,17 @@ export function AttentionPanel({ filters }: { filters: IntelligenceFilters }) {
 	const actions = overviewQuery.data?.actions ?? [];
 
 	return (
-		<Panel className="h-full">
+		<Panel>
 			<PanelHeader
 				title="Việc cần xử lý"
-				description="Những mục có ảnh hưởng lớn hoặc đang bị chặn, xếp theo mức ưu tiên."
+				description={`Ưu tiên trong phạm vi phân tích: ${{ "7d": "7 ngày", "30d": "30 ngày", "90d": "90 ngày", all: "toàn thời gian" }[filters.timeRange ?? "30d"]}. Số liệu có thể khác hàng đợi toàn thời gian.`}
 			/>
 			<div className="divide-y divide-[var(--divider)]">
+				<QueryFeedback
+					pending={overviewQuery.isPending}
+					failed={overviewQuery.isError}
+					onRetry={() => void overviewQuery.refetch()}
+				/>
 				{actions.map((action) => (
 					<IntentPrefetchLink
 						key={action.id}
@@ -44,13 +50,18 @@ export function AttentionPanel({ filters }: { filters: IntelligenceFilters }) {
 						</p>
 					</IntentPrefetchLink>
 				))}
-				{!actions.length ? (
+				{!actions.length &&
+				!overviewQuery.isError &&
+				!overviewQuery.isPending ? (
 					<div className="flex items-center gap-2 px-4 py-6 text-[12px] font-semibold text-[var(--muted)]">
 						{overviewQuery.isPending ? (
 							"Đang kiểm tra…"
 						) : (
 							<>
-								<CheckCircle2 size={15} className="text-[var(--success-strong)]" />
+								<CheckCircle2
+									size={15}
+									className="text-[var(--success-strong)]"
+								/>
 								Không có việc khẩn cấp.
 							</>
 						)}
