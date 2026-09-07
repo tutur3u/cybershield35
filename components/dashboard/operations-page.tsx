@@ -342,7 +342,7 @@ export function OperationsPage() {
 								<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 									<MetricCard
 										icon={Bot}
-										label="AI đang xử lý"
+										label="Lượt Chat đang xử lý"
 										value={String(overview.chat.runningRuns)}
 										help={`${overview.chat.failedRuns24h} lỗi trong 24 giờ`}
 										tone={overview.chat.failedRuns24h ? "warning" : "neutral"}
