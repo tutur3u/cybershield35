@@ -14,6 +14,16 @@ export function withGatewayChatTools(model: Parameters<typeof wrapLanguageModel>
       const tools = (params.tools ?? []).filter((tool) => tool.type === "function");
       const allowed = params.toolChoice?.type === "none" ? [] : tools;
       const requiredName = params.toolChoice?.type === "tool" ? params.toolChoice.toolName : null;
+      const names = requiredName ? [requiredName] : allowed.map((tool) => tool.name);
+      const requestSchema = turnSchema.extend({
+        text: requiredName ? z.literal("") : z.string(),
+        toolCalls: z.array(z.object({
+          name: names.length ? z.enum(names as [string, ...string[]]) : z.string(),
+          arguments: z.string(),
+        }).strict())
+          .min(requiredName || params.toolChoice?.type === "required" ? 1 : 0)
+          .max(requiredName ? 1 : names.length ? 5 : 0),
+      });
       const instruction = [
         "Return only a JSON object with text (the answer for the user) and toolCalls (an array).",
         "For each tool call use name and arguments, where arguments is a JSON-encoded string matching that tool's input schema.",
@@ -27,7 +37,7 @@ export function withGatewayChatTools(model: Parameters<typeof wrapLanguageModel>
         ...params,
         tools: undefined,
         toolChoice: undefined,
-        responseFormat: { type: "json", schema: await asSchema(turnSchema).jsonSchema, name: "chat_turn" },
+        responseFormat: { type: "json", schema: await asSchema(requestSchema).jsonSchema, name: "chat_turn" },
         prompt: [
           ...params.prompt.map((message) => {
             if (message.role === "system") return message;

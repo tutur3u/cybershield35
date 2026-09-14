@@ -153,7 +153,7 @@ export async function POST(
           : "Không có dữ liệu workspace được truy xuất trước cho lượt này.",
       ].join("\n")),
       temperature: conversation.temperature / 100,
-      model: runtime.resolved.source === "external-app-session"
+      model: runtime.resolved.provider === "tuturuuu"
         ? withGatewayChatTools(runtime.model)
         : runtime.model,
       maxOutputTokens: 16_000,
