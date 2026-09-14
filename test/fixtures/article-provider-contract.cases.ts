@@ -33,7 +33,7 @@ test(`handles ${failure} gateway responses without partial writes`, async () => 
             const output =
 				failure === "malformed" && requests.length === 1
 					? { ...article, blocks: article.blocks.map((block) => block.type === "text" ? block.content : block.url) }
-					: article;
+					: { ...article, coverUrl: article.coverUrl ?? "", blocks: article.blocks.map(block => ({content:"",url:"",caption:"",...block})) };
 			return Response.json({
 				id: "qa",
 				object: "chat.completion",
@@ -75,7 +75,7 @@ test(`handles ${failure} gateway responses without partial writes`, async () => 
         expect(await generation).toEqual(article);
 		expect(requests).toHaveLength(failure === "transient" ? 3 : 2);
         expect(requests[0]!.max_tokens ?? requests[0]!.max_completion_tokens).toBe(16_000);
-		expect(requests[0]!.response_format).toEqual({ type: "json_object" });
+		expect(requests[0]!.response_format.type).toBe("json_schema");
 		const first = JSON.parse(
 			requests[0]!.messages.find((message) =>
 				message.content.startsWith('{"action"'),

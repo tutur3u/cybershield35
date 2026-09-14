@@ -67,8 +67,10 @@ export function articleCompletionIssues(
 				index < paragraphs.length - 1 &&
 				paragraph.length <= 80 &&
 				(/^(?:#{1,6}\s|\*\*)/u.test(paragraph) || /:$/u.test(paragraph));
+			// A labelled source URL is a reference, not an unfinished sentence.
+			const sourceLink = /^(?:Nguồn|Tham khảo):\s*[^\n]{0,100}?https?:\/\/[^\s]+$/iu.test(paragraph);
 			return (
-				!heading &&
+				!heading && !sourceLink &&
 				(!SENTENCE_END.test(paragraph) ||
 					/(?:…|\.{3})["”’')\]]*$/u.test(paragraph))
 			);

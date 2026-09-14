@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import { unsupportedAttributionIssues } from "@/lib/articles/draft-quality";
 import { generateCompleteArticle } from "@/lib/llm/article-completion";
+import { articleGenerationSchema, articleFromGeneration } from "@/lib/llm/article-output";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
@@ -659,9 +660,8 @@ export async function generateArticleRevision(options: {
       maxOutputTokens: 16_000,
       headers: { "X-Tuturuuu-Operation": "article-revision" },
       model: runtime.model,
-      // The external Google gateway rejects nested block unions as native
-      // response schemas. Request JSON and validate the full contract locally.
-      output: Output.json(),
+      // Constrain JSON with a flat gateway schema, then validate editor blocks.
+      output: Output.object({ schema: articleGenerationSchema }),
       system: [
         "Bạn là biên tập viên tiếng Việt cho CyberShield35. Chỉ trả về một JSON object hợp lệ theo outputSchema; không bọc trong Markdown, không thêm lời dẫn ngoài JSON.",
         "Viết trực tiếp cho công chúng đọc trên Zalo OA hoặc báo điện tử bằng tiếng Việt tự nhiên. Người viết phải có tiếng nói riêng: mở bằng sự việc, con người hoặc một nhận định cụ thể có thể giải thích, rồi phát triển ý bằng chi tiết và lập luận. Không thuật lại quá trình đọc nguồn, không lấy Bài đăng, Bài viết, Hồ sơ hiện có hay Thông tin đang lan truyền làm nhân vật chính. Trích yếu nói ngay điều độc giả quan tâm, không giới thiệu nhiệm vụ của bài.",
@@ -695,7 +695,7 @@ export async function generateArticleRevision(options: {
           : options.action === "title_description" || options.action === "description"
             ? "Chỉ chỉnh trường tiêu đề/trích yếu được yêu cầu; giữ nguyên thân bài, tác giả và ảnh."
             : undefined,
-        outputSchema: z.toJSONSchema(articleAiOutputSchema),
+        outputSchema: z.toJSONSchema(articleGenerationSchema),
         repairInstructions: repairInstructions.length ? repairInstructions : undefined,
         currentArticle: options.action === "draft" && options.evidence.length
           ? { ...options.content, title: "", description: "", blocks: options.content.blocks.filter(block => block.type === "image") }
@@ -710,11 +710,12 @@ export async function generateArticleRevision(options: {
               ? "Chỉ viết lại trích yếu từ nội dung và bằng chứng; giữ nguyên mọi trường khác."
               : undefined,
           blockFormat: {
-            text: { id: "text-1", type: "text", content: "Nội dung đoạn văn hoàn chỉnh." },
-            image: { id: "image-1", type: "image", url: "Giữ URL ảnh có sẵn trong currentArticle", caption: "Chú thích nếu có" },
+            text: { id: "text-1", type: "text", content: "Nội dung đoạn văn hoàn chỉnh.", url: "", caption: "" },
+            image: { id: "image-1", type: "image", content: "", url: "Giữ URL ảnh có sẵn trong currentArticle", caption: "Chú thích nếu có" },
             rule: "blocks phải là mảng object có id, type và content (văn bản) hoặc url (ảnh); tuyệt đối không trả về mảng chuỗi. Dùng id duy nhất cho từng khối. Ví dụ chỉ mô tả cấu trúc, không sao chép nội dung ví dụ.",
           },
           keepImageBlocksUnlessAsked: true,
+          emptyMediaFields: "Trong JSON gửi về, coverUrl không có ảnh dùng chuỗi rỗng; trường content, url, caption không dùng của từng block cũng dùng chuỗi rỗng. Không thay đổi URL ảnh thật.",
           returnCompleteArticle: true,
           reviewNotes:
             "Liệt kê ngắn các điểm cần kiểm tra; claim_check không tự sửa dữ kiện chưa đủ căn cứ.",
@@ -727,7 +728,7 @@ export async function generateArticleRevision(options: {
         },
       }),
     });
-    const parsed = articleAiOutputSchema.safeParse(result.output);
+    const parsed = articleAiOutputSchema.safeParse(articleFromGeneration(result.output));
     if (!parsed.success) {
       throw new NoObjectGeneratedError({
         message: "Article output does not match the required schema",
