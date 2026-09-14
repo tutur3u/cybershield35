@@ -341,6 +341,9 @@ export function EvidenceDetailsPage({ evidenceId }: { evidenceId?: string }) {
 												? "Soạn bài trung lập"
 												: "Soạn bài từ bằng chứng"}
 							</button>
+							{articleMutation.isPending ? (
+								<p role="status" className="text-xs leading-5 text-[var(--muted)] sm:col-span-2 xl:col-span-1">AI đang viết bài hoàn chỉnh và kiểm tra nội dung. Có thể mất đến 90 giây; hệ thống tự thử lại khi dịch vụ tạm gián đoạn.</p>
+							) : null}
 							{articleMutation.isError ? (
 								<p
 									aria-live="polite"

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileClock, Send, Sparkles, Type } from "lucide-react";
+import { FileClock, LoaderCircle, Send, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
 
 import { isRenderableImageUrl } from "@/components/dashboard/safe-image";
@@ -30,6 +30,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	const [railOpen, setRailOpen] = useState(true);
 	const { detail, draft } = editor;
 
+	if (detail.isPending) return <ArticleEditorSkeleton />;
 	if (detail.isError || !detail.data) {
 		return (
 			<div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-5 text-sm font-semibold text-[var(--danger-strong)]">
@@ -86,6 +87,12 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 
 	return (
 		<div className="space-y-4">
+			{editor.busy.startsWith("ai:") ? (
+				<div role="status" className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
+					<LoaderCircle size={18} className="mt-0.5 shrink-0 animate-spin" />
+					<div><p className="font-semibold">AI đang viết và kiểm tra đề xuất</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Có thể mất đến 90 giây. Hệ thống tự thử lại khi dịch vụ tạm gián đoạn và kiểm tra nội dung trước khi hiển thị. Bạn sẽ xem lại đề xuất trước khi áp dụng.</p></div>
+				</div>
+			) : null}
 			<EditorHeader
 				article={article}
 				blockers={blockers}

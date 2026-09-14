@@ -652,9 +652,11 @@ export async function generateArticleRevision(options: {
   return generateCompleteArticle(options.action, async (repairInstructions, attempt) => {
     const result = await generateText({
       abortSignal: AbortSignal.timeout(45_000),
-      maxRetries: 1,
+      // Retry only transient provider errors with SDK backoff and Retry-After support.
+      // The per-attempt deadline also bounds retry waits. Content repair is separate.
+      maxRetries: 2,
       maxOutputTokens:
-        attempt > 0 || options.action === "expand" || options.action === "draft" ? 12_000 : 6_000,
+        attempt > 0 || options.action === "expand" || options.action === "draft" ? 16_000 : 6_000,
       headers: { "X-Tuturuuu-Operation": "article-revision" },
       model: runtime.model,
       // The external Google gateway rejects nested block unions as native
@@ -666,6 +668,7 @@ export async function generateArticleRevision(options: {
         "Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
         "Giữ nguyên tác giả và URL ảnh được cung cấp; nếu không có ảnh thì coverUrl là null. Không bịa tên cơ quan, dịch vụ, động cơ hoặc chi tiết chưa có trong nguồn. Nguồn không đề cập một thay đổi không có nghĩa là xác nhận mọi thứ giữ nguyên; phải giữ đúng mức độ chắc chắn và nêu rõ điều chưa biết.",
         "Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+        "Nếu chỉ có chú thích hoặc URL ảnh, không suy đoán chi tiết thị giác trong ảnh. Không tự thêm sương sớm, cây xanh, loại xe, học sinh, nguyên nhân, mức độ lan truyền hoặc tần suất khi nguồn không xác nhận. Các từ hôm nay, sáng nay trong trích dẫn thuộc thời điểm đăng nguồn, không phải ngày viết bài. Nguồn ngắn thì viết bài ngắn nhưng hoàn chỉnh, ưu tiên căn cứ hơn số đoạn.",
         "Tiêu đề phải là một dòng độc lập, cụ thể, tự nhiên, không giật gân, tối đa 110 ký tự; tuyệt đối không nối mô tả hoặc câu mở đầu thân bài vào tiêu đề.",
         "Trích yếu phải tóm tắt nội dung thật của bài bằng một hoặc hai câu hoàn chỉnh, tối đa 180 ký tự; không lặp lại tiêu đề, không bị cắt giữa từ và không chứa ký hiệu trích dẫn.",
         "Không dùng emoji, icon trang trí hoặc ký tự trình bày có thể không hiển thị trên Zalo.",
