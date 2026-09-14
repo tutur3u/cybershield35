@@ -69,7 +69,7 @@ export function useArticleEditor(articleId: string) {
 	const [tone, setTone] = useState("Điềm tĩnh, khách quan");
 	const [voice, setVoice] = useState("Tự nhiên, gần gũi");
 	const [editorialIntent, setEditorialIntent] =
-		useState<EditorialIntent>("counter_argument");
+		useState<EditorialIntent>("balanced");
 	const [model, setModel] = useState("");
 	const [proposal, setProposal] = useState<AiProposal | null>(null);
 	// Product-owned confirmations rather than window.confirm, which blocks the

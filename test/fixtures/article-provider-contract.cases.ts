@@ -54,7 +54,7 @@ test(`handles ${failure} gateway responses without partial writes`, async () => 
 	try {
 		const generation = generateArticleRevision({
 			action: "draft",
-			content: { ...article, blocks: [] },
+			content: { ...article, blocks: [{ id: "legacy", type: "text", content: "Trích nội dung gốc: câu cắt dở. Biên tập viên sẽ hoàn thiện." }] },
 			editorialIntent: "balanced",
 			evidence: [
 				{
@@ -87,6 +87,9 @@ test(`handles ${failure} gateway responses without partial writes`, async () => 
 			)!.content,
 		);
 		expect(first.outputSchema.type).toBe("object");
+        expect(first.currentArticle.blocks).toEqual([]);
+        expect(first.currentArticle.title).toBe("");
+        expect(first.currentArticle.description).toBe("");
 		expect(first.outputRequirements.blockFormat.text).toMatchObject({
 			id: "text-1",
 			type: "text",

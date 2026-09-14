@@ -1,12 +1,11 @@
 import { NoObjectGeneratedError } from "ai";
+import { hasEditorialPlaceholder, publicWritingIssues } from "@/lib/articles/draft-quality";
 
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
 import type { ArticleAiOutput } from "@/lib/llm/schemas";
 
 // Check generated prose, never alter a user's manually authored article.
-const PLACEHOLDER =
-	/(?:\b(?:TODO|TBD)\b|\[(?:insert|add|write|bổ sung|viết|thêm)[^\]]*\]|(?:biên tập viên|người viết|tác giả)\s+(?:sẽ|cần|phải)\s+(?:hoàn thiện|bổ sung|viết tiếp)|(?:phân tích|kết luận|nội dung)\s+(?:sẽ được|cần được)\s+(?:(?:biên tập viên|người viết|tác giả)\s+)?(?:bổ sung|hoàn thiện)|(?:writer|editor)\s+(?:will|should|must|needs to)\s+(?:complete|finish|add))/iu;
 const SENTENCE_END = /[.!?]["”’')\]]*$/u;
 const BODY_ACTIONS = new Set(["draft", "rewrite", "shorten", "expand"]);
 
@@ -35,13 +34,14 @@ export function articleCompletionIssues(
 		action !== "outline" &&
 		(!SENTENCE_END.test(content.description.trim()) ||
 			content.description.length > 300 ||
-			PLACEHOLDER.test(content.description))
+			hasEditorialPlaceholder(content.description))
 	) {
 		issues.push(
 			"Viết trích yếu thành câu hoàn chỉnh trong 300 ký tự, không có chỗ trống.",
 		);
 	}
 	if (!BODY_ACTIONS.has(action)) return issues;
+	issues.push(...publicWritingIssues(content));
 	const paragraphs = content.blocks.flatMap((block) =>
 		block.type === "text"
 			? block.content
@@ -55,7 +55,7 @@ export function articleCompletionIssues(
 			"Viết thân bài hoàn chỉnh gồm mở bài, nội dung và kết luận, chia thành các đoạn rõ ý.",
 		);
 	}
-	if (paragraphs.some((paragraph) => PLACEHOLDER.test(paragraph))) {
+	if (paragraphs.some((paragraph) => hasEditorialPlaceholder(paragraph))) {
 		issues.push(
 			"Thay mọi lời hẹn biên tập, yêu cầu người viết bổ sung và chỗ trống bằng nội dung hoàn chỉnh có căn cứ.",
 		);

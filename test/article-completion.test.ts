@@ -156,3 +156,16 @@ describe("complete AI articles", () => {
 		expect(calls).toBe(1);
 	});
 });
+
+ test("repairs internal editorial notes instead of accepting them as public prose", async () => {
+    let calls = 0;
+    const result = await generateCompleteArticle("draft", async () => ({
+        output: ++calls === 1 ? { ...complete, description: "Bài viết phân tích lịch mở cửa thư viện." } : complete,
+        finishReason: "stop",
+    }));
+    expect(calls).toBe(2);
+    expect(result).toEqual(complete);
+ });
+ test("permits attributed reporting and ordinary public writing", () => {
+    expect(articleCompletionIssues(withBody("Theo thông báo của thư viện, phòng đọc mở thêm vào sáng thứ Bảy.\n\nBạn đọc có thêm một buổi đến thư viện vào cuối tuần."), "draft")).toEqual([]);
+ });

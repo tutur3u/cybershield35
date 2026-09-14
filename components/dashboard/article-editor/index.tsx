@@ -2,6 +2,7 @@
 
 import { FileClock, LoaderCircle, Send, Sparkles, Type } from "lucide-react";
 import { useState } from "react";
+import { publicWritingIssues } from "@/lib/articles/draft-quality";
 
 import { isRenderableImageUrl } from "@/components/dashboard/safe-image";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 	if (detail.isPending || !draft) return <ArticleEditorSkeleton />;
 
 	const article = detail.data.article;
+	const needsCompletion = publicWritingIssues(draft).length > 0;
 	const hasBody = draft.blocks.some((block) =>
 		block.type === "text" ? Boolean(block.content.trim()) : Boolean(block.url),
 	);
@@ -113,6 +115,12 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 				versionCount={detail.data.versions.length}
 			/>
 
+            {needsCompletion ? (
+                <section role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-soft)] p-4">
+                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold">Bản nháp này chưa hoàn chỉnh để đăng công khai</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Nội dung còn mẫu soạn thảo hoặc lời nhắc biên tập. AI có thể viết lại từ nguồn đầy đủ; bạn xem đề xuất trước khi áp dụng.</p></div>
+                    <button type="button" disabled={Boolean(editor.busy) || !detail.data.evidence.length} onClick={() => void editor.askAi("draft")} className="shrink-0 rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Viết lại bài hoàn chỉnh</button>
+                </section>
+            ) : null}
 			<EditorNoticeBar
 				lastError={visiblePublicationError(article)}
 				notice={editor.notice}
