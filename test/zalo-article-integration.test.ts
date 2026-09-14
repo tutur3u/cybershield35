@@ -554,7 +554,7 @@ describe("Zalo OA security and article contract", () => {
 		expect(verified.id).toBe("remote-article-id");
 	});
 
-	test("sends an explicitly empty cover when publishing without one", async () => {
+	test("sends a valid default cover without changing hidden article visibility", async () => {
 		const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 		globalThis.fetch = mock(
 			async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -570,12 +570,13 @@ describe("Zalo OA security and article contract", () => {
 			commentsEnabled: true,
 			coverUrl: null,
 			description: "Mô tả.",
-			status: "show",
+			status: "hide",
 			title: "Bài không ảnh bìa",
 		});
 
 		const createBody = JSON.parse(String(calls[0]?.init?.body));
-		expect(createBody.cover.photo_url).toBe("");
+		expect(createBody.cover.photo_url).toBe("https://cybershield35.ttr.gg/opengraph-image.png");
+        expect(createBody.status).toBe("hide");
 	});
 
 	test("removes a hidden Zalo article through the official CRUD endpoint", async () => {
@@ -1015,7 +1016,7 @@ describe("images are hosted where Zalo can reach them", () => {
 		expect(worker).toContain('COVERLESS_FINGERPRINT_PREFIX = "without-cover:"');
 		expect(editor).toContain('error.code !== "ZALO_COVER_UPLOAD_FAILED"');
 		expect(editor).toContain('cancelLabel: "Hủy đăng"');
-		expect(editor).toContain('confirmLabel: "Tiếp tục không ảnh bìa"');
+		expect(editor).toContain('confirmLabel: "Dùng ảnh bìa mặc định"');
 		expect(editor).toContain("await request(true)");
 	});
 });

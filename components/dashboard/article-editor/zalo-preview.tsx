@@ -6,6 +6,7 @@ import {
 	ImagePlaceholder,
 	SafeImage,
 } from "@/components/dashboard/safe-image";
+import { ZALO_FALLBACK_COVER_URL } from "@/lib/zalo/article-content";
 import type { ArticleContent } from "@/lib/articles/schemas";
 
 import { ZALO_OA_MANAGER_URL, zaloArticleEditorUrl } from "./shared";
@@ -30,10 +31,11 @@ export function ZaloPreview({
 				height={540}
 				onUnavailable={onCoverUnavailable}
 				priority
-				src={content.coverUrl}
+				src={content.coverUrl || ZALO_FALLBACK_COVER_URL}
 				width={960}
 			/>
 			<div className="p-4">
+                {!content.coverUrl ? <p className="mb-2 text-[11px] text-[var(--muted)]">Zalo sử dụng ảnh bìa CyberShield35 mặc định.</p> : null}
 				<p className="text-[10px] font-bold uppercase tracking-wide text-[#0068ff]">
 					Bản xem trước trên Zalo
 				</p>

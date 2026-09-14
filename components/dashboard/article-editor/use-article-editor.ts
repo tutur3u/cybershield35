@@ -251,9 +251,9 @@ export function useArticleEditor(articleId: string) {
 
 				const continueWithoutCover = await confirm({
 					cancelLabel: "Hủy đăng",
-					confirmLabel: "Tiếp tục không ảnh bìa",
+					confirmLabel: "Dùng ảnh bìa mặc định",
 					description:
-						"Zalo OA không thể tải ảnh bìa. Bạn có thể hủy để kiểm tra lại ảnh, hoặc tiếp tục đăng bài với ảnh bìa trống. Ảnh đã lưu trong CyberShield35 vẫn được giữ nguyên.",
+						"Zalo OA không thể tải ảnh bìa đã chọn. Bạn có thể hủy để đổi ảnh, hoặc dùng ảnh CyberShield35 mặc định cho bản trên Zalo. Ảnh gốc trong bài viết vẫn được giữ nguyên.",
 					title: "Không thể tải ảnh bìa lên Zalo OA",
 				});
 				if (!continueWithoutCover) {

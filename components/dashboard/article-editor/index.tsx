@@ -61,7 +61,7 @@ export function ArticleEditor({ articleId }: { articleId: string }) {
 			done: isRenderableImageUrl(draft.coverUrl),
 			// Zalo OA accepts an article without one, and plenty of posts are pure
 			// text, so this is advice rather than a gate.
-			hint: "Nên có ảnh bìa để bài hiển thị nổi bật hơn, nhưng không bắt buộc.",
+			hint: "Có thể chọn ảnh riêng; nếu để trống, Zalo dùng ảnh CyberShield35 mặc định.",
 			label: "Có ảnh bìa",
 			optional: true,
 		},

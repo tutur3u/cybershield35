@@ -5,6 +5,7 @@ import { fitTextToLimit } from "@/lib/domain/text-fit";
 // Zalo OA's own caps for a Content Article. They used to be set well below
 // these, which made editors rewrite headlines that Zalo would have accepted
 // unchanged.
+export const ZALO_FALLBACK_COVER_URL = "https://cybershield35.ttr.gg/opengraph-image.png";
 export const ZALO_EDITORIAL_TITLE_LIMIT = 150;
 export const ZALO_EDITORIAL_DESCRIPTION_LIMIT = 300;
 

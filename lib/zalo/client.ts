@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { ZALO_FALLBACK_COVER_URL } from "@/lib/zalo/article-content";
 import type { ArticleBlock } from "@/lib/articles/schemas";
 
 const ZALO_OPEN_API_BASE = "https://openapi.zalo.me";
@@ -227,9 +228,8 @@ function toZaloArticlePayload(content: ZaloArticleContent) {
 		comment: content.commentsEnabled ? "show" : "hide",
 		cover: {
 			cover_type: "photo",
-			// Zalo accepts an empty URL when the operator explicitly chooses to
-			// continue after the cover cannot be uploaded.
-			photo_url: content.coverUrl ?? "",
+			// Zalo rejects an empty photo_url, including hidden drafts.
+			photo_url: content.coverUrl || ZALO_FALLBACK_COVER_URL,
 			status: "show",
 		},
 		description: content.description,

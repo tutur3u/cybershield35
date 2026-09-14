@@ -31,7 +31,7 @@ import {
 	ZaloApiError,
 	type ZaloArticleContent,
 } from "@/lib/zalo/client";
-import { prepareZaloArticleContent } from "@/lib/zalo/article-content";
+import { prepareZaloArticleContent, ZALO_FALLBACK_COVER_URL } from "@/lib/zalo/article-content";
 import { getValidZaloAccessToken } from "@/lib/zalo/connections";
 import { ZALO_ARTICLE_CATALOG_TAG } from "@/lib/zalo/cache-tags";
 
@@ -632,7 +632,7 @@ async function executePublicationOperation(
 		const verified = await verifyWithRetry(accessToken, operationToken);
 		remoteArticleId = verified.id;
 	} catch (error) {
-		if (!omitCoverImage && isZaloCoverImageRejection(error)) {
+		if (isZaloCoverImageRejection(error)) {
 			throw new ZaloCoverImageError();
 		}
 		if (!remoteArticleId && job.operation === "sync_hidden") {
@@ -773,7 +773,7 @@ function toZaloContent(
 	});
 	return {
 		...prepared,
-		coverUrl: omitCoverImage ? null : prepared.coverUrl ?? null,
+		coverUrl: omitCoverImage ? ZALO_FALLBACK_COVER_URL : prepared.coverUrl || ZALO_FALLBACK_COVER_URL,
 		status,
 	};
 }
