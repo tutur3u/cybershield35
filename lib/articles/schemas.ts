@@ -36,6 +36,13 @@ export const articleContentSchema = z
 export const articleUpdateSchema = articleContentSchema
 	.partial()
 	.extend({
+		// Zod 4 applies nested defaults even under optional(). PATCH must leave
+		// omitted fields absent rather than resetting the rest of an article.
+		author: articleContentSchema.shape.author.removeDefault().optional(),
+		blocks: articleContentSchema.shape.blocks.removeDefault().optional(),
+		commentsEnabled: articleContentSchema.shape.commentsEnabled.removeDefault().optional(),
+		description: articleContentSchema.shape.description.removeDefault().optional(),
+		title: articleContentSchema.shape.title.removeDefault().optional(),
 		targetOaConnectionId: z.string().uuid().nullable().optional(),
 	})
 	.refine((value) => Object.keys(value).length > 0, "Missing article update")
