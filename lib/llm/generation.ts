@@ -1,7 +1,8 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { getTuturuuuMachineToken } from "@/lib/tuturuuu/machine-credential";
 import { createOpenAI } from "@ai-sdk/openai";
-import { APICallError, generateText, Output, streamText } from "ai";
+import { APICallError, generateText, NoObjectGeneratedError, Output, streamText } from "ai";
+import { z } from "zod";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
 import { generateCompleteArticle } from "@/lib/llm/article-completion";
@@ -656,9 +657,11 @@ export async function generateArticleRevision(options: {
         attempt > 0 || options.action === "expand" || options.action === "draft" ? 12_000 : 6_000,
       headers: { "X-Tuturuuu-Operation": "article-revision" },
       model: runtime.model,
-      output: Output.object({ schema: articleAiOutputSchema }),
+      // The external Google gateway rejects nested block unions as native
+      // response schemas. Request JSON and validate the full contract locally.
+      output: Output.json(),
       system: [
-        "Bạn là biên tập viên tiếng Việt cho CyberShield35.",
+        "Bạn là biên tập viên tiếng Việt cho CyberShield35. Chỉ trả về một JSON object hợp lệ theo outputSchema; không bọc trong Markdown, không thêm lời dẫn ngoài JSON.",
         "Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
         "Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
         "Giữ nguyên tác giả và URL ảnh được cung cấp; nếu không có ảnh thì coverUrl là null. Không bịa tên cơ quan, dịch vụ, động cơ hoặc chi tiết chưa có trong nguồn. Nguồn không đề cập một thay đổi không có nghĩa là xác nhận mọi thứ giữ nguyên; phải giữ đúng mức độ chắc chắn và nêu rõ điều chưa biết.",
@@ -676,6 +679,7 @@ export async function generateArticleRevision(options: {
       ].join(" "),
       prompt: JSON.stringify({
         action: options.action,
+        outputSchema: z.toJSONSchema(articleAiOutputSchema),
         repairInstructions: repairInstructions.length ? repairInstructions : undefined,
         currentArticle: options.content,
         editorialIntent: options.editorialIntent,
@@ -705,7 +709,18 @@ export async function generateArticleRevision(options: {
         },
       }),
     });
-    return { output: result.output, finishReason: result.finishReason };
+    const parsed = articleAiOutputSchema.safeParse(result.output);
+    if (!parsed.success) {
+      throw new NoObjectGeneratedError({
+        message: "Article output does not match the required schema",
+        cause: parsed.error,
+        text: result.text,
+        response: result.response,
+        usage: result.usage,
+        finishReason: result.finishReason,
+      });
+    }
+    return { output: parsed.data, finishReason: result.finishReason };
   });
 }
 

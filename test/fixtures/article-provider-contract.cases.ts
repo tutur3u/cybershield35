@@ -4,7 +4,7 @@ import { generateArticleRevision } from "@/lib/llm/generation";
 
 // Exercise the actual SDK and schema parser against an isolated HTTP provider.
 test("repairs a gateway response with string blocks using an explicit object contract", async () => {
-	const requests: Array<{ messages: Array<{ content: string }> }> = [];
+	const requests: Array<{ messages: Array<{ content: string }>; response_format: { type: string } }> = [];
 	const article: ArticleAiOutput = {
 		author: "CyberShield35",
 		title: "Lịch thư viện cuối tuần",
@@ -65,6 +65,7 @@ test("repairs a gateway response with string blocks using an explicit object con
 		});
 		expect(result).toEqual(article);
 		expect(requests).toHaveLength(2);
+		expect(requests[0]!.response_format).toEqual({ type: "json_object" });
 		const first = JSON.parse(
 			requests[0]!.messages.find((message) =>
 				message.content.startsWith('{"action"'),
@@ -75,6 +76,7 @@ test("repairs a gateway response with string blocks using an explicit object con
 				message.content.startsWith('{"action"'),
 			)!.content,
 		);
+		expect(first.outputSchema.type).toBe("object");
 		expect(first.outputRequirements.blockFormat.text).toMatchObject({
 			id: "text-1",
 			type: "text",
