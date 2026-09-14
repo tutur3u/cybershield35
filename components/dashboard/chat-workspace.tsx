@@ -689,9 +689,13 @@ function ConversationWorkspace({
     } catch (error) {
       setComposerError(
         error instanceof Error
-          ? error.message
+          ? error.message === "Failed to fetch"
+            ? "Không thể kết nối để gửi nội dung. Tin nhắn và tệp được giữ lại để bạn thử lại."
+            : error.message
           : "Không thể gửi tin nhắn hoặc xử lý tệp.",
       );
+      // Let PromptInput preserve attachments and restore text for a user retry.
+      throw error;
     }
   }
 

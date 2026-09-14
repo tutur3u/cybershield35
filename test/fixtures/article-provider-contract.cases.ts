@@ -18,7 +18,7 @@ test(`handles ${failure} gateway responses without partial writes`, async () => 
 				id: "text-1",
 				type: "text",
 				content:
-					"Thư viện mở cửa sáng thứ Bảy từ tuần tới.\n\nBạn đọc có thêm thời gian đến đọc sách vào cuối tuần.",
+					"Thư viện mở cửa sáng thứ Bảy.\n\nBạn đọc có thêm thời gian đến đọc sách vào cuối tuần.",
 			},
 		],
 	};

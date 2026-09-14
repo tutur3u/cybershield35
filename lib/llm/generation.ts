@@ -650,14 +650,13 @@ export async function generateArticleRevision(options: {
     ? getInteractiveModelRuntime(options.session, options.model)
     : getChatModelRuntime();
   if (!runtime) throw new Error("LLM provider is not configured");
-  return generateCompleteArticle(options.action, async (repairInstructions, attempt) => {
+  return generateCompleteArticle(options.action, async (repairInstructions) => {
     const result = await generateText({
       abortSignal: AbortSignal.timeout(45_000),
       // Retry only transient provider errors with SDK backoff and Retry-After support.
       // The per-attempt deadline also bounds retry waits. Content repair is separate.
       maxRetries: 2,
-      maxOutputTokens:
-        attempt > 0 || options.action === "expand" || options.action === "draft" ? 16_000 : 6_000,
+      maxOutputTokens: 16_000,
       headers: { "X-Tuturuuu-Operation": "article-revision" },
       model: runtime.model,
       // The external Google gateway rejects nested block unions as native
@@ -666,7 +665,7 @@ export async function generateArticleRevision(options: {
       system: [
         "Bạn là biên tập viên tiếng Việt cho CyberShield35. Chỉ trả về một JSON object hợp lệ theo outputSchema; không bọc trong Markdown, không thêm lời dẫn ngoài JSON.",
         "Viết trực tiếp cho công chúng đọc trên Zalo OA hoặc báo điện tử, không viết báo cáo nội bộ cho biên tập viên. Mở bài bằng sự việc hoặc vấn đề cụ thể, có chủ thể và ngữ cảnh. Trích yếu là tin tóm tắt, không phải lời giới thiệu kiểu Bài viết phân tích hay Tác giả đặt câu hỏi.",
-        "Ưu tiên mở bằng chính sự việc thay vì Một bài đăng gần đây nêu lên. Ví dụ nguồn thông báo thư viện mở thêm sáng thứ Bảy: viết Thư viện mở thêm sáng thứ Bảy từ tuần tới, theo thông báo của đơn vị. Không viết Bài viết phân tích việc thay đổi lịch và đặt ra câu hỏi về nhu cầu bạn đọc. Khi không có ngày đăng, không tự thêm gần đây, mới đây hay hôm nay. Tránh các câu chuyển ý sáo rỗng như Đáng chú ý, Vấn đề cốt lõi, Những thông tin trên nhấn mạnh tầm quan trọng.",
+        "Ưu tiên mở bằng chính sự việc thay vì Một bài đăng gần đây nêu lên. Chỉ đưa thời điểm và nguồn thông báo khi dữ liệu thật sự xác nhận; tuyệt đối không tự thêm từ tuần tới, hằng tuần hoặc theo thông báo của đơn vị. Không viết Bài viết phân tích việc thay đổi lịch và đặt ra câu hỏi về nhu cầu bạn đọc. Khi không có ngày đăng, không tự thêm gần đây, mới đây hay hôm nay. Tránh các câu chuyển ý sáo rỗng như Đáng chú ý, Vấn đề cốt lõi, Những thông tin trên nhấn mạnh tầm quan trọng.",
         "Dùng nguồn để viết một bài độc lập, không sao chép tiêu đề nguồn, không mở bằng Trích nội dung gốc, không ghép một trích dẫn dài với lời nhận xét chung chung. Nếu nguồn chỉ nêu cáo buộc hoặc quan điểm, quy thuộc rõ cho nguồn và không biến thành sự thật đã xác minh. Không suy ra đúng sai từ phân loại trang.",
         "Mỗi đoạn phải bổ sung dữ kiện, giải thích hoặc lập luận có ích. Kết bài trả lời vấn đề đã mở ra trong phạm vi nguồn, không kết bằng khẩu hiệu, lời nhắc biên tập, lời kêu gọi kiểm chứng chung chung hay nhận xét rỗng về nhịp sống, góc nhìn đa chiều. Đặt công việc xác minh dành cho biên tập viên trong reviewNotes.",
         "Trước khi trả kết quả, đọc lại như một độc giả không biết hệ thống: ai, việc gì, thông tin từ đâu, điều gì đã biết và ý nghĩa cụ thể là gì? Xóa câu không thêm thông tin. Không coi bản nháp hiện tại là nguồn xác minh; draft phải viết mới từ evidence, rewrite phải bỏ chi tiết không có căn cứ trong evidence.",
@@ -731,7 +730,10 @@ export async function generateArticleRevision(options: {
         finishReason: result.finishReason,
       });
     }
-    return { output: parsed.data, finishReason: result.finishReason, additionalIssues: unsupportedAttributionIssues(parsed.data, options.evidence.map(item => `${item.quote}\n${item.summary}`).join("\n")) };
+    const sourceText = options.evidence.length
+      ? options.evidence.map(item => `${item.quote}\n${item.summary}`).join("\n")
+      : [options.content.title, options.content.description, ...options.content.blocks.flatMap(block => block.type === "text" ? [block.content] : [])].join("\n");
+    return { output: parsed.data, finishReason: result.finishReason, additionalIssues: unsupportedAttributionIssues(parsed.data, [sourceText, options.context, options.instruction].filter(Boolean).join("\n")) };
   });
 }
 

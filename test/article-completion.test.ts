@@ -184,3 +184,9 @@ test("rejects invented expert attribution and repairs with the specific groundin
     expect(result).toEqual(complete);
     expect(unsupportedAttributionIssues(invented, "Các chuyên gia pháp lý đề nghị thư viện mở cửa thêm.")).toEqual([]);
 });
+
+test("rejects invented start dates and frequency while allowing source-supported timing", () => {
+    const invented = withBody("Thư viện mở thêm sáng thứ Bảy từ tuần tới. Phòng đọc phục vụ hằng tuần.");
+    expect(unsupportedAttributionIssues(invented, "Thư viện mở thêm sáng thứ Bảy.")).toHaveLength(2);
+    expect(unsupportedAttributionIssues(invented, "Thư viện mở thêm sáng thứ Bảy từ tuần tới, mỗi tuần.")).toEqual([]);
+});

@@ -35,7 +35,8 @@ const securityHeaders = [
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob: https:",
 			"font-src 'self'",
-			"connect-src 'self'",
+			// The chat composer reads local attachments and uploads only to signed Drive storage URLs.
+			"connect-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.supabase.co",
 			"frame-ancestors 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",
