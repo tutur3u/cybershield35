@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
+import { createChatStreamLifecycle, hasChatResponse } from "@/lib/chat/stream-lifecycle";
 import { createChatTools } from "@/lib/chat/tools";
 import {
   getChatConversation,
@@ -25,7 +26,7 @@ import {
 import { adminDb } from "@/lib/db/client";
 import { getIntelligenceOverview } from "@/lib/dashboard/intelligence-server";
 import { chatAttachments, chatModelRuns } from "@/lib/db/schema";
-import { getInteractiveModelRuntime } from "@/lib/llm/generation";
+import { getInteractiveModelRuntime, stripAiPromptEmoji } from "@/lib/llm/generation";
 import { NATURAL_VIETNAMESE_WRITING_GUIDANCE } from "@/lib/domain/draft-style";
 
 export const maxDuration = 90;
@@ -122,7 +123,7 @@ export async function POST(
     let outputTokens = 0;
     const startedAt = Date.now();
     const agent = new ToolLoopAgent({
-      instructions: [
+      instructions: stripAiPromptEmoji([
         "Bạn là Chat nội bộ của CyberShield35.",
         "Trả lời bằng tiếng Việt tự nhiên, mạch lạc, đúng trọng tâm và dùng công cụ để kiểm tra dữ liệu thay vì suy đoán.",
         NATURAL_VIETNAMESE_WRITING_GUIDANCE,
@@ -139,7 +140,7 @@ export async function POST(
         groundingContext
           ? `Dữ liệu workspace đã được máy chủ truy xuất cho lượt này: ${JSON.stringify(groundingContext)}. Chỉ dùng dữ liệu này hoặc kết quả công cụ thực sự trả về; không được tạo ID, liên kết, nguồn hay sự kiện khác.`
           : "Không có dữ liệu workspace được truy xuất trước cho lượt này.",
-      ].join("\n"),
+      ].join("\n")),
       temperature: conversation.temperature / 100,
       model: runtime.model,
       maxOutputTokens: 16_000,
@@ -154,11 +155,14 @@ export async function POST(
       stopWhen: stepCountIs(input.thinkingMode === "deep" ? 12 : 6),
       tools,
     });
-    type AgentUIMessage = InferAgentUIMessage<typeof agent>;
+    type AgentUIMessage = InferAgentUIMessage<typeof agent, ChatUIMessage["metadata"]>;
     const messages = await validateUIMessages<AgentUIMessage>({
       messages: trimMessagesToBudget(
         [
-          ...chat.messages.filter((message) => message.id !== incoming.id),
+          ...chat.messages.filter((message) =>
+            message.id !== incoming.id &&
+            (message.role !== "assistant" || hasChatResponse(message)),
+          ),
           incoming,
         ],
         conversation.contextBudget,
@@ -166,48 +170,34 @@ export async function POST(
       tools,
     });
 
-    return createAgentUIStreamResponse({
+    return await createAgentUIStreamResponse({
       agent,
       abortSignal: request.signal,
       consumeSseStream: ({ stream }) => consumeStream({ stream }),
       generateMessageId: () => crypto.randomUUID(),
       headers: authHeaders(auth),
-      onError: (error) => {
-        void adminDb
-          .update(chatModelRuns)
-          .set({
-            completedAt: new Date(),
-            errorCode: "generation_failed",
-            errorMessage:
-              error instanceof Error
-                ? error.message.slice(0, 500)
-                : "Generation failed",
-            latencyMs: Date.now() - startedAt,
-            status: "failed",
-          })
-          .where(eq(chatModelRuns.id, modelRun.id));
-        return "Không thể hoàn tất phản hồi. Vui lòng thử lại.";
-      },
-      onFinish: async ({ isAborted, responseMessage }) => {
-        const stored = await persistChatMessage(
-          conversationId,
-          responseMessage as ChatUIMessage,
-        );
-        await adminDb
-          .update(chatModelRuns)
-          .set({
-            assistantMessageId: stored?.id,
-            completedAt: new Date(),
-            inputTokens,
-            latencyMs: Date.now() - startedAt,
-            outputTokens,
-            status: isAborted ? "aborted" : "completed",
-            stepCount,
-            totalTokens: inputTokens + outputTokens,
-          })
-          .where(eq(chatModelRuns.id, modelRun.id));
-      },
-      onStepFinish: async (step) => {
+      ...createChatStreamLifecycle({
+        signal: request.signal,
+        finish: async (message, outcome) => {
+          const stored = message
+            ? await persistChatMessage(conversationId, message)
+            : null;
+          await adminDb
+            .update(chatModelRuns)
+            .set({
+              ...outcome,
+              assistantMessageId: stored?.id ?? null,
+              completedAt: new Date(),
+              inputTokens,
+              latencyMs: Date.now() - startedAt,
+              outputTokens,
+              stepCount,
+              totalTokens: inputTokens + outputTokens,
+            })
+            .where(eq(chatModelRuns.id, modelRun.id));
+        },
+      }),
+      onStepEnd: async (step) => {
         stepCount += 1;
         inputTokens += step.usage.inputTokens ?? 0;
         outputTokens += step.usage.outputTokens ?? 0;

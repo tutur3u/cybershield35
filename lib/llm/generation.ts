@@ -614,7 +614,7 @@ export async function generateInDepthReport(options: {
   };
 }
 
-function stripAiPromptEmoji(value: string) {
+export function stripAiPromptEmoji(value: string) {
   // Tuturuuu's external-app gateway intentionally limits emoji density. Source
   // posts can contain many decorative emoji, which are irrelevant to report
   // analysis and could otherwise cause the entire generation request to fail.

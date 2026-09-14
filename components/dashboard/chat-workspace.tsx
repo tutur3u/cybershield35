@@ -823,6 +823,14 @@ function ConversationWorkspace({
             </div>
           ) : (
             <>
+              {chat.error ? (
+                <div role="alert" className="mb-2 flex items-center justify-between gap-3 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]">
+                  <span>Không thể hoàn tất phản hồi. Vui lòng thử lại.</span>
+                  <button type="button" disabled={isBusy} onClick={() => void chat.regenerate()} className="shrink-0 underline disabled:opacity-50">
+                    Thử lại
+                  </button>
+                </div>
+              ) : null}
               {composerError ? (
                 <p
                   className="mb-2 rounded-lg bg-[var(--danger-soft)] p-2.5 text-xs font-semibold text-[var(--danger-strong)]"
