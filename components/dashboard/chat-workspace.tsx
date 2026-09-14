@@ -891,7 +891,7 @@ function ConversationWorkspace({
                   <PromptInputSubmit
                     aria-label={isBusy ? "Dừng tạo nội dung" : "Gửi tin nhắn"}
                     className="size-8 rounded-lg bg-[var(--accent-fill)] text-white shadow-sm hover:bg-[var(--accent-fill-hover)] focus-visible:ring-[var(--brand)] disabled:opacity-50"
-                    disabled={isBusy}
+                    disabled={Object.keys(uploadState).length > 0}
                     onStop={chat.stop}
                     status={chat.status}
                   />
@@ -1095,7 +1095,8 @@ function ChatModeControl({
       <Icon size={12} className="text-[var(--brand-strong)]" />
       <span>{selectedMode.label}</span>
       <select
-        value={mode}
+        key={mode}
+        defaultValue={mode}
         onChange={(event) => onChange(event.target.value as ChatMode)}
         className="absolute inset-0 cursor-pointer appearance-none opacity-0"
         aria-label="Chọn mục tiêu trò chuyện"
