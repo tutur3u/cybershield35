@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { NoObjectGeneratedError } from "ai";
+import { unsupportedAttributionIssues } from "@/lib/articles/draft-quality";
 import {
 	articleCompletionIssues,
 	ArticleGenerationError,
@@ -169,3 +170,17 @@ describe("complete AI articles", () => {
  test("permits attributed reporting and ordinary public writing", () => {
     expect(articleCompletionIssues(withBody("Theo thông báo của thư viện, phòng đọc mở thêm vào sáng thứ Bảy.\n\nBạn đọc có thêm một buổi đến thư viện vào cuối tuần."), "draft")).toEqual([]);
  });
+
+test("rejects invented expert attribution and repairs with the specific grounding issue", async () => {
+    const invented = withBody("Các chuyên gia pháp lý cho rằng thư viện cần mở cửa thêm.\n\nBạn đọc có thêm thời gian đọc sách.");
+    const issues = unsupportedAttributionIssues(invented, "Thư viện mở cửa sáng thứ Bảy.");
+    expect(issues).toHaveLength(1);
+    let calls = 0;
+    const result = await generateCompleteArticle("draft", async (repair) => {
+        if (++calls === 1) return { output: invented, finishReason: "stop", additionalIssues: issues };
+        expect(repair).toContain(issues[0]!);
+        return { output: complete, finishReason: "stop" };
+    });
+    expect(result).toEqual(complete);
+    expect(unsupportedAttributionIssues(invented, "Các chuyên gia pháp lý đề nghị thư viện mở cửa thêm.")).toEqual([]);
+});

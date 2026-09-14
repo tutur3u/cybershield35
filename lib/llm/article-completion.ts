@@ -87,7 +87,7 @@ export async function generateCompleteArticle(
 	generate: (
 		repairInstructions: string[],
 		attempt: number,
-	) => Promise<{ output: ArticleAiOutput; finishReason: string }>,
+	) => Promise<{ output: ArticleAiOutput; finishReason: string; additionalIssues?: string[] }>,
 ): Promise<ArticleAiOutput> {
 	let issues: string[] = [];
 	for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -104,7 +104,7 @@ export async function generateCompleteArticle(
 				description: cleanDraftContent(result.output.description),
 				title: cleanDraftContent(result.output.title),
 			};
-			issues = articleCompletionIssues(output, action);
+			issues = [...articleCompletionIssues(output, action), ...(result.additionalIssues ?? [])];
 			if (result.finishReason !== "stop") {
 				issues.push(
 					"Hoàn thành toàn bộ JSON và bài viết trong giới hạn đầu ra; viết ngắn hơn nếu cần.",

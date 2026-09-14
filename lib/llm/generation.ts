@@ -5,6 +5,7 @@ import { APICallError, generateText, NoObjectGeneratedError, Output, streamText 
 import { z } from "zod";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
+import { unsupportedAttributionIssues } from "@/lib/articles/draft-quality";
 import { generateCompleteArticle } from "@/lib/llm/article-completion";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
@@ -672,6 +673,7 @@ export async function generateArticleRevision(options: {
         "Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
         "Giữ nguyên tác giả và URL ảnh được cung cấp; nếu không có ảnh thì coverUrl là null. Không bịa tên cơ quan, dịch vụ, động cơ hoặc chi tiết chưa có trong nguồn. Nguồn không đề cập một thay đổi không có nghĩa là xác nhận mọi thứ giữ nguyên; phải giữ đúng mức độ chắc chắn và nêu rõ điều chưa biết.",
         "Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+        "Tuyệt đối không tự tạo ý kiến chuyên gia, luật sư, nhà nghiên cứu hoặc lời xác nhận của cơ quan chức năng. Không suy đoán một nhóm chưa đăng ký, không có giấy phép, vi phạm luật hay có xung đột pháp lý khi nguồn không nói. Với thông tin tố tụng, không kết luận nguyên nhân bắt giữ, bản án hoặc tính hợp pháp nếu thiếu hồ sơ; phân biệt quan điểm của nguồn với sự thật được xác minh.",
         "Nếu chỉ có chú thích hoặc URL ảnh, không suy đoán chi tiết thị giác trong ảnh. Không tự thêm sương sớm, cây xanh, loại xe, học sinh, nguyên nhân, mức độ lan truyền hoặc tần suất khi nguồn không xác nhận. Các từ hôm nay, sáng nay trong trích dẫn thuộc thời điểm đăng nguồn, không phải ngày viết bài. Nguồn ngắn thì viết bài ngắn nhưng hoàn chỉnh, ưu tiên căn cứ hơn số đoạn.",
         "Tiêu đề phải là một dòng độc lập, cụ thể, tự nhiên, không giật gân, tối đa 110 ký tự; tuyệt đối không nối mô tả hoặc câu mở đầu thân bài vào tiêu đề.",
         "Trích yếu phải tóm tắt nội dung thật của bài bằng một hoặc hai câu hoàn chỉnh, tối đa 180 ký tự; không lặp lại tiêu đề, không bị cắt giữa từ và không chứa ký hiệu trích dẫn.",
@@ -729,7 +731,7 @@ export async function generateArticleRevision(options: {
         finishReason: result.finishReason,
       });
     }
-    return { output: parsed.data, finishReason: result.finishReason };
+    return { output: parsed.data, finishReason: result.finishReason, additionalIssues: unsupportedAttributionIssues(parsed.data, options.evidence.map(item => `${item.quote}\n${item.summary}`).join("\n")) };
   });
 }
 
