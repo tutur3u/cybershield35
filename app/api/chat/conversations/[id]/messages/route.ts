@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
+import { cleanChatToolContext } from "@/lib/chat/model-context";
 import { actorFromAuth } from "@/lib/chat/http";
 import { createChatStreamLifecycle, hasChatResponse } from "@/lib/chat/stream-lifecycle";
 import { createChatTools } from "@/lib/chat/tools";
@@ -145,13 +146,15 @@ export async function POST(
       model: runtime.model,
       maxOutputTokens: 16_000,
       maxRetries: 2,
-      prepareStep: ({ stepNumber }) =>
-        requiresGrounding && stepNumber === 0
+      prepareStep: ({ stepNumber, messages }) => ({
+        messages: cleanChatToolContext(messages),
+        ...(requiresGrounding && stepNumber === 0
           ? {
               activeTools: ["getInsights"],
               toolChoice: { toolName: "getInsights", type: "tool" },
             }
-          : { toolChoice: "auto" },
+          : { toolChoice: "auto" }),
+      }),
       stopWhen: stepCountIs(input.thinkingMode === "deep" ? 12 : 6),
       tools,
     });
