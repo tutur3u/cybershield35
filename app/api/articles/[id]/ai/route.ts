@@ -14,7 +14,7 @@ import {
 	ZALO_EDITORIAL_TITLE_LIMIT,
 } from "@/lib/zalo/article-content";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(
 	request: Request,
@@ -65,7 +65,9 @@ export async function POST(
 				.join("\n\n"),
 			description: proposal.description,
 			descriptionLimit: ZALO_EDITORIAL_DESCRIPTION_LIMIT,
-			rewriteEvenIfFitting: input.action === "description",
+			// Generation already rewrites and validates the excerpt. Do not spend
+			// another provider call rewriting a complete field a second time.
+			rewriteEvenIfFitting: false,
 			title: proposal.title,
 			titleLimit: ZALO_EDITORIAL_TITLE_LIMIT,
 		}).catch(() => null);
@@ -89,11 +91,14 @@ export async function POST(
 		if (error instanceof z.ZodError) {
 			return Response.json({ error: z.treeifyError(error) }, { status: 400 });
 		}
+		console.error("[article-ai:failed]", {
+			errorType: error instanceof Error ? error.name : "unknown",
+		});
 		return Response.json(
 			{
 				error: publicErrorMessage(
 					error,
-					"Không thể tạo đề xuất bằng AI.",
+					"AI chưa tạo được đề xuất. Nội dung bài viết vẫn được giữ nguyên. Vui lòng thử lại.",
 				),
 			},
 			{ status: 500, headers: authHeaders(auth) },

@@ -4,6 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { APICallError, generateText, Output, streamText } from "ai";
 
 import type { EvidenceItemRow } from "@/lib/db/schema";
+import { generateCompleteArticle } from "@/lib/llm/article-completion";
 import type { ArticleContent } from "@/lib/articles/schemas";
 import type { TuturuuuAdminSession } from "@/lib/auth/tuturuuu-session";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
@@ -647,62 +648,65 @@ export async function generateArticleRevision(options: {
     ? getInteractiveModelRuntime(options.session, options.model)
     : getChatModelRuntime();
   if (!runtime) throw new Error("LLM provider is not configured");
-  const { output } = await generateText({
-    maxOutputTokens:
-      options.action === "expand" || options.action === "draft" ? 6_000 : 4_000,
-    headers: { "X-Tuturuuu-Operation": "article-revision" },
-    model: runtime.model,
-    output: Output.object({ schema: articleAiOutputSchema }),
-    system: [
-      "Bạn là biên tập viên tiếng Việt cho CyberShield35.",
-      "Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
-      "Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
-      "Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
-      "Tiêu đề phải là một dòng độc lập, cụ thể, tự nhiên, không giật gân, tối đa 110 ký tự; tuyệt đối không nối mô tả hoặc câu mở đầu thân bài vào tiêu đề.",
-      "Trích yếu phải tóm tắt nội dung thật của bài bằng một hoặc hai câu hoàn chỉnh, tối đa 180 ký tự; không lặp lại tiêu đề, không bị cắt giữa từ và không chứa ký hiệu trích dẫn.",
-      "Không dùng emoji, icon trang trí hoặc ký tự trình bày có thể không hiển thị trên Zalo.",
-      "Với thao tác tạo mới hoặc mở rộng, thân bài mặc định gồm bốn đến tám đoạn rõ ý và phát triển đủ bối cảnh, bằng chứng, phân tích và kết luận. Với thao tác khác, giữ độ dài phù hợp yêu cầu. Không kéo dài bằng ý lặp hoặc câu chữ chung chung.",
-      "Mỗi đoạn phải kết thúc trọn câu. Giữa các đoạn phải có ranh giới rõ ràng; không nối tiêu đề phụ với câu đầu của đoạn kế tiếp.",
-      "Không lặp lại tiêu đề thành đoạn đầu của thân bài.",
-      "Không chèn ký hiệu trích dẫn dạng [1], [2] hoặc 【1】 vào nội dung; mọi lưu ý kiểm chứng phải nằm trong reviewNotes.",
-      editorialIntentInstruction(options.editorialIntent),
-      NATURAL_VIETNAMESE_WRITING_GUIDANCE,
-    ].join(" "),
-    prompt: JSON.stringify({
-      action: options.action,
-      currentArticle: options.content,
-      editorialIntent: options.editorialIntent,
-      evidence: options.evidence,
-      extraContext: options.context,
-      instruction: options.instruction,
-      outputRequirements: {
-        descriptionOnly:
-          options.action === "description"
-            ? "Chỉ viết lại trích yếu từ nội dung và bằng chứng; giữ nguyên mọi trường khác."
-            : undefined,
-        keepImageBlocksUnlessAsked: true,
-        returnCompleteArticle: true,
-        reviewNotes:
-          "Liệt kê ngắn các điểm cần kiểm tra; claim_check không tự sửa dữ kiện chưa đủ căn cứ.",
-      },
-      tone: options.tone,
-      voice: options.voice,
-      writingBrief: draftWritingBriefForMode(
-        options.generationMode ?? "operator",
-      ),
-    }),
+  return generateCompleteArticle(options.action, async (repairInstructions, attempt) => {
+    const result = await generateText({
+      abortSignal: AbortSignal.timeout(45_000),
+      maxRetries: 1,
+      maxOutputTokens:
+        attempt > 0 || options.action === "expand" || options.action === "draft" ? 12_000 : 6_000,
+      headers: { "X-Tuturuuu-Operation": "article-revision" },
+      model: runtime.model,
+      output: Output.object({ schema: articleAiOutputSchema }),
+      system: [
+        "Bạn là biên tập viên tiếng Việt cho CyberShield35.",
+        "Viết tự nhiên, mạch lạc, đúng ngữ cảnh Việt Nam và chỉ dùng các bằng chứng được cung cấp.",
+        "Không dịch từng chữ, không dùng giọng hành chính máy móc, không lặp lại kết luận và không tiết lộ quy trình nội bộ.",
+        "Giữ nguyên tác giả và URL ảnh được cung cấp; nếu không có ảnh thì coverUrl là null. Không bịa tên cơ quan, dịch vụ, động cơ hoặc chi tiết chưa có trong nguồn. Nguồn không đề cập một thay đổi không có nghĩa là xác nhận mọi thứ giữ nguyên; phải giữ đúng mức độ chắc chắn và nêu rõ điều chưa biết.",
+        "Không tự xuất bản. Mọi đầu ra là bản đề xuất để con người xem xét.",
+        "Tiêu đề phải là một dòng độc lập, cụ thể, tự nhiên, không giật gân, tối đa 110 ký tự; tuyệt đối không nối mô tả hoặc câu mở đầu thân bài vào tiêu đề.",
+        "Trích yếu phải tóm tắt nội dung thật của bài bằng một hoặc hai câu hoàn chỉnh, tối đa 180 ký tự; không lặp lại tiêu đề, không bị cắt giữa từ và không chứa ký hiệu trích dẫn.",
+        "Không dùng emoji, icon trang trí hoặc ký tự trình bày có thể không hiển thị trên Zalo.",
+        "Với thao tác tạo mới hoặc mở rộng, thân bài mặc định gồm bốn đến tám đoạn rõ ý và phát triển đủ bối cảnh, bằng chứng, phân tích và kết luận. Với thao tác khác, giữ độ dài phù hợp yêu cầu. Không kéo dài bằng ý lặp hoặc câu chữ chung chung.",
+        "Viết bài hoàn chỉnh từ đầu đến cuối, không để TODO, chỗ trống, lời hẹn biên tập viên bổ sung hoặc yêu cầu người viết hoàn thiện. Nếu nguồn thiếu dữ kiện, nêu giới hạn đó tự nhiên và kết luận trong phạm vi có căn cứ; không bịa thêm thông tin.",
+        "Mỗi đoạn phải kết thúc trọn câu. Giữa các đoạn phải có ranh giới rõ ràng; không nối tiêu đề phụ với câu đầu của đoạn kế tiếp.",
+        "Không lặp lại tiêu đề thành đoạn đầu của thân bài.",
+        "Không chèn ký hiệu trích dẫn dạng [1], [2] hoặc 【1】 vào nội dung; mọi lưu ý kiểm chứng phải nằm trong reviewNotes.",
+        editorialIntentInstruction(options.editorialIntent),
+        NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+      ].join(" "),
+      prompt: JSON.stringify({
+        action: options.action,
+        repairInstructions: repairInstructions.length ? repairInstructions : undefined,
+        currentArticle: options.content,
+        editorialIntent: options.editorialIntent,
+        evidence: options.evidence,
+        extraContext: options.context,
+        instruction: options.instruction,
+        outputRequirements: {
+          descriptionOnly:
+            options.action === "description"
+              ? "Chỉ viết lại trích yếu từ nội dung và bằng chứng; giữ nguyên mọi trường khác."
+              : undefined,
+          blockFormat: {
+            text: { id: "text-1", type: "text", content: "Nội dung đoạn văn hoàn chỉnh." },
+            image: { id: "image-1", type: "image", url: "Giữ URL ảnh có sẵn trong currentArticle", caption: "Chú thích nếu có" },
+            rule: "blocks phải là mảng object có id, type và content (văn bản) hoặc url (ảnh); tuyệt đối không trả về mảng chuỗi. Dùng id duy nhất cho từng khối. Ví dụ chỉ mô tả cấu trúc, không sao chép nội dung ví dụ.",
+          },
+          keepImageBlocksUnlessAsked: true,
+          returnCompleteArticle: true,
+          reviewNotes:
+            "Liệt kê ngắn các điểm cần kiểm tra; claim_check không tự sửa dữ kiện chưa đủ căn cứ.",
+        },
+        tone: options.tone,
+        voice: options.voice,
+        writingBrief: {
+          ...draftWritingBriefForMode(options.generationMode ?? "operator"),
+          format: "Với draft hoặc expand, viết bốn đến tám đoạn văn trọn ý có kết luận; với thao tác khác, giữ cấu trúc phù hợp yêu cầu.",
+        },
+      }),
+    });
+    return { output: result.output, finishReason: result.finishReason };
   });
-  return {
-    ...output,
-    author: cleanDraftContent(output.author),
-    blocks: output.blocks.map((block) =>
-      block.type === "text"
-        ? { ...block, content: cleanDraftContent(block.content) }
-        : block,
-    ),
-    description: cleanDraftContent(output.description),
-    title: cleanDraftContent(output.title),
-  };
 }
 
 function editorialIntentInstruction(

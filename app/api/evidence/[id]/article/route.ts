@@ -3,9 +3,9 @@ import { z } from "zod";
 
 import {
 	buildAutomatedArticleSeed,
-	fitArticleContentFields,
 	normalizeAutomatedArticleContent,
 } from "@/lib/articles/automation-content";
+import { articleCompletionIssues, ArticleGenerationError } from "@/lib/llm/article-completion";
 import { createArticle, setArticleReviewStatus } from "@/lib/articles/store";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { actorFromAuth } from "@/lib/chat/http";
@@ -27,7 +27,7 @@ const bodySchema = z
 			.optional(),
 		instruction: z.string().trim().max(2_000).optional(),
 		tone: z.string().trim().min(1).max(120).default("Điềm tĩnh, khách quan"),
-		useAi: z.boolean().default(true),
+		useAi: z.literal(true).default(true),
 		voice: z.string().trim().min(1).max(120).default("Tự nhiên, gần gũi"),
 	})
 	.strict();
@@ -80,7 +80,7 @@ export async function POST(
 					? ("response" as const)
 					: ("internal_brief" as const);
 		const seed = buildAutomatedArticleSeed({
-			body: scaffoldBody(evidence, intent),
+			body: "",
 			draftKind,
 			evidence: {
 				metadata: evidence.metadata as Record<string, unknown>,
@@ -89,40 +89,36 @@ export async function POST(
 			},
 		});
 
-		let content = seed;
-		let mode: "ai" | "scaffold" = "scaffold";
-		if (input.useAi) {
-			try {
-				const proposal = await generateArticleRevision({
-					action: "draft",
-					content: seed,
-					editorialIntent: intent,
-					evidence: [
-						{
-							id: evidence.id,
-							quote: evidence.quote,
-							summary: evidence.summary,
-						},
-					],
-					generationMode: "operator",
-					instruction:
-						input.instruction ??
-						"Viết bản đầu hoàn chỉnh, tự nhiên, bám sát bằng chứng đang mở để biên tập viên hoàn thiện. Không nhắc đến quy trình tự động.",
-					session: auth.session,
-					tone: input.tone,
-					voice: input.voice,
-				});
-				content = normalizeAutomatedArticleContent(seed, proposal);
-				mode = "ai";
-			} catch {
-				// A scaffold from the evidence itself is a usable starting point when the
-				// model is unavailable; the operator can still edit and publish.
+		let content;
+		try {
+			const proposal = await generateArticleRevision({
+				action: "draft",
+				content: seed,
+				editorialIntent: intent,
+				evidence: [{ id: evidence.id, quote: evidence.quote, summary: evidence.summary }],
+				generationMode: "operator",
+				instruction: input.instruction ??
+					"Viết bài hoàn chỉnh từ đầu đến cuối, bám sát nguồn, có phân tích và kết luận trọn ý. Không để chỗ trống hoặc yêu cầu người viết bổ sung nội dung.",
+				session: auth.session,
+				tone: input.tone,
+				voice: input.voice,
+			});
+			content = normalizeAutomatedArticleContent(seed, proposal);
+			// Validate the representation that will actually be stored, too.
+			if (articleCompletionIssues(content, "draft").length) {
+				throw new ArticleGenerationError();
 			}
+		} catch (error) {
+			console.error("[article-generation:failed]", {
+				evidenceId: id,
+				errorType: error instanceof Error ? error.name : "unknown",
+			});
+			// Never persist a source excerpt or a template as a successful AI draft.
+			return Response.json(
+				{ error: "AI chưa tạo được bài viết hoàn chỉnh. Chưa lưu bài viết. Vui lòng thử lại.", code: "ARTICLE_GENERATION_FAILED" },
+				{ status: 502, headers: authHeaders(auth) },
+			);
 		}
-
-		// The seed title is lifted from the source post and routinely runs past the
-		// Zalo caps; rewrite it to fit rather than shipping a clipped fragment.
-		content = await fitArticleContentFields(content);
 
 		const [defaultOa] = await adminDb
 			.select({ id: zaloOaConnections.id })
@@ -152,7 +148,7 @@ export async function POST(
 		);
 
 		return Response.json(
-			{ article, href: `/articles/${article.id}`, mode },
+			{ article, href: `/articles/${article.id}`, mode: "ai" },
 			{ status: 201, headers: authHeaders(auth) },
 		);
 	} catch (error) {
@@ -184,27 +180,4 @@ async function pageClassification(evidence: typeof evidenceItems.$inferSelect) {
 		.where(eq(facebookPageProfiles.pageKey, identity.pageKey))
 		.limit(1);
 	return profile?.classification ?? ("uncategorized" as const);
-}
-
-function scaffoldBody(
-	evidence: typeof evidenceItems.$inferSelect,
-	intent: "balanced" | "counter_argument" | "support",
-) {
-	const opener =
-		intent === "counter_argument"
-			? "Thông tin đang lan truyền cần được đối chiếu lại với dữ kiện đã ghi nhận."
-			: intent === "support"
-				? "Nội dung dưới đây đã được ghi nhận và có giá trị tham khảo cho người đọc."
-				: "Dưới đây là những gì đã ghi nhận được quanh nội dung đang được chia sẻ.";
-
-	return [
-		opener,
-		evidence.summary?.trim(),
-		evidence.quote?.trim()
-			? `Trích nội dung gốc: “${evidence.quote.trim().slice(0, 600)}”`
-			: "",
-		"Phần phân tích, dữ kiện bổ sung và kết luận sẽ được biên tập viên hoàn thiện tại đây.",
-	]
-		.filter(Boolean)
-		.join("\n\n");
 }

@@ -59,7 +59,7 @@ export type ArticleListFilters = {
 export type EvidenceArticleCreation = {
 	article: { id: string };
 	href: string;
-	mode: "ai" | "scaffold";
+	mode: "ai";
 };
 
 export function createArticleFromEvidence(evidenceId: string) {
