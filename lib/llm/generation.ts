@@ -687,6 +687,11 @@ export async function generateArticleRevision(options: {
       ].join(" "),
       prompt: JSON.stringify({
         action: options.action,
+        actionScope: options.action === "claim_check"
+          ? "Giữ nguyên mọi trường của currentArticle. Chỉ thêm reviewNotes để chỉ ra luận điểm có hoặc thiếu căn cứ; không viết lại bài."
+          : options.action === "title_description" || options.action === "description"
+            ? "Chỉ chỉnh trường tiêu đề/trích yếu được yêu cầu; giữ nguyên thân bài, tác giả và ảnh."
+            : undefined,
         outputSchema: z.toJSONSchema(articleAiOutputSchema),
         repairInstructions: repairInstructions.length ? repairInstructions : undefined,
         currentArticle: options.action === "draft" && options.evidence.length

@@ -5,6 +5,7 @@ import {
 	articleIdSchema,
 } from "@/lib/articles/schemas";
 import { getArticleDetail } from "@/lib/articles/store";
+import { scopeArticleProposal } from "@/lib/articles/ai-action-scope";
 import { authHeaders, requireAdminSession } from "@/lib/auth/require-admin";
 import { publicErrorMessage } from "@/lib/http/public-error";
 import { generateArticleRevision } from "@/lib/llm/generation";
@@ -75,12 +76,13 @@ export async function POST(
 			proposal.description = fitted.description;
 			if (input.action !== "description") proposal.title = fitted.title;
 		}
+		const scopedProposal = scopeArticleProposal(input.action, currentContent, proposal);
 
 		return Response.json(
 			{
-				proposal,
+				proposal: scopedProposal,
 				summary: {
-					blockCountAfter: proposal.blocks.length,
+					blockCountAfter: scopedProposal.blocks.length,
 					blockCountBefore: detail.article.blocks.length,
 					contentHashBefore: detail.article.contentHash,
 				},

@@ -360,7 +360,8 @@ export async function getScanDetail(id: string) {
 			})
 			.from(evidenceItems)
 			.where(eq(evidenceItems.scanJobId, id))
-			.orderBy(desc(evidenceItems.createdAt)),
+			// Match paginated reads when a scan inserts many rows at the same instant.
+			.orderBy(desc(evidenceItems.createdAt), desc(evidenceItems.id)),
 		adminDb
 			.select()
 			.from(counterArgumentDrafts)
