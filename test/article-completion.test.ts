@@ -190,3 +190,22 @@ test("rejects invented start dates and frequency while allowing source-supported
     expect(unsupportedAttributionIssues(invented, "Thư viện mở thêm sáng thứ Bảy.")).toHaveLength(2);
     expect(unsupportedAttributionIssues(invented, "Thư viện mở thêm sáng thứ Bảy từ tuần tới, mỗi tuần.")).toEqual([]);
 });
+
+test("repairs rejected public wording without policing untouched fields or review notes", async () => {
+  const robotic = "Theo đạo và bị phạt tù chưa có nghĩa là bị phạt tù vì theo đạo.";
+  const approved = "Niềm tin tôn giáo không phải là lý do để phán xét một người.";
+  let calls = 0;
+  const result = await generateCompleteArticle("description", async (instructions) => {
+    calls += 1;
+    if (calls === 2) expect(instructions.join(" ")).toContain("câu khuôn mẫu");
+    return { output: { ...complete, description: calls === 1 ? robotic : approved }, finishReason: "stop" };
+  });
+  expect(calls).toBe(2);
+  expect(result.description).toBe(approved);
+  const legacy = { ...complete, title:"Đọc đủ thông tin trước khi kết luận", blocks:withBody(robotic).blocks };
+  expect(articleCompletionIssues(legacy,"description")).toEqual([]);
+  expect(articleCompletionIssues(legacy,"title_description").length).toBeGreaterThan(0);
+  expect(articleCompletionIssues(legacy,"draft").length).toBeGreaterThan(0);
+  const withNotes = {...complete,reviewNotes:["Hồ sơ hiện có chưa đủ để xác minh."]};
+  expect(articleCompletionIssues(withNotes,"claim_check")).toEqual([]);
+});

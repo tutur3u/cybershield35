@@ -16,6 +16,7 @@ import {
   draftWritingBriefForMode,
   type DraftGenerationMode,
   NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+  PUBLIC_POST_WRITING_GUIDANCE,
 } from "@/lib/domain/draft-style";
 import { type DraftKind, draftIntentGuidance } from "@/lib/domain/draft-intent";
 import {
@@ -318,7 +319,7 @@ export async function generateCounterArgument(
     maxOutputTokens: 8192,
     model: runtime.model,
     output: Output.object({ schema: counterArgumentOutputSchema }),
-    system: `You create internal communication drafts for human review. Follow the requested editorial intent exactly. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose; citations are returned separately. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
+    system: `You create internal communication drafts for human review. Follow the requested editorial intent exactly. Use only supplied evidence, avoid unsupported claims and demographic targeting, never publish or automate posting, and write in Vietnamese unless another language is requested. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose; citations are returned separately. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE} ${PUBLIC_POST_WRITING_GUIDANCE}`,
     prompt: JSON.stringify({
       audience: options.audience,
       draftKind,
@@ -422,7 +423,7 @@ export async function reviseCounterArgument(options: {
     maxOutputTokens: 8192,
     model: runtime.model,
     output: Output.object({ schema: counterArgumentOutputSchema }),
-    system: `You revise internal communication drafts for human review. Follow the operator's editing instruction and the selected editorial intent while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE}`,
+    system: `You revise internal communication drafts for human review. Follow the operator's editing instruction and the selected editorial intent while using only supplied evidence. Preserve accurate claims, avoid demographic targeting, never publish or automate posting, and write in the requested language. Do not place numeric citation markers such as [1], [2], or 【1】 inside the prose. ${NATURAL_VIETNAMESE_WRITING_GUIDANCE} ${PUBLIC_POST_WRITING_GUIDANCE}`,
     prompt: JSON.stringify({
       audience: options.audience,
       currentBody: options.currentBody,
@@ -687,6 +688,7 @@ export async function generateArticleRevision(options: {
         "Không chèn ký hiệu trích dẫn dạng [1], [2] hoặc 【1】 vào nội dung; mọi lưu ý kiểm chứng phải nằm trong reviewNotes.",
         editorialIntentInstruction(options.editorialIntent),
         NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+        PUBLIC_POST_WRITING_GUIDANCE,
       ].join(" "),
       prompt: JSON.stringify({
         action: options.action,

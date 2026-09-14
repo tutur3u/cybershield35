@@ -7,10 +7,19 @@ export function hasEditorialPlaceholder(text: string): boolean {
     return PLACEHOLDER.test(text);
 }
 
+/** Narrow editorial regressions, not a general measure of writing quality. */
+export function readerFacingStyleIssues(content: ArticleContent): string[] {
+    const text = [content.title, content.description, ...content.blocks.flatMap(block => block.type === "text" ? [block.content] : [])].join(" ").normalize("NFC").replace(/\s+/gu, " ");
+    if (/hồ sơ hiện có chưa đủ|đọc đủ thông tin trước khi kết luận|cần được bàn từ việc của từng người|theo đạo và bị phạt tù chưa có nghĩa là bị phạt tù vì theo đạo/iu.test(text)) {
+        return ["Viết lại câu khuôn mẫu bằng một ý rõ ràng, gần gũi với độc giả; bỏ cách chơi chữ và lời hướng dẫn đọc tin. Giữ quy nguồn đúng chỗ; chuyển việc cần kiểm tra vào reviewNotes. Không chỉ thay vài từ đồng nghĩa."];
+    }
+    return [];
+}
+
 /** Conservative checks shared by generation and recovery of legacy templates. */
 export function publicWritingIssues(content: ArticleContent): string[] {
     const text = [content.description, ...content.blocks.flatMap(block => block.type === "text" ? [block.content] : [])].join("\n");
-    const issues: string[] = [];
+    const issues: string[] = readerFacingStyleIssues(content);
     if (hasEditorialPlaceholder(text)) issues.push("Hoàn thiện nội dung còn để trống hoặc hẹn biên tập viên viết tiếp.");
     if (/(?:^|\n)\s*(?:Trích nội dung gốc:|Dựa trên (?:các )?bằng chứng được cung cấp|Bài viết (?:này )?(?:phân tích|sẽ trình bày)|Thông tin đang lan truyền cần được đối chiếu lại với dữ kiện đã ghi nhận)/iu.test(text)) {
         issues.push("Viết trực tiếp cho độc giả: thay lời giới thiệu bài viết, bản trích nguồn và ghi chú nội bộ bằng nội dung báo chí có chủ thể, diễn biến và kết luận cụ thể.");

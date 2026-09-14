@@ -2,6 +2,7 @@ import { generateText, Output } from "ai";
 import { z } from "zod";
 
 import { fitTextToLimit, isCleanlyFitted } from "@/lib/domain/text-fit";
+import { PUBLIC_POST_WRITING_GUIDANCE } from "@/lib/domain/draft-style";
 import { getRiskModelRuntime } from "@/lib/llm/generation";
 
 export type FittedHeadline = {
@@ -73,7 +74,7 @@ export async function fitArticleHeadline(input: {
 						},
 						task: "Viết lại tiêu đề và trích yếu sao cho vừa giới hạn ký tự mà vẫn là câu hoàn chỉnh.",
 					}),
-					system: HEADLINE_SYSTEM_PROMPT,
+					system: `${HEADLINE_SYSTEM_PROMPT}\n\n${PUBLIC_POST_WRITING_GUIDANCE}\nChỉ trả tiêu đề và trích yếu theo schema; không thêm ghi chú hoặc URL vào hai trường này.`,
 					temperature: attempt === 1 ? 0.2 : 0,
 				});
 				const fittedTitle = collapse(output.title);

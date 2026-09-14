@@ -1,5 +1,5 @@
 import { NoObjectGeneratedError } from "ai";
-import { hasEditorialPlaceholder, publicWritingIssues } from "@/lib/articles/draft-quality";
+import { hasEditorialPlaceholder, publicWritingIssues, readerFacingStyleIssues } from "@/lib/articles/draft-quality";
 
 import type { ArticleContent } from "@/lib/articles/schemas";
 import { cleanDraftContent } from "@/lib/domain/draft-content";
@@ -40,7 +40,16 @@ export function articleCompletionIssues(
 			"Viết trích yếu thành câu hoàn chỉnh trong 300 ký tự, không có chỗ trống.",
 		);
 	}
-	if (!BODY_ACTIONS.has(action)) return issues;
+	if (!BODY_ACTIONS.has(action)) {
+		if (action === "description" || action === "title_description") {
+			issues.push(...readerFacingStyleIssues({
+				...content,
+				title: action === "description" ? "" : content.title,
+				blocks: [],
+			}));
+		}
+		return issues;
+	}
 	issues.push(...publicWritingIssues(content));
 	const paragraphs = content.blocks.flatMap((block) =>
 		block.type === "text"
