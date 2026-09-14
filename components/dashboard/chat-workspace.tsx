@@ -834,7 +834,11 @@ function ConversationWorkspace({
                 maxFiles={5}
                 maxFileSize={25 * 1024 * 1024}
                 multiple
-                onError={(error) => setComposerError(error.message)}
+                onError={(error) => setComposerError({
+                  accept: "Định dạng tệp chưa được hỗ trợ. Chọn tài liệu văn bản, PDF, Office hoặc ảnh PNG, JPEG, WebP.",
+                  max_file_size: "Tệp quá lớn. Mỗi tệp được tối đa 25 MB.",
+                  max_files: "Mỗi tin nhắn được tối đa 5 tệp. Một số tệp chưa được thêm.",
+                }[error.code])}
                 onSubmit={submit}
               >
                 <PromptInputHeader

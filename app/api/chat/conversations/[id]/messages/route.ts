@@ -26,6 +26,7 @@ import { adminDb } from "@/lib/db/client";
 import { getIntelligenceOverview } from "@/lib/dashboard/intelligence-server";
 import { chatAttachments, chatModelRuns } from "@/lib/db/schema";
 import { getInteractiveModelRuntime } from "@/lib/llm/generation";
+import { NATURAL_VIETNAMESE_WRITING_GUIDANCE } from "@/lib/domain/draft-style";
 
 export const maxDuration = 90;
 
@@ -124,6 +125,8 @@ export async function POST(
       instructions: [
         "Bạn là Chat nội bộ của CyberShield35.",
         "Trả lời bằng tiếng Việt tự nhiên, mạch lạc, đúng trọng tâm và dùng công cụ để kiểm tra dữ liệu thay vì suy đoán.",
+        NATURAL_VIETNAMESE_WRITING_GUIDANCE,
+        "Khi soạn bài cho công chúng, viết trọn vẹn nội dung có thể đọc độc lập; không để chỗ trống hay yêu cầu biên tập viên viết tiếp. Không tự thêm địa chỉ, lịch, lời chuyên gia hoặc hoạt động chưa có trong nguồn. Phân biệt rõ văn bản đề xuất trong Chat với bản nháp đã được công cụ lưu thành công.",
         "Hoàn tất yêu cầu ngay trong lượt hiện tại. Không được chỉ nói rằng đang kiểm tra, sẽ xử lý hoặc sẽ quay lại; câu hỏi về dữ liệu mới nhất, hiện tại hoặc trong workspace bắt buộc phải gọi công cụ phù hợp rồi mới kết luận.",
         chatModeInstruction(input.mode),
         thinkingModeInstruction(input.thinkingMode),
@@ -139,6 +142,8 @@ export async function POST(
       ].join("\n"),
       temperature: conversation.temperature / 100,
       model: runtime.model,
+      maxOutputTokens: 16_000,
+      maxRetries: 2,
       prepareStep: ({ stepNumber }) =>
         requiresGrounding && stepNumber === 0
           ? {
