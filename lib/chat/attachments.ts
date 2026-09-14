@@ -263,6 +263,29 @@ export async function searchAttachmentChunks(
 		.limit(Math.min(Math.max(limit, 1), 12));
 }
 
+export async function getChatAttachmentContext(conversationId: string, attachmentIds: string[]) {
+	// Read each file separately so one large upload cannot consume every excerpt.
+	const files = await Promise.all(attachmentIds.slice(0, 5).map(async (attachmentId) => {
+		const rows = await adminDb
+			.select({ content: chatAttachmentChunks.content, fileName: chatAttachments.fileName })
+			.from(chatAttachmentChunks)
+			.innerJoin(chatAttachments, eq(chatAttachments.id, chatAttachmentChunks.attachmentId))
+			.where(and(
+				eq(chatAttachments.conversationId, conversationId),
+				eq(chatAttachments.id, attachmentId),
+				eq(chatAttachments.status, "ready"),
+			))
+			.orderBy(chatAttachmentChunks.ordinal)
+			.limit(4);
+		return rows.length ? {
+			attachmentId,
+			fileName: rows[0]!.fileName,
+			excerpt: rows.map((row) => row.content).join("\n").slice(0, 4_000),
+		} : null;
+	}));
+	return files.filter((file) => file !== null);
+}
+
 function orTextSearch(query: string) {
 	return query.split(/\s+/u).filter(Boolean).length > 1
 		? sql`to_tsvector('simple', ${chatAttachmentChunks.content}) @@ plainto_tsquery('simple', ${query})`
