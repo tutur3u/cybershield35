@@ -70,8 +70,8 @@ export function OverviewPage({
 			/>
 			<WorkflowStrip pipeline={pipelineQuery.data} />
 
-			<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
-				<div className="space-y-5">
+			<div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
+				<div className="min-w-0 space-y-5">
 					<AttentionPanel filters={filters} />
 					<IntelligenceActivityStream compact limit={4} />
 					<Link
@@ -81,7 +81,7 @@ export function OverviewPage({
 						Xem thêm hoạt động →
 					</Link>
 				</div>
-				<div className="space-y-5">
+				<div className="min-w-0 space-y-5">
 					<UsageSummary />
 					<section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
 						<h2 className="font-semibold">Lối tắt công việc</h2>
