@@ -2,7 +2,11 @@
 
 `/usage` combines recorded costs for CS35 and shows all-time, 30 UTC calendar days
 including today, current-month and current-day totals. Analytics can switch between
-30 days and all retained history. CSV exports the underlying provider/model/day
+30 days, the current UTC month and all retained history. The selected-period summary,
+provider/service/activity breakdowns, invoice table and CSV use the same date boundary.
+The summary separates recorded usage from reviewed paid invoices; a provider with
+no rows in the selected period displays missing data rather than a zero-dollar bill.
+CSV exports the selected underlying provider/model/day
 lines, including the data source, without credentials.
 
 ## Display currency and invoice snapshots
@@ -57,6 +61,10 @@ connection or install a new persistent credential.
 - Firecrawl and Neon: usage counters do not establish historical USD charges.
   These remain visible coverage gaps until invoice data is connected. Unknown
   costs are never represented as confirmed free usage.
+- Cloudflare: retain reviewed CS35-attributed ledger costs under `cloudflare`.
+  A configured Worker, D1 binding or free allowance does not establish the bill.
+  Shared account charges require reviewed allocation. Historical Vercel and Neon
+  costs remain visible when hosting changes; migration does not erase expenses.
 
 On 2026-09-07 the authenticated Firecrawl billing dashboard for the configured
 CS35 key showed Free ($0/month), no payment method, and no invoices. This is a

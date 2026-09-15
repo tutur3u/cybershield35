@@ -70,13 +70,17 @@ export async function getUsageOverview(
 					? "Vercel"
 					: row.provider === "browser_use"
 						? "Browser Use"
-						: row.provider,
+						: row.provider === "cloudflare"
+							? "Cloudflare"
+							: row.provider,
 		service:
 			row.provider === "vercel"
 				? row.account_id.replace(/^prj_[^-]+-/, "").replaceAll("_", " ")
 				: row.provider === "browser_use"
 					? "Phiên trình duyệt"
-					: "Thu thập & lưu trữ",
+					: row.provider === "cloudflare"
+						? "Hạ tầng Cloudflare"
+						: "Thu thập & lưu trữ",
 		mode: "Nhà cung cấp",
 		amountUsd: Number(row.amount),
 		requests: 0,
@@ -87,7 +91,9 @@ export async function getUsageOverview(
 				? "vercel_billed_cost"
 				: row.provider === "browser_use"
 					? "browser_use_saved_usage"
-					: "apify_account_api",
+					: row.provider === "apify"
+						? "apify_account_api"
+						: `${row.provider}_saved_usage`,
 	}));
 	for (const row of ai.data?.rows ?? [])
 		expenses.push({

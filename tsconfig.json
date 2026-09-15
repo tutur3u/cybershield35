@@ -1,6 +1,7 @@
 {
   "extends": "@tuturuuu/typescript-config/nextjs.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./*"
@@ -16,6 +17,9 @@
     "**/*.mts"
   ],
   "exclude": [
+    ".open-next",
+    ".wrangler",
+    "migration-private",
     "node_modules",
     "test"
   ]

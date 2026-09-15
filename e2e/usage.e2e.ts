@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { expenseAnalytics } from "../lib/costs/expense-analytics";
 import { summarizeUsage } from "../lib/costs/usage";
 const now = new Date("2026-09-07T12:00:00Z");
@@ -89,6 +90,21 @@ test("usage ledger, periods, export and responsive layouts", async ({
 		.locator("tbody tr")
 		.count();
 	expect(recentCount).toBeLessThanOrEqual(30);
+	const recentDownload = page.waitForEvent("download");
+	await page.getByRole("button", { name: "Xuất CSV" }).click();
+	const recentExport = await recentDownload;
+	const exportedText = await readFile((await recentExport.path())!, "utf8");
+	expect(exportedText).toContain("2026-09-07");
+	expect(exportedText).not.toContain("2026-08-01");
+	await page.getByLabel("Khoảng thời gian chi phí").selectOption("month");
+	await expect(
+		page.getByRole("region", { name: "Chi phí trong khoảng đã chọn" }),
+	).toContainText("Tháng này");
+	await expect(
+		page
+			.getByRole("table", { name: "Lịch sử chi phí hàng ngày" })
+			.locator("tbody tr"),
+	).toHaveCount(1);
 	await page.getByLabel("Khoảng thời gian chi phí").selectOption("all");
 	expect(
 		await page
@@ -159,6 +175,19 @@ test("usage failure is retryable and does not show zero costs", async ({
 test("overview prioritizes workload and links to first-class usage", async ({
 	page,
 }, info) => {
+	await page.route("**/api/dashboard/pipeline", (route) =>
+		route.fulfill({
+			json: {
+				pipeline: {
+					sources: { active: 2, total: 3 },
+					scans: { queued: 1, running: 0, completedToday: 2, failedToday: 0 },
+					timeline: { collectedToday: 4, highRiskOpen: 0 },
+					drafts: { pending: 1 },
+					articles: { awaitingReview: 1, readyForZalo: 0, liveOnZalo: 2 },
+				},
+			},
+		}),
+	);
 	await page.goto("/");
 	await expect(
 		page.getByRole("heading", { name: "Nhịp công việc" }),

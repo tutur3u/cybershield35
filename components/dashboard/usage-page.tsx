@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Coins, Download, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import {
+	selectCostPeriod,
+	summarizeCostPeriod,
+	type CostPeriod,
+} from "@/lib/costs/period";
 import type { UsageOverview } from "@/lib/costs/usage";
 import { PageHeader } from "./page-header";
 import { ProviderCostPanel } from "./provider-cost-panel";
@@ -63,10 +68,20 @@ export function UsagePage() {
 	const query = useQuery(usageQueryOptions);
 	const cost = useCostCurrency();
 	const usd = cost.format;
-	const [period, setPeriod] = useState<"30" | "all">("30");
+	const [period, setPeriod] = useState<CostPeriod>("30");
 	const data = query.data;
 	const bill = data?.bill;
-	const rows = bill ? (period === "30" ? bill.recentDays : bill.days) : [];
+	const rows = bill ? selectCostPeriod(bill.days, period, bill.today) : [];
+	const selected = bill
+		? summarizeCostPeriod(bill.lines, period, bill.today)
+		: null;
+	const selectedInvoices =
+		data?.invoices?.filter(
+			(invoice) =>
+				bill &&
+				selectCostPeriod([{ day: invoice.issuedOn }], period, bill.today)
+					.length > 0,
+		) ?? [];
 	const chart = bill
 		? Array.from({ length: 30 }, (_, index) => {
 				const date = new Date(`${bill.from}T00:00:00Z`);
@@ -88,7 +103,7 @@ export function UsagePage() {
 				.replaceAll('"', '""')}"`;
 		const csv = [
 			"day_utc,provider,service,mode,amount_usd,requests,input_tokens,output_tokens,source,display_currency,display_amount,usd_to_display_rate,rate_updated_at",
-			...bill.lines.map((row) =>
+			...selectCostPeriod(bill.lines, period, bill.today).map((row) =>
 				[
 					row.day,
 					row.provider,
@@ -116,7 +131,7 @@ export function UsagePage() {
 		);
 		const link = document.createElement("a");
 		link.href = url;
-		link.download = `cs35-usage-${bill.today}.csv`;
+		link.download = `cs35-usage-${period}-${bill.today}.csv`;
 		link.click();
 		URL.revokeObjectURL(url);
 	};
@@ -134,7 +149,10 @@ export function UsagePage() {
 						>
 							<RefreshCw size={15} /> Làm mới
 						</SecondaryButton>
-						<SecondaryButton disabled={!bill?.lines.length} onClick={download}>
+						<SecondaryButton
+							disabled={!selected?.lines.length}
+							onClick={download}
+						>
 							<Download size={15} /> Xuất CSV
 						</SecondaryButton>
 					</>
@@ -149,7 +167,7 @@ export function UsagePage() {
 				<>
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<p className="text-xs text-[var(--muted)]">
-							Sổ gốc USD · Ngày UTC · Tài khoản dành riêng cho CS35
+							Sổ gốc USD · Ngày UTC · Chi phí đã ghi nhận
 						</p>
 						<label className="flex items-center gap-2 text-sm text-[var(--muted)]">
 							Phân tích
@@ -157,16 +175,66 @@ export function UsagePage() {
 								aria-label="Khoảng thời gian chi phí"
 								value={period}
 								onChange={(event) =>
-									setPeriod(event.target.value as "30" | "all")
+									setPeriod(event.target.value as CostPeriod)
 								}
 								className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--foreground)]"
 							>
 								<option value="30">30 ngày</option>
+								<option value="month">Tháng này</option>
 								<option value="all">Toàn thời gian</option>
 							</select>
 						</label>
 					</div>
 					<CostCurrencyControl />
+					{selected && (
+						<section
+							aria-label="Chi phí trong khoảng đã chọn"
+							className="grid gap-6 rounded-2xl border border-[var(--accent)] bg-[var(--accent-soft)] p-6 sm:grid-cols-[1.3fr_1fr]"
+						>
+							<div>
+								<p className="text-sm font-semibold text-[var(--muted-strong)]">
+									{period === "30"
+										? "30 ngày gần nhất"
+										: period === "month"
+											? "Tháng này"
+											: "Toàn bộ lịch sử"}
+								</p>
+								<p className="mt-3 break-words text-4xl font-semibold tracking-tight tabular-nums">
+									{selected.lines.length
+										? usd(selected.total)
+										: "Chưa ghi nhận"}
+								</p>
+								<p className="mt-3 text-sm text-[var(--muted)]">
+									{selected.providers} nhà cung cấp · {selected.recordedDays}{" "}
+									ngày có dữ liệu
+								</p>
+							</div>
+							<dl className="space-y-3 self-center text-sm">
+								<div className="flex flex-wrap justify-between gap-2">
+									<dt>Chi phí sử dụng đã ghi nhận</dt>
+									<dd className="font-semibold tabular-nums">
+										{selected.lines.length
+											? usd(selected.meteredTotal)
+											: "Chưa ghi nhận"}
+									</dd>
+								</div>
+								<div className="flex flex-wrap justify-between gap-2">
+									<dt>Hóa đơn đã đối soát</dt>
+									<dd className="font-semibold tabular-nums">
+										{selected.lines.some(
+											(row) => row.source === "reviewed_provider_invoice",
+										)
+											? usd(selected.invoiceTotal)
+											: "Chưa nhập"}
+									</dd>
+								</div>
+								<div className="border-t border-[var(--border)] pt-3 text-xs leading-5 text-[var(--muted)]">
+									Tổng theo dữ liệu hiện có. Bảng chi tiết và CSV cùng dùng
+									khoảng thời gian đã chọn.
+								</div>
+							</dl>
+						</section>
+					)}
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 						{[
 							{
@@ -223,13 +291,22 @@ export function UsagePage() {
 						dưới.
 					</div>
 					<UsageBreakdown data={data} period={period} />
-					{Boolean(data.invoices?.length) && (
+					{selectedInvoices.length > 0 && (
 						<Panel>
 							<PanelHeader
 								title="Hóa đơn đã đối soát"
 								description="Bản chụp hóa đơn đã thanh toán được gửi cùng tác vụ đồng bộ chi phí. Xem biên nhận đã lưu tại mục Tích hợp trong Tuturuuu; hóa đơn mới vẫn cần đối soát và nhập."
 							/>
-              {data.integrationsUrl && <a href={data.integrationsUrl} target="_blank" rel="noreferrer" className="mx-5 mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent-strong)]">Xem biên nhận trong Tuturuuu <ArrowUpRight size={15} /></a>}
+							{data.integrationsUrl && (
+								<a
+									href={data.integrationsUrl}
+									target="_blank"
+									rel="noreferrer"
+									className="mx-5 mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent-strong)]"
+								>
+									Xem biên nhận trong Tuturuuu <ArrowUpRight size={15} />
+								</a>
+							)}
 							<div className="overflow-x-auto p-5">
 								<table
 									className="w-full text-left text-sm"
@@ -243,7 +320,7 @@ export function UsagePage() {
 										</tr>
 									</thead>
 									<tbody>
-										{data.invoices?.map((invoice) => (
+										{selectedInvoices.map((invoice) => (
 											<tr
 												key={`${invoice.provider}:${invoice.reference}`}
 												className="border-t border-[var(--divider)]"

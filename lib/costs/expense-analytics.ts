@@ -11,6 +11,15 @@ export type ExpenseLine = {
 	source: string;
 };
 export function expenseAnalytics(lines: ExpenseLine[], now = new Date()) {
+	for (const row of lines) {
+		if (
+			!/^\d{4}-\d{2}-\d{2}$/.test(row.day) ||
+			!Number.isFinite(Date.parse(row.day)) ||
+			new Date(row.day).toISOString().slice(0, 10) !== row.day ||
+			!Number.isFinite(row.amountUsd)
+		)
+			throw new Error("Invalid billing date or amount");
+	}
 	const dayMap = new Map<string, number>();
 	for (const row of lines)
 		dayMap.set(row.day, (dayMap.get(row.day) ?? 0) + row.amountUsd);
@@ -40,7 +49,12 @@ export function expenseAnalytics(lines: ExpenseLine[], now = new Date()) {
 			group.tokens += row.inputTokens + row.outputTokens;
 			groups.set(row[key], group);
 		}
-		return [...groups.values()].sort((a, b) => b.amountUsd - a.amountUsd);
+		return [...groups.values()]
+			.map((group) => ({
+				...group,
+				amountUsd: Math.round(group.amountUsd * 1e9) / 1e9,
+			}))
+			.sort((a, b) => b.amountUsd - a.amountUsd);
 	};
 	const valid = lines.filter((row) => row.day <= summary.today);
 	const recent = valid.filter((row) => row.day >= summary.from);

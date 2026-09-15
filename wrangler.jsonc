@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cs35-migration-staging",
+  "account_id": "e8912e2867beecc673d171907bf09649",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "minify": true,
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "cs35-migration-staging" }],
+  "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "cs35-migration-staging-cache" }],
+  "d1_databases": [{
+    "binding": "CS35_DB",
+    "database_name": "cs35-migration-staging",
+    "database_id": "5ecf345c-e585-480a-a746-71a1a3624d06",
+    "migrations_dir": "drizzle-d1"
+  }],
+  "images": { "binding": "IMAGES" },
+  "observability": { "enabled": true }
+}

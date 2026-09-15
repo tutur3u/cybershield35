@@ -91,6 +91,29 @@ test("combines account costs and AI once, preserving provider and execution brea
 });
 
 import { mergeBrowserExpenses } from "../lib/costs/expense-analytics";
+test("rejects invalid billing dates and non-finite amounts instead of corrupting totals", () => {
+	const row: ExpenseLine = {
+		day: "2026-02-30",
+		provider: "AI",
+		service: "model",
+		mode: "background",
+		amountUsd: 1,
+		requests: 1,
+		inputTokens: 0,
+		outputTokens: 0,
+		source: "api",
+	};
+	expect(() => expenseAnalytics([row])).toThrow();
+	expect(() =>
+		expenseAnalytics([{ ...row, day: "2026-09-01", amountUsd: NaN }]),
+	).toThrow();
+	expect(
+		expenseAnalytics(
+			[{ ...row, day: "2026-09-01", amountUsd: -0.1 }],
+			new Date("2026-09-15"),
+		).allTime,
+	).toBe(-0.1);
+});
 test("saved Browser Use costs survive deleted sessions and never double count fresh totals", () => {
 	const base: ExpenseLine = {
 		day: "2026-09-01",

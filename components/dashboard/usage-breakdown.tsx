@@ -1,4 +1,6 @@
 "use client";
+import { expenseAnalytics } from "@/lib/costs/expense-analytics";
+import { selectCostPeriod, type CostPeriod } from "@/lib/costs/period";
 import { useCostCurrency } from "./cost-currency";
 import type { UsageOverview } from "@/lib/costs/usage";
 import { Panel, PanelHeader } from "./ui-primitives";
@@ -7,14 +9,14 @@ export function UsageBreakdown({
 	period,
 }: {
 	data: UsageOverview;
-	period: "30" | "all";
+	period: CostPeriod;
 }) {
 	const { format: usd } = useCostCurrency();
-	const providers =
-		period === "30" ? data.bill.providers30 : data.bill.providers;
-	const services = period === "30" ? data.bill.services30 : data.bill.services;
-	const modes = period === "30" ? data.bill.modes30 : data.bill.modes;
-	const total = period === "30" ? data.bill.last30Days : data.bill.allTime;
+	const selected = expenseAnalytics(
+		selectCostPeriod(data.bill.lines, period, data.bill.today),
+		new Date(`${data.bill.today}T12:00:00Z`),
+	);
+	const { providers, services, modes, allTime: total } = selected;
 	const sourceRows = [
 		{
 			name: "Apify",
@@ -52,6 +54,12 @@ export function UsageBreakdown({
 					: "Cần dữ liệu hóa đơn và mức sử dụng Firecrawl.",
 		},
 		{
+			name: "Cloudflare",
+			ready: data.bill.providers.some((row) => row.name === "Cloudflare"),
+			detail:
+				"Chi phí được phân bổ cho CS35 từ dữ liệu đã đối soát. Số lượt gọi và hạn mức miễn phí không thay thế hóa đơn; chi phí chung cần được phân bổ trước khi cộng vào tổng.",
+		},
+		{
 			name: "Vercel",
 			ready: data.bill.providers.some((row) => row.name === "Vercel"),
 			detail:
@@ -70,12 +78,12 @@ export function UsageBreakdown({
 			<Panel className="min-w-0">
 				<PanelHeader
 					title="Chi phí theo nhà cung cấp"
-					description={`${period === "30" ? "30 ngày gần nhất" : "Toàn thời gian"} · Nguồn số liệu và phạm vi đối soát`}
+					description={`${period === "30" ? "30 ngày gần nhất" : period === "month" ? "Tháng này" : "Toàn thời gian"} · Nguồn số liệu và phạm vi đối soát`}
 				/>
 				<div className="divide-y divide-[var(--divider)]">
 					{sourceRows.map((row) => {
-						const amount =
-							providers.find((item) => item.name === row.name)?.amountUsd ?? 0;
+						const recorded = providers.find((item) => item.name === row.name);
+						const amount = recorded?.amountUsd ?? 0;
 						return (
 							<div
 								key={row.name}
@@ -86,20 +94,20 @@ export function UsageBreakdown({
 									<p className="mt-1 text-xs leading-5 text-[var(--muted)]">
 										{row.detail}
 									</p>
-									{row.ready && (
+									{recorded && (
 										<div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
 											<div
 												className="h-full rounded-full bg-[var(--accent)]"
 												style={{
-													width: `${total ? (amount / total) * 100 : 0}%`,
+													width: `${total ? Math.max(0, Math.min(100, (amount / total) * 100)) : 0}%`,
 												}}
 											/>
 										</div>
 									)}
 								</div>
 								<div className="text-sm font-semibold tabular-nums sm:text-right">
-									{row.ready ? usd(amount) : "Chưa đủ dữ liệu"}
-									{row.ready && (
+									{recorded ? usd(amount) : "Chưa ghi nhận trong kỳ"}
+									{recorded && (
 										<p className="mt-1 text-xs font-normal text-[var(--muted)]">
 											{total ? ((amount / total) * 100).toFixed(1) : "0"}% tổng
 											ghi nhận
