@@ -40,6 +40,20 @@ Neither a build nor a dry run establishes runtime compatibility.
 
 ## Data rehearsal
 
+Native D1 mappings now live in `lib/db/schema.d1.ts`, with a binding-based client
+factory and an atomic scan-claim operation. They are not yet wired into the
+application's PostgreSQL repositories. The disposable local D1 runtime check
+exercises real Worker bindings, ORM reads/writes, exact decimal storage, JSON,
+date/boolean mapping, concurrent scan claims, future scheduling, batch rollback
+and foreign-key cascades:
+
+```sh
+node scripts/verify-d1-runtime.ts
+```
+
+This command uses an ephemeral local database and cannot validate authenticated
+application feature parity or the freshness of remote data.
+
 The staging schema preserves 42 application tables, foreign keys, enum constraints,
 ordinary indexes and partial unique indexes. UUID creation moves to the native
 application writer. Decimal costs remain text; JSON and existing 768-dimensional
