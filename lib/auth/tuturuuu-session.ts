@@ -235,7 +235,7 @@ export async function exchangeTuturuuuAppToken(input: {
 			workspaceId: config.workspaceId,
 		}),
 		cache: "no-store",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", "User-Agent": "CyberShield35/1.0 (+https://cybershield35.ttr.gg)" },
 		method: "POST",
 	});
 
@@ -276,7 +276,7 @@ export async function decideTuturuuuPendingInvitation(
 			workspaceId: pendingInvitation.workspaceId,
 		}),
 		cache: "no-store",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", "User-Agent": "CyberShield35/1.0 (+https://cybershield35.ttr.gg)" },
 		method: "POST",
 	});
 	const body = await response.json().catch(() => null);

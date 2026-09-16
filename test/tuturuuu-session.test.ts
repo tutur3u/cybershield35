@@ -7,6 +7,7 @@ import {
 import {
 	allowLocalAuthBypass,
 	createSessionCookie,
+	exchangeTuturuuuAppToken,
 	getRequestedScopes,
 	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
@@ -421,3 +422,16 @@ describe("Tuturuuu encrypted admin session", () => {
 		]);
 	});
 });
+
+ test("token exchange identifies the service when the runtime has no default user agent", async () => {
+ process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+ process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+ process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+ process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+ globalThis.fetch = mock(async (_input: unknown, init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  expect(headers.get("User-Agent")).toBe("CyberShield35/1.0 (+https://cybershield35.ttr.gg)");
+  return Response.json(session());
+ }) as unknown as typeof fetch;
+ expect((await exchangeTuturuuuAppToken({token:"test-token"})).user.id).toBe("user-1");
+ });

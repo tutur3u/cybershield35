@@ -11,7 +11,7 @@ candidate or copied snapshot does not establish current production synchronizati
 
 | Check | Result / scope |
 | --- | --- |
-| Unit and regression suite | 614 tests across 90 files; billing, provider retries, authorization contracts, state transitions, cache codec, and vector scores |
+| Unit and regression suite | 615 tests across 90 files; billing, provider retries, authorization contracts, state transitions, cache codec, and vector scores |
 | Native workerd D1 | Typed dates/JSON/booleans, exact decimal text, concurrent scan claim, FK rollback/cascade, revision guards, SQLite search |
 | D1 application integration | Article lifecycle, analytics, timeline, billing, atomic rollups, provider checkpoint replay, protected internal stage endpoint |
 | Real Worker password login | Successful; session persisted in D1 |
