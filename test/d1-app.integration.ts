@@ -113,3 +113,26 @@ test("internal scan route rejects missing credentials and stale attempts",async(
   expect(response.status).toBe(409);
  } finally {if(old===undefined)delete process.env.CS35_INTERNAL_TOKEN;else process.env.CS35_INTERNAL_TOKEN=old;}
 });
+
+
+test("finalized attachments with no processing lock extract text while active claims stay exclusive", async () => {
+ const text = "Synthetic attachment verification: CS35-CF-ATTACH-1709";
+ let reads = 0;
+ mock.module("../lib/chat/tuturuuu-drive", () => ({
+  createTuturuuuDriveReadUrl: async () => { reads++; return {signedUrl:`data:text/plain,${encodeURIComponent(text)}`}; },
+  deleteTuturuuuDriveObject: async () => ({deleted:true}),
+ }));
+ const {processChatAttachment} = await import("../lib/chat/attachments");
+ const conversationId = crypto.randomUUID();
+ await adminDb.insert(schema.chatConversations).values({id:conversationId,ownerUserId:crypto.randomUUID(),ownerDisplayName:"QA",title:"Attachment claim test"});
+ const id = crypto.randomUUID(), activeId = crypto.randomUUID();
+ for (const [attachmentId, lockedAt] of [[id,null],[activeId,new Date()]] as const) {
+  await adminDb.insert(schema.chatAttachments).values({id:attachmentId,conversationId,drivePath:"qa.txt",storageProvider:"r2",fileName:"qa.txt",contentType:"text/plain",sizeBytes:new TextEncoder().encode(text).length,status:"processing",lockedAt});
+ }
+ await processChatAttachment(id,"test-token");
+ await processChatAttachment(activeId,"test-token");
+ expect(reads).toBe(1);
+ const ready = sqlite.query("SELECT status,locked_at FROM chat_attachments WHERE id=?").get(id) as {status:string,locked_at:null};
+ expect(ready).toEqual({status:"ready",locked_at:null});
+ expect(sqlite.query("SELECT content FROM chat_attachment_chunks WHERE attachment_id=?").get(id)).toEqual({content:text});
+});

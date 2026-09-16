@@ -98,7 +98,7 @@ export async function processChatAttachment(
 		})
 		.where(and(eq(chatAttachments.id, attachment.id),
             ne(chatAttachments.status,"deleting"),ne(chatAttachments.status,"deleted"),
-            or(ne(chatAttachments.status,"processing"), sql`${chatAttachments.lockedAt} < ${new Date(Date.now()-15*60*1000).toISOString()}`),
+            or(ne(chatAttachments.status,"processing"), isNull(chatAttachments.lockedAt), sql`${chatAttachments.lockedAt} < ${new Date(Date.now()-15*60*1000).toISOString()}`),
         )).returning({id:chatAttachments.id});
     if (!claimed) return;
     const ownsClaim = and(eq(chatAttachments.id,attachment.id),eq(chatAttachments.status,"processing"),eq(chatAttachments.lockedAt,startedAt))!;
