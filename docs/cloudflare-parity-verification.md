@@ -19,13 +19,17 @@ Neon retirement is documented in the [migration runbook](cloudflare-migration.md
 
 ## Release identity
 
-Application source: `e29f6fc27fc89ae422e26f2c4529c00357b0643d`.
-Cloudflare Worker version: `04824639-d3d7-4ab5-be00-59853da406ca`.
+Application source: `905c8f4d3d4b726b6b4f93c77929d82fce1f0df6`.
+Cloudflare Worker version: `036f1593-28e8-4f0b-86c8-f8f8be04f64c`.
 The canonical host and alias both expose that version in `X-CS35-Deployment`.
-[Exact-source main CI](https://github.com/tutur3u/cybershield35/actions/runs/35132541041)
+[Exact-source main CI](https://github.com/tutur3u/cybershield35/actions/runs/35133888454)
 passed lint, test type checking, all 91 isolated test files, native workerd D1
 verification, real alarm retry verification, and the Cloudflare production build.
 Scheduler Worker version: `c11a9eac-f471-4caa-b003-da461480027d`.
+
+The final release pins Next.js and its lint/test integrations to 16.3.3, resolving
+the two critical Next.js advisories identified by GitHub during closeout. Its
+updated image dependencies are included in the committed lockfile.
 
 ## Verified evidence
 
@@ -39,7 +43,7 @@ Scheduler Worker version: `c11a9eac-f471-4caa-b003-da461480027d`.
 | Drive attachment grounding | Real centralized Chrome upload, extraction, AI response containing a code provided only in the file, and external file cleanup on conversation deletion |
 | Real Worker chat writes | Create, rename, workspace visibility, fork, soft delete, deleted-resource denial |
 | Real AI chat stream | HTTP 200; text deltas and completion, no error event; both messages persisted |
-| Automatic scheduling | Production Durable Object alarm completed at 18:10:11 UTC; D1 heartbeat source scheduled, status success, HTTP 200; next alarm 18:15 UTC and daily timer 00:00 UTC |
+| Automatic scheduling | Production Durable Object alarms completed at 18:10:11, 18:15:06 and 18:20:08 UTC, including after Neon shutdown; D1 heartbeat source scheduled, status success, HTTP 200; daily timer 00:00 UTC |
 | Scheduler retries | Native workerd alarm persisted a simulated HTTP 503, automatically retried successfully, and preserved the next timer |
 | Real Cloudflare scan Workflow | All six stages completed in 13 seconds on isolated production QA text input |
 | Read-only Worker APIs | Dashboard, intelligence, analytics, timeline/facets, topics, sources, pages, claims, activity, operations, costs, usage, articles, Zalo account metadata, AI models |
@@ -47,7 +51,7 @@ Scheduler Worker version: `c11a9eac-f471-4caa-b003-da461480027d`.
 | Permission boundary | Local account receives 403 for Tuturuuu-only account administration |
 | Related-evidence query | Staging 1,176-profile dataset; 200, profile ready, approximately 1.1 seconds |
 | Repeated authenticated page streams | 15 complete responses across overview, intelligence, operations, and usage after cache replacement |
-| Browser suite | 53 passed on the final alarm-scheduler release at the canonical production domain (1.5 minutes) |
+| Browser suite | 53 passed again on the final Next.js 16.3.3 release at the canonical production domain (1.5 minutes) |
 | Runtime logs | Latest application version: no HTTP 5xx in the QA window; network-loss exceptions correlated with canceled browser navigations |
 | QA cleanup | Temporary local account and sessions, QA scan, centralized test conversation and Drive objects removed |
 | Neon shutdown | Only compute endpoint deleted after final CI/browser checks; console shows no compute; old connection rejected; retained storage remains within the current $0 Free plan |
