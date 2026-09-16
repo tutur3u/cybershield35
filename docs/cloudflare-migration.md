@@ -98,3 +98,13 @@ Retain the frozen source database and private verified snapshot after cutover.
 After D1 accepts writes, switching DNS to the old database would lose those
 writes. Roll back the Worker version while retaining D1, or first reconcile new
 D1 data into a validated source copy during another write freeze.
+
+## Domain account routing
+
+The ttr.gg zone belongs to Skora Personal; application resources belong to
+Tuturuuu. `wrangler.gateway.jsonc` deploys a streaming routing Worker in the zone
+account. It forwards requests to the production Worker over HTTPS with a shared
+`CS35_GATEWAY_SECRET`. The application validates that credential and the allowed
+public hostname before restoring canonical request URLs and stripping the
+internal credential. Cookies, request bodies, redirects, and response streams
+are preserved. Deploy the application before the gateway when changing ingress.

@@ -1,3 +1,4 @@
+import { restorePublicRequest } from "./cloudflare/ingress";
 // OpenNext generates this module during build:cloudflare.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- OpenNext module is absent before the first build.
 // @ts-ignore generated at build time
@@ -10,6 +11,9 @@ export { ScanPipeline } from "./workflows/scan-pipeline";
 
 const worker = {
  async fetch(request: Request, env: CloudflareEnv, context: ExecutionContext) {
+  const restored = restorePublicRequest(request, env.CS35_GATEWAY_SECRET);
+  if (!restored) return new Response("Forbidden", {status: 403});
+  request = restored;
   const url = new URL(request.url);
   if (url.hostname === "cs35.ttr.gg") {
    url.hostname = "cybershield35.ttr.gg";

@@ -9,6 +9,7 @@ type Service<
 > = import("@cloudflare/workers-types").Service<T>;
 
 interface CloudflareEnv {
+ CS35_GATEWAY_SECRET?: string;
  CS35_INTERNAL_TOKEN: string;
  CRON_SECRET: string;
  SCAN_PIPELINE: import("@cloudflare/workers-types").Workflow<import("./lib/workers/scan-stages").ClaimedScanJob>;

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cs35-domain-gateway",
+  "account_id": "cd77f63702c0be69f64eef36e02563a3",
+  "main": "cloudflare/gateway.ts",
+  "compatibility_date": "2026-09-15",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "cybershield35.ttr.gg",
+      "custom_domain": true,
+      "zone_name": "ttr.gg"
+    },
+    {
+      "pattern": "cs35.ttr.gg",
+      "custom_domain": true,
+      "zone_name": "ttr.gg"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
