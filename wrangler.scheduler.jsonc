@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cs35-scheduler",
+  "account_id": "e8912e2867beecc673d171907bf09649",
+  "main": "cloudflare/scheduler.ts",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "services": [{"binding": "APP", "service": "cs35-production"}],
+  "durable_objects": {"bindings": [{"name": "JOBS", "class_name": "ScheduledJob"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["ScheduledJob"]}],
+  "observability": {"enabled": true}
+}

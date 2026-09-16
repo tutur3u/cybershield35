@@ -171,17 +171,17 @@ export function ManagedSchedulerPanel({
 	return (
 		<Panel>
 			<PanelHeader
-				title={isCloudflareScheduler ? "Cloudflare Cron scheduler" : "Managed scheduler"}
+				title={isCloudflareScheduler ? "Cloudflare scheduler" : "Managed scheduler"}
 				description={
 					isCloudflareScheduler
-						? "Cloudflare gọi trực tiếp các endpoint cron của CS35 theo lịch trong wrangler.jsonc."
+						? "Cloudflare tự động chạy công việc theo lịch và thử lại khi có lỗi."
 						: "Tự động tạo lịch quét định kỳ và xử lý hàng đợi khi worker riêng chưa chạy."
 				}
 				action={
 					isCloudflareScheduler ? (
 						<span className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--foreground)]">
 							<Clock3 size={14} />
-							Cloudflare Cron
+							Cloudflare
 						</span>
 					) : status?.approvalHref && !controlsDisabled ? (
 						<a
@@ -394,7 +394,7 @@ function ImmediateCronActions({
 				</p>
 				<p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
 					Chạy lượt quét hằng ngày hoặc đẩy hàng đợi xuất bản Zalo OA ngay,
-					không cần chờ lịch Cloudflare Cron kế tiếp.
+					không cần chờ lịch Cloudflare kế tiếp.
 				</p>
 			</div>
 			<div className="flex flex-wrap gap-2 sm:justify-end">
@@ -474,7 +474,7 @@ function SchedulerJobRow({
 					) : null}
 					{job.lockedByDeployment ? (
 						<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
-							Cloudflare Cron
+							Cloudflare
 						</span>
 					) : null}
 				</div>
@@ -506,7 +506,7 @@ function SchedulerJobRow({
 					onClick={onEdit}
 					title={
 						job.lockedByDeployment
-							? "Lịch được quản lý bằng wrangler.jsonc và cần redeploy để thay đổi"
+							? "Lịch được quản lý trong mã nguồn bộ lập lịch Cloudflare"
 							: job.remoteStatusUnknown
 								? "Không thể sửa lịch khi chưa lấy được trạng thái Tuturuuu"
 							: "Sửa lịch"
@@ -539,7 +539,7 @@ function SchedulerJobRow({
 					onClick={() => onPatch(!job.active)}
 					title={
 						job.lockedByDeployment
-							? "Bật/tắt lịch Cloudflare Cron trong Cloudflare dashboard hoặc wrangler.jsonc"
+							? "Lịch được quản lý bởi bộ lập lịch Cloudflare"
 							: job.remoteStatusUnknown
 								? "Không thể tạm dừng khi chưa lấy được trạng thái Tuturuuu"
 							: job.active
@@ -993,7 +993,7 @@ function SetupBlockedNotice({
 		<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
 			<p className="text-[13px] font-bold text-[var(--warning-strong)]">
 				{code === "CLOUDFLARE_CRON_SECRET_MISSING"
-					? "Cần cấu hình Cloudflare Cron"
+					? "Cần cấu hình Cloudflare"
 					: "Cần cấu hình URL public"}
 			</p>
 			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">

@@ -193,7 +193,7 @@ export async function proxyManagedSchedulerRequest(
 			{
 				code: "CLOUDFLARE_CRON_DEPLOYMENT_MANAGED",
 				error:
-					"Cloudflare Cron schedules are managed in wrangler.jsonc. Change the schedule in code and redeploy.",
+					"Cloudflare alarm schedules are managed in cloudflare/scheduler-state.ts. Change the schedule in code and redeploy cs35-scheduler.",
 			},
 			{ setCookie: auth.setCookie, status: 409 },
 		);
@@ -557,9 +557,9 @@ async function buildCloudflareSchedulerStatus(): Promise<ManagedSchedulerStatus>
 			: {
 					code: CLOUDFLARE_CRON_SECRET_MISSING,
 					error:
-						"Set CRON_SECRET as a Cloudflare Worker secret so Cloudflare Cron can authenticate scheduled invocations.",
+						"Set CRON_SECRET as a Cloudflare Worker secret so the Cloudflare scheduler can authenticate scheduled invocations.",
 					setupDisabledReason:
-						"Set CRON_SECRET as a Cloudflare Worker secret so Cloudflare Cron can authenticate scheduled invocations.",
+						"Set CRON_SECRET as a Cloudflare Worker secret so the Cloudflare scheduler can authenticate scheduled invocations.",
 				}),
 		configured: true,
 		enabled: cronSecretReady,
@@ -630,7 +630,7 @@ function toCloudflareCronJobStatus(
 		name: job.name,
 		nextRunAt,
 		overdueReason: overdueSince
-			? "No Cloudflare Cron heartbeat was recorded inside the expected window."
+			? "No Cloudflare scheduler heartbeat was recorded inside the expected window."
 			: null,
 		overdueSince,
 		schedule: job.schedule,

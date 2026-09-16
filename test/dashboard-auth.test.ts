@@ -1821,7 +1821,7 @@ describe("dashboard auth gate", () => {
 		expect(pages).not.toContain("function SourceAutomationPanel");
 	});
 
-	test("managed scheduler uses Cloudflare Cron instead of Tuturuuu managed-cron", () => {
+	test("managed scheduler uses Cloudflare alarms instead of Tuturuuu managed-cron", () => {
 		const panel = readFileSync(
 			"components/dashboard/managed-scheduler-panel.tsx",
 			"utf8",
@@ -1843,7 +1843,7 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("queryUnavailable");
 		expect(panel).toContain("query.refetch()");
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
-		expect(panel).toContain("Cloudflare Cron scheduler");
+		expect(panel).toContain("Cloudflare scheduler");
 		expect(panel).toContain("CRON_SECRET");
 		expect(panel).toContain("ImmediateCronActions");
 		// Every job key the panel can post must be one the scheduler defines.
@@ -1857,7 +1857,7 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("Quét ngay");
 		expect(panel).toContain("Xuất bản ngay");
 		expect(panel).toContain("lockedByDeployment");
-		expect(panel).toContain("wrangler.jsonc");
+		expect(panel).toContain("Lịch được quản lý bởi bộ lập lịch Cloudflare");
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
 		expect(panel).toContain("href={status.approvalHref}");
 		expect(panel).toContain("Duyệt thiết lập");
@@ -1889,9 +1889,10 @@ describe("dashboard auth gate", () => {
 		expect(dailyRoute).toContain("runCloudflareCronRoute");
 		expect(publicationRoute).toContain("export async function GET");
 		expect(publicationRoute).toContain("runCloudflareCronRoute");
-        const worker=readFileSync("worker.ts","utf8");
-        expect(worker).toContain("/api/cron/scans/run-daily");
-        expect(worker).toContain("/api/cron/articles/process-publication-queue");
+        const scheduler=readFileSync("cloudflare/scheduler-state.ts","utf8");
+        expect(scheduler).toContain("/api/cron/scans/run-daily");
+        expect(scheduler).toContain("/api/cron/articles/process-publication-queue");
+        expect(JSON.parse(readFileSync("wrangler.production.jsonc","utf8")).triggers.crons).toEqual([]);
         expect(server).toContain("0 0 * * *");
         expect(server).toContain("*/5 * * * *");
         expect(JSON.parse(vercelConfig).main).toBe("worker.ts");

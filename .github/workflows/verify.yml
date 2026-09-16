@@ -25,4 +25,5 @@ jobs:
       - run: bun run typecheck:test
       - run: bun run test
       - run: node --experimental-strip-types scripts/verify-d1-runtime.ts
+      - run: node scripts/verify-scheduler-runtime.mjs
       - run: bun run build:cloudflare
