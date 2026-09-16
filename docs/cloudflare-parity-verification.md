@@ -11,7 +11,7 @@ candidate or copied snapshot does not establish current production synchronizati
 
 | Check | Result / scope |
 | --- | --- |
-| Unit and regression suite | 610 tests across 87 files; billing, provider retries, authorization contracts, state transitions, cache codec, and vector scores |
+| Unit and regression suite | 611 tests across 88 files; billing, provider retries, authorization contracts, state transitions, cache codec, and vector scores |
 | Native workerd D1 | Typed dates/JSON/booleans, exact decimal text, concurrent scan claim, FK rollback/cascade, revision guards, SQLite search |
 | D1 application integration | Article lifecycle, analytics, timeline, billing, atomic rollups, provider checkpoint replay, protected internal stage endpoint |
 | Real Worker password login | Successful; session persisted in D1 |
@@ -43,6 +43,10 @@ fixtures; live billing API reads are separately checked against copied records.
   vector batches preserve exact cosine/ranking rules and finish promptly.
 - Early interaction with the article search field could race hydration. The
   field becomes editable when its event handlers are ready.
+
+- R2 upload completion could timestamp old catalog data after an edit. Cache
+  timestamps now record the start of the write, preserving tag invalidation
+  ordering. Immediate edit-to-catalog freshness passes on the real Worker.
 
 ## Verification boundaries
 

@@ -23,6 +23,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck:test
-      - run: bun test
+      - run: bun run test
       - run: node --experimental-strip-types scripts/verify-d1-runtime.ts
       - run: bun run build:cloudflare
