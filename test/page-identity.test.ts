@@ -13,7 +13,7 @@ describe("naming a followed page", () => {
 				author: "example-org",
 				displayName: "Tổ chức ví dụ",
 				handle: "example-org",
-				sourceLabel: "facebook.com",
+				fallback: "facebook.com",
 			}),
 		).toEqual({ handle: "example-org", name: "Tổ chức ví dụ" });
 	});

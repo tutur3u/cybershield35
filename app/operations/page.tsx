@@ -7,8 +7,6 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { prefetchDashboardRouteData } from "@/lib/dashboard/server-prefetch";
 import { getQueryClient } from "@/lib/query-client";
 
-export const instant = true;
-
 export default function OperationsRoute() {
 	return (
 		<Suspense

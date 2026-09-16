@@ -14,6 +14,6 @@ test("daily cron allows the next scheduled run and flags a missed day", () => {
 test("historical schedulers do not hide current cron outages or recent workers", () => {
   expect(isHistoricalCronService("managed-scheduler:process-queue", 200_000)).toBe(true);
   expect(isHistoricalCronService("cybershield35-worker", 60)).toBe(false);
-  expect(isHistoricalCronService("vercel-cron:daily-scans", 200_000)).toBe(false);
-  expect(isHistoricalCronService("vercel-cron:process-article-publications", 200_000)).toBe(false);
+  expect(isHistoricalCronService("cloudflare-cron:daily-scans", 200_000)).toBe(false);
+  expect(isHistoricalCronService("cloudflare-cron:process-article-publications", 200_000)).toBe(false);
 });

@@ -101,9 +101,9 @@ export function ManagedSchedulerPanel({
 		},
 	});
 	const status = setupMutation.data ?? query.data;
-	const isVercelScheduler = status?.schedulerProvider === "vercel-cron";
+	const isCloudflareScheduler = status?.schedulerProvider === "cloudflare-cron";
 	const hasLocalScheduler = Boolean(
-		isVercelScheduler || status?.configured || status?.tokenLastFour,
+		isCloudflareScheduler || status?.configured || status?.tokenLastFour,
 	);
 	const remoteStatusUnavailable =
 		hasLocalScheduler && status?.remoteStatusAvailable === false;
@@ -171,17 +171,17 @@ export function ManagedSchedulerPanel({
 	return (
 		<Panel>
 			<PanelHeader
-				title={isVercelScheduler ? "Vercel Cron scheduler" : "Managed scheduler"}
+				title={isCloudflareScheduler ? "Cloudflare Cron scheduler" : "Managed scheduler"}
 				description={
-					isVercelScheduler
-						? "Vercel gọi trực tiếp các endpoint cron của CS35 theo lịch trong vercel.json."
+					isCloudflareScheduler
+						? "Cloudflare gọi trực tiếp các endpoint cron của CS35 theo lịch trong wrangler.jsonc."
 						: "Tự động tạo lịch quét định kỳ và xử lý hàng đợi khi worker riêng chưa chạy."
 				}
 				action={
-					isVercelScheduler ? (
+					isCloudflareScheduler ? (
 						<span className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-[12px] font-bold text-[var(--foreground)]">
 							<Clock3 size={14} />
-							Vercel Cron
+							Cloudflare Cron
 						</span>
 					) : status?.approvalHref && !controlsDisabled ? (
 						<a
@@ -272,9 +272,9 @@ export function ManagedSchedulerPanel({
 						<div className="grid gap-3 sm:grid-cols-3">
 							<Metric label="Trạng thái" value={status.enabled ? "Đang bật" : "Tạm dừng"} />
 							<Metric
-								label={isVercelScheduler ? "Bảo mật" : "Token"}
+								label={isCloudflareScheduler ? "Bảo mật" : "Token"}
 								value={
-									isVercelScheduler
+									isCloudflareScheduler
 										? status.enabled
 											? "CRON_SECRET"
 											: "Thiếu CRON_SECRET"
@@ -324,7 +324,7 @@ export function ManagedSchedulerPanel({
 											patchMutation.isPending ||
 											(Boolean(status.setupDisabled) &&
 												!job.remoteStatusUnknown &&
-												!isVercelScheduler)
+												!isCloudflareScheduler)
 										}
 										runDisabled={!hasLocalScheduler}
 									/>
@@ -394,7 +394,7 @@ function ImmediateCronActions({
 				</p>
 				<p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
 					Chạy lượt quét hằng ngày hoặc đẩy hàng đợi xuất bản Zalo OA ngay,
-					không cần chờ lịch Vercel Cron kế tiếp.
+					không cần chờ lịch Cloudflare Cron kế tiếp.
 				</p>
 			</div>
 			<div className="flex flex-wrap gap-2 sm:justify-end">
@@ -474,7 +474,7 @@ function SchedulerJobRow({
 					) : null}
 					{job.lockedByDeployment ? (
 						<span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-strong)]">
-							Vercel Cron
+							Cloudflare Cron
 						</span>
 					) : null}
 				</div>
@@ -506,7 +506,7 @@ function SchedulerJobRow({
 					onClick={onEdit}
 					title={
 						job.lockedByDeployment
-							? "Lịch được quản lý bằng vercel.json và cần redeploy để thay đổi"
+							? "Lịch được quản lý bằng wrangler.jsonc và cần redeploy để thay đổi"
 							: job.remoteStatusUnknown
 								? "Không thể sửa lịch khi chưa lấy được trạng thái Tuturuuu"
 							: "Sửa lịch"
@@ -539,7 +539,7 @@ function SchedulerJobRow({
 					onClick={() => onPatch(!job.active)}
 					title={
 						job.lockedByDeployment
-							? "Bật/tắt lịch Vercel Cron trong Vercel dashboard hoặc vercel.json"
+							? "Bật/tắt lịch Cloudflare Cron trong Cloudflare dashboard hoặc wrangler.jsonc"
 							: job.remoteStatusUnknown
 								? "Không thể tạm dừng khi chưa lấy được trạng thái Tuturuuu"
 							: job.active
@@ -992,8 +992,8 @@ function SetupBlockedNotice({
 	return (
 		<div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-soft)] p-3">
 			<p className="text-[13px] font-bold text-[var(--warning-strong)]">
-				{code === "VERCEL_CRON_SECRET_MISSING"
-					? "Cần cấu hình Vercel Cron"
+				{code === "CLOUDFLARE_CRON_SECRET_MISSING"
+					? "Cần cấu hình Cloudflare Cron"
 					: "Cần cấu hình URL public"}
 			</p>
 			<p className="mt-1 text-[12px] leading-5 text-[var(--muted-strong)]">
@@ -1295,6 +1295,7 @@ function formatDate(value: string | null) {
 
 	try {
 		return new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 			dateStyle: "short",
 			timeStyle: "short",
 		}).format(new Date(value));

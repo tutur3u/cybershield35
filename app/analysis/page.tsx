@@ -5,8 +5,6 @@ import {
 	DashboardRouteSkeleton,
 } from "@/components/dashboard/dashboard-route";
 
-export const instant = true;
-
 export default function AnalysisPage() {
 	return (
 		<Suspense fallback={<DashboardRouteSkeleton page="analysis" />}>

@@ -1,5 +1,7 @@
 import { loadLocalEnvFile } from "@/lib/env/load-local-env";
 
+export async function run() {
+
 loadLocalEnvFile();
 
 const { adminSqlClient } = await import("@/lib/db/client");
@@ -15,7 +17,7 @@ async function main() {
 	);
 }
 
-main()
+await main()
 	.catch((error) => {
 		console.error(
 			JSON.stringify({
@@ -27,3 +29,5 @@ main()
 	.finally(async () => {
 		await adminSqlClient.end({ timeout: 5 });
 	});
+
+}

@@ -78,7 +78,7 @@ mock.module("@/lib/db/client", () => ({
 		}),
 		select: (projection?: Record<string, unknown>) => ({
 			from: (table: unknown) => {
-				let rows = rowsForTable(table);
+				let rows: Array<TrackedSourceRow | ScanJobRow> = rowsForTable(table);
 				return {
 					orderBy: async () => rows.map((row) => projectRow(row, projection)),
 					where: (condition: unknown) => {

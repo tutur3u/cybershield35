@@ -11,8 +11,6 @@ export const metadata = {
 	title: "Chi tiết chủ đề",
 };
 
-export const instant = true;
-
 export default function TopicDetailPage({
 	params,
 }: {

@@ -1,6 +1,7 @@
+import { inJsonArray } from "@/lib/db/sqlite-lists";
 import "server-only";
 
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import { adminDb, adminSqlClient } from "@/lib/db/client";
@@ -62,10 +63,10 @@ export async function reassessStoredEvidenceRisk(limit = 5_000, options: { onlyO
 		select id, quote, summary, author, source_label, engagement, metadata,
 			risk_level, sentiment, stance
 		from evidence_items
-		where ${!options.onlyOutdated} or coalesce((metadata->>'classifierVersion')::int, 0) < ${CLASSIFIER_VERSION}
+		where ${!options.onlyOutdated} or coalesce(cast(metadata->>'classifierVersion' as integer), 0) < ${CLASSIFIER_VERSION}
 		order by
 			case
-				when coalesce((metadata->>'classifierVersion')::int, 0) >= ${CLASSIFIER_VERSION}
+				when coalesce(cast(metadata->>'classifierVersion' as integer), 0) >= ${CLASSIFIER_VERSION}
 				then 1 else 0
 			end,
 			created_at desc
@@ -129,7 +130,7 @@ export async function classifyPersistedEvidenceRisk(evidenceIds: string[]) {
 			summary: evidenceItems.summary,
 		})
 		.from(evidenceItems)
-		.where(inArray(evidenceItems.id, evidenceIds));
+		.where(inJsonArray(evidenceItems.id, evidenceIds));
 	// Analysis-only retries must not pay to classify already current rows again.
 	const pending = rows.filter((row) => row.metadata?.classifierVersion !== CLASSIFIER_VERSION);
 	const scored = await scoreEvidenceRows(pending as StoredEvidenceRisk[]);
@@ -258,9 +259,9 @@ async function alignAggregateRiskLevels() {
 			select
 				scan_job_id,
 				case
-					when bool_or(risk_level = 'high') then 'high'::risk_level
-					when bool_or(risk_level = 'medium') then 'medium'::risk_level
-					else 'low'::risk_level
+					when max(risk_level = 'high') then 'high'
+					when max(risk_level = 'medium') then 'medium'
+					else 'low'
 				end as risk_level
 			from evidence_items
 			group by scan_job_id
@@ -277,16 +278,16 @@ async function alignAggregateRiskLevels() {
 			select
 				et.topic_id,
 				case
-					when count(*) filter (where e.risk_level = 'high') >= greatest(3, ceil(count(*) * 0.15)) then 'high'::risk_level
-					when count(*) filter (where e.risk_level in ('high', 'medium')) >= greatest(3, ceil(count(*) * 0.20)) then 'medium'::risk_level
-					else 'low'::risk_level
+					when count(*) filter (where e.risk_level = 'high') >= max(3, ceil(count(*) * 0.15)) then 'high'
+					when count(*) filter (where e.risk_level in ('high', 'medium')) >= max(3, ceil(count(*) * 0.20)) then 'medium'
+					else 'low'
 				end as risk_level
 			from evidence_topics et
 			join evidence_items e on e.id = et.evidence_item_id
 			group by et.topic_id
 		)
 		update topics t
-		set risk_level = tr.risk_level, updated_at = now()
+		set risk_level = tr.risk_level, updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from topic_risk tr
 		where t.id = tr.topic_id
 			and t.risk_level is distinct from tr.risk_level

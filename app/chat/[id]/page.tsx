@@ -3,8 +3,6 @@ import { Suspense } from "react";
 import { ChatWorkspaceLoader } from "@/components/dashboard/chat-workspace-loader";
 import { QueryProvider } from "@/components/providers/query-provider";
 
-export const instant = true;
-
 export default function ChatConversationPage({
   params,
   searchParams,

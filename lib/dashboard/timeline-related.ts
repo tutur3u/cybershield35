@@ -1,7 +1,7 @@
+import { cachedData } from "@/lib/cache/data";
 import "server-only";
 
-import { and, cosineDistance, desc, eq, ne, sql } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+import { and, asc, eq, gt, ne } from "drizzle-orm";
 
 import type {
 	RelatedEvidenceItem,
@@ -11,6 +11,8 @@ import {
 	DASHBOARD_INTELLIGENCE_TAG,
 	dashboardIntelligenceTag,
 } from "@/lib/dashboard/cache-tags";
+import { cosineSimilarity } from "@/lib/db/vector-similarity";
+import { inJsonArray } from "@/lib/db/sqlite-lists";
 import { adminDb } from "@/lib/db/client";
 import {
 	evidenceItems,
@@ -43,14 +45,8 @@ async function getCachedRelatedEvidence(
 	evidenceId: string,
 	limit: number,
 ): Promise<RelatedEvidenceResponse> {
-	"use cache";
-	cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
-	cacheTag(
-		DASHBOARD_INTELLIGENCE_TAG,
-		dashboardIntelligenceTag("evidence"),
-	);
-
-	const targetRows = await adminDb
+ return cachedData("lib/dashboard/timeline-related.ts:getCachedRelatedEvidence", [evidenceId, limit], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("evidence")]}, async () => {
+const targetRows = await adminDb
 		.select({
 			author: evidenceItems.author,
 			createdAt: evidenceItems.createdAt,
@@ -69,8 +65,8 @@ async function getCachedRelatedEvidence(
 		)
 		.where(eq(evidenceSemanticProfiles.evidenceItemId, evidenceId))
 		.limit(1);
-	const target = targetRows[0];
-	if (!target) {
+const target = targetRows[0];
+if (!target) {
 		return {
 			generatedAt: null,
 			items: [],
@@ -78,40 +74,44 @@ async function getCachedRelatedEvidence(
 			profileReady: false,
 		};
 	}
-
-	const distance = cosineDistance(
-		evidenceSemanticProfiles.embedding,
-		target.embedding,
-	);
-	const semanticSimilarity = sql<number>`1 - (${distance})`.mapWith(Number);
-	const minimumRelevance =
+const minimumRelevance =
 		target.model === LOCAL_EVIDENCE_EMBEDDING_MODEL
 			? LOCAL_RELATED_EVIDENCE_MIN_RELEVANCE
 			: RELATED_EVIDENCE_MIN_RELEVANCE;
-	const candidateFloor = Math.max(0.5, minimumRelevance - 0.14);
-	const rows = await adminDb
-		.select({ ...timelinePostSelection, semanticSimilarity })
-		.from(evidenceSemanticProfiles)
-		.innerJoin(
-			evidenceItems,
-			eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId),
-		)
+const candidateFloor = Math.max(0.5, minimumRelevance - 0.14);
+const candidateLimit = Math.max(limit * 12, 72);
+let cursor: string | undefined;
+let candidates: { id: string; score: number; publishedAt: number }[] = [];
+for (;;) {
+		const profiles = await adminDb.select({
+			id: evidenceSemanticProfiles.evidenceItemId,
+			embedding: evidenceSemanticProfiles.embedding,
+			publishedAt: effectivePublishedAt,
+		}).from(evidenceSemanticProfiles)
+			.innerJoin(evidenceItems, eq(evidenceItems.id, evidenceSemanticProfiles.evidenceItemId))
+			.where(and(eq(evidenceSemanticProfiles.model, target.model), ne(evidenceItems.id, evidenceId),
+				cursor ? gt(evidenceSemanticProfiles.evidenceItemId, cursor) : undefined))
+			.orderBy(asc(evidenceSemanticProfiles.evidenceItemId)).limit(200);
+		for (const profile of profiles) {
+			const score = cosineSimilarity(target.embedding, profile.embedding);
+			if (score >= candidateFloor) candidates.push({id: profile.id, score, publishedAt: profile.publishedAt.getTime()});
+		}
+		candidates = candidates.sort((a,b) => b.score-a.score || b.publishedAt-a.publishedAt || a.id.localeCompare(b.id)).slice(0,candidateLimit);
+		if (profiles.length < 200) break;
+		cursor = profiles.at(-1)!.id;
+	}
+const scores = new Map(candidates.map(candidate => [candidate.id, candidate.score]));
+const matches = candidates.length ? await adminDb.select(timelinePostSelection)
+		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
-		.where(
-			and(
-				ne(evidenceItems.id, evidenceId),
-				eq(evidenceSemanticProfiles.model, target.model),
-				sql`${distance} <= ${1 - candidateFloor}`,
-			),
-		)
-		.orderBy(distance, desc(effectivePublishedAt))
-		.limit(Math.max(limit * 12, 72));
-	const topicMap = await topicsForEvidence(rows.map((row) => row.id));
-	const targetTopicSlugs =
+		.where(inJsonArray(evidenceItems.id, candidates.map(candidate => candidate.id))) : [];
+const rows = matches.map(row => ({...row, semanticSimilarity: scores.get(row.id)!}));
+const topicMap = await topicsForEvidence(rows.map((row) => row.id));
+const targetTopicSlugs =
 		(await topicsForEvidence([evidenceId])).get(evidenceId) ?? [];
-	const targetTopics = new Set(targetTopicSlugs);
-	const rankedRows = rows
+const targetTopics = new Set(targetTopicSlugs);
+const rankedRows = rows
 		.map((row) => {
 			const topicSlugs = topicMap.get(row.id) ?? [];
 			const post = mapTimelinePost(row, topicSlugs);
@@ -151,10 +151,10 @@ async function getCachedRelatedEvidence(
 				new Date(right.publishedAt ?? right.createdAt).getTime() -
 					new Date(left.publishedAt ?? left.createdAt).getTime(),
 		);
-	const seenUrls = new Set<string>();
-	const seenQuotes = new Set<string>();
-	const items: RelatedEvidenceItem[] = [];
-	for (const item of rankedRows) {
+const seenUrls = new Set<string>();
+const seenQuotes = new Set<string>();
+const items: RelatedEvidenceItem[] = [];
+for (const item of rankedRows) {
 		const normalizedQuote = item.quote.trim().toLocaleLowerCase("vi");
 		if (
 			(item.sourceUrl && seenUrls.has(item.sourceUrl)) ||
@@ -167,11 +167,11 @@ async function getCachedRelatedEvidence(
 		items.push(item);
 		if (items.length >= limit) break;
 	}
-
-	return {
+return {
 		generatedAt: target.updatedAt.toISOString(),
 		items,
 		model: target.model,
 		profileReady: true,
 	};
+ });
 }

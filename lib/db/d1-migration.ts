@@ -1,6 +1,6 @@
 import { is, SQL } from "drizzle-orm";
 import { getTableConfig, PgDialect, PgTable } from "drizzle-orm/pg-core";
-import * as schema from "./schema.ts";
+import * as schema from "./schema.postgres.ts";
 
 const dialect = new PgDialect();
 const identifier = (name: string) => `"${name.replaceAll('"', '""')}"`;
@@ -87,7 +87,7 @@ export function createD1StagingSchema() {
 				if (is(value, SQL)) {
 					const expression = dialect.sqlToQuery(value).sql;
 					if (expression === "now()")
-						definition += " DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))";
+						definition += " DEFAULT ((strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z'))";
 					// UUIDs must be assigned with crypto.randomUUID() by the native D1 writer.
 					else if (expression !== "gen_random_uuid()")
 						throw new Error(`Unmapped default: ${table.name}.${column.name}`);
@@ -158,8 +158,8 @@ export function encodeD1Value(
 				? value.match(/\.(\d+)(?:Z|[+-]\d{2}(?::?\d{2})?)$/)?.[1]
 				: undefined;
 		return fraction
-			? iso.replace(/\.\d{3}Z$/, `.${fraction.padEnd(3, "0")}Z`)
-			: iso;
+			? iso.replace(/\.\d{3}Z$/, `.${fraction.padEnd(6, "0")}Z`)
+			: iso.replace(/Z$/, "000Z");
 	}
 	if (pgType === "date")
 		return value instanceof Date

@@ -1,7 +1,10 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { unchangedRow } from "@/lib/db/d1-guard";
+import { claimD1Scan } from "@/lib/db/d1-scan-claims";
 import { NoObjectGeneratedError } from "ai";
 import { and, desc, eq, inArray, lt, max, ne, sql } from "drizzle-orm";
 
-import { adminDb, adminSqlClient } from "@/lib/db/client";
+import { adminDb } from "@/lib/db/client";
 import { refreshIntelligenceRollupsBestEffort } from "@/lib/dashboard/intelligence-rollups";
 import {
 	analyses,
@@ -52,15 +55,7 @@ import {
 	syncExistingAnalysisTopicsForScan,
 	syncTopicsForScan,
 } from "@/lib/workers/topics";
-import {
-	analyzeScan,
-	collectEvidence,
-	completeScan,
-	failScan,
-	recordScanClaimed,
-	scoreEvidenceRisk,
-	syncScanTopics,
-} from "@/lib/workers/scan-stages";
+
 
 type ClaimedJob = {
 	id: string;
@@ -641,22 +636,23 @@ const STALLED_SCAN_MS = 30 * 60 * 1000;
  * a queue that cannot be blocked has to be able to reclaim its own locks.
  */
 export async function reclaimStalledScans() {
-	const reclaimed = await adminDb
-		.update(scanJobs)
-		.set({
-			errorMessage: "Scan bị treo quá lâu và đã được đưa lại vào hàng đợi.",
-			lockedAt: null,
-			scheduledAt: new Date(),
-			status: "retrying",
-			updatedAt: new Date(),
-		})
-		.where(
-			and(
-				eq(scanJobs.status, "running"),
-				lt(scanJobs.lockedAt, new Date(Date.now() - STALLED_SCAN_MS)),
-			),
-		)
-		.returning({ id: scanJobs.id });
+    const cutoff=new Date(Date.now()-STALLED_SCAN_MS);
+    const candidates=await adminDb.select({id:scanJobs.id,attempts:scanJobs.attempts}).from(scanJobs)
+        .where(and(eq(scanJobs.status,"running"),lt(scanJobs.lockedAt,cutoff)));
+    const reclaimed: {id:string}[]=[];
+    for(const candidate of candidates){
+        try {
+            const instance=await getCloudflareContext().env.SCAN_PIPELINE.get(`scan-${candidate.id}-${candidate.attempts}`);
+            const state=await instance.status();
+            if(!["complete","errored","terminated"].includes(state.status))continue;
+        } catch(error) {
+            // An unavailable control plane is not proof that a workflow stopped.
+            if(!(error instanceof Error) || !/not found|does not exist/i.test(error.message))continue;
+        }
+        const rows=await adminDb.update(scanJobs).set({errorMessage:"Scan bị treo quá lâu và đã được đưa lại vào hàng đợi.",lockedAt:null,scheduledAt:new Date(),status:"retrying",updatedAt:new Date()})
+            .where(and(eq(scanJobs.id,candidate.id),eq(scanJobs.attempts,candidate.attempts),eq(scanJobs.status,"running"),lt(scanJobs.lockedAt,cutoff))).returning({id:scanJobs.id});
+        reclaimed.push(...rows);
+    }
 
 	for (const job of reclaimed) {
 		await recordScanEvent({
@@ -673,7 +669,7 @@ export async function reclaimStalledScans() {
 
 export async function countRunningScans() {
 	const [row] = await adminDb
-		.select({ count: sql<number>`count(*)::int` })
+		.select({ count: sql<number>`count(*)` })
 		.from(scanJobs)
 		.where(eq(scanJobs.status, "running"));
 	return row?.count ?? 0;
@@ -769,84 +765,23 @@ export async function processScanJobNow(scanId: string) {
 	return processClaimedJob(claimed);
 }
 
-/**
- * Runs a claimed scan.
- *
- * Prefers the durable workflow: the pipeline waits on an external crawler and
- * two model calls, which is more than one request's budget should have to hold,
- * and a durable run also survives a deploy landing mid-scan.
- *
- * Falls back to running the stages inline when a run cannot be started, so a
- * problem with the workflow platform degrades scanning to what it was before
- * rather than stopping it.
- */
+/** Each attempt has one durable Cloudflare Workflow instance. */
 async function processClaimedJob(claimed: ClaimedJob) {
-	const started = await startScanPipelineRun(claimed);
-	if (started) {
-		return { durable: true, processed: true, runId: started, scanId: claimed.id };
-	}
-	return processClaimedJobInline(claimed);
+ const runId=await startScanPipelineRun(claimed);
+ return {durable:true,processed:true,runId,scanId:claimed.id};
 }
 
 async function startScanPipelineRun(claimed: ClaimedJob) {
-	try {
-		const [{ start }, { scanPipelineWorkflow }] = await Promise.all([
-			import("workflow/api"),
-			import("@/workflows/scan-pipeline"),
-		]);
-		const run = await start(scanPipelineWorkflow, [claimed]);
-		await recordScanEvent({
-			eventType: "scan_run_started",
-			message: "Scan đang chạy nền và sẽ tiếp tục kể cả khi bạn rời trang.",
-			metadata: { runId: run.runId },
-			scanJobId: claimed.id,
-			stage: "queue",
-			status: "running",
-		});
-		return run.runId;
-	} catch (error) {
-		// Deliberately swallowed: the inline path below produces the same result,
-		// so a workflow platform problem must not become a scan failure.
-		await recordScanEvent({
-			eventType: "scan_run_fallback",
-			message: "Không khởi động được tiến trình nền; scan chạy trực tiếp.",
-			metadata: {
-				reason: error instanceof Error ? error.message : String(error),
-			},
-			scanJobId: claimed.id,
-			stage: "queue",
-			status: "running",
-		}).catch(() => {});
-		return null;
-	}
-}
-
-async function processClaimedJobInline(claimed: ClaimedJob) {
-	const startedAtMs = Date.now();
-	try {
-		await recordScanClaimed(claimed);
-		const collected = await collectEvidence(claimed);
-		await scoreEvidenceRisk(claimed.id);
-		await analyzeScan(claimed.id);
-		await syncScanTopics(claimed.id);
-		await completeScan({
-			credentialSource: collected.credentialSource,
-			evidenceCount: collected.evidenceCount,
-			mode: collected.mode,
-			scanJobId: claimed.id,
-			startedAtMs,
-		});
-		return { processed: true, scanId: claimed.id };
-	} catch (error) {
-		const { message } = await failScan({
-			attempts: claimed.attempts,
-			error,
-			maxAttempts: claimed.max_attempts,
-			scanJobId: claimed.id,
-			startedAtMs,
-		});
-		return { error: message, processed: true, scanId: claimed.id };
-	}
+ const binding = getCloudflareContext().env.SCAN_PIPELINE;
+ const id = `scan-${claimed.id}-${claimed.attempts}`;
+ try { await binding.create({id,params:claimed}); }
+ catch(error) {
+  // Creation may have succeeded before the response was lost. Resolve the
+  // deterministic instance before reporting failure; never run a duplicate inline.
+  try { await (await binding.get(id)).status(); } catch { throw error; }
+ }
+ await recordScanEvent({eventType:"scan_run_started",message:"Scan đang chạy nền và sẽ tiếp tục kể cả khi bạn rời trang.",metadata:{runId:id},scanJobId:claimed.id,stage:"queue",status:"running"}).catch(()=>{});
+ return id;
 }
 
 export async function reviseAnalysisForScan(
@@ -1070,10 +1005,13 @@ export async function generateDraftForScan(
 	const cleanBody = cleanDraftContent(output.body);
 
 	const actor = options.actor ?? { displayName: "Hệ thống", id: "system" };
-	const draft = await adminDb.transaction(async (tx) => {
-		const [created] = await tx
+	const draft = await (async () => {
+        const tx = adminDb;
+        const draftId = crypto.randomUUID();
+		const write = tx
 			.insert(counterArgumentDrafts)
 			.values({
+                id: draftId,
 				audience: options.audience,
 				body: cleanBody,
 				citations: output.citations,
@@ -1096,18 +1034,18 @@ export async function generateDraftForScan(
 				generationReason: options.generationReason,
 			})
 			.returning();
-		if (!created) return null;
-		await tx.insert(counterArgumentDraftVersions).values({
+
+		const [[created]] = await adminDb.batch([write, tx.insert(counterArgumentDraftVersions).values({
 			actorDisplayName: actor.displayName,
 			actorUserId: actor.id,
 			body: cleanBody,
 			citations: output.citations,
-			draftId: created.id,
+			draftId,
 			safetyNotes: output.safetyNotes,
 			version: 1,
-		});
+		})]);
 		return created;
-	});
+	})();
 
 	if (!draft) throw new Error("Failed to generate draft");
 
@@ -1164,13 +1102,13 @@ export async function updateDraftContent(
 		voice?: string;
 	},
 ) {
-	const draft = await adminDb.transaction(async (tx) => {
+	const draft = await (async () => {
+        const tx = adminDb;
 		const [existing] = await tx
 			.select()
 			.from(counterArgumentDrafts)
 			.where(eq(counterArgumentDrafts.id, id))
-			.limit(1)
-			.for("update");
+			.limit(1);
 		if (!existing) return null;
 
 		const [versionRow] = await tx
@@ -1180,7 +1118,7 @@ export async function updateDraftContent(
 		const citations = options.citations ?? existing.citations;
 		const safetyNotes = options.safetyNotes ?? existing.safetyNotes;
 
-		const [updated] = await tx
+		const write = tx
 			.update(counterArgumentDrafts)
 			.set({
 				body: options.body,
@@ -1196,19 +1134,21 @@ export async function updateDraftContent(
 			})
 			.where(eq(counterArgumentDrafts.id, id))
 			.returning();
-		if (!updated) return null;
 
-		await tx.insert(counterArgumentDraftVersions).values({
+
+		const [, [updated]] = await adminDb.batch([
+            unchangedRow(adminDb,counterArgumentDrafts,and(eq(counterArgumentDrafts.id,id),eq(counterArgumentDrafts.revision,existing.revision))!),
+            write, tx.insert(counterArgumentDraftVersions).values({
 			actorDisplayName: options.actor.displayName,
 			actorUserId: options.actor.id,
-			body: updated.body,
-			citations: updated.citations,
-			draftId: updated.id,
-			safetyNotes: updated.safetyNotes,
+			body: options.body,
+			citations,
+			draftId: id,
+			safetyNotes,
 			version: (versionRow?.version ?? 0) + 1,
-		});
+		})]);
 		return updated;
-	});
+	})();
 
 	if (!draft) return null;
 	await writeAudit("counter_argument_draft", id, "draft_content_updated", {
@@ -1307,46 +1247,8 @@ export async function heartbeat(
 		});
 }
 
-async function claimNextJob() {
-	const rows = await adminSqlClient<ClaimedJob[]>`
-		update scan_jobs
-		set
-			status = 'running',
-			locked_at = now(),
-			started_at = coalesce(started_at, now()),
-			attempts = attempts + 1,
-			updated_at = now()
-		where id = (
-			select id
-			from scan_jobs
-			where status in ('queued', 'retrying')
-				and scheduled_at <= now()
-			order by priority desc, scheduled_at asc
-			for update skip locked
-			limit 1
-		)
-		returning id, source_id, provider, attempts, max_attempts
-	`;
-
-	return rows[0] ?? null;
-}
-
-async function claimJobById(scanId: string) {
-	const rows = await adminSqlClient<ClaimedJob[]>`
-		update scan_jobs
-		set
-			status = 'running',
-			locked_at = now(),
-			started_at = coalesce(started_at, now()),
-			attempts = attempts + 1,
-			updated_at = now()
-		where id = ${scanId}
-			and status in ('queued', 'retrying')
-		returning id, source_id, provider, attempts, max_attempts
-	`;
-
-	return rows[0] ?? null;
-}
+async function claimNextJob() { return claimD1Scan(adminDb, {capacity:MAX_CONCURRENT_SCAN_RUNS}); }
+async function claimJobById(scanId: string) { return claimD1Scan(adminDb, {scanId,capacity:MAX_CONCURRENT_SCAN_RUNS}); }
 
 async function getScanSummary(id: string) {
 	const rows = await adminDb

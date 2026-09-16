@@ -8,8 +8,6 @@ import { articleQueryKeys } from "@/lib/articles/client-queries";
 import { getArticleDetail } from "@/lib/articles/store";
 import { getQueryClient } from "@/lib/query-client";
 
-export const instant = true;
-
 export default function ArticlePage({
 	params,
 }: {

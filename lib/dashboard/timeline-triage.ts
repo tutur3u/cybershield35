@@ -59,14 +59,15 @@ export async function updateEvidenceTriage(
 	actor: TimelineActor,
 ): Promise<EvidenceTriageView> {
 	const now = new Date();
-	const updated = await adminDb.transaction(async (tx) => {
+	const updated = await (async () => {
+        const tx = adminDb;
 		const evidence = await tx
 			.select({ id: evidenceItems.id, riskLevel: evidenceItems.riskLevel })
 			.from(evidenceItems)
 			.where(eq(evidenceItems.id, evidenceId))
 			.limit(1);
 		if (!evidence[0]) throw new TimelineNotFoundError();
-		const [row] = await tx
+		const write = tx
 			.insert(evidenceTriage)
 			.values({
 				assigneeDisplayName: patch.assigneeDisplayName ?? null,
@@ -97,7 +98,8 @@ export async function updateEvidenceTriage(
 				target: evidenceTriage.evidenceItemId,
 			})
 			.returning();
-		await Promise.all([
+		const [[saved]] = await adminDb.batch([
+            write,
 			tx.insert(auditEvents).values({
 				action: "evidence_triage_updated",
 				entityId: evidenceId,
@@ -119,8 +121,8 @@ export async function updateEvidenceTriage(
 				title: "Cập nhật xử lý bằng chứng",
 			}),
 		]);
-		return row;
-	});
+		return saved;
+	})();
 	if (!updated) throw new Error("Không thể lưu trạng thái xử lý.");
 	return mapTriage(updated);
 }
@@ -131,29 +133,33 @@ export async function addEvidenceTriageNote(
 	actor: TimelineActor,
 ): Promise<EvidenceTriageNoteView> {
 	const now = new Date();
-	const note = await adminDb.transaction(async (tx) => {
+	const note = await (async () => {
+        const tx = adminDb;
+        const noteId = crypto.randomUUID();
 		const evidence = await tx
 			.select({ id: evidenceItems.id, riskLevel: evidenceItems.riskLevel })
 			.from(evidenceItems)
 			.where(eq(evidenceItems.id, evidenceId))
 			.limit(1);
 		if (!evidence[0]) throw new TimelineNotFoundError();
-		const [created] = await tx
+		const write = tx
 			.insert(evidenceTriageNotes)
 			.values({
-				authorDisplayName: actor.displayName,
+				id: noteId,
+                authorDisplayName: actor.displayName,
 				authorUserId: actor.id,
 				body,
 				createdAt: now,
 				evidenceItemId: evidenceId,
 			})
 			.returning();
-		await Promise.all([
+		const [[saved]] = await adminDb.batch([
+            write,
 			tx.insert(auditEvents).values({
 				action: "evidence_triage_note_added",
 				entityId: evidenceId,
 				entityType: "evidence_item",
-				payload: { actorId: actor.id, noteId: created?.id },
+				payload: { actorId: actor.id, noteId },
 			}),
 			tx.insert(intelligenceActivityRollups).values({
 				action: "evidence_triage_note_added",
@@ -161,14 +167,14 @@ export async function addEvidenceTriageNote(
 				entityId: evidenceId,
 				entityType: "evidence_item",
 				href: `/evidence/${evidenceId}`,
-				metadata: { actorId: actor.id, noteId: created?.id },
+				metadata: { actorId: actor.id, noteId },
 				occurredAt: now,
 				severity: evidence[0].riskLevel,
 				title: "Ghi chú xử lý mới",
 			}),
 		]);
-		return created;
-	});
+		return saved;
+	})();
 	if (!note) throw new Error("Không thể tạo ghi chú.");
 	return {
 		authorDisplayName: note.authorDisplayName,

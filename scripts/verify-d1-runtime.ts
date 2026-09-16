@@ -1,6 +1,9 @@
+import { unchangedRow } from "../lib/db/d1-guard.ts";
+import { containsInsensitive } from "../lib/db/sqlite-search.ts";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { getPlatformProxy } from "wrangler";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { D1Database } from "@cloudflare/workers-types";
 import { createD1Client } from "../lib/db/d1-client.ts";
 import { claimD1Scan } from "../lib/db/d1-scan-claims.ts";
@@ -16,6 +19,9 @@ try {
 	for (const statement of createD1StagingSchema().split(";").filter((part) => part.trim())) {
 		await binding.prepare(statement).run();
 	}
+	await binding.exec(readFileSync("drizzle-d1/0001_revisions.sql", "utf8").replaceAll("\n", " "));
+	await binding.exec(readFileSync("drizzle-d1/0002_attachment_search.sql", "utf8").replaceAll("\n", " "));
+    assert.equal(await binding.prepare("select sqrt(9) as value").first("value"), 3);
 	const db = createD1Client(binding);
 	const [source] = await db.insert(schema.sources).values({
 		type: "text", originalInput: "D1 runtime verification", metadata: { language: "Tiếng Việt" },
@@ -52,6 +58,19 @@ try {
 	]));
 	const [unchanged] = await db.select().from(schema.localAccounts).where(eq(schema.localAccounts.id, accountId));
 	assert.equal(unchanged?.disabled, true);
+    // A concurrent edit must fail the entire optimistic batch, including audit data.
+    await assert.rejects(() => db.batch([
+        unchangedRow(db, schema.localAccounts, and(eq(schema.localAccounts.id,accountId),eq(schema.localAccounts.revision,99))!),
+        db.update(schema.localAccounts).set({disabled:false}).where(eq(schema.localAccounts.id,accountId)),
+    ]));
+    assert.equal((await db.select().from(schema.localAccounts).where(eq(schema.localAccounts.id,accountId)))[0]?.disabled,true);
+    await db.batch([
+        unchangedRow(db,schema.localAccounts,and(eq(schema.localAccounts.id,accountId),eq(schema.localAccounts.revision,0))!),
+        db.update(schema.localAccounts).set({disabled:false}).where(eq(schema.localAccounts.id,accountId)),
+    ]);
+    assert.equal((await db.select().from(schema.localAccounts).where(eq(schema.localAccounts.id,accountId)))[0]?.revision,1);
+    await db.update(schema.sources).set({originalInput:"Nội dung TIẾNG VIỆT"}).where(eq(schema.sources.id,source.id));
+    assert.equal((await db.select().from(schema.sources).where(containsInsensitive(schema.sources.originalInput,"tiếng việt"))).length,1);
 	await db.delete(schema.localAccounts).where(eq(schema.localAccounts.id, accountId));
 	assert.equal((await db.select().from(schema.localAccountSessions)).length, 0);
 	console.log("D1 runtime passed: typed reads/writes, exact decimals, JSON, dates, booleans, concurrent scan claims, future scheduling, atomic batch rollback, FK cascade.");

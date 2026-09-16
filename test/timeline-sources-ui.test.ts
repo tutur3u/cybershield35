@@ -258,7 +258,7 @@ describe("a killed publish cannot strand its article", () => {
 		// made the article unpublishable, uneditable and unretryable at once.
 		expect(worker).toContain("export async function reclaimStalledPublicationJobs");
 		expect(worker).toContain("lt(articlePublicationJobs.lockedAt, cutoff)");
-		expect(worker).toContain("'not_synced'::article_publication_status");
+		expect(worker).toContain("'not_synced'");
 		expect(scheduler).toContain("await reclaimStalledPublicationJobs()");
 	});
 });

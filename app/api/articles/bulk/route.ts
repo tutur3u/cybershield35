@@ -21,7 +21,7 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
 	const startedAt = Date.now();
-	const requestId = request.headers.get("x-vercel-id");
+	const requestId = request.headers.get("cf-ray");
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) {
 		return Response.json({ error: auth.error }, { status: auth.status });

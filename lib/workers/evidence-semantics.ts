@@ -81,7 +81,7 @@ export async function rebuildEvidenceSemanticProfiles(
 	const pending = options.force
 		? inputs
 		: inputs.filter((item) => existing.get(item.id) !== item.contentHash);
-	// Keep each request below Vercel's five-minute ceiling. The client resumes
+	// Keep maintenance requests bounded. The client resumes
 	// with force=false, so completed profiles form a durable checkpoint.
 	const batches = chunk(pending, EMBEDDING_BATCH_SIZE).slice(
 		0,
@@ -95,30 +95,16 @@ export async function rebuildEvidenceSemanticProfiles(
 			const embeddings = useTuturuuu
 				? await createTuturuuuEmbeddings(session, batch)
 				: batch.map(localEvidenceEmbedding);
-			await adminDb.transaction(async (tx) => {
-				for (const [index, item] of batch.entries()) {
-					const embedding = embeddings[index];
-					if (!embedding) throw new Error("Thiếu vector ngữ nghĩa.");
-					await tx
-						.insert(evidenceSemanticProfiles)
-						.values({
-							contentHash: item.contentHash,
-							embedding,
-							evidenceItemId: item.id,
-							model: semanticModel,
-							updatedAt: new Date(),
-						})
-						.onConflictDoUpdate({
-							set: {
-								contentHash: item.contentHash,
-								embedding,
-								model: semanticModel,
-								updatedAt: new Date(),
-							},
-							target: evidenceSemanticProfiles.evidenceItemId,
-						});
-				}
-			});
+            const writes = batch.map((item,index) => {
+                const embedding = embeddings[index];
+                if (!embedding) throw new Error("Thiếu vector ngữ nghĩa.");
+                return adminDb.insert(evidenceSemanticProfiles).values({
+                    contentHash:item.contentHash,embedding,evidenceItemId:item.id,model:semanticModel,updatedAt:new Date(),
+                }).onConflictDoUpdate({target:evidenceSemanticProfiles.evidenceItemId,set:{
+                    contentHash:item.contentHash,embedding,model:semanticModel,updatedAt:new Date(),
+                }});
+            });
+            if (writes.length) await adminDb.batch([writes[0]!,...writes.slice(1)]);
 			generated += batch.length;
 		} catch (error) {
 			failed += batch.length;

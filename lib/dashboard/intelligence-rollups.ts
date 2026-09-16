@@ -1,3 +1,4 @@
+import { chunkForD1 } from "@/lib/db/d1-batches";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -35,15 +36,17 @@ export async function refreshIntelligenceForScan(scanId: string) {
 }
 
 export async function refreshIntelligenceRollups(reason = "refresh") {
-	await clearRollups();
-	await Promise.all([
-		refreshDailyRollups(),
-		refreshTopicRollups(),
-		refreshSourceRollups(),
-		refreshProviderRollups(),
-		refreshClaimIndex(),
-		refreshActivityRollups(reason),
-	]);
+	const claims = await buildClaimIndex();
+	await adminSqlClient.batch([
+        adminSqlClient`delete from intelligence_activity_rollups`,
+        adminSqlClient`delete from intelligence_claim_index`,
+        adminSqlClient`delete from intelligence_provider_rollups`,
+        adminSqlClient`delete from intelligence_source_rollups`,
+        adminSqlClient`delete from intelligence_topic_rollups`,
+        adminSqlClient`delete from intelligence_daily_rollups`,
+        refreshDailyRollups(), refreshTopicRollups(), refreshSourceRollups(),
+        refreshProviderRollups(), ...claims, refreshActivityRollups(reason),
+    ]);
 }
 
 export async function refreshIntelligenceRollupsBestEffort(
@@ -57,64 +60,53 @@ export async function refreshIntelligenceRollupsBestEffort(
 	}
 }
 
-async function clearRollups() {
-	await Promise.all([
-		adminSqlClient`delete from intelligence_activity_rollups`,
-		adminSqlClient`delete from intelligence_claim_index`,
-		adminSqlClient`delete from intelligence_provider_rollups`,
-		adminSqlClient`delete from intelligence_source_rollups`,
-		adminSqlClient`delete from intelligence_topic_rollups`,
-		adminSqlClient`delete from intelligence_daily_rollups`,
-	]);
-}
-
-async function refreshDailyRollups() {
-	await adminSqlClient`
+function refreshDailyRollups() {
+	return adminSqlClient`
 		with days as (
-			select created_at::date as day from scan_jobs
+			select date(created_at) as day from scan_jobs
 			union
-			select created_at::date as day from evidence_items
+			select date(created_at) as day from evidence_items
 			union
-			select created_at::date as day from counter_argument_drafts
+			select date(created_at) as day from counter_argument_drafts
 		),
 		scan_counts as (
 			select
-				created_at::date as day,
-				count(*)::int as scan_count,
-				count(*) filter (where status = 'queued')::int as queued_scan_count,
-				count(*) filter (where status = 'running')::int as running_scan_count,
-				count(*) filter (where status = 'completed')::int as completed_scan_count,
-				count(*) filter (where status = 'failed')::int as failed_scan_count,
-				count(*) filter (where status = 'retrying')::int as retrying_scan_count
+				date(created_at) as day,
+				count(*) as scan_count,
+				count(*) filter (where status = 'queued') as queued_scan_count,
+				count(*) filter (where status = 'running') as running_scan_count,
+				count(*) filter (where status = 'completed') as completed_scan_count,
+				count(*) filter (where status = 'failed') as failed_scan_count,
+				count(*) filter (where status = 'retrying') as retrying_scan_count
 			from scan_jobs
-			group by created_at::date
+			group by date(created_at)
 		),
 		evidence_counts as (
 			select
-				e.created_at::date as day,
-				count(*)::int as evidence_count,
-				count(*) filter (where e.risk_level = 'high')::int as high_risk_evidence_count,
-				count(*) filter (where e.risk_level = 'medium')::int as medium_risk_evidence_count,
-				count(*) filter (where e.risk_level = 'low')::int as low_risk_evidence_count
+				date(e.created_at) as day,
+				count(*) as evidence_count,
+				count(*) filter (where e.risk_level = 'high') as high_risk_evidence_count,
+				count(*) filter (where e.risk_level = 'medium') as medium_risk_evidence_count,
+				count(*) filter (where e.risk_level = 'low') as low_risk_evidence_count
 			from evidence_items e
-			group by e.created_at::date
+			group by date(e.created_at)
 		),
 		analysis_counts as (
 			select
-				sj.created_at::date as day,
-				coalesce(sum(jsonb_array_length(a.claims)), 0)::int as claim_count,
-				coalesce(sum(jsonb_array_length(a.risk_flags)), 0)::int as risk_flag_count
+				date(sj.created_at) as day,
+				coalesce(sum(json_array_length(a.claims)), 0) as claim_count,
+				coalesce(sum(json_array_length(a.risk_flags)), 0) as risk_flag_count
 			from analyses a
 			join scan_jobs sj on sj.id = a.scan_job_id
-			group by sj.created_at::date
+			group by date(sj.created_at)
 		),
 		draft_counts as (
 			select
-				created_at::date as day,
-				count(*)::int as draft_count,
-				count(*) filter (where status = 'approved')::int as approved_draft_count
+				date(created_at) as day,
+				count(*) as draft_count,
+				count(*) filter (where status = 'approved') as approved_draft_count
 			from counter_argument_drafts
-			group by created_at::date
+			group by date(created_at)
 		)
 		insert into intelligence_daily_rollups (
 			day,
@@ -151,8 +143,8 @@ async function refreshDailyRollups() {
 			coalesce(ac.risk_flag_count, 0),
 			coalesce(dc.draft_count, 0),
 			coalesce(dc.approved_draft_count, 0),
-			least(coalesce(sc.completed_scan_count, 0), coalesce(dc.approved_draft_count, 0))::int,
-			now()
+			min(coalesce(sc.completed_scan_count, 0), coalesce(dc.approved_draft_count, 0)),
+			(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from days
 		left join scan_counts sc on sc.day = days.day
 		left join evidence_counts ec on ec.day = days.day
@@ -162,19 +154,19 @@ async function refreshDailyRollups() {
 	`;
 }
 
-async function refreshTopicRollups() {
-	await adminSqlClient`
+function refreshTopicRollups() {
+	return adminSqlClient`
 		with topic_analysis as (
 			select
 				et.topic_id,
 				a.id as analysis_id,
-				jsonb_array_length(a.claims)::int as claim_count
+				json_array_length(a.claims) as claim_count
 			from evidence_topics et
 			join analyses a on a.scan_job_id = et.scan_job_id
 			group by et.topic_id, a.id, a.claims
 		),
 		topic_claims as (
-			select topic_id, coalesce(sum(claim_count), 0)::int as claim_count
+			select topic_id, coalesce(sum(claim_count), 0) as claim_count
 			from topic_analysis
 			group by topic_id
 		)
@@ -200,20 +192,20 @@ async function refreshTopicRollups() {
 			t.name,
 			t.risk_level,
 			t.trend,
-			least(
+			min(
 				100,
 				(count(distinct et.evidence_item_id) * 6)
 					+ (count(distinct et.scan_job_id) * 8)
 					+ (count(distinct et.evidence_item_id) filter (where ei.risk_level = 'high') * 12)
-			)::int as momentum_score,
-			count(distinct et.evidence_item_id)::int,
-			count(distinct et.evidence_item_id) filter (where ei.risk_level = 'high')::int,
-			coalesce(max(tc.claim_count), 0)::int,
-			count(distinct et.scan_job_id)::int,
-			count(distinct ei.source_id)::int,
+			) as momentum_score,
+			count(distinct et.evidence_item_id),
+			count(distinct et.evidence_item_id) filter (where ei.risk_level = 'high'),
+			coalesce(max(tc.claim_count), 0),
+			count(distinct et.scan_job_id),
+			count(distinct ei.source_id),
 			coalesce(min(et.created_at), t.first_seen_at),
 			coalesce(max(et.created_at), t.last_seen_at),
-			now()
+			(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from topics t
 		left join evidence_topics et on et.topic_id = t.id
 		left join evidence_items ei on ei.id = et.evidence_item_id
@@ -223,35 +215,31 @@ async function refreshTopicRollups() {
 	`;
 }
 
-async function refreshSourceRollups() {
-	await adminSqlClient`
+function refreshSourceRollups() {
+	return adminSqlClient`
 		with source_scan_counts as (
 			select
 				s.source_id,
-				count(*)::int as scan_count,
-				count(*) filter (where s.status = 'completed')::int as completed_scan_count,
-				count(*) filter (where s.status = 'failed')::int as failed_scan_count
+				count(*) as scan_count,
+				count(*) filter (where s.status = 'completed') as completed_scan_count,
+				count(*) filter (where s.status = 'failed') as failed_scan_count
 			from scan_jobs s
 			group by s.source_id
 		),
 		source_evidence_counts as (
 			select
 				source_id,
-				count(*)::int as evidence_count,
-				count(*) filter (where risk_level = 'high')::int as high_risk_evidence_count
+				count(*) as evidence_count,
+				count(*) filter (where risk_level = 'high') as high_risk_evidence_count
 			from evidence_items
 			group by source_id
 		),
 		last_scans as (
-			select distinct on (source_id)
-				source_id,
-				id as scan_job_id,
-				provider,
-				status,
-				coalesce(completed_at, started_at, updated_at, created_at) as last_scanned_at
-			from scan_jobs
-			order by source_id, coalesce(completed_at, started_at, updated_at, created_at) desc
-		)
+            select source_id, id as scan_job_id, provider, status, last_scanned_at
+            from (select *, coalesce(completed_at, started_at, updated_at, created_at) as last_scanned_at,
+                row_number() over (partition by source_id order by coalesce(completed_at, started_at, updated_at, created_at) desc, id desc) as position
+                from scan_jobs) where position = 1
+        )
 		insert into intelligence_source_rollups (
 			source_id,
 			source_label,
@@ -275,7 +263,7 @@ async function refreshSourceRollups() {
 			case
 				when ls.status = 'failed' then 'blocked'
 				when ls.last_scanned_at is null then 'unseen'
-				when ls.last_scanned_at < now() - interval '7 days' then 'stale'
+				when ls.last_scanned_at < (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-7 days') || '000Z') then 'stale'
 				when ls.status in ('queued', 'retrying', 'running') then 'attention'
 				else 'healthy'
 			end,
@@ -286,7 +274,7 @@ async function refreshSourceRollups() {
 			coalesce(sec.high_risk_evidence_count, 0),
 			ls.scan_job_id,
 			ls.last_scanned_at,
-			now()
+			(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from sources src
 		left join source_scan_counts ssc on ssc.source_id = src.id
 		left join source_evidence_counts sec on sec.source_id = src.id
@@ -294,23 +282,21 @@ async function refreshSourceRollups() {
 	`;
 }
 
-async function refreshProviderRollups() {
-	await adminSqlClient`
+function refreshProviderRollups() {
+	return adminSqlClient`
 		with last_runs as (
-			select distinct on (provider)
-				provider,
-				status,
-				coalesce(completed_at, started_at) as last_run_at
-			from provider_runs
-			order by provider, coalesce(completed_at, started_at) desc
-		),
+            select provider, status, last_run_at from (
+                select *, coalesce(completed_at, started_at) as last_run_at,
+                row_number() over (partition by provider order by coalesce(completed_at, started_at) desc, id desc) as position
+                from provider_runs) where position = 1
+        ),
 		run_counts as (
 			select
 				provider,
-				count(*)::int as scan_count,
-				count(*) filter (where status = 'completed')::int as completed_run_count,
-				count(*) filter (where status = 'failed')::int as failed_run_count,
-				coalesce(avg(extract(epoch from (completed_at - started_at)) * 1000) filter (where completed_at is not null), 0)::int as avg_duration_ms
+				count(*) as scan_count,
+				count(*) filter (where status = 'completed') as completed_run_count,
+				count(*) filter (where status = 'failed') as failed_run_count,
+				coalesce(avg((julianday(completed_at) - julianday(started_at)) * 86400000) filter (where completed_at is not null), 0) as avg_duration_ms
 			from provider_runs
 			group by provider
 		)
@@ -330,7 +316,7 @@ async function refreshProviderRollups() {
 			case
 				when lr.status = 'failed' then 'blocked'
 				when lr.last_run_at is null then 'unseen'
-				when lr.last_run_at < now() - interval '7 days' then 'stale'
+				when lr.last_run_at < (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-7 days') || '000Z') then 'stale'
 				else 'healthy'
 			end,
 			rc.scan_count,
@@ -339,22 +325,22 @@ async function refreshProviderRollups() {
 			rc.avg_duration_ms,
 			lr.status,
 			lr.last_run_at,
-			now()
+			(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from run_counts rc
 		left join last_runs lr on lr.provider = rc.provider;
 	`;
 }
 
-async function refreshClaimIndex() {
+async function buildClaimIndex() {
 	const [analysesRows, contextRows] = await Promise.all([
 		adminDb.select().from(analyses).orderBy(desc(analyses.createdAt)),
 		adminSqlClient<ScanContextRow[]>`
 			select
 				sj.id as scan_job_id,
-				coalesce(array_agg(distinct ei.id::text) filter (where ei.id is not null), '{}') as evidence_ids,
-				coalesce(jsonb_object_agg(ei.id::text, ei.risk_level) filter (where ei.id is not null), '{}'::jsonb) as evidence_risks,
-				coalesce(array_agg(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '{}') as source_labels,
-				coalesce(array_agg(distinct t.slug) filter (where t.slug is not null), '{}') as topic_slugs
+				coalesce(json_group_array(distinct ei.id) filter (where ei.id is not null), '[]') as evidence_ids,
+				coalesce(json_group_object(ei.id, ei.risk_level) filter (where ei.id is not null), '{}') as evidence_risks,
+				coalesce(json_group_array(distinct nullif(ei.source_label, '')) filter (where ei.source_label is not null), '[]') as source_labels,
+				coalesce(json_group_array(distinct t.slug) filter (where t.slug is not null), '[]') as topic_slugs
 			from scan_jobs sj
 			left join evidence_items ei on ei.scan_job_id = sj.id
 			left join evidence_topics et on et.evidence_item_id = ei.id
@@ -377,13 +363,15 @@ async function refreshClaimIndex() {
 		normalizeClaimsForAnalysis(analysis, contextByScan.get(analysis.scanJobId)),
 	);
 
-	if (!values.length) return;
-	await adminDb.insert(intelligenceClaimIndex).values(values);
+	if (!values.length) return [];
+	const inserts = chunkForD1(intelligenceClaimIndex,values).map((chunk) => adminDb.insert(intelligenceClaimIndex).values(chunk));
+	return inserts.map((query) => adminSqlClient.fromQuery(query.toSQL()));
 }
 
-async function refreshActivityRollups(reason: string) {
-	await adminSqlClient`
+function refreshActivityRollups(reason: string) {
+	return adminSqlClient`
 		insert into intelligence_activity_rollups (
+			id,
 			entity_type,
 			entity_id,
 			action,
@@ -395,6 +383,7 @@ async function refreshActivityRollups(reason: string) {
 			metadata
 		)
 		select
+			a.id,
 			a.entity_type,
 			a.entity_id,
 			a.action,
@@ -403,7 +392,7 @@ async function refreshActivityRollups(reason: string) {
 			-- 'high'; everything that merely moves an item through review is
 			-- 'medium'; the rest is routine and renders without a badge.
 			case
-				when a.action = 'failed' then 'high'::risk_level
+				when a.action = 'failed' then 'high'
 				when a.action in (
 					'article_deleted',
 					'deleted',
@@ -413,8 +402,8 @@ async function refreshActivityRollups(reason: string) {
 					'review_status_updated',
 					'evidence_triage_updated',
 					'rescan_created'
-				) then 'medium'::risk_level
-				else 'low'::risk_level
+				) then 'medium'
+				else 'low'
 			end,
 			case a.action
 				when 'created' then 'Đã tạo lượt quét'
@@ -442,7 +431,7 @@ async function refreshActivityRollups(reason: string) {
 				when 'article_evidence_added' then 'Đã gắn thêm dẫn chứng'
 				when 'article_headline_regenerated' then 'Đã chuẩn hóa tiêu đề bài viết'
 				when 'zalo_oa_connected' then 'Đã kết nối Zalo OA'
-				else initcap(replace(a.action, '_', ' '))
+				else upper(substr(a.action, 1, 1)) || replace(substr(a.action, 2), '_', ' ')
 			end,
 			case a.entity_type
 				when 'scan_job' then 'Diễn ra trong quá trình thu thập và phân tích nguồn.'
@@ -453,14 +442,14 @@ async function refreshActivityRollups(reason: string) {
 				else 'Thay đổi được ghi lại để truy vết.'
 			end,
 			case
-				when a.entity_type = 'scan_job' then '/scans/' || a.entity_id::text
-				when a.entity_type = 'evidence_item' then '/evidence/' || a.entity_id::text
-				when a.entity_type = 'counter_argument_draft' then '/drafts/' || a.entity_id::text
-				when a.entity_type = 'article' then '/articles/' || a.entity_id::text
+				when a.entity_type = 'scan_job' then '/scans/' || a.entity_id
+				when a.entity_type = 'evidence_item' then '/evidence/' || a.entity_id
+				when a.entity_type = 'counter_argument_draft' then '/drafts/' || a.entity_id
+				when a.entity_type = 'article' then '/articles/' || a.entity_id
 				else '/audit'
 			end,
 			a.created_at,
-			jsonb_build_object('projectionReason', ${reason}::text)
+			json_object('projectionReason', ${reason})
 		from audit_events a
 		-- Reconciliation and bulk-normalization passes fire on hundreds of rows at a
 		-- time and would bury the events an operator actually needs to see.

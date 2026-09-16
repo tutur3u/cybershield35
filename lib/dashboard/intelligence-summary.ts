@@ -42,10 +42,10 @@ async function fingerprintFor(range: RangeKey) {
 	const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : null;
 	const rows = await adminSqlClient<Array<{ newest: string | null; total: number }>>`
 		select
-			count(*)::int as total,
-			coalesce(max(created_at)::text, 'none') as newest
+			count(*) as total,
+			coalesce(max(created_at), 'none') as newest
 		from evidence_items
-		${days ? adminSqlClient`where created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
+		${days ? adminSqlClient`where created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')` : adminSqlClient``}
 	`;
 	const row = rows[0];
 	return `${row?.total ?? 0}:${row?.newest ?? "none"}`;
@@ -130,11 +130,11 @@ export async function claimSummaryGeneration(range: RangeKey) {
 	const cutoff = new Date(Date.now() - CLAIM_TTL_MS);
 	const claimed = await adminSqlClient<Array<{ time_range: string }>>`
 		insert into intelligence_summaries (time_range, fingerprint, payload, generated_at)
-		values (${range}, ${GENERATING}, '{}'::jsonb, now())
+		values (${range}, ${GENERATING}, '{}', (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z'))
 		on conflict (time_range) do update
-			set generated_at = now()
+			set generated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 			where intelligence_summaries.fingerprint = ${GENERATING}
-				and intelligence_summaries.generated_at < ${cutoff.toISOString()}::timestamptz
+				and intelligence_summaries.generated_at < ${cutoff.toISOString()}
 		returning time_range
 	`;
 	return claimed.length > 0;

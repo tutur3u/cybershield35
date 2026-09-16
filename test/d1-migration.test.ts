@@ -55,7 +55,7 @@ test("migration preserves decimal amounts, Unicode, JSON and UTC timestamps", ()
 	).toBe('{"text":"Tiếng Việt","nested":[1,null]}');
 	expect(
 		encodeD1Value("timestamp with time zone", "2026-09-15T07:00:00+07:00"),
-	).toBe("2026-09-15T00:00:00.000Z");
+	).toBe("2026-09-15T00:00:00.000000Z");
 	expect(
 		encodeD1Value("timestamp with time zone", "2026-09-15 07:00:00.123456+07"),
 	).toBe("2026-09-15T00:00:00.123456Z");

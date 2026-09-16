@@ -13,7 +13,7 @@ function read(path: string) {
 
 describe("executive intelligence dashboard architecture", () => {
 	test("declares persistent intelligence projections and backfill command", () => {
-		const schema = read("lib/db/schema.ts");
+		const schema = read("lib/db/schema.d1.ts");
 		const pkg = JSON.parse(read("package.json")) as {
 			dependencies: Record<string, string>;
 			scripts: Record<string, string>;
@@ -31,10 +31,10 @@ describe("executive intelligence dashboard architecture", () => {
 		}
 		expect(pkg.dependencies["@tanstack/react-virtual"]).toBeTruthy();
 		expect(pkg.scripts["db:backfill-intelligence"]).toContain(
-			"scripts/backfill-intelligence.ts",
+			"scripts/run-d1-task.ts backfill-intelligence",
 		);
 		expect(pkg.scripts["db:analyze-intelligence"]).toContain(
-			"scripts/analyze-intelligence-db.ts",
+			"scripts/run-d1-task.ts analyze-intelligence-db",
 		);
 		const rollups = read("lib/dashboard/intelligence-rollups.ts");
 		expect(rollups).toContain("evidence_risks");
@@ -177,7 +177,7 @@ describe("executive intelligence dashboard architecture", () => {
 		expect(cache).toContain("DASHBOARD_INTELLIGENCE_TAG");
 		expect(rollups).toContain("refreshDailyRollups");
 		expect(rollups).toContain("refreshTopicRollups");
-		expect(rollups).toContain("refreshClaimIndex");
+		expect(rollups).toContain("buildClaimIndex");
 		expect(rollups).toContain("parsed <= 1 ? parsed * 100 : parsed");
 		expect(rollups).not.toContain(": evidenceIdsForScan");
 		expect(backfillScript).toContain("loadLocalEnvFile");

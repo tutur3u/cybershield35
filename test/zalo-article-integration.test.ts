@@ -139,17 +139,17 @@ describe("Zalo OA security and article contract", () => {
 		expect(route).toContain("nextCursor");
 		expect(store).toContain(".limit(limit + 1)");
 		expect(zaloCatalog).toContain("listAccountArticlesPage");
-		expect(zaloCatalog).toContain('"use cache"');
-		expect(zaloCatalog).toContain("cacheTag(ZALO_ARTICLE_CATALOG_TAG)");
+		expect(zaloCatalog).toContain('cachedData(');
+		expect(zaloCatalog).toContain("tags: [ZALO_ARTICLE_CATALOG_TAG]");
 		expect(readFileSync("app/articles/page.tsx", "utf8")).toContain(
 			"<HydrationBoundary",
 		);
-		expect(store).toContain('"use cache"');
+		expect(store).toContain('cachedData(');
 		expect(store).toContain(
-			"cacheLife({ expire: 300, revalidate: 30, stale: 30 })",
+			"revalidate: 30",
 		);
-		expect(store).toContain("cacheTag(ARTICLE_CATALOG_TAG)");
-		expect(store).toContain('revalidateTag(ARTICLE_CATALOG_TAG, "max")');
+		expect(store).toContain("tags: [ARTICLE_CATALOG_TAG]");
+		expect(store).toContain('revalidateTag(ARTICLE_CATALOG_TAG, { expire: 0 })');
 	});
 
 	test("removes successfully deleted local and Zalo rows from the client cache", async () => {
@@ -158,7 +158,7 @@ describe("Zalo OA security and article contract", () => {
 		);
 		const localArticle = {
 			article: {
-				coverUrl: null,
+				coverUrl: null, lastError:null,
 				createdAt: "2026-08-02T00:00:00.000Z",
 				description: "Temporary article",
 				id: "local-delete-id",
@@ -213,7 +213,7 @@ describe("Zalo OA security and article contract", () => {
 	});
 
 	test("removes automatic draft synchronization and gates all Zalo operations", () => {
-		const schema = readFileSync("lib/db/schema.ts", "utf8");
+		const schema = readFileSync("lib/db/schema.d1.ts", "utf8");
 		const policy = readFileSync("lib/articles/publication-policy.ts", "utf8");
 		const publications = readFileSync(
 			"lib/workers/article-publications.ts",
@@ -222,7 +222,7 @@ describe("Zalo OA security and article contract", () => {
 		const scanStages = readFileSync("lib/workers/scan-stages.ts", "utf8");
 		const scheduler = readFileSync("lib/managed-scheduler/server.ts", "utf8");
 
-		expect(schema).toContain('autoSyncDrafts: boolean("auto_sync_drafts")');
+		expect(schema).toContain('autoSyncDrafts: integer("auto_sync_drafts", { mode: "boolean" })');
 		expect(schema).toContain(".default(false)");
 		expect(scanStages).not.toContain("enqueueEvidenceDraftJobs");
 		expect(scheduler).toContain("automatedDraftIds: []");
@@ -320,7 +320,7 @@ describe("Zalo OA security and article contract", () => {
 		const cookie = zaloOauthCookie(
 			oauth.cookieValue,
 			"https://cybershield35.example",
-		).split(";")[0];
+		).split(";")[0]!;
 		const pending = readZaloOauthState(
 			new Request(
 				"https://cybershield35.example/api/integrations/zalo/callback",
@@ -785,7 +785,7 @@ describe("a review decision clears a refusal it inherited", () => {
 		// that does not exist, and broke approval outright — while a test that
 		// matched the SQL as source text kept passing.
 		const schema = readFileSync(
-			new URL("../lib/db/schema.ts", import.meta.url),
+			new URL("../lib/db/schema.d1.ts", import.meta.url),
 			"utf8",
 		);
 		const declared = schema

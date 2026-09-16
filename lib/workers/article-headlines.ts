@@ -1,6 +1,8 @@
+import { inJsonArray } from "@/lib/db/sqlite-lists";
+import { unchangedRow } from "@/lib/db/d1-guard";
 import "server-only";
 
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { revalidateTag } from "next/cache";
 
@@ -120,7 +122,8 @@ async function applyHeadline(
 	description: string,
 	title: string,
 ) {
-	await adminDb.transaction(async (tx) => {
+	await (async () => {
+        const tx = adminDb;
 		const [current] = await tx
 			.select()
 			.from(articles)
@@ -146,7 +149,7 @@ async function applyHeadline(
 			.orderBy(desc(articleVersions.version))
 			.limit(1);
 
-		await tx
+		const update = tx
 			.update(articles)
 			.set({
 				contentHash: hashArticleContent(snapshot),
@@ -159,7 +162,7 @@ async function applyHeadline(
 			.where(eq(articles.id, articleId));
 
 		// Keep a restorable version so an editor can undo the rewrite.
-		await tx.insert(articleVersions).values({
+		const version = tx.insert(articleVersions).values({
 			actorDisplayName: SYSTEM_ACTOR.displayName,
 			actorUserId: SYSTEM_ACTOR.id,
 			articleId,
@@ -167,13 +170,17 @@ async function applyHeadline(
 			snapshot,
 			version: (latestVersion?.version ?? 0) + 1,
 		});
-		await tx.insert(auditEvents).values({
+		const audit = tx.insert(auditEvents).values({
 			action: "article_headline_regenerated",
 			entityId: articleId,
 			entityType: "article",
 			payload: { actorId: SYSTEM_ACTOR.id },
 		});
-	});
+        await adminDb.batch([
+            unchangedRow(adminDb,articles,and(eq(articles.id,articleId),eq(articles.revision,current.revision))!),
+            update,version,audit,
+        ]);
+    })();
 }
 
 export async function countArticlesNeedingHeadlineFix() {
@@ -198,5 +205,5 @@ export async function articleIdsWithHeadlineIssues(ids: string[]) {
 	return adminDb
 		.select({ id: articles.id })
 		.from(articles)
-		.where(inArray(articles.id, ids));
+		.where(inJsonArray(articles.id, ids));
 }

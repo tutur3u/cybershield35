@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 		const overview = await getOperationsOverview();
 		logOperation("operations_overview_loaded", {
 			durationMs: Date.now() - startedAt,
-			requestId: request.headers.get("x-vercel-id"),
+			requestId: request.headers.get("cf-ray"),
 		});
 		return Response.json(overview, { headers: authHeaders(auth) });
 	} catch (error) {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 			{
 				durationMs: Date.now() - startedAt,
 				errorType: error instanceof Error ? error.name : "UnknownError",
-				requestId: request.headers.get("x-vercel-id"),
+				requestId: request.headers.get("cf-ray"),
 			},
 			"error",
 		);

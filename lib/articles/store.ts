@@ -1,9 +1,12 @@
+import { cachedData } from "@/lib/cache/data";
+import { unchangedRow } from "@/lib/db/d1-guard";
 import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { and, asc, desc, eq, ilike, inArray, isNull, max, or } from "drizzle-orm";
-import { cacheLife, cacheTag, revalidateTag } from "next/cache";
+import { and, asc, desc, eq,  inArray, isNull, max, or } from "drizzle-orm";
+import { containsInsensitive } from "@/lib/db/sqlite-search";
+import { revalidateTag } from "next/cache";
 
 import { reconcilePublicationOnReview } from "@/lib/articles/publication-reconcile";
 import type { ChatActor } from "@/lib/chat/types";
@@ -59,7 +62,7 @@ export async function listArticlesPage(input: {
 	const limit = Math.min(25, Math.max(1, Math.floor(input.limit)));
 	const offset = normalizeOffsetCursor(input.cursor);
 	const conditions = [
-		input.query ? or(ilike(articles.title, `%${input.query}%`), ilike(articles.description, `%${input.query}%`), ilike(articles.author, `%${input.query}%`)) : undefined,
+		input.query ? or(containsInsensitive(articles.title, input.query), containsInsensitive(articles.description, input.query), containsInsensitive(articles.author, input.query)) : undefined,
 		input.review ? eq(articles.reviewStatus, input.review) : undefined,
 		input.state ? eq(articles.state, input.state) : undefined,
 	].filter(Boolean);
@@ -106,14 +109,13 @@ export async function getCachedArticlesPage(input: {
 	sort?: "created_asc" | "created_desc" | "title" | "updated_asc" | "updated_desc";
 	state?: "archived" | "draft" | "published";
 }) {
-	"use cache";
-	cacheLife({ expire: 300, revalidate: 30, stale: 30 });
-	cacheTag(ARTICLE_CATALOG_TAG);
-	return listArticlesPage(input);
+ return cachedData("lib/articles/store.ts:getCachedArticlesPage", [input], {revalidate: 30, tags: [ARTICLE_CATALOG_TAG]}, async () => {
+return listArticlesPage(input);
+ });
 }
 
 function invalidateArticleCatalog() {
-	revalidateTag(ARTICLE_CATALOG_TAG, "max");
+	revalidateTag(ARTICLE_CATALOG_TAG, { expire: 0 });
 }
 
 function normalizeOffsetCursor(value?: string | null) {
@@ -206,48 +208,24 @@ export async function createArticle(
 	}
 
 	const snapshot = snapshotFromInput(seeded);
-	const article = await adminDb.transaction(async (tx) => {
-		const [article] = await tx
-			.insert(articles)
-			.values({
-				...snapshot,
-				contentHash: hashArticleContent(snapshot),
-				createdByDisplayName: actor.displayName,
-				createdByUserId: actor.id,
-				originDraftId: input.originDraftId,
-				originEvidenceItemId: input.originEvidenceItemId,
-				originScanJobId: input.originScanJobId,
-				originatingChatId: input.originatingChatId,
-				updatedByDisplayName: actor.displayName,
-				updatedByUserId: actor.id,
-			})
-			.returning();
-		if (!article) throw new Error("Không thể tạo bài viết.");
-
-		await tx.insert(articleVersions).values({
-			actorDisplayName: actor.displayName,
-			actorUserId: actor.id,
-			articleId: article.id,
-			snapshot,
-			version: 1,
-		});
-		if (input.originEvidenceItemId) {
-			await tx
-				.insert(articleEvidence)
-				.values({
-					articleId: article.id,
-					evidenceItemId: input.originEvidenceItemId,
-				})
-				.onConflictDoNothing();
-		}
-		await tx.insert(auditEvents).values({
-			action: "article_created",
-			entityId: article.id,
-			entityType: "article",
-			payload: { actorId: actor.id },
-		});
-		return article;
-	});
+    const id = crypto.randomUUID();
+    const [[article]] = await adminDb.batch([
+        adminDb.insert(articles).values({
+            id, ...snapshot, contentHash: hashArticleContent(snapshot),
+            createdByDisplayName: actor.displayName, createdByUserId: actor.id,
+            originDraftId: input.originDraftId, originEvidenceItemId: input.originEvidenceItemId,
+            originScanJobId: input.originScanJobId, originatingChatId: input.originatingChatId,
+            updatedByDisplayName: actor.displayName, updatedByUserId: actor.id,
+        }).returning(),
+        adminDb.insert(articleVersions).values({actorDisplayName: actor.displayName,
+            actorUserId: actor.id, articleId: id, snapshot, version: 1}),
+        ...(input.originEvidenceItemId ? [adminDb.insert(articleEvidence).values({
+            articleId: id, evidenceItemId: input.originEvidenceItemId,
+        }).onConflictDoNothing()] : []),
+        adminDb.insert(auditEvents).values({action: "article_created", entityId: id,
+            entityType: "article", payload: {actorId: actor.id}}),
+    ]);
+    if (!article) throw new Error("Không thể tạo bài viết.");
 	invalidateArticleCatalog();
 	return article;
 }
@@ -258,91 +236,40 @@ export async function updateArticle(
 	actor: ChatActor,
 	input: { instruction?: string; origin?: "manual" | "ai" | "restore" } = {},
 ) {
-	const article = await adminDb.transaction(async (tx) => {
-		const [current] = await tx
-			.select()
-			.from(articles)
-			.where(eq(articles.id, id))
-			.limit(1);
-		if (!current) return null;
-		if (["syncing", "publishing"].includes(current.publicationStatus)) {
-			throw new Error("Bài viết đang đồng bộ với Zalo. Vui lòng đợi hoàn tất.");
-		}
-
-		const snapshot = snapshotFromInput({
-			author: patch.author ?? current.author,
-			blocks: patch.blocks ?? current.blocks,
-			commentsEnabled: patch.commentsEnabled ?? current.commentsEnabled,
-			coverUrl:
-				patch.coverUrl === undefined ? current.coverUrl : patch.coverUrl,
-			description: patch.description ?? current.description,
-			targetOaConnectionId:
-				patch.targetOaConnectionId === undefined
-					? current.targetOaConnectionId
-					: patch.targetOaConnectionId,
-			title: patch.title ?? current.title,
-		});
-		const contentHash = hashArticleContent(snapshot);
-		const changed = contentHash !== current.contentHash;
-		if (changed && current.publicationStatus === "scheduled") {
-			await tx
-				.update(articlePublicationJobs)
-				.set({
-					errorMessage: "Đã hủy vì nội dung thay đổi",
-					status: "cancelled",
-					updatedAt: new Date(),
-				})
-				.where(
-					and(
-						eq(articlePublicationJobs.articleId, id),
-						inArray(articlePublicationJobs.status, ["queued", "retrying"]),
-					),
-				);
-		}
-
-		const [versionRow] = await tx
-			.select({ value: max(articleVersions.version) })
-			.from(articleVersions)
-			.where(eq(articleVersions.articleId, id));
-		const [updated] = await tx
-			.update(articles)
-			.set({
-				...snapshot,
-				contentHash,
-				lastError: null,
-				publicationStatus:
-					changed &&
-					["hidden", "scheduled", "failed"].includes(current.publicationStatus)
-						? "not_synced"
-						: current.publicationStatus,
-				scheduledAt: changed ? null : current.scheduledAt,
-				updatedAt: new Date(),
-				updatedByDisplayName: actor.displayName,
-				updatedByUserId: actor.id,
-			})
-			.where(eq(articles.id, id))
-			.returning();
-		if (!updated) return null;
-
-		if (changed) {
-			await tx.insert(articleVersions).values({
-				actorDisplayName: actor.displayName,
-				actorUserId: actor.id,
-				articleId: id,
-				instruction: input.instruction,
-				origin: input.origin ?? "manual",
-				snapshot,
-				version: (versionRow?.value ?? 0) + 1,
-			});
-		}
-		await tx.insert(auditEvents).values({
-			action: changed ? "article_updated" : "article_metadata_updated",
-			entityId: id,
-			entityType: "article",
-			payload: { actorId: actor.id, origin: input.origin ?? "manual" },
-		});
-		return updated;
-	});
+    const [current] = await adminDb.select().from(articles).where(eq(articles.id, id)).limit(1);
+    if (!current) return null;
+    if (["syncing", "publishing"].includes(current.publicationStatus)) {
+        throw new Error("Bài viết đang đồng bộ với Zalo. Vui lòng đợi hoàn tất.");
+    }
+    const snapshot = snapshotFromInput({
+        author: patch.author ?? current.author, blocks: patch.blocks ?? current.blocks,
+        commentsEnabled: patch.commentsEnabled ?? current.commentsEnabled,
+        coverUrl: patch.coverUrl === undefined ? current.coverUrl : patch.coverUrl,
+        description: patch.description ?? current.description,
+        targetOaConnectionId: patch.targetOaConnectionId === undefined ? current.targetOaConnectionId : patch.targetOaConnectionId,
+        title: patch.title ?? current.title,
+    });
+    const contentHash = hashArticleContent(snapshot);
+    const changed = contentHash !== current.contentHash;
+    const [versionRow] = await adminDb.select({value: max(articleVersions.version)})
+        .from(articleVersions).where(eq(articleVersions.articleId, id));
+    const [, [article]] = await adminDb.batch([
+        unchangedRow(adminDb, articles, and(eq(articles.id,id), eq(articles.revision,current.revision))!),
+        adminDb.update(articles).set({ ...snapshot, contentHash, lastError: null,
+            publicationStatus: changed && ["hidden", "scheduled", "failed"].includes(current.publicationStatus)
+                ? "not_synced" : current.publicationStatus,
+            scheduledAt: changed ? null : current.scheduledAt, updatedAt: new Date(),
+            updatedByDisplayName: actor.displayName, updatedByUserId: actor.id,
+        }).where(eq(articles.id,id)).returning(),
+        ...(changed && current.publicationStatus === "scheduled" ? [adminDb.update(articlePublicationJobs).set({
+            errorMessage: "Đã hủy vì nội dung thay đổi", status: "cancelled", updatedAt: new Date(),
+        }).where(and(eq(articlePublicationJobs.articleId,id), inArray(articlePublicationJobs.status,["queued","retrying"])))] : []),
+        ...(changed ? [adminDb.insert(articleVersions).values({actorDisplayName: actor.displayName,
+            actorUserId: actor.id, articleId: id, instruction: input.instruction,
+            origin: input.origin ?? "manual", snapshot, version: (versionRow?.value ?? 0) + 1})] : []),
+        adminDb.insert(auditEvents).values({action: changed ? "article_updated" : "article_metadata_updated",
+            entityId: id, entityType: "article", payload: {actorId: actor.id, origin: input.origin ?? "manual"}}),
+    ]);
 	if (article) invalidateArticleCatalog();
 	return article;
 }
@@ -461,20 +388,14 @@ export async function importZaloArticle(
 }
 
 export async function deleteLocalArticle(id: string, actor: ChatActor) {
-	const article = await adminDb.transaction(async (tx) => {
-		const [article] = await tx
-			.delete(articles)
-			.where(and(eq(articles.id, id), isNull(articles.remoteArticleId)))
-			.returning();
-		if (!article) return null;
-		await tx.insert(auditEvents).values({
-			action: "article_deleted",
-			entityId: id,
-			entityType: "article",
-			payload: { actorId: actor.id },
-		});
-		return article;
-	});
+    const [current] = await adminDb.select().from(articles)
+        .where(and(eq(articles.id,id), isNull(articles.remoteArticleId))).limit(1);
+    if (!current) return null;
+    const [, [article]] = await adminDb.batch([
+        unchangedRow(adminDb, articles, and(eq(articles.id,id),eq(articles.revision,current.revision))!),
+        adminDb.delete(articles).where(and(eq(articles.id,id),isNull(articles.remoteArticleId))).returning(),
+        adminDb.insert(auditEvents).values({action:"article_deleted",entityId:id,entityType:"article",payload:{actorId:actor.id}}),
+    ]);
 	if (article) invalidateArticleCatalog();
 	return article;
 }
@@ -508,15 +429,8 @@ export async function addArticleEvidence(
 	evidenceItemIds: string[],
 	actor: ChatActor,
 ) {
-	await adminDb
-		.insert(articleEvidence)
-		.values(
-			evidenceItemIds.map((evidenceItemId) => ({
-				articleId,
-				evidenceItemId,
-			})),
-		)
-		.onConflictDoNothing();
+    const writes=evidenceItemIds.map(evidenceItemId=>adminDb.insert(articleEvidence).values({articleId,evidenceItemId}).onConflictDoNothing());
+    if(writes.length) await adminDb.batch([writes[0]!,...writes.slice(1)]);
 	await adminDb.insert(auditEvents).values({
 		action: "article_evidence_added",
 		entityId: articleId,

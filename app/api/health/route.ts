@@ -1,4 +1,5 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { cachedData } from "@/lib/cache/data";
+import { connection } from "next/server";
 import { desc } from "drizzle-orm";
 
 import { isTuturuuuAuthConfigured } from "@/lib/auth/tuturuuu-session";
@@ -8,27 +9,25 @@ import { cronHeartbeats } from "@/lib/db/schema";
 import { getProviderAvailability } from "@/lib/providers/availability";
 
 export async function GET() {
+	await connection();
 	return Response.json(await getHealthSnapshot());
 }
 
 async function getHealthSnapshot() {
-	"use cache";
-	cacheLife({ stale: 60, revalidate: 60, expire: 300 });
-	cacheTag(DASHBOARD_HEALTH_TAG);
-
-	const providers = getProviderAvailability();
-	const [databaseResult, cronResult] = await Promise.allSettled([
+ return cachedData("app/api/health/route.ts:getHealthSnapshot", [], {revalidate: 60, tags: [DASHBOARD_HEALTH_TAG]}, async () => {
+const providers = getProviderAvailability();
+const [databaseResult, cronResult] = await Promise.allSettled([
 		checkDatabase(),
 		adminDb.select().from(cronHeartbeats).orderBy(desc(cronHeartbeats.lastSeenAt)).limit(1),
 	]);
-	const database =
+const database =
 		databaseResult.status === "fulfilled"
 			? databaseResult.value
 			: {
 					ok: false,
 					error: errorMessage(databaseResult.reason, "Database unavailable"),
 				};
-	const cron =
+const cron =
 		cronResult.status === "fulfilled"
 			? {
 					ok: cronResult.value.length > 0,
@@ -38,8 +37,7 @@ async function getHealthSnapshot() {
 					error: errorMessage(cronResult.reason, "Cron heartbeat unavailable"),
 					ok: false,
 				};
-
-	return {
+return {
 		status: database.ok ? "ok" : "degraded",
 		database,
 		cron,
@@ -49,8 +47,9 @@ async function getHealthSnapshot() {
 		},
 		providers,
 	};
+ });
 }
 
-function errorMessage(error: unknown, fallback: string) {
-	return error instanceof Error ? error.message : fallback;
+function errorMessage(_error: unknown, fallback: string) {
+	return fallback;
 }

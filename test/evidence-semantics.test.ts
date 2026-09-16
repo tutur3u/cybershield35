@@ -110,7 +110,7 @@ describe("evidence semantic relationships", () => {
 		expect(cosine(theft, relatedTheft)).toBeGreaterThan(cosine(theft, traffic));
 	});
 
-	test("queries the whole corpus with pgvector and hides weak matches", () => {
+	test("queries the whole corpus with exact D1 cosine scoring and hides weak matches", () => {
 		const server = readFileSync("lib/dashboard/timeline-server.ts", "utf8") +
 		readFileSync("lib/dashboard/timeline-shared.ts", "utf8") +
 		readFileSync("lib/dashboard/timeline-mapping.ts", "utf8") +
@@ -118,10 +118,10 @@ describe("evidence semantic relationships", () => {
 		readFileSync("lib/dashboard/timeline-triage.ts", "utf8");
 		const worker = readFileSync("lib/workers/evidence-semantics.ts", "utf8");
 		const migration = readFileSync("drizzle/0018_violet_wrecker.sql", "utf8");
-		expect(server).toContain("cosineDistance");
+		expect(server).toContain("cosineSimilarity(target.embedding, profile.embedding)");
 		expect(server).toContain("RELATED_EVIDENCE_MIN_RELEVANCE");
 		expect(server).toContain("getCachedRelatedEvidence");
-		expect(server).toContain("cacheLife({ stale: 60");
+		expect(server).toContain("revalidate: 300");
 		expect(server).toContain("rankEvidenceRelationship");
 		expect(server).toContain("ne(evidenceItems.id, evidenceId)");
 		expect(migration).toContain("CREATE EXTENSION IF NOT EXISTS vector");

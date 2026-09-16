@@ -11,8 +11,6 @@ import {
 } from "@/lib/dashboard/query-keys";
 import { getQueryClient } from "@/lib/query-client";
 
-export const instant = true;
-
 export default function AlertsPage({
 	searchParams,
 }: {

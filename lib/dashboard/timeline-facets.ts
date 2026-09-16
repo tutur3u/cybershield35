@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, eq, sql, type SQL } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 
 import type { TimelineFilters } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
@@ -43,7 +43,7 @@ export async function getTimelineFacets(
 
 async function countBy(
 	/** A column or a computed expression; both group the same way. */
-	dimension: PgColumn | SQL<unknown>,
+	dimension: SQLiteColumn | SQL<unknown>,
 	filters: TimelineFilters,
 	exclude: keyof TimelineFilters,
 ) {
@@ -52,7 +52,7 @@ async function countBy(
 	// many of the level they already picked exist.
 	const conditions = timelineConditionsFor({ ...filters, [exclude]: undefined });
 	const rows = await adminDb
-		.select({ count: sql<number>`count(*)::int`, value: dimension })
+		.select({ count: sql<number>`count(*)`, value: dimension })
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)

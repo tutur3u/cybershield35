@@ -296,7 +296,7 @@ describe("Tuturuuu encrypted admin session", () => {
 
 	test("local auth bypass only works outside production on localhost", () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
-		process.env.NODE_ENV = "development";
+		Object.assign(process.env, {NODE_ENV: "development"});
 
 		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
 			true,
@@ -310,14 +310,14 @@ describe("Tuturuuu encrypted admin session", () => {
 			false,
 		);
 
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
 			false,
 		);
 	});
 
 	test("local auth bypass is explicit", () => {
-		process.env.NODE_ENV = "development";
+		Object.assign(process.env, {NODE_ENV: "development"});
 		delete process.env.AUTH_LOCAL_BYPASS;
 
 		expect(allowLocalAuthBypass(new Request("http://localhost:3000"))).toBe(
@@ -327,7 +327,7 @@ describe("Tuturuuu encrypted admin session", () => {
 
 	test("local auth bypass creates a local session only for dev localhost requests", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
-		process.env.NODE_ENV = "development";
+		Object.assign(process.env, {NODE_ENV: "development"});
 
 		const local = await requireAdminSession(
 			new Request("http://localhost:3000"),
@@ -337,7 +337,7 @@ describe("Tuturuuu encrypted admin session", () => {
 			session: { user: { id: "local-dev" }, workspaceId: "local-dev" },
 		});
 
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		const production = await requireAdminSession(
 			new Request("http://localhost:3000"),
 		);

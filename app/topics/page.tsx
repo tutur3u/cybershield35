@@ -15,8 +15,6 @@ export const metadata = {
 	title: "Chủ đề",
 };
 
-export const instant = true;
-
 export default function TopicsRoute({
 	searchParams,
 }: {

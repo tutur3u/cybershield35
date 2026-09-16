@@ -19,8 +19,6 @@ import {
 	sessionNeedsScopeRefresh,
 } from "@/lib/auth/tuturuuu-session";
 
-export const instant = true;
-
 export const metadata: Metadata = {
 	title: "Đăng nhập",
 	description: "Đăng nhập bằng Tuturuuu để mở CyberShield 35.",

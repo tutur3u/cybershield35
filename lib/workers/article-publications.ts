@@ -1,3 +1,4 @@
+import { unchangedRow } from "@/lib/db/d1-guard";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -156,46 +157,20 @@ export async function cancelScheduledArticle(
 	articleId: string,
 	actor: ChatActor,
 ) {
-	return adminDb.transaction(async (tx) => {
-		const jobs = await tx
-			.update(articlePublicationJobs)
-			.set({
-				errorMessage: "Đã hủy bởi người dùng",
-				status: "cancelled",
-				updatedAt: new Date(),
-			})
-			.where(
-				and(
-					eq(articlePublicationJobs.articleId, articleId),
-					eq(articlePublicationJobs.operation, "publish"),
-					inArray(articlePublicationJobs.status, ["queued", "retrying"]),
-				),
-			)
-			.returning();
-		const [article] = await tx
-			.update(articles)
-			.set({
-				publicationStatus: "hidden",
-				scheduledAt: null,
-				updatedAt: new Date(),
-			})
-			.where(
-				and(
-					eq(articles.id, articleId),
-					eq(articles.publicationStatus, "scheduled"),
-				),
-			)
-			.returning();
-		if (article) {
-			await tx.insert(auditEvents).values({
-				action: "article_schedule_cancelled",
-				entityId: articleId,
-				entityType: "article",
-				payload: { actorId: actor.id, jobIds: jobs.map((job) => job.id) },
-			});
-		}
-		return article ?? null;
-	});
+    const [current] = await adminDb.select().from(articles).where(eq(articles.id,articleId)).limit(1);
+    if (!current) return null;
+    const jobs = await adminDb.select().from(articlePublicationJobs).where(and(
+        eq(articlePublicationJobs.articleId,articleId),eq(articlePublicationJobs.operation,"publish"),inArray(articlePublicationJobs.status,["queued","retrying"]),
+    ));
+    const [, [article]] = await adminDb.batch([
+        unchangedRow(adminDb,articles,and(eq(articles.id,articleId),eq(articles.revision,current.revision))!),
+        adminDb.update(articles).set({publicationStatus:"hidden",scheduledAt:null,updatedAt:new Date()})
+            .where(and(eq(articles.id,articleId),eq(articles.publicationStatus,"scheduled"))).returning(),
+        ...jobs.map(job=>unchangedRow(adminDb,articlePublicationJobs,and(eq(articlePublicationJobs.id,job.id),eq(articlePublicationJobs.revision,job.revision))!)),
+        ...jobs.map(job=>adminDb.update(articlePublicationJobs).set({errorMessage:"Đã hủy bởi người dùng",status:"cancelled",updatedAt:new Date()}).where(eq(articlePublicationJobs.id,job.id))),
+        ...(current.publicationStatus === "scheduled" ? [adminDb.insert(auditEvents).values({action:"article_schedule_cancelled",entityId:articleId,entityType:"article",payload:{actorId:actor.id,jobIds:jobs.map(job=>job.id)}})] : []),
+    ]);
+    return article ?? null;
 }
 
 /**
@@ -242,8 +217,8 @@ export async function reclaimStalledPublicationJobs() {
 			.update(articles)
 			.set({
 				publicationStatus: sql`case when ${articles.remoteArticleId} is null
-					then 'not_synced'::article_publication_status
-					else 'hidden'::article_publication_status end`,
+					then 'not_synced'
+					else 'hidden' end`,
 				updatedAt: new Date(),
 			})
 			.where(eq(articles.id, job.articleId));
@@ -388,18 +363,9 @@ export async function processArticlePublicationJob(jobId: string) {
 }
 
 export async function processDueArticlePublications(limit = 5) {
-	const jobs = await adminDb.transaction(async (tx) => {
-		const result = await tx.execute(sql`
-			select id
-			from article_publication_jobs
-			where status in ('queued', 'retrying')
-				and scheduled_at <= now()
-			order by scheduled_at asc, created_at asc
-			for update skip locked
-			limit ${limit}
-		`);
-		return Array.from(result) as Array<{ id: string }>;
-	});
+    const jobs = await adminDb.select({id:articlePublicationJobs.id}).from(articlePublicationJobs)
+        .where(and(inArray(articlePublicationJobs.status,["queued","retrying"]),sql`${articlePublicationJobs.scheduledAt} <= strftime('%Y-%m-%dT%H:%M:%fZ','now')`))
+        .orderBy(articlePublicationJobs.scheduledAt,articlePublicationJobs.createdAt).limit(limit);
 	const processed = [];
 	for (const job of jobs) {
 		processed.push(await processArticlePublicationJob(job.id));
@@ -408,7 +374,7 @@ export async function processDueArticlePublications(limit = 5) {
 		.insert(cronHeartbeats)
 		.values({
 			metadata: { processed: processed.length },
-			serviceName: "vercel-cron:process-article-publications",
+			serviceName: "cloudflare-cron:process-article-publications",
 		})
 		.onConflictDoUpdate({
 			set: {
@@ -493,8 +459,9 @@ export async function removeRemoteArticle(
 	);
 	await removeZaloArticle(accessToken, article.remoteArticleId);
 	const removedAt = new Date();
-	const updated = await adminDb.transaction(async (tx) => {
-		const [updated] = await tx
+	const updated = await (async () => {
+        const tx = adminDb;
+		const write = tx
 			.update(articles)
 			.set({
 				lastError: null,
@@ -511,7 +478,7 @@ export async function removeRemoteArticle(
 			})
 			.where(eq(articles.id, articleId))
 			.returning();
-		await tx.insert(auditEvents).values({
+		const audit = tx.insert(auditEvents).values({
 			action: "article_removed_from_zalo",
 			entityId: articleId,
 			entityType: "article",
@@ -522,8 +489,10 @@ export async function removeRemoteArticle(
 				removedAt: removedAt.toISOString(),
 			},
 		});
-		return updated ?? null;
-	});
+		const [[updated]] = await adminDb.batch([write,audit]);
+        return updated ?? null;
+	})();
+
 	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
 	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 	return updated;
@@ -646,8 +615,9 @@ async function executePublicationOperation(
 		remoteArticleId,
 	).catch(() => ({}));
 	const now = new Date();
-	await adminDb.transaction(async (tx) => {
-		await tx
+	await (async () => {
+        const tx = adminDb;
+		const write = tx
 			.update(articles)
 			.set({
 				lastError: null,
@@ -661,7 +631,7 @@ async function executePublicationOperation(
 				updatedAt: now,
 			})
 			.where(eq(articles.id, article.id));
-		await tx.insert(auditEvents).values({
+		const audit = tx.insert(auditEvents).values({
 			action:
 				status === "show" ? "article_published_to_zalo" : "article_synced_hidden",
 			entityId: article.id,
@@ -674,7 +644,8 @@ async function executePublicationOperation(
 				remoteArticleId,
 			},
 		});
-	});
+        await adminDb.batch([write,audit]);
+    })();
 	revalidateTag(ZALO_ARTICLE_CATALOG_TAG, "max");
 	revalidateTag(ARTICLE_CATALOG_TAG, "max");
 }

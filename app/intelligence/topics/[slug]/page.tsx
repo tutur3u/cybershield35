@@ -1,1 +1,1 @@
-export { default, metadata, instant } from "@/app/topics/[slug]/page";
+export { default, metadata } from "@/app/topics/[slug]/page";

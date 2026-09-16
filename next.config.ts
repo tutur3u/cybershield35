@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
-import { withWorkflow } from "workflow/next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+if (process.env.NODE_ENV === "development") void initOpenNextCloudflareForDev({remoteBindings:false});
 
 const useWebpackBuild = process.env.NEXT_WEBPACK_BUILD === "1";
 
@@ -31,12 +33,12 @@ const securityHeaders = [
 		key: "Content-Security-Policy",
 		value: [
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob: https:",
 			"font-src 'self'",
 			// The chat composer reads local attachments and uploads only to signed Drive storage URLs.
-			"connect-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.supabase.co",
+			"connect-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.supabase.co https://cloudflareinsights.com",
 			"frame-ancestors 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",
@@ -45,9 +47,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-	cacheComponents: true,
-	// This Workflow dependency resolves its process entrypoint at runtime.
-	serverExternalPackages: ["xdg-app-paths"],
+	// Keep cached data, but avoid OpenNext hangs resuming partially rendered pages.
+	cacheComponents: false,
 	images: {
 		/*
 		 * Only our own media is optimised. Pointing the optimiser at arbitrary
@@ -75,7 +76,8 @@ const nextConfig: NextConfig = {
 		// Article covers render around 380px in the rail and full width on mobile.
 		imageSizes: [64, 128, 256, 384],
 	},
-	partialPrefetching: true,
+	// OpenNext currently hangs while resuming Next 16.3 partial prefetch shells.
+	partialPrefetching: false,
 	reactCompiler: !useWebpackBuild,
 	experimental: {
 		instantInsights: {
@@ -113,8 +115,4 @@ const nextConfig: NextConfig = {
 	},
 };
 
-/**
- * Workflows compiles `'use workflow'` / `'use step'` functions into the routes
- * that make them durable, so the wrapper has to see the whole config.
- */
-export default withWorkflow(nextConfig);
+export default nextConfig;

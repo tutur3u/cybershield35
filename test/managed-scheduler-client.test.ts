@@ -244,7 +244,7 @@ describe("managed scheduler client queries", () => {
 		});
 	});
 
-	test("preserves Vercel Cron scheduler metadata", async () => {
+	test("preserves Cloudflare Cron scheduler metadata", async () => {
 		globalThis.fetch = mock(() =>
 			Promise.resolve(
 				Response.json({
@@ -266,7 +266,7 @@ describe("managed scheduler client queries", () => {
 						},
 					],
 					localStorageReady: true,
-					schedulerProvider: "vercel-cron",
+					schedulerProvider: "cloudflare-cron",
 					setupDisabled: false,
 					tokenLastFour: null,
 					updatedAt: null,
@@ -276,7 +276,7 @@ describe("managed scheduler client queries", () => {
 
 		const status = await fetchManagedSchedulerStatus();
 
-		expect(status.schedulerProvider).toBe("vercel-cron");
+		expect(status.schedulerProvider).toBe("cloudflare-cron");
 		expect(status.jobs[0]).toMatchObject({
 			lockedByDeployment: true,
 			scheduleTimezone: "UTC",

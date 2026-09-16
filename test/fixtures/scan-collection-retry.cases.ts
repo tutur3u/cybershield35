@@ -9,9 +9,7 @@ const runProvider = mock(async () => ({
   raw: { runId: "paid-run" },
   evidence: [],
 }));
-const transaction = mock(async (fn: (db: unknown) => Promise<unknown>) =>
-  fn(db),
-);
+const batch = mock(async (queries: Promise<unknown>[]) => Promise.all(queries));
 const db = {
   select: () => {
     const rows = reads.shift() ?? [];
@@ -34,7 +32,7 @@ const db = {
       return { where: async () => undefined };
     },
   }),
-  transaction,
+  batch,
 };
 mock.module("server-only", () => ({}));
 mock.module("@/lib/db/client", () => ({ adminDb: db }));
@@ -67,7 +65,7 @@ beforeEach(() => {
   reads.length = 0;
   writes.length = 0;
   runProvider.mockClear();
-  transaction.mockClear();
+  batch.mockClear();
 });
 
 test("analysis retry reuses older completed collection with persisted evidence", async () => {
@@ -90,7 +88,7 @@ test("incomplete legacy collection is not mistaken for saved evidence", async ()
   );
   await collectEvidence(job);
   expect(runProvider).toHaveBeenCalledTimes(1);
-  expect(transaction).toHaveBeenCalledTimes(1);
+  expect(batch).toHaveBeenCalledTimes(1);
   expect(writes).toContainEqual(
     expect.objectContaining({
       status: "completed",

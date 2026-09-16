@@ -16,32 +16,27 @@ if (!rows.length)
 	throw new Error("No project-attributed charges found; nothing imported");
 let imported = selectVercelCostsForImport(rows).length;
 if (process.argv.includes("--apply")) {
-	const { adminSqlClient: sql } = await import("../lib/db/client");
-	const observed = new Date().toISOString();
-	await sql.begin(async (tx) => {
-		const existing = await tx<
-			{ account_id: string; day: string }[]
-		>`select account_id,day::text from provider_account_costs where provider='vercel'`;
-		const selected = selectVercelCostsForImport(
-			rows,
-			new Set(existing.map((row) => `${row.account_id}:${row.day}`)),
-		);
-		imported = selected.length;
-		for (let offset = 0; offset < selected.length; offset += 250) {
-			const batch = selected.slice(offset, offset + 250).map((row) => ({
-				id: `vercel-${createHash("sha256").update(`${row.accountId}:${row.day}`).digest("hex")}`,
-				provider: "vercel",
-				account_id: row.accountId,
-				day: row.day,
-				amount_usd: row.amountUsd.toFixed(12),
-				observed_at: observed,
-			}));
-			await tx`insert into provider_account_costs ${tx(batch, "id", "provider", "account_id", "day", "amount_usd", "observed_at")}
-    on conflict(id) do update set amount_usd=excluded.amount_usd,observed_at=excluded.observed_at,synced_at=null,synced_workspace_id=null
-    where provider_account_costs.amount_usd is distinct from excluded.amount_usd`;
-		}
-	});
-	await sql.end();
+    const {getPlatformProxy} = await import("wrangler");
+    const {createD1Sql} = await import("../lib/db/d1-sql");
+    const remote = process.argv.includes("--remote");
+    const proxy = await getPlatformProxy<{CS35_DB: import("@cloudflare/workers-types").D1Database}>({
+        configPath: remote ? "wrangler.migration.jsonc" : "wrangler.jsonc", remoteBindings:remote,
+    });
+    try {
+        const sql = createD1Sql(()=>proxy.env.CS35_DB);
+        const existing = await sql<{account_id:string;day:string}[]>`select account_id,day from provider_account_costs where provider='vercel'`;
+        const selected = selectVercelCostsForImport(rows,new Set(existing.map(row=>`${row.account_id}:${row.day}`)));
+        imported = selected.length;
+        const observed = new Date().toISOString();
+        const writes = selected.map(row=>{
+            const id = `vercel-${createHash("sha256").update(`${row.accountId}:${row.day}`).digest("hex")}`;
+            return sql`insert into provider_account_costs(id,provider,account_id,day,amount_usd,observed_at)
+                values(${id},'vercel',${row.accountId},${row.day},${row.amountUsd.toFixed(12)},${observed})
+                on conflict(id) do update set amount_usd=excluded.amount_usd,observed_at=excluded.observed_at,synced_at=null,synced_workspace_id=null
+                where provider_account_costs.amount_usd is distinct from excluded.amount_usd`;
+        });
+        if(writes.length) await sql.batch(writes);
+    } finally { await proxy.dispose(); }
 }
 console.log(
 	JSON.stringify({

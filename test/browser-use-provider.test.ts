@@ -82,7 +82,7 @@ describe("runBrowserUse", () => {
 
 function urlSource(url: string): SourceRow {
 	return {
-		id: "source-1",
+		id: "source-1", revision:0,
 		type: "url",
 		originalInput: url,
 		normalizedUrl: url,
@@ -92,6 +92,5 @@ function urlSource(url: string): SourceRow {
 		fileText: null,
 		metadata: {},
 		createdAt: new Date(),
-		updatedAt: new Date(),
 	} as SourceRow;
 }

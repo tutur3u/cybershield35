@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cacheLife } from "next/cache";
 
 import type { WorkspaceMembersResponse } from "@/components/dashboard/types";
 import { requestFromCurrentHeaders } from "@/lib/auth/current-request";
@@ -25,8 +24,6 @@ export async function getWorkspaceMembersInitialData() {
 }
 
 async function getCachedWorkspaceMembersInitialData() {
-	"use cache: private";
-	cacheLife({ expire: 1800, revalidate: 300, stale: 300 });
 
 	return fetchWorkspaceMembersForRequest(await requestFromCurrentHeaders());
 }

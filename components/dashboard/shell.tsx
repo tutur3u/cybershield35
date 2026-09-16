@@ -1060,11 +1060,13 @@ function BrowserClock() {
 	// 24-hour and day-first. "11:40 PM" is an American reading of a clock that
 	// every reader of this product writes as 23:40.
 	const timeLabel = new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 		hour: "2-digit",
 		hour12: false,
 		minute: "2-digit",
 	}).format(date);
 	const dateLabel = new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 		day: "2-digit",
 		month: "2-digit",
 		year: "numeric",

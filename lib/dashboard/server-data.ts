@@ -1,7 +1,7 @@
+import { cachedData } from "@/lib/cache/data";
 import "server-only";
 
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 
 import type { DashboardInitialData } from "@/components/dashboard/types";
 import {
@@ -81,41 +81,28 @@ export const getDashboardInitialData = cache(
 );
 
 async function getCachedScans() {
-	"use cache";
-	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
-	cacheTag(DASHBOARD_SCANS_TAG);
-	return listScans();
+ return cachedData("lib/dashboard/server-data.ts:getCachedScans", [], {revalidate: 30, tags: [DASHBOARD_SCANS_TAG]}, async () => {
+return listScans();
+ });
 }
 
 async function getCachedLatestScanId() {
-	"use cache";
-	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
-	cacheTag(DASHBOARD_SCANS_TAG);
-	return getLatestScanId();
+ return cachedData("lib/dashboard/server-data.ts:getCachedLatestScanId", [], {revalidate: 30, tags: [DASHBOARD_SCANS_TAG]}, async () => {
+return getLatestScanId();
+ });
 }
 
 async function getCachedTrackedSources() {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_TRACKED_SOURCES_TAG);
-	return listTrackedSources();
+ return cachedData("lib/dashboard/server-data.ts:getCachedTrackedSources", [], {revalidate: 300, tags: [DASHBOARD_TRACKED_SOURCES_TAG]}, async () => {
+return listTrackedSources();
+ });
 }
 
 export async function getCachedDashboardScanDetail(scanId: string) {
-	"use cache";
-	const detail = await getScanDetail(scanId);
-	const isActive =
-		!detail ||
-		detail.job.status === "queued" ||
-		detail.job.status === "running" ||
-		detail.job.status === "retrying";
-	cacheLife(
-		isActive
-			? { stale: 30, revalidate: 15, expire: 60 }
-			: { stale: 300, revalidate: 300, expire: 3600 },
-	);
-	cacheTag(dashboardScanDetailTag(scanId));
-	return toClientScanDetail(detail);
+ return cachedData("lib/dashboard/server-data.ts:getCachedDashboardScanDetail", [scanId], {revalidate: 15, tags: [dashboardScanDetailTag(scanId)]}, async () => {
+const detail = await getScanDetail(scanId);
+return toClientScanDetail(detail);
+ });
 }
 
 function serializeForClient<T>(value: T): T {

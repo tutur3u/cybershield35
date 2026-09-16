@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe("daily scan orchestrator", () => {
-	test("requires the Vercel Cron secret", async () => {
+	test("requires the Cloudflare Cron secret", async () => {
 		const { GET } = await import("@/app/api/cron/scans/run-daily/route");
 		expect((await GET(request())).status).toBe(401);
 	});
@@ -97,6 +97,6 @@ describe("daily scan orchestrator", () => {
 		expect(reassessStoredEvidenceRisk).toHaveBeenCalledWith(12, { onlyOutdated: true });
 		expect(refreshIntelligenceRollupsBestEffort).toHaveBeenCalledTimes(1);
 		expect(heartbeats).toHaveLength(1);
-		expect(heartbeats[0]?.serviceName).toBe("vercel-cron:daily-scans");
+		expect(heartbeats[0]?.serviceName).toBe("cloudflare-cron:daily-scans");
 	});
 });

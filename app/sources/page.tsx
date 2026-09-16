@@ -6,8 +6,6 @@ import {
 	type DashboardSearchParams,
 } from "@/components/dashboard/dashboard-route";
 
-export const instant = true;
-
 export default function SourcesPage({
 	searchParams,
 }: {

@@ -1,6 +1,8 @@
+import { inJsonArray } from "@/lib/db/sqlite-lists";
+import { utcTimestamp } from "@/lib/db/utc-timestamp";
 import "server-only";
 
-import { eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { eq, or, sql, type SQL } from "drizzle-orm";
 
 import type { TimelinePost } from "@/components/dashboard/types";
 import { adminDb } from "@/lib/db/client";
@@ -24,27 +26,19 @@ import {
 export const effectivePublishedAt = sql<Date>`coalesce(${evidenceItems.publishedAt}, ${evidenceItems.createdAt})`.mapWith(
 	evidenceItems.createdAt,
 );
-/**
- * Compares a timestamp expression against a moment in time.
- *
- * `gte(expr, date)` cannot be used here: the operand is a `coalesce(...)`
- * expression rather than a column, so Drizzle has no column type to encode the
- * parameter with and sends the Date through JavaScript's own `toString` —
- * "Tue Jul 07 2026 10:56:58 GMT+0000 (Coordinated Universal Time)", which
- * Postgres rejects outright. Every time-range filter on the timeline failed
- * with a 503 because of it. An ISO string with an explicit cast leaves nothing
- * to infer.
- */
+/** Bind fixed-width UTC text even when comparing a computed expression. */
 export function atOrAfter(expression: SQL, moment: Date) {
-	return sql`${expression} >= ${moment.toISOString()}::timestamptz`;
+	return sql`${expression} >= ${utcTimestamp(moment)}`;
 }
 
 export function before(expression: SQL, moment: Date) {
-	return sql`${expression} < ${moment.toISOString()}::timestamptz`;
+	return sql`${expression} < ${utcTimestamp(moment)}`;
 }
 
-const safeEngagementPart = (key: "comments" | "reactions" | "shares") =>
-	sql<number>`case when coalesce(${evidenceItems.engagement}->>${key}, '') ~ '^\\d+$' then (${evidenceItems.engagement}->>${key})::int else 0 end`;
+const safeEngagementPart = (key: "comments" | "reactions" | "shares") => {
+    const value = sql`cast(${evidenceItems.engagement}->>${key} as text)`;
+    return sql<number>`case when ${value} <> '' and ${value} not glob '*[^0-9]*' then cast(${value} as integer) else 0 end`;
+};
 export const reactionsExpr = safeEngagementPart("reactions");
 export const commentsExpr = safeEngagementPart("comments");
 export const sharesExpr = safeEngagementPart("shares");
@@ -53,13 +47,13 @@ export const riskScore = sql<number>`case ${evidenceItems.riskLevel} when 'high'
 export const effectiveTriageUpdatedAt = sql<Date>`coalesce(${evidenceTriage.updatedAt}, ${evidenceItems.createdAt})`.mapWith(
 	evidenceItems.createdAt,
 );
-export const effectiveTriageStatus = sql<EvidenceTriageStatus>`coalesce(${evidenceTriage.status}, 'new'::evidence_triage_status)`;
-export const effectivePinned = sql<boolean>`coalesce(${evidenceTriage.isPinned}, false)`;
+export const effectiveTriageStatus = sql<EvidenceTriageStatus>`coalesce(${evidenceTriage.status}, 'new')`;
+export const effectivePinned = sql<boolean>`coalesce(${evidenceTriage.isPinned}, false)`.mapWith(Boolean);
 const facebookPageKeyExpr = sql<string | null>`case
 	when nullif(trim(${evidenceItems.metadata}->>'facebookId'), '') is not null
 		then 'id:' || trim(${evidenceItems.metadata}->>'facebookId')
 	when nullif(trim(${evidenceItems.author}), '') is not null
-		then 'username:' || lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g'))
+		then 'username:' || ${facebookHandleFromAuthor(evidenceItems.author)}
 	else null
 end`;
 export const facebookPageProfileJoin = or(
@@ -70,16 +64,19 @@ export const facebookPageProfileJoin = or(
 	),
 	eq(
 		facebookPageProfiles.username,
-		sql<string | null>`nullif(lower(regexp_replace(trim(${evidenceItems.author}), '^@|\\s+', '', 'g')), '')`,
+		facebookHandleFromAuthor(evidenceItems.author),
 	),
 );
 
 const evidenceHandleExpr = facebookHandleFromAuthor(evidenceItems.author);
 const trackedSourceNameExpr = trackedSourceNameForHandle(evidenceHandleExpr);
 
-export const publishedMicros = sql<number>`floor(extract(epoch from ${effectivePublishedAt}) * 1000000)`;
-export const triageUpdatedMicros = sql<number>`floor(extract(epoch from ${effectiveTriageUpdatedAt}) * 1000000)`;
-export const collectedMicros = sql<number>`floor(extract(epoch from ${evidenceItems.createdAt}) * 1000000)`;
+function timestampMicros(expression: SQL | typeof evidenceItems.createdAt) {
+    return sql<number>`cast(strftime('%s',substr(${expression},1,19)||'Z') as integer)*1000000 + cast(substr(replace(substr(${expression},21),'Z','')||'000000',1,6) as integer)`;
+}
+export const publishedMicros = timestampMicros(effectivePublishedAt);
+export const triageUpdatedMicros = timestampMicros(effectiveTriageUpdatedAt);
+export const collectedMicros = timestampMicros(evidenceItems.createdAt);
 
 export const timelinePostSelection = {
 	author: evidenceItems.author,
@@ -88,7 +85,7 @@ export const timelinePostSelection = {
 	createdAt: evidenceItems.createdAt,
 	engagementTotal: engagementScore,
 	facebookPageId: sql<string | null>`${evidenceItems.metadata}->>'facebookId'`,
-	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized'::facebook_page_classification)`,
+	pageClassification: sql<TimelinePost["pageClassification"]>`coalesce(${facebookPageProfiles.classification}, 'uncategorized')`,
 	// The name the team gave the page, and its handle — always both, so a card
 	// can lead with the name a reader recognises and still say which account it
 	// came from. The tracked source wins because that is the field the team
@@ -130,7 +127,7 @@ export async function topicsForEvidence(ids: string[]) {
 		.select({ evidenceItemId: evidenceTopics.evidenceItemId, slug: topics.slug })
 		.from(evidenceTopics)
 		.innerJoin(topics, eq(topics.id, evidenceTopics.topicId))
-		.where(inArray(evidenceTopics.evidenceItemId, ids));
+		.where(inJsonArray(evidenceTopics.evidenceItemId, ids));
 	for (const row of rows) {
 		result.set(row.evidenceItemId, [...(result.get(row.evidenceItemId) ?? []), row.slug]);
 	}

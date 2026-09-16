@@ -14,7 +14,7 @@ const { atOrAfter, before, effectivePublishedAt } = await import(
  * `toString` — a format Postgres rejects outright.
  */
 describe("timestamp comparisons on computed expressions", () => {
-	const moment = new Date("2026-07-07T10:56:58.000Z");
+	const moment = new Date("2026-07-07T10:56:58.000000Z");
 	// Flattened by hand: the chunk tree contains cycles, so it cannot be
 	// stringified wholesale.
 	const chunks = (value: { queryChunks: unknown[] }) => {
@@ -38,17 +38,17 @@ describe("timestamp comparisons on computed expressions", () => {
 
 	test("the moment is sent as an ISO string, never a Date", () => {
 		const rendered = chunks(atOrAfter(effectivePublishedAt, moment));
-		expect(rendered).toContain("2026-07-07T10:56:58.000Z");
+		expect(rendered).toContain("2026-07-07T10:56:58.000000Z");
 		// The shape Postgres rejected, and the reason the filter 503'd.
 		expect(rendered).not.toContain("GMT+0000");
 	});
 
-	test("the comparison casts explicitly, leaving nothing to infer", () => {
+	test("the comparison uses fixed-width UTC text", () => {
 		expect(chunks(atOrAfter(effectivePublishedAt, moment))).toContain(
-			"::timestamptz",
+			"2026-07-07T10:56:58.000000Z",
 		);
 		expect(chunks(before(effectivePublishedAt, moment))).toContain(
-			"::timestamptz",
+			"2026-07-07T10:56:58.000000Z",
 		);
 	});
 

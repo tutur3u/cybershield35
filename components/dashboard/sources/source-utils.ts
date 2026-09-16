@@ -80,6 +80,7 @@ export function formatDate(value?: Date | string | null) {
 	try {
 		return new Intl.DateTimeFormat("vi-VN", {
 			dateStyle: "short",
+			timeZone: "Asia/Ho_Chi_Minh",
 			timeStyle: "short",
 		}).format(new Date(value));
 	} catch {

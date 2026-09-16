@@ -34,8 +34,8 @@ import {
 import { enqueueDueTrackedSources } from "@/lib/workers/tracked-sources";
 import { logOperation } from "@/lib/operations/telemetry";
 
-const VERCEL_SCHEDULER_PROVIDER = "vercel-cron";
-const VERCEL_CRON_SECRET_MISSING = "VERCEL_CRON_SECRET_MISSING";
+const CLOUDFLARE_SCHEDULER_PROVIDER = "cloudflare-cron";
+const CLOUDFLARE_CRON_SECRET_MISSING = "CLOUDFLARE_CRON_SECRET_MISSING";
 const LEGACY_PROVIDER = "managed-scheduler";
 const DAILY_DRAIN_LIMIT = 500;
 
@@ -110,7 +110,7 @@ type ManagedSchedulerStatus = {
 	missingApprovalItems?: string[];
 	remoteConfigured?: boolean;
 	remoteStatusAvailable?: boolean;
-	schedulerProvider: typeof VERCEL_SCHEDULER_PROVIDER;
+	schedulerProvider: typeof CLOUDFLARE_SCHEDULER_PROVIDER;
 	setupDisabled: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
@@ -135,14 +135,14 @@ type CronExecutionResult = {
 	statusCode: number;
 };
 
-const VERCEL_CRON_JOBS: CronJobDefinition[] = [
+const CLOUDFLARE_CRON_JOBS: CronJobDefinition[] = [
 	{
 		jobKey: "daily-scans",
 		legacyServiceName: "managed-scheduler:daily-scans",
 		name: "Quét nguồn hằng ngày",
 		schedule: "0 0 * * *",
 		scheduleDescription: "Hằng ngày lúc 00:00 UTC",
-		serviceName: "vercel-cron:daily-scans",
+		serviceName: "cloudflare-cron:daily-scans",
 	},
 	{
 		jobKey: "process-article-publications",
@@ -150,7 +150,7 @@ const VERCEL_CRON_JOBS: CronJobDefinition[] = [
 		name: "Xuất bản bài viết Zalo OA",
 		schedule: "*/5 * * * *",
 		scheduleDescription: "Mỗi 5 phút",
-		serviceName: "vercel-cron:process-article-publications",
+		serviceName: "cloudflare-cron:process-article-publications",
 	},
 ];
 
@@ -158,7 +158,7 @@ export async function getManagedSchedulerStatus(request: Request) {
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) return json({ error: auth.error }, { status: auth.status });
 
-	return json(await buildVercelSchedulerStatus(), {
+	return json(await buildCloudflareSchedulerStatus(), {
 		setCookie: auth.setCookie,
 	});
 }
@@ -167,7 +167,7 @@ export async function setupManagedScheduler(request: Request) {
 	const auth = await requireAdminSession(request);
 	if ("error" in auth) return json({ error: auth.error }, { status: auth.status });
 
-	return json(await buildVercelSchedulerStatus(), {
+	return json(await buildCloudflareSchedulerStatus(), {
 		setCookie: auth.setCookie,
 	});
 }
@@ -191,15 +191,15 @@ export async function proxyManagedSchedulerRequest(
 	if (input.method === "PATCH" && /^jobs\/([^/]+)$/u.test(input.path)) {
 		return json(
 			{
-				code: "VERCEL_CRON_DEPLOYMENT_MANAGED",
+				code: "CLOUDFLARE_CRON_DEPLOYMENT_MANAGED",
 				error:
-					"Vercel Cron schedules are managed in vercel.json. Change the schedule in code and redeploy.",
+					"Cloudflare Cron schedules are managed in wrangler.jsonc. Change the schedule in code and redeploy.",
 			},
 			{ setCookie: auth.setCookie, status: 409 },
 		);
 	}
 
-	return json({ error: "Unknown Vercel Cron scheduler action" }, {
+	return json({ error: "Unknown Cloudflare Cron scheduler action" }, {
 		setCookie: auth.setCookie,
 		status: 404,
 	});
@@ -217,7 +217,7 @@ export async function proxyManagedSchedulerRead(
 	const allExecutionsMatch = /^executions\?(.*)$/u.exec(input.path);
 	if (allExecutionsMatch) {
 		const searchParams = new URLSearchParams(allExecutionsMatch[1]);
-		return json(await buildVercelCronExecutions(searchParams), {
+		return json(await buildCloudflareCronExecutions(searchParams), {
 			setCookie: auth.setCookie,
 		});
 	}
@@ -228,19 +228,19 @@ export async function proxyManagedSchedulerRead(
 	if (jobExecutionsMatch?.[1]) {
 		const searchParams = new URLSearchParams(jobExecutionsMatch[2] ?? "");
 		searchParams.set("jobKey", jobExecutionsMatch[1]);
-		return json(await buildVercelCronExecutions(searchParams), {
+		return json(await buildCloudflareCronExecutions(searchParams), {
 			setCookie: auth.setCookie,
 		});
 	}
 
-	return json({ error: "Unknown Vercel Cron scheduler read" }, {
+	return json({ error: "Unknown Cloudflare Cron scheduler read" }, {
 		setCookie: auth.setCookie,
 		status: 404,
 	});
 }
 
-export async function runVercelCronRoute(request: Request, jobKey: string) {
-	if (!verifyVercelCronRequest(request)) {
+export async function runCloudflareCronRoute(request: Request, jobKey: string) {
+	if (!verifyCloudflareCronRequest(request)) {
 		return json({ error: "Unauthorized" }, { status: 401 });
 	}
 
@@ -282,12 +282,12 @@ async function runSchedulerJobResponse(
 	source: "manual" | "scheduled",
 	setCookie?: string | null,
 ) {
-	const job = findVercelCronJob(jobKey);
+	const job = findCloudflareCronJob(jobKey);
 	if (!job) {
-		return json({ error: "Unknown Vercel Cron job" }, { setCookie, status: 404 });
+		return json({ error: "Unknown Cloudflare Cron job" }, { setCookie, status: 404 });
 	}
 
-	const result = await runVercelSchedulerJob(job, source);
+	const result = await runCloudflareSchedulerJob(job, source);
 	const scanIds = Array.isArray(result.payload.scanIds)
 		? result.payload.scanIds.filter(
 				(scanId): scanId is string => typeof scanId === "string",
@@ -299,7 +299,7 @@ async function runSchedulerJobResponse(
 			...result.payload,
 			execution: result.execution,
 			jobKey: job.jobKey,
-			provider: VERCEL_SCHEDULER_PROVIDER,
+			provider: CLOUDFLARE_SCHEDULER_PROVIDER,
 			status: result.execution.status,
 		},
 		{ setCookie, status: result.statusCode },
@@ -327,7 +327,7 @@ function revalidateSchedulerDashboardCaches(jobKey: string, scanIds: string[]) {
 	}
 }
 
-async function runVercelSchedulerJob(
+async function runCloudflareSchedulerJob(
 	job: CronJobDefinition,
 	source: "manual" | "scheduled",
 ): Promise<CronExecutionResult> {
@@ -342,7 +342,7 @@ async function runVercelSchedulerJob(
 	});
 
 	try {
-		payload = await executeVercelCronJob(job);
+		payload = await executeCloudflareCronJob(job);
 	} catch (caught) {
 		status = "failed";
 		statusCode = 500;
@@ -402,7 +402,7 @@ async function writeSchedulerHeartbeat(
 		await heartbeat(job.serviceName, {
 			jobKey: job.jobKey,
 			lastExecution: execution,
-			provider: VERCEL_SCHEDULER_PROVIDER,
+			provider: CLOUDFLARE_SCHEDULER_PROVIDER,
 			schedule: job.schedule,
 			source,
 		});
@@ -482,7 +482,7 @@ async function warmIntelligenceSummary() {
 	}
 }
 
-async function executeVercelCronJob(job: CronJobDefinition) {
+async function executeCloudflareCronJob(job: CronJobDefinition) {
 	if (job.jobKey === "process-article-publications") {
 		// Before draining: a job left locked by a killed request blocks its article
 		// from every path, and nothing else would ever release it.
@@ -538,13 +538,13 @@ async function executeVercelCronJob(job: CronJobDefinition) {
 	};
 }
 
-async function buildVercelSchedulerStatus(): Promise<ManagedSchedulerStatus> {
+async function buildCloudflareSchedulerStatus(): Promise<ManagedSchedulerStatus> {
 	const rows = await adminDb.select().from(cronHeartbeats);
 	const now = new Date();
 	const cronSecretReady = Boolean(process.env.CRON_SECRET?.trim());
-	const jobs = VERCEL_CRON_JOBS.map((job) => {
+	const jobs = CLOUDFLARE_CRON_JOBS.map((job) => {
 		const row = latestHeartbeatRow(rows, job);
-		return toVercelCronJobStatus(job, row, now);
+		return toCloudflareCronJobStatus(job, row, now);
 	});
 	const latestRun = jobs
 		.map((job) => job.lastRunAt)
@@ -555,11 +555,11 @@ async function buildVercelSchedulerStatus(): Promise<ManagedSchedulerStatus> {
 		...(cronSecretReady
 			? {}
 			: {
-					code: VERCEL_CRON_SECRET_MISSING,
+					code: CLOUDFLARE_CRON_SECRET_MISSING,
 					error:
-						"Set CRON_SECRET in Vercel project environment variables so Vercel Cron can authenticate scheduled invocations.",
+						"Set CRON_SECRET as a Cloudflare Worker secret so Cloudflare Cron can authenticate scheduled invocations.",
 					setupDisabledReason:
-						"Set CRON_SECRET in Vercel project environment variables so Vercel Cron can authenticate scheduled invocations.",
+						"Set CRON_SECRET as a Cloudflare Worker secret so Cloudflare Cron can authenticate scheduled invocations.",
 				}),
 		configured: true,
 		enabled: cronSecretReady,
@@ -568,7 +568,7 @@ async function buildVercelSchedulerStatus(): Promise<ManagedSchedulerStatus> {
 		localStorageReady: true,
 		remoteConfigured: true,
 		remoteStatusAvailable: true,
-		schedulerProvider: VERCEL_SCHEDULER_PROVIDER,
+		schedulerProvider: CLOUDFLARE_SCHEDULER_PROVIDER,
 		serverNow: now.toISOString(),
 		setupDisabled: !cronSecretReady,
 		tokenLastFour: null,
@@ -576,12 +576,12 @@ async function buildVercelSchedulerStatus(): Promise<ManagedSchedulerStatus> {
 	};
 }
 
-async function buildVercelCronExecutions(searchParams: URLSearchParams) {
+async function buildCloudflareCronExecutions(searchParams: URLSearchParams) {
 	const parsed = managedSchedulerExecutionsQuerySchema.parse(
 		Object.fromEntries(searchParams.entries()),
 	);
 	const rows = await adminDb.select().from(cronHeartbeats);
-	const items = VERCEL_CRON_JOBS.map((job) =>
+	const items = CLOUDFLARE_CRON_JOBS.map((job) =>
 		executionFromHeartbeat(latestHeartbeatRow(rows, job), job),
 	).filter(isExecutionStatus);
 	const filtered = parsed.jobKey
@@ -604,7 +604,7 @@ async function buildVercelCronExecutions(searchParams: URLSearchParams) {
 	};
 }
 
-function toVercelCronJobStatus(
+function toCloudflareCronJobStatus(
 	job: CronJobDefinition,
 	row: { lastSeenAt: Date; metadata: Record<string, unknown> } | null,
 	now: Date,
@@ -630,7 +630,7 @@ function toVercelCronJobStatus(
 		name: job.name,
 		nextRunAt,
 		overdueReason: overdueSince
-			? "No Vercel Cron heartbeat was recorded inside the expected window."
+			? "No Cloudflare Cron heartbeat was recorded inside the expected window."
 			: null,
 		overdueSince,
 		schedule: job.schedule,
@@ -723,15 +723,15 @@ async function getLegacyLocalIntegration() {
 	return row ?? null;
 }
 
-function verifyVercelCronRequest(request: Request) {
+function verifyCloudflareCronRequest(request: Request) {
 	const cronSecret = process.env.CRON_SECRET?.trim();
 	if (!cronSecret) return false;
 
 	return safeEqual(bearerToken(request) ?? "", cronSecret);
 }
 
-function findVercelCronJob(jobKey: string) {
-	return VERCEL_CRON_JOBS.find((job) => job.jobKey === jobKey);
+function findCloudflareCronJob(jobKey: string) {
+	return CLOUDFLARE_CRON_JOBS.find((job) => job.jobKey === jobKey);
 }
 
 function nextRunForSchedule(schedule: string, from: Date) {

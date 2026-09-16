@@ -6,7 +6,6 @@ import {
 	ScrollText,
 } from "lucide-react";
 import Link from "next/link";
-import { cacheLife } from "next/cache";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
@@ -14,8 +13,6 @@ import { Panel, PanelHeader } from "@/components/dashboard/ui-primitives";
 type GuideKind = "process" | "user" | "policies";
 
 export async function GuidePage({ kind }: { kind: GuideKind }) {
-	"use cache";
-	cacheLife("max");
 
 	const content = guideContent[kind];
 

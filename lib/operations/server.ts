@@ -1,8 +1,8 @@
+import { cachedData } from "@/lib/cache/data";
 import "server-only";
 import { cronOverdueWindowMs, isHistoricalCronService } from "@/lib/managed-scheduler/health";
 
 import { desc, eq, inArray } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 
 import type {
 	OperationsOverview,
@@ -45,11 +45,8 @@ type ChatOperationsRow = {
 };
 
 export async function getOperationsOverview(): Promise<OperationsOverview> {
-	"use cache";
-	cacheLife({ stale: 10, revalidate: 10, expire: 60 });
-	cacheTag(DASHBOARD_OPERATIONS_TAG);
-
-	const [
+ return cachedData("lib/operations/server.ts:getOperationsOverview", [], {revalidate: 10, tags: [DASHBOARD_OPERATIONS_TAG]}, async () => {
+const [
 		countRows,
 		throughputRows,
 		providerRows,
@@ -60,29 +57,29 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 		chatRows,
 	] = await Promise.all([
 		adminSqlClient<CountRow[]>`
-			select status, count(*)::int as count
+			select status, count(*) as count
 			from scan_jobs
 			group by status
 		`,
 		adminSqlClient<ThroughputRow[]>`
 			select
-				count(*) filter (where status = 'completed')::int as completed,
-				count(*) filter (where status = 'failed')::int as failed,
-				coalesce(avg(extract(epoch from (completed_at - started_at)) * 1000)
-					filter (where status = 'completed' and completed_at is not null and started_at is not null), 0)::float8 as average_duration_ms
+				count(*) filter (where status = 'completed') as completed,
+				count(*) filter (where status = 'failed') as failed,
+				coalesce(avg((julianday(completed_at) - julianday(started_at)) * 86400000)
+					filter (where status = 'completed' and completed_at is not null and started_at is not null), 0) as average_duration_ms
 			from scan_jobs
-			where updated_at >= now() - interval '24 hours'
+			where updated_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-24 hours') || '000Z')
 		`,
 		adminSqlClient<ProviderRow[]>`
 			select
 				provider,
-				count(*) filter (where status = 'completed')::int as completed,
-				count(*) filter (where status = 'failed')::int as failed,
-				count(*) filter (where status = 'running')::int as running,
-				coalesce(avg(extract(epoch from (completed_at - started_at)) * 1000)
-					filter (where completed_at is not null), 0)::float8 as average_duration_ms
+				count(*) filter (where status = 'completed') as completed,
+				count(*) filter (where status = 'failed') as failed,
+				count(*) filter (where status = 'running') as running,
+				coalesce(avg((julianday(completed_at) - julianday(started_at)) * 86400000)
+					filter (where completed_at is not null), 0) as average_duration_ms
 			from provider_runs
-			where started_at >= now() - interval '24 hours'
+			where started_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-24 hours') || '000Z')
 			group by provider
 			order by count(*) desc, provider asc
 		`,
@@ -106,7 +103,7 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 			.innerJoin(sources, eq(sources.id, scanJobs.sourceId))
 			.orderBy(desc(scanJobs.updatedAt), desc(scanJobs.createdAt))
 			.limit(24),
-		adminSqlClient<Array<{ scheduled_at: Date }>>`
+		adminSqlClient<Array<{ scheduled_at: string }>>`
 			select scheduled_at
 			from scan_jobs
 			where status in ('queued', 'retrying')
@@ -120,42 +117,40 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 			.limit(80),
 		adminSqlClient<ChatOperationsRow[]>`
 			select
-				(select count(*)::int from chat_attachments where status = 'processing') as attachments_processing,
-				(select count(*)::int from chat_attachments where status = 'failed') as attachments_failed,
-				(select count(*)::int from chat_attachments where status = 'deleting') as attachments_deleting,
-				(select count(*)::int from chat_model_runs where status = 'running') as running_runs,
-				(select count(*)::int from chat_model_runs where status = 'failed' and started_at >= now() - interval '24 hours') as failed_runs_24h,
-				(select coalesce(avg(latency_ms), 0)::int from chat_model_runs where status = 'completed' and started_at >= now() - interval '24 hours') as average_latency_ms_24h
+				(select count(*) from chat_attachments where status = 'processing') as attachments_processing,
+				(select count(*) from chat_attachments where status = 'failed') as attachments_failed,
+				(select count(*) from chat_attachments where status = 'deleting') as attachments_deleting,
+				(select count(*) from chat_model_runs where status = 'running') as running_runs,
+				(select count(*) from chat_model_runs where status = 'failed' and started_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-24 hours') || '000Z')) as failed_runs_24h,
+				(select coalesce(avg(latency_ms), 0) from chat_model_runs where status = 'completed' and started_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-24 hours') || '000Z')) as average_latency_ms_24h
 		`,
 	]);
-
-	const jobIds = recentJobs.map((job) => job.id);
-	const jobEvents = jobIds.length
+const jobIds = recentJobs.map((job) => job.id);
+const jobEvents = jobIds.length
 		? await adminDb
 				.select()
 				.from(scanJobEvents)
 				.where(inArray(scanJobEvents.scanJobId, jobIds))
 				.orderBy(desc(scanJobEvents.occurredAt))
 		: [];
-	const eventViews = recentEvents.map(toEventView);
-	const latestEventByJob = new Map<string, OperationsPipelineEventView>();
-	for (const event of jobEvents) {
+const eventViews = recentEvents.map(toEventView);
+const latestEventByJob = new Map<string, OperationsPipelineEventView>();
+for (const event of jobEvents) {
 		if (!latestEventByJob.has(event.scanJobId)) {
 			latestEventByJob.set(event.scanJobId, toEventView(event));
 		}
 	}
-	const queue = emptyQueueStatus();
-	for (const row of countRows) queue[row.status] = Number(row.count);
-	const throughput = throughputRows[0] ?? {
+const queue = emptyQueueStatus();
+for (const row of countRows) queue[row.status] = Number(row.count);
+const throughput = throughputRows[0] ?? {
 		average_duration_ms: 0,
 		completed: 0,
 		failed: 0,
 	};
-	const throughputTotal = Number(throughput.completed) + Number(throughput.failed);
-	const oldestQueuedAt = oldestQueuedRows[0]?.scheduled_at ?? null;
-	const now = new Date();
-
-	return {
+const throughputTotal = Number(throughput.completed) + Number(throughput.failed);
+const oldestQueuedAt = oldestQueuedRows[0]?.scheduled_at ? new Date(oldestQueuedRows[0].scheduled_at) : null;
+const now = new Date();
+return {
 		chat: {
 			attachmentsDeleting: Number(chatRows[0]?.attachments_deleting ?? 0),
 			attachmentsFailed: Number(chatRows[0]?.attachments_failed ?? 0),
@@ -197,6 +192,7 @@ export async function getOperationsOverview(): Promise<OperationsOverview> {
 					: 100,
 		},
 	};
+ });
 }
 
 function toEventView(

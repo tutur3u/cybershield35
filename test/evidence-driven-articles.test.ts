@@ -53,7 +53,7 @@ describe("evidence-driven article creation", () => {
 		const scanStages = read("lib/workers/scan-stages.ts");
 		const scheduler = read("lib/managed-scheduler/server.ts");
 		const migration = read("drizzle/0025_retire_automatic_drafting.sql");
-		const schema = read("lib/db/schema.ts");
+		const schema = read("lib/db/schema.d1.ts");
 
 		expect(scanStages).not.toContain("enqueueEvidenceDraftJobs");
 		expect(scheduler).not.toContain("processNextAutomatedDraftJob");

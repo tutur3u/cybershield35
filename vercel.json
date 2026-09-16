@@ -1,18 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/cron/scans/run-daily",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/articles/process-publication-queue",
-      "schedule": "*/5 * * * *"
-    }
-  ],
-  "functions": {
-    "app/.well-known/workflow/v1/step/route.js": {
-      "maxDuration": 300
-    }
-  }
+  "crons": []
 }

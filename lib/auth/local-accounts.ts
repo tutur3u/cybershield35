@@ -283,7 +283,7 @@ export async function validateLocalSession(
 				eq(localAccountSessions.id, cookie.sessionId),
 				eq(localAccountSessions.tokenHash, hashLocalSessionToken(cookie.token)),
 				isNull(localAccountSessions.revokedAt),
-				sql`${localAccountSessions.expiresAt} > now()`,
+				sql`${localAccountSessions.expiresAt} > (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')`,
 				eq(localAccounts.disabled, false),
 			),
 		)
@@ -357,7 +357,7 @@ export async function changeOwnLocalPassword(input: {
 			and(
 				eq(localAccountSessions.accountId, account.id),
 				isNull(localAccountSessions.revokedAt),
-				sql`${localAccountSessions.id} <> ${input.sessionId}::uuid`,
+				sql`${localAccountSessions.id} <> ${input.sessionId}`,
 			),
 		);
 }
@@ -395,13 +395,13 @@ async function countActiveSessions(accountId?: string) {
 	const rows = await adminDb
 		.select({
 			accountId: localAccountSessions.accountId,
-			total: sql<number>`count(*)::int`,
+			total: sql<number>`count(*)`,
 		})
 		.from(localAccountSessions)
 		.where(
 			and(
 				isNull(localAccountSessions.revokedAt),
-				sql`${localAccountSessions.expiresAt} > now()`,
+				sql`${localAccountSessions.expiresAt} > (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')`,
 				...(accountId ? [eq(localAccountSessions.accountId, accountId)] : []),
 			),
 		)

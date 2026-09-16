@@ -1,5 +1,7 @@
 import { loadLocalEnvFile } from "@/lib/env/load-local-env";
 
+export async function run() {
+
 loadLocalEnvFile();
 
 const { adminSqlClient } = await import("@/lib/db/client");
@@ -27,68 +29,68 @@ try {
 		Array<{ claim_index_ready: boolean; rollups_ready: boolean }>
 	>`
 		select
-			to_regclass('public.intelligence_claim_index') is not null as claim_index_ready,
-			to_regclass('public.intelligence_daily_rollups') is not null as rollups_ready
+			exists(select 1 from sqlite_schema where type = 'table' and name = 'intelligence_claim_index') as claim_index_ready,
+			exists(select 1 from sqlite_schema where type = 'table' and name = 'intelligence_daily_rollups') as rollups_ready
 	`;
 	const [claimCount] = rollupState?.claim_index_ready
 		? await adminSqlClient<Array<{ count: number }>>`
-				select count(*)::int as count from intelligence_claim_index
+				select count(*) as count from intelligence_claim_index
 			`
 		: [{ count: 0 }];
 	const [summary] = await adminSqlClient<SummaryRow[]>`
 		select
-			(select count(*)::int from sources) as sources,
-			(select count(*)::int from scan_jobs) as scans,
-			(select count(*)::int from evidence_items) as evidence,
-			(select count(*)::int from analyses) as analyses,
-			(select count(*)::int from topics) as topics,
-			(select count(*)::int from evidence_topics) as evidence_topics,
-			(select count(*)::int from evidence_topics where confidence < 30) as low_confidence_links,
+			(select count(*) from sources) as sources,
+			(select count(*) from scan_jobs) as scans,
+			(select count(*) from evidence_items) as evidence,
+			(select count(*) from analyses) as analyses,
+			(select count(*) from topics) as topics,
+			(select count(*) from evidence_topics) as evidence_topics,
+			(select count(*) from evidence_topics where confidence < 30) as low_confidence_links,
 			(
-				select count(*)::int
+				select count(*)
 				from evidence_items e
 				left join evidence_topics et on et.evidence_item_id = e.id
 				where et.id is null
 			) as unlinked_evidence,
 			(
-				select count(*)::int
+				select count(*)
 				from evidence_items e
 				left join evidence_topics et on et.evidence_item_id = e.id
 				where et.id is null and e.risk_level = 'high'
 			) as unlinked_high_risk_evidence,
 			(
-				select count(*)::int
+				select count(*)
 				from topics t
 				left join evidence_topics et on et.topic_id = t.id
 				where et.id is null
 			) as orphan_topics,
 			(
-				select count(*)::int
+				select count(*)
 				from analyses
-				where jsonb_array_length(topic_clusters) = 0
+				where json_array_length(topic_clusters) = 0
 			) as analyses_without_topics,
 			(
-				select count(*)::int
+				select count(*)
 				from analyses
-				where jsonb_array_length(claims) = 0
+				where json_array_length(claims) = 0
 			) as analyses_without_claims,
 			(
-				select count(*)::int
+				select count(*)
 				from scan_jobs sj
 				left join analyses a on a.scan_job_id = sj.id
 				where sj.status = 'completed' and a.id is null
 			) as completed_without_analysis,
-			${Boolean(rollupState?.rollups_ready)}::boolean as intelligence_rollups_ready,
-			${claimCount?.count ?? 0}::int as intelligence_claims
+			${Boolean(rollupState?.rollups_ready)} as intelligence_rollups_ready,
+			${claimCount?.count ?? 0} as intelligence_claims
 	`;
 	const topTopics = await adminSqlClient`
 		select
 			t.name,
 			t.slug,
 			t.risk_level as "riskLevel",
-			count(et.id)::int as links,
-			coalesce(round(avg(et.confidence))::int, 0) as "avgConfidence",
-			coalesce(min(et.confidence), 0)::int as "minConfidence"
+			count(et.id) as links,
+			coalesce(round(avg(et.confidence)), 0) as "avgConfidence",
+			coalesce(min(et.confidence), 0) as "minConfidence"
 		from topics t
 		left join evidence_topics et on et.topic_id = t.id
 		group by t.id
@@ -100,7 +102,7 @@ try {
 			t.name as topic,
 			et.confidence,
 			e.risk_level as "riskLevel",
-			left(e.quote, 180) as quote
+			substr(e.quote, 1, 180) as quote
 		from evidence_topics et
 		join topics t on t.id = et.topic_id
 		join evidence_items e on e.id = et.evidence_item_id
@@ -112,10 +114,10 @@ try {
 		select
 			sj.id as "scanJobId",
 			coalesce(src.title, src.normalized_url, src.original_input) as source,
-			count(distinct e.id)::int as evidence,
-			count(distinct et.evidence_item_id)::int as linked,
-			count(distinct et.topic_id)::int as topics,
-			coalesce(round(avg(et.confidence))::int, 0) as "avgConfidence"
+			count(distinct e.id) as evidence,
+			count(distinct et.evidence_item_id) as linked,
+			count(distinct et.topic_id) as topics,
+			coalesce(round(avg(et.confidence)), 0) as "avgConfidence"
 		from scan_jobs sj
 		left join sources src on src.id = sj.source_id
 		left join evidence_items e on e.scan_job_id = sj.id
@@ -180,4 +182,6 @@ function buildRecommendedActions(summary: SummaryRow | undefined) {
 	}
 
 	return actions;
+}
+
 }

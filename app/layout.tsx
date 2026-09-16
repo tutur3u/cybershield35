@@ -33,6 +33,9 @@ const beVietnam = Be_Vietnam_Pro({
 	display: "swap",
 });
 
+// D1 bindings exist only at request time on Cloudflare.
+export const dynamic = "force-dynamic";
+
 const SITE_URL = "https://cybershield35.ttr.gg";
 const SITE_DESCRIPTION =
 	"Giám sát thông tin công khai và phản hồi truyền thông: quét nguồn theo lịch, phân tích rủi ro bằng AI, soạn và xuất bản bài viết lên Zalo OA.";

@@ -10,8 +10,6 @@ import { articleQueryKeys, type ArticleCatalogPage } from "@/lib/articles/client
 import { getCachedArticlesPage } from "@/lib/articles/store";
 import { getQueryClient } from "@/lib/query-client";
 
-export const instant = true;
-
 export default function ArticlesPage() {
 	return (
 		<div className="space-y-5">

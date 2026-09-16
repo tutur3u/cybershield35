@@ -7,8 +7,6 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { getLocalAccountsInitialData } from "@/lib/local-accounts/server-data";
 import { getWorkspaceMembersInitialData } from "@/lib/workspace-members/server-data";
 
-export const instant = true;
-
 export default function MembersPage() {
 	return (
 		<Suspense

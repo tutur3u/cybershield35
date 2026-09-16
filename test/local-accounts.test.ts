@@ -109,7 +109,7 @@ function stubLocalAccounts(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	process.env.CYBERSHIELD35_SESSION_SECRET =
 		"test-secret-for-cybershield35-session-cookie";
-	process.env.NODE_ENV = "production";
+	Object.assign(process.env, {NODE_ENV: "production"});
 	// The guard modules are server-only; the test runner has no RSC boundary.
 	mock.module("server-only", () => ({}));
 });

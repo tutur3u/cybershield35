@@ -88,7 +88,7 @@ describe("analytics read from real rows", () => {
 	test("reach is engagement, guarded against non-numeric json", () => {
 		// The engagement column is free-form JSON; a stray "1,2k" would abort the
 		// whole aggregate without the regex guard.
-		expect(analytics).toContain("~ '^\\\\d+$'");
+		expect(analytics).toContain("not glob '*[^0-9]*'");
 		expect(analytics).toContain("as engagement");
 	});
 
@@ -105,13 +105,13 @@ describe("analytics read from real rows", () => {
 describe("the summary is a stored checkpoint, not a cache", () => {
 	const stored = readFileSync("lib/dashboard/intelligence-summary.ts", "utf8");
 	const scheduler = readFileSync("lib/managed-scheduler/server.ts", "utf8");
-	const schema = readFileSync("lib/db/schema.ts", "utf8");
+	const schema = readFileSync("lib/db/schema.d1.ts", "utf8");
 
-	test("it survives in Postgres rather than in an instance", () => {
+	test("it survives in D1 rather than in an instance", () => {
 		// `"use cache"` in a dynamic route handler is held per serverless
 		// instance; instances are short-lived, so nearly every reader landed on a
 		// cold one and paid the full generation on every refresh.
-		expect(schema).toContain("export const intelligenceSummaries = pgTable(");
+		expect(schema).toContain("export const intelligenceSummaries = sqliteTable(");
 		expect(schema).toContain('"intelligence_summaries"');
 		expect(stored).toContain("intelligenceSummaries");
 		// Asserted on the API rather than the directive string, which appears in
@@ -124,7 +124,7 @@ describe("the summary is a stored checkpoint, not a cache", () => {
 		// The count and newest timestamp in the window: a completed scan moves
 		// both, and nothing else does.
 		expect(stored).toContain("async function fingerprintFor");
-		expect(stored).toContain("coalesce(max(created_at)::text, 'none') as newest");
+		expect(stored).toContain("coalesce(max(created_at), 'none') as newest");
 	});
 
 	test("a stale summary is served rather than withheld", () => {

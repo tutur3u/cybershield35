@@ -23,7 +23,7 @@ export async function reconcileApifyCosts(limit = 25, apply = true) {
 	const client = new ApifyClient({ token, maxRetries: 1, timeoutSecs: 15 });
 	const rows = await sql<CostRow[]>`
     select id, provider, output from provider_runs
-    where provider::text like 'apify_%' and output->>'runId' is not null
+    where provider like 'apify_%' and output->>'runId' is not null
       and (output->'cost'->>'status' is distinct from 'confirmed')
     order by coalesce(output->>'costCheckedAt', '') asc, started_at asc
     limit ${Math.max(1, Math.min(limit, 500))}
@@ -47,14 +47,14 @@ export async function reconcileApifyCosts(limit = 25, apply = true) {
 			} else result.pending++;
 			if (apply)
 				await sql`
-        update provider_runs set output = output || ${JSON.stringify({ cost, costCheckedAt: new Date().toISOString() })}::jsonb
+        update provider_runs set output = json_set(output, '$.cost', json(${JSON.stringify(cost)}), '$.costCheckedAt', ${new Date().toISOString()})
         where id = ${row.id}
       `;
 		} catch {
 			result.unavailable++;
 			if (apply)
 				await sql`
-        update provider_runs set output = output || ${JSON.stringify({ costCheckedAt: new Date().toISOString() })}::jsonb
+        update provider_runs set output = json_set(output, '$.costCheckedAt', ${new Date().toISOString()})
         where id = ${row.id}
       `;
 		}
@@ -83,12 +83,12 @@ export async function syncProviderCosts(
 	);
 	if (accountSync.status !== "ready") return accountSync;
 	const rows = await sql<CostRow[]>`
-    select distinct on (output->>'runId') id, provider, output from provider_runs
-    where provider::text like 'apify_%' and output->>'runId' is not null
+    select id, provider, output from (select *, row_number() over (partition by output->>'runId' order by started_at desc, id desc) as position from provider_runs
+    where provider like 'apify_%' and output->>'runId' is not null
       and output->'cost'->>'status' = 'confirmed'
       and (output->'costSync'->>'observedAt' is distinct from output->'cost'->>'observedAt'
         or output->'costSync'->>'workspaceId' is distinct from ${workspace})
-    order by output->>'runId', started_at desc limit 50
+    ) where position = 1 order by output->>'runId' limit 50
   `;
 	let synced = accountSync.synced;
 	for (const row of rows) {
@@ -105,13 +105,11 @@ export async function syncProviderCosts(
 				"https://ai.tuturuuu.com/v1",
 		});
 		if (status !== "accepted") return { synced, status };
-		await sql`update provider_runs set output = output || ${JSON.stringify({
-			costSync: {
+		await sql`update provider_runs set output = json_set(output, '$.costSync', json(${JSON.stringify({
 				observedAt: cost.observedAt,
 				workspaceId: workspace,
 				syncedAt: new Date().toISOString(),
-			},
-		})}::jsonb where id = ${row.id} and output->'cost'->>'observedAt' = ${cost.observedAt}`;
+		})})) where id = ${row.id} and output->'cost'->>'observedAt' = ${cost.observedAt}`;
 		synced++;
 	}
 	const invoices = await syncBillingInvoices({
@@ -136,21 +134,19 @@ export async function getProviderCostOverview() {
 		}>
 	>`
     with attributed as (
-      select distinct on (coalesce(output->>'runId', id::text)) * from provider_runs
-      where provider::text like 'apify_%'
-      order by coalesce(output->>'runId', id::text), started_at desc
+      select * from (select *, row_number() over (partition by coalesce(output->>'runId', id) order by started_at desc, id desc) as position from provider_runs where provider like 'apify_%') where position = 1
     )
-    select to_char(coalesce((output->'cost'->>'occurredAt')::timestamptz, started_at) at time zone 'UTC', 'YYYY-MM') as month,
-      count(*)::int as runs,
-      count(*) filter (where output->'cost'->>'status' = 'confirmed')::int as confirmed,
-      coalesce(sum((output->'cost'->>'amountUsd')::numeric) filter (where output->'cost'->>'status' = 'confirmed'), 0)::text as amount_usd,
+    select strftime('%Y-%m', coalesce(output->'cost'->>'occurredAt', started_at)) as month,
+      count(*) as runs,
+      count(*) filter (where output->'cost'->>'status' = 'confirmed') as confirmed,
+      coalesce(sum(cast(output->'cost'->>'amountUsd' as real)) filter (where output->'cost'->>'status' = 'confirmed'), 0) as amount_usd,
       count(*) filter (where output->'costSync'->>'observedAt' = output->'cost'->>'observedAt'
-        and output->'costSync'->>'workspaceId' = ${workspace ?? ""})::int as synced
+        and output->'costSync'->>'workspaceId' = ${workspace ?? ""}) as synced
     from attributed group by month order by month desc
   `;
 	const [storage] = await sql<
 		Array<{ ready: boolean }>
-	>`select to_regclass('public.provider_account_costs') is not null as ready`;
+	>`select exists(select 1 from sqlite_schema where type = 'table' and name = 'provider_account_costs') as ready`;
 	const accountMonths = storage?.ready
 		? await sql<
 				Array<{
@@ -160,14 +156,14 @@ export async function getProviderCostOverview() {
 					synced: number;
 				}>
 			>`
-    select to_char(day, 'YYYY-MM') as month, count(*)::int as days, sum(amount_usd)::text as amount_usd,
-      count(*) filter(where synced_at is not null and synced_workspace_id = ${workspace ?? ""})::int as synced
+    select substr(day, 1, 7) as month, count(*) as days, sum(amount_usd) as amount_usd,
+      count(*) filter(where synced_at is not null and synced_workspace_id = ${workspace ?? ""}) as synced
     from provider_account_costs where provider = 'apify' group by month order by month desc
   `
 		: [];
 	const [coverage] = await sql<Array<{ missing_run_ids: number }>>`
-    select count(*)::int as missing_run_ids from provider_runs
-    where provider::text like 'apify_%' and output->>'runId' is null
+    select count(*) as missing_run_ids from provider_runs
+    where provider like 'apify_%' and output->>'runId' is null
   `;
 	return {
 		currency: "USD",

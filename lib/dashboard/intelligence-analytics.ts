@@ -1,6 +1,8 @@
+import { cachedData } from "@/lib/cache/data";
+import { sql as ormSql } from "drizzle-orm";
+import { facebookHandleFromAuthor, facebookHandleFromUrl } from "@/lib/db/page-name";
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
 
 import { adminSqlClient } from "@/lib/db/client";
 import {
@@ -30,21 +32,12 @@ export async function getIntelligenceAnalytics(
 async function getCachedIntelligenceAnalytics(
 	range: RangeKey,
 ): Promise<IntelligenceAnalyticsView> {
-	"use cache";
-	cacheLife({ expire: 3600, revalidate: 300, stale: 300 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("analytics"));
-
-	const days = rangeDays(range);
-	/*
-	 * Every query below is filtered by the same window, written once. It used to
-	 * be repeated inline six times, which is how one of them ended up with a
-	 * different default than the rest.
-	 */
-	const within = days
-		? adminSqlClient`where created_at >= now() - (${days} || ' days')::interval`
+ return cachedData("lib/dashboard/intelligence-analytics.ts:getCachedIntelligenceAnalytics", [range], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("analytics")]}, async () => {
+const days = rangeDays(range);
+const within = days
+		? adminSqlClient`where created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')`
 		: adminSqlClient``;
-
-	const [
+const [
 		riskRows,
 		categoryRows,
 		topicRows,
@@ -59,28 +52,16 @@ async function getCachedIntelligenceAnalytics(
 		totalsRows,
 	] = await Promise.all([
 		adminSqlClient<Array<{ level: string; total: number }>>`
-			select risk_level::text as level, count(*)::int as total
+			select risk_level as level, count(*) as total
 			from evidence_items
 			${within}
 			group by risk_level
 		`,
-		adminSqlClient<Array<{ category: string; total: number }>>`
-			select category, count(*)::int as total
-			from (
-				select jsonb_array_elements_text(
-					case
-						when jsonb_typeof(metadata->'riskCategories') = 'array'
-							then metadata->'riskCategories'
-						else '[]'::jsonb
-					end
-				) as category
-				from evidence_items
-				${within}
-			) categories
-			group by category
-			order by count(*) desc
-			limit 8
-		`,
+        adminSqlClient<Array<{category:string;total:number}>>`
+            select j.value as category,count(*) as total from evidence_items,
+            json_each(case when json_type(metadata,'$.riskCategories')='array' then json_extract(metadata,'$.riskCategories') else '[]' end) j
+            ${within} group by j.value order by count(*) desc limit 8
+        `,
 		adminSqlClient<
 			Array<{
 				high: number;
@@ -94,14 +75,14 @@ async function getCachedIntelligenceAnalytics(
 			select
 				t.name,
 				t.slug,
-				count(*)::int as total,
-				count(*) filter (where e.risk_level = 'high')::int as high,
-				count(*) filter (where e.risk_level = 'medium')::int as medium,
-				count(*) filter (where e.risk_level = 'low')::int as low
+				count(*) as total,
+				count(*) filter (where e.risk_level = 'high') as high,
+				count(*) filter (where e.risk_level = 'medium') as medium,
+				count(*) filter (where e.risk_level = 'low') as low
 			from evidence_topics et
 			join topics t on t.id = et.topic_id
 			join evidence_items e on e.id = et.evidence_item_id
-			${days ? adminSqlClient`where e.created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
+			${days ? adminSqlClient`where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')` : adminSqlClient``}
 			group by t.name, t.slug
 			order by count(*) filter (where e.risk_level = 'high') desc, count(*) desc
 			limit 8
@@ -122,7 +103,7 @@ async function getCachedIntelligenceAnalytics(
 		>`
 			with scoped as (
 				select
-					nullif(lower(regexp_replace(trim(coalesce(author, '')), '^@|\\s+', '', 'g')), '') as handle,
+					${facebookHandleFromAuthor(ormSql.raw("author"))} as handle,
 					nullif(trim(source_label), '') as source_label,
 					risk_level
 				from evidence_items
@@ -133,25 +114,25 @@ async function getCachedIntelligenceAnalytics(
 				(
 					select nullif(trim(ts.display_name), '')
 					from tracked_sources ts
-					where nullif(lower(split_part(regexp_replace(ts.normalized_url, '^https?://(www\\.)?facebook\\.com/', '', 'i'), '/', 1)), '') = s.handle
+					where ${facebookHandleFromUrl(ormSql.raw("ts.normalized_url"))} = s.handle
 					order by ts.updated_at desc
 					limit 1
 				) as display_name,
-				count(*)::int as total,
-				count(*) filter (where s.risk_level = 'high')::int as high
+				count(*) as total,
+				count(*) filter (where s.risk_level = 'high') as high
 			from scoped s
 			group by s.handle, s.source_label
 			order by count(*) desc
 			limit 8
 		`,
 		adminSqlClient<Array<{ sentiment: string; total: number }>>`
-			select coalesce(nullif(sentiment, ''), 'neutral') as sentiment, count(*)::int as total
+			select coalesce(nullif(sentiment, ''), 'neutral') as sentiment, count(*) as total
 			from evidence_items
 			${within}
 			group by 1
 		`,
 		adminSqlClient<Array<{ stance: string; total: number }>>`
-			select coalesce(nullif(stance, ''), 'unknown') as stance, count(*)::int as total
+			select coalesce(nullif(stance, ''), 'unknown') as stance, count(*) as total
 			from evidence_items
 			${within}
 			group by 1
@@ -160,12 +141,12 @@ async function getCachedIntelligenceAnalytics(
 			Array<{ day: string; high: number; low: number; medium: number }>
 		>`
 			select
-				to_char(created_at at time zone 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') as day,
-				count(*) filter (where risk_level = 'high')::int as high,
-				count(*) filter (where risk_level = 'medium')::int as medium,
-				count(*) filter (where risk_level = 'low')::int as low
+				date(created_at,'+7 hours') as day,
+				count(*) filter (where risk_level = 'high') as high,
+				count(*) filter (where risk_level = 'medium') as medium,
+				count(*) filter (where risk_level = 'low') as low
 			from evidence_items
-			where created_at >= now() - ((${days ?? 90}) || ' days')::interval
+			where created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days ?? 90} || ' days') || '000Z')
 			group by 1
 			order by 1
 		`,
@@ -178,13 +159,13 @@ async function getCachedIntelligenceAnalytics(
 			Array<{ level: string; engagement: number; items: number }>
 		>`
 			select
-				risk_level::text as level,
-				count(*)::int as items,
+				risk_level as level,
+				count(*) as items,
 				coalesce(sum(
-					case when coalesce(engagement->>'reactions', '') ~ '^\\d+$' then (engagement->>'reactions')::bigint else 0 end
-					+ case when coalesce(engagement->>'comments', '') ~ '^\\d+$' then (engagement->>'comments')::bigint else 0 end
-					+ case when coalesce(engagement->>'shares', '') ~ '^\\d+$' then (engagement->>'shares')::bigint else 0 end
-				), 0)::bigint as engagement
+					case when cast(engagement->>'reactions' as text) <> '' and cast(engagement->>'reactions' as text) not glob '*[^0-9]*' then cast(engagement->>'reactions' as integer) else 0 end
+					+ case when cast(engagement->>'comments' as text) <> '' and cast(engagement->>'comments' as text) not glob '*[^0-9]*' then cast(engagement->>'comments' as integer) else 0 end
+					+ case when cast(engagement->>'shares' as text) <> '' and cast(engagement->>'shares' as text) not glob '*[^0-9]*' then cast(engagement->>'shares' as integer) else 0 end
+				), 0) as engagement
 			from evidence_items
 			${within}
 			group by risk_level
@@ -202,19 +183,19 @@ async function getCachedIntelligenceAnalytics(
 					t.name,
 					t.slug,
 					count(*) filter (
-						where e.created_at >= now() - (${days} || ' days')::interval
-					)::int as current,
+						where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')
+					) as current,
 					count(*) filter (
-						where e.created_at >= now() - (${days * 2} || ' days')::interval
-							and e.created_at < now() - (${days} || ' days')::interval
-					)::int as previous
+						where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days * 2} || ' days') || '000Z')
+							and e.created_at < (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')
+					) as previous
 				from evidence_topics et
 				join topics t on t.id = et.topic_id
 				join evidence_items e on e.id = et.evidence_item_id
-				where e.created_at >= now() - (${days * 2} || ' days')::interval
+				where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days * 2} || ' days') || '000Z')
 				group by t.name, t.slug
 				having count(*) filter (
-					where e.created_at >= now() - (${days} || ' days')::interval
+					where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')
 				) > 0
 			`
 			: Promise.resolve([]),
@@ -227,54 +208,7 @@ async function getCachedIntelligenceAnalytics(
 		 * text — the engagement count drifts between captures, so it cannot be part
 		 * of the key — keeping the highest reading of each.
 		 */
-		adminSqlClient<
-			Array<{
-				author: string | null;
-				display_name: string | null;
-				engagement: number;
-				id: string;
-				quote: string;
-				risk_level: string;
-			}>
-		>`
-			with scored as (
-				select
-					id,
-					author,
-					risk_level::text as risk_level,
-					left(quote, 180) as quote,
-					nullif(lower(regexp_replace(trim(coalesce(author, '')), '^@|\\s+', '', 'g')), '') as handle,
-					lower(regexp_replace(left(quote, 120), '\\s+', ' ', 'g')) as fingerprint,
-					(
-						case when coalesce(engagement->>'reactions', '') ~ '^\\d+$' then (engagement->>'reactions')::bigint else 0 end
-						+ case when coalesce(engagement->>'comments', '') ~ '^\\d+$' then (engagement->>'comments')::bigint else 0 end
-						+ case when coalesce(engagement->>'shares', '') ~ '^\\d+$' then (engagement->>'shares')::bigint else 0 end
-					)::bigint as engagement
-				from evidence_items
-				${within}
-			),
-			deduped as (
-				select distinct on (handle, fingerprint) *
-				from scored
-				order by handle, fingerprint, engagement desc
-			)
-			select
-				d.id,
-				d.author,
-				d.risk_level,
-				d.quote,
-				d.engagement,
-				(
-					select nullif(trim(ts.display_name), '')
-					from tracked_sources ts
-					where nullif(lower(split_part(regexp_replace(ts.normalized_url, '^https?://(www\\.)?facebook\\.com/', '', 'i'), '/', 1)), '') = d.handle
-					order by ts.updated_at desc
-					limit 1
-				) as display_name
-			from deduped d
-			order by d.engagement desc
-			limit 6
-		`,
+		getLoudestPosts(days),
 		/*
 		 * What people are actually posting about, in their own words.
 		 *
@@ -284,32 +218,7 @@ async function getCachedIntelligenceAnalytics(
 		 * themselves, so they name the specific thing, and they are cheap to count
 		 * exactly rather than infer.
 		 */
-		adminSqlClient<
-			Array<{ engagement: number; high: number; tag: string; total: number }>
-		>`
-			select
-				tag,
-				count(*)::int as total,
-				count(*) filter (where risk_level = 'high')::int as high,
-				coalesce(sum(engagement), 0)::bigint as engagement
-			from (
-				select
-					lower(regexp_replace(match[1], '[.,!?:;)\\]]+$', '')) as tag,
-					risk_level,
-					(
-						case when coalesce(e.engagement->>'reactions', '') ~ '^\\d+$' then (e.engagement->>'reactions')::bigint else 0 end
-						+ case when coalesce(e.engagement->>'comments', '') ~ '^\\d+$' then (e.engagement->>'comments')::bigint else 0 end
-						+ case when coalesce(e.engagement->>'shares', '') ~ '^\\d+$' then (e.engagement->>'shares')::bigint else 0 end
-					) as engagement
-				from evidence_items e,
-					lateral regexp_matches(e.quote, '#([[:alnum:]_]{2,40})', 'g') as match
-				${days ? adminSqlClient`where e.created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
-			) tags
-			where length(tag) > 1
-			group by tag
-			order by count(*) desc, sum(engagement) desc
-			limit 12
-		`,
+		getHashtagRows(days),
 		/*
 		 * The same counts one window back, for the headline deltas. Without them
 		 * every number on the page is a level with nothing to compare it to.
@@ -317,49 +226,46 @@ async function getCachedIntelligenceAnalytics(
 		days
 			? adminSqlClient<Array<{ previous_high: number; previous_total: number }>>`
 				select
-					count(*)::int as previous_total,
-					count(*) filter (where risk_level = 'high')::int as previous_high
+					count(*) as previous_total,
+					count(*) filter (where risk_level = 'high') as previous_high
 				from evidence_items
-				where created_at >= now() - (${days * 2} || ' days')::interval
-					and created_at < now() - (${days} || ' days')::interval
+				where created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days * 2} || ' days') || '000Z')
+					and created_at < (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')
 			`
 			: Promise.resolve([]),
 	]);
-
-	const riskByLevel = { high: 0, low: 0, medium: 0 };
-	for (const row of riskRows) {
+const riskByLevel = { high: 0, low: 0, medium: 0 };
+for (const row of riskRows) {
 		if (row.level in riskByLevel) {
 			riskByLevel[row.level as keyof typeof riskByLevel] = Number(row.total);
 		}
 	}
-	const sentiment = { negative: 0, neutral: 0, positive: 0 };
-	for (const row of sentimentRows) {
+const sentiment = { negative: 0, neutral: 0, positive: 0 };
+for (const row of sentimentRows) {
 		if (row.sentiment in sentiment) {
 			sentiment[row.sentiment as keyof typeof sentiment] = Number(row.total);
 		}
 	}
-	const stance = { critical: 0, neutral: 0, supportive: 0, unknown: 0 };
-	for (const row of stanceRows) {
+const stance = { critical: 0, neutral: 0, supportive: 0, unknown: 0 };
+for (const row of stanceRows) {
 		if (row.stance in stance) {
 			stance[row.stance as keyof typeof stance] = Number(row.total);
 		}
 	}
-	const reach = { high: 0, low: 0, medium: 0 };
-	for (const row of reachRows) {
+const reach = { high: 0, low: 0, medium: 0 };
+for (const row of reachRows) {
 		if (row.level in reach) {
 			reach[row.level as keyof typeof reach] = Number(row.engagement);
 		}
 	}
-
-	const total = riskByLevel.high + riskByLevel.medium + riskByLevel.low;
-	const previous = totalsRows[0];
-	const peak = trendRows.reduce<(typeof trendRows)[number] | null>(
+const total = riskByLevel.high + riskByLevel.medium + riskByLevel.low;
+const previous = totalsRows[0];
+const peak = trendRows.reduce<(typeof trendRows)[number] | null>(
 		(best, row) =>
 			best && Number(best.high) >= Number(row.high) ? best : row,
 		null,
 	);
-
-	return {
+return {
 		generatedAt: new Date().toISOString(),
 		// Only meaningful when there is a preceding window to compare against.
 		previousPeriod: previous
@@ -452,6 +358,7 @@ async function getCachedIntelligenceAnalytics(
 		})),
 		total,
 	};
+ });
 }
 
 export type IntelligenceEvidenceSample = {
@@ -484,14 +391,9 @@ export async function getIntelligenceEvidenceSample(
 async function getCachedEvidenceSample(
 	range: RangeKey,
 ): Promise<IntelligenceEvidenceSample[]> {
-	"use cache";
-	cacheLife({ expire: 3600, revalidate: 600, stale: 600 });
-	// Feeds the summary, so it follows the summary's cache life rather than the
-	// charts' — sharing the broad tag would make the expensive half uncacheable.
-	cacheTag(dashboardIntelligenceTag("sample"));
-
-	const days = rangeDays(range);
-	const rows = await adminSqlClient<
+ return cachedData("lib/dashboard/intelligence-analytics.ts:getCachedEvidenceSample", [range], {revalidate: 600, tags: [dashboardIntelligenceTag("sample")]}, async () => {
+const days = rangeDays(range);
+const rows = await adminSqlClient<
 		Array<{
 			author: string | null;
 			engagement: number;
@@ -504,26 +406,25 @@ async function getCachedEvidenceSample(
 	>`
 		select
 			e.author,
-			e.risk_level::text as risk_level,
+			e.risk_level as risk_level,
 			coalesce(nullif(e.sentiment, ''), 'neutral') as sentiment,
 			coalesce(nullif(e.stance, ''), 'unknown') as stance,
-			left(coalesce(nullif(e.summary, ''), e.quote), 200) as quote,
+			substr(coalesce(nullif(e.summary, ''), e.quote), 1, 200) as quote,
 			(
-				case when coalesce(e.engagement->>'reactions', '') ~ '^\\d+$' then (e.engagement->>'reactions')::bigint else 0 end
-				+ case when coalesce(e.engagement->>'comments', '') ~ '^\\d+$' then (e.engagement->>'comments')::bigint else 0 end
-				+ case when coalesce(e.engagement->>'shares', '') ~ '^\\d+$' then (e.engagement->>'shares')::bigint else 0 end
-			)::bigint as engagement,
-			array_remove(array_agg(t.name), null) as topics
+				case when cast(e.engagement->>'reactions' as text) <> '' and cast(e.engagement->>'reactions' as text) not glob '*[^0-9]*' then cast(e.engagement->>'reactions' as integer) else 0 end
+				+ case when cast(e.engagement->>'comments' as text) <> '' and cast(e.engagement->>'comments' as text) not glob '*[^0-9]*' then cast(e.engagement->>'comments' as integer) else 0 end
+				+ case when cast(e.engagement->>'shares' as text) <> '' and cast(e.engagement->>'shares' as text) not glob '*[^0-9]*' then cast(e.engagement->>'shares' as integer) else 0 end
+			) as engagement,
+			json_group_array(t.name) filter (where t.name is not null) as topics
 		from evidence_items e
 		left join evidence_topics et on et.evidence_item_id = e.id
 		left join topics t on t.id = et.topic_id
-		${days ? adminSqlClient`where e.created_at >= now() - (${days} || ' days')::interval` : adminSqlClient``}
+		${days ? adminSqlClient`where e.created_at >= (strftime('%Y-%m-%dT%H:%M:%f', 'now', '-' || ${days} || ' days') || '000Z')` : adminSqlClient``}
 		group by e.id
 		order by engagement desc, e.created_at desc
 		limit 28
 	`;
-
-	return rows.map((row) => ({
+return rows.map((row) => ({
 		engagement: Number(row.engagement),
 		quote: row.quote,
 		riskLevel: row.risk_level,
@@ -532,6 +433,7 @@ async function getCachedEvidenceSample(
 		stance: row.stance ?? "unknown",
 		topics: (row.topics ?? []).slice(0, 3),
 	}));
+ });
 }
 
 /**
@@ -557,4 +459,43 @@ function normalizeRange(value?: string): RangeKey {
 function rangeDays(range: RangeKey) {
 	if (range === "all") return null;
 	return range === "7d" ? 7 : range === "90d" ? 90 : 30;
+}
+
+function rawEngagement(column: string) {
+    const value = ormSql.raw(column);
+    const part = (key: string) => ormSql`case when cast(${value}->>${key} as text) <> '' and cast(${value}->>${key} as text) not glob '*[^0-9]*' then cast(${value}->>${key} as integer) else 0 end`;
+    return ormSql`${part("reactions")} + ${part("comments")} + ${part("shares")}`;
+}
+async function getLoudestPosts(days: number | null) {
+    const result: Array<{id:string;author:string|null;display_name:string|null;engagement:number;quote:string;risk_level:string}> = [];
+    const seen = new Set<string>();
+    for (let offset=0;;offset+=100) {
+        const rows = await adminSqlClient<Array<{id:string;author:string|null;display_name:string|null;engagement:number;quote:string;risk_level:string}>>`
+            select e.id,e.author,e.quote,e.risk_level,(${rawEngagement("e.engagement")}) as engagement,
+                (select nullif(trim(ts.display_name),'') from tracked_sources ts where ${facebookHandleFromUrl(ormSql.raw("ts.normalized_url"))}=${facebookHandleFromAuthor(ormSql.raw("e.author"))} order by ts.updated_at desc limit 1) as display_name
+            from evidence_items e ${days ? adminSqlClient`where e.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-' || ${days} || ' days')` : adminSqlClient``}
+            order by engagement desc,e.id limit 100 offset ${offset}`;
+        for (const row of rows) {
+            const key = JSON.stringify([(row.author ?? "").trim().replace(/^@|\s+/gu,"").toLowerCase(),[...row.quote].slice(0,120).join("").replace(/\s+/gu," ").toLowerCase()]);
+            if (seen.has(key)) continue;
+            seen.add(key); result.push({...row,quote:[...row.quote].slice(0,180).join("")});
+            if(result.length===6)return result;
+        }
+        if(rows.length<100)return result;
+    }
+}
+async function getHashtagRows(days: number | null) {
+    const tags = new Map<string,{engagement:number;high:number;tag:string;total:number}>();
+    for(let offset=0;;offset+=100) {
+        const rows = await adminSqlClient<Array<{quote:string;risk_level:string;engagement:number}>>`
+            select quote,risk_level,(${rawEngagement("engagement")}) as engagement from evidence_items
+            ${days ? adminSqlClient`where created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-' || ${days} || ' days')` : adminSqlClient``}
+            order by id limit 100 offset ${offset}`;
+        for(const row of rows) for(const match of row.quote.matchAll(/#([\p{L}\p{N}_]{2,40})/gu)) {
+            const tag=match[1]!.toLowerCase();const value=tags.get(tag) ?? {tag,total:0,high:0,engagement:0};
+            value.total++;value.high+=Number(row.risk_level==="high");value.engagement+=Number(row.engagement);tags.set(tag,value);
+        }
+        if(rows.length<100)break;
+    }
+    return [...tags.values()].sort((a,b)=>b.total-a.total || b.engagement-a.engagement).slice(0,12);
 }

@@ -3,8 +3,6 @@ import { Suspense } from "react";
 
 import { VerifyTokenClient } from "@/components/auth/verify-token-client";
 
-export const instant = true;
-
 export const metadata: Metadata = {
 	title: "Đăng nhập",
 	description: "Hoàn tất xác thực cho CyberShield 35.",

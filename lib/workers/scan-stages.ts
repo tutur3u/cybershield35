@@ -170,40 +170,18 @@ export async function collectEvidence(job: ClaimedScanJob) {
 		throw error;
 	}
 
-	const inserted = await adminDb.transaction(async (tx) => {
-		const rows = result.evidence.length
-			? await tx
-					.insert(evidenceItems)
-					.values(
-						result.evidence.map((item) => ({
-							author: item.author,
-							engagement: item.engagement,
-							metadata: item.metadata,
-							provider: result.provider,
-							publishedAt: item.publishedAt,
-							quote: item.quote,
-							riskLevel: item.riskLevel,
-							scanJobId: job.id,
-							sentiment: item.sentiment,
-							sourceId: source.id,
-							sourceLabel: item.sourceLabel,
-							sourceUrl: item.sourceUrl,
-							stance: item.stance,
-							summary: item.summary,
-						})),
-					)
-					.returning({ id: evidenceItems.id })
-			: [];
-		await tx
-			.update(providerRuns)
-			.set({
-				completedAt: new Date(),
-				output: { ...result.raw, collectionPersisted: true },
-				status: "completed",
-			})
-			.where(eq(providerRuns.id, run.id));
-		return rows;
-	});
+    const writes = result.evidence.map(item => adminDb.insert(evidenceItems).values({
+        author:item.author,engagement:item.engagement,metadata:item.metadata,provider:result.provider,
+        publishedAt:item.publishedAt,quote:item.quote,riskLevel:item.riskLevel,scanJobId:job.id,
+        sentiment:item.sentiment,sourceId:source.id,sourceLabel:item.sourceLabel,sourceUrl:item.sourceUrl,
+        stance:item.stance,summary:item.summary,
+    }).returning({id:evidenceItems.id}));
+    const persisted = await adminDb.batch([
+        adminDb.update(providerRuns).set({completedAt:new Date(),output:{...result.raw,collectionPersisted:true},status:"completed"}).where(eq(providerRuns.id,run.id)),
+        ...writes,
+    ]);
+    const inserted = persisted.slice(1).flat() as {id:string}[];
+
 
 	await recordScanEvent({
 		eventType: "provider_completed",

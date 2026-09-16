@@ -1,7 +1,8 @@
+import { cachedData } from "@/lib/cache/data";
+import { chunkForD1 } from "@/lib/db/d1-batches";
 import "server-only";
 
 import { desc, eq } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 
 import type {
 	TopicDetailView,
@@ -71,24 +72,21 @@ async function getCachedTopicsPage(
 	limit: number,
 	offset: number,
 ): Promise<TopicsPage> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_TOPICS_TAG);
-
-	const rows = await adminDb
+ return cachedData("lib/workers/topics.ts:getCachedTopicsPage", [limit, offset], {revalidate: 300, tags: [DASHBOARD_TOPICS_TAG]}, async () => {
+const rows = await adminDb
 		.select()
 		.from(topics)
 		.orderBy(desc(topics.evidenceCount), desc(topics.updatedAt))
 		.limit(limit + 1)
 		.offset(offset);
-
-	const hasNextPage = rows.length > limit;
-	return {
+const hasNextPage = rows.length > limit;
+return {
 		hasNextPage,
 		items: rows.slice(0, limit).map(toTopicView),
 		limit,
 		nextCursor: hasNextPage ? String(offset + limit) : null,
 	};
+ });
 }
 
 export async function getTopicDetailPage(input: {
@@ -108,19 +106,14 @@ async function getCachedTopicDetailPage(
 	limit: number,
 	offset: number,
 ): Promise<TopicDetailView | null> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_TOPICS_TAG, dashboardTopicTag(slug));
-
-	const [topic] = await adminDb
+ return cachedData("lib/workers/topics.ts:getCachedTopicDetailPage", [slug, limit, offset], {revalidate: 300, tags: [DASHBOARD_TOPICS_TAG, dashboardTopicTag(slug)]}, async () => {
+const [topic] = await adminDb
 		.select()
 		.from(topics)
 		.where(eq(topics.slug, slug))
 		.limit(1);
-
-	if (!topic) return null;
-
-	const rows = await adminDb
+if (!topic) return null;
+const rows = await adminDb
 		.select({
 			author: evidenceItems.author,
 			confidence: evidenceTopics.confidence,
@@ -152,9 +145,8 @@ async function getCachedTopicDetailPage(
 		)
 		.limit(limit + 1)
 		.offset(offset);
-
-	const hasNextPage = rows.length > limit;
-	return {
+const hasNextPage = rows.length > limit;
+return {
 		...toTopicView(topic),
 		evidence: rows.slice(0, limit).map((row) => ({
 			author: row.author,
@@ -178,6 +170,7 @@ async function getCachedTopicDetailPage(
 		limit,
 		nextCursor: hasNextPage ? String(offset + limit) : null,
 	};
+ });
 }
 
 export async function syncTopicsForScan(
@@ -235,17 +228,9 @@ export async function syncTopicsForScan(
 		if (!selected.length) continue;
 		for (const { item } of selected) linkedEvidenceIds.add(item.id);
 
-		await adminDb
-			.insert(evidenceTopics)
-			.values(
-				selected.map(({ confidence, item }) => ({
-					confidence,
-					evidenceItemId: item.id,
-					scanJobId: scanId,
-					topicId: topic.id,
-				})),
-			)
-			.onConflictDoNothing();
+        const tags=selected.map(({confidence,item})=>({confidence,evidenceItemId:item.id,scanJobId:scanId,topicId:topic.id}));
+        const tagWrites=chunkForD1(evidenceTopics,tags).map(chunk=>adminDb.insert(evidenceTopics).values(chunk).onConflictDoNothing());
+        await adminDb.batch([tagWrites[0]!, ...tagWrites.slice(1)]);
 		started.evidenceTagsCreated += selected.length;
 	}
 
@@ -284,7 +269,8 @@ export async function syncTopicsForScan(
 		.filter((tag) => tag !== null);
 
 	if (fallbackTags.length) {
-		await adminDb.insert(evidenceTopics).values(fallbackTags).onConflictDoNothing();
+		const writes = chunkForD1(evidenceTopics,fallbackTags).map(chunk => adminDb.insert(evidenceTopics).values(chunk).onConflictDoNothing());
+		await adminDb.batch([writes[0]!, ...writes.slice(1)]);
 		started.evidenceTagsCreated += fallbackTags.length;
 	}
 
@@ -334,8 +320,8 @@ export async function backfillTopicsFromAnalyses() {
 		Array<{ evidence_tags: number; topics: number }>
 	>`
 		select
-			(select count(*)::int from topics) as topics,
-			(select count(*)::int from evidence_topics) as evidence_tags
+			(select count(*) from topics) as topics,
+			(select count(*) from evidence_topics) as evidence_tags
 	`;
 
 	return {
@@ -374,9 +360,9 @@ async function refreshTopicCounts() {
 		update topics as topic
 		set
 			evidence_count = counted.evidence_count,
-			updated_at = now()
+			updated_at = (strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z')
 		from (
-			select topics.id, count(evidence_topics.id)::int as evidence_count
+			select topics.id, count(evidence_topics.id) as evidence_count
 			from topics
 			left join evidence_topics on evidence_topics.topic_id = topics.id
 			group by topics.id

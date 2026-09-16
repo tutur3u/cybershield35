@@ -23,7 +23,7 @@ export async function getUsageOverview(
 	const { from } = summarizeUsage([], now);
 	const [storage] = await sql<
 		{ ready: boolean }[]
-	>`select to_regclass('public.provider_account_costs') is not null as ready`;
+	>`select exists(select 1 from sqlite_schema where type = 'table' and name = 'provider_account_costs') as ready`;
 	const [days, chatRows, ai, browser, firecrawl] = await Promise.all([
 		storage?.ready
 			? sql<
@@ -37,9 +37,9 @@ export async function getUsageOverview(
 						observed: string;
 					}[]
 				>`
-   select provider, account_id, day::text, sum(amount_usd)::text as amount, count(*)::int as records,
-    count(*) filter(where synced_at is not null and synced_workspace_id = ${workspace})::int as synced,
-    max(observed_at)::text as observed
+   select provider, account_id, day, sum(amount_usd) as amount, count(*) as records,
+    count(*) filter(where synced_at is not null and synced_workspace_id = ${workspace}) as synced,
+    max(observed_at) as observed
    from provider_account_costs group by provider, account_id, day order by day desc
   `
 			: Promise.resolve([]),
@@ -51,9 +51,9 @@ export async function getUsageOverview(
 				tokens30: string;
 			}[]
 		>`
-   select count(*)::int as requests, coalesce(sum(total_tokens), 0)::text as tokens,
-    count(*) filter(where started_at >= ${`${from}T00:00:00Z`}::timestamptz)::int as requests30,
-    coalesce(sum(total_tokens) filter(where started_at >= ${`${from}T00:00:00Z`}::timestamptz), 0)::text as tokens30
+   select count(*) as requests, coalesce(sum(total_tokens), 0) as tokens,
+    count(*) filter(where started_at >= ${`${from}T00:00:00Z`}) as requests30,
+    coalesce(sum(total_tokens) filter(where started_at >= ${`${from}T00:00:00Z`}), 0) as tokens30
    from chat_model_runs
   `,
 		readAiUsage(workspace, accessToken),

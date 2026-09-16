@@ -1,3 +1,4 @@
+import { unchangedRow } from "@/lib/db/d1-guard";
 import "server-only";
 
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
@@ -174,31 +175,18 @@ export async function softDeleteChatConversation(
 	conversationId: string,
 	actorId: string,
 ) {
-	return adminDb.transaction(async (tx) => {
-		const now = new Date();
-		const [conversation] = await tx
-			.update(chatConversations)
-			.set({ deletedAt: now, updatedAt: now })
-			.where(
-				and(
-					eq(chatConversations.id, conversationId),
-					eq(chatConversations.ownerUserId, actorId),
-					isNull(chatConversations.deletedAt),
-				),
-			)
-			.returning();
-		if (!conversation) return null;
-		await tx
-			.update(chatAttachments)
-			.set({ deleteRequestedAt: now, status: "deleting", updatedAt: now })
-			.where(
-				and(
-					eq(chatAttachments.conversationId, conversationId),
-					ne(chatAttachments.status, "deleted"),
-				),
-			);
-		return conversation;
-	});
+    const [current] = await adminDb.select().from(chatConversations).where(and(
+        eq(chatConversations.id,conversationId),eq(chatConversations.ownerUserId,actorId),isNull(chatConversations.deletedAt),
+    )).limit(1);
+    if (!current) return null;
+    const now = new Date();
+    const [, [conversation]] = await adminDb.batch([
+        unchangedRow(adminDb,chatConversations,and(eq(chatConversations.id,conversationId),eq(chatConversations.revision,current.revision))!),
+        adminDb.update(chatConversations).set({deletedAt:now,updatedAt:now}).where(eq(chatConversations.id,conversationId)).returning(),
+        adminDb.update(chatAttachments).set({deleteRequestedAt:now,status:"deleting",updatedAt:now})
+            .where(and(eq(chatAttachments.conversationId,conversationId),ne(chatAttachments.status,"deleted"))),
+    ]);
+    return conversation ?? null;
 }
 
 export async function forkChatConversation(
@@ -208,32 +196,24 @@ export async function forkChatConversation(
 	const source = await getChatConversation(conversationId, actor.id);
 	if (!source || source.conversation.visibility !== "workspace") return null;
 
-	return adminDb.transaction(async (tx) => {
-		const [fork] = await tx
-			.insert(chatConversations)
-			.values({
-				forkedFromId: source.conversation.id,
-				lastMessageAt: source.conversation.lastMessageAt,
-				ownerDisplayName: actor.displayName,
-				ownerUserId: actor.id,
-				title: `${source.conversation.title} · Bản sao`,
-			})
-			.returning();
-		if (!fork) throw new Error("Không thể sao chép cuộc trò chuyện.");
-		if (source.messages.length > 0) {
-			await tx.insert(chatMessages).values(
-				source.messages.map((message) => ({
-					actorDisplayName: message.role === "user" ? actor.displayName : null,
-					actorUserId: message.role === "user" ? actor.id : null,
-					conversationId: fork.id,
-					metadata: (message.metadata ?? {}) as Record<string, unknown>,
-					parts: message.parts,
-					role: message.role,
-				})),
-			);
-		}
-		return fork;
-	});
+    const forkId = crypto.randomUUID();
+    const [permission] = await adminDb.select().from(chatConversations).where(and(
+        eq(chatConversations.id,conversationId),eq(chatConversations.visibility,"workspace"),isNull(chatConversations.deletedAt),
+    )).limit(1);
+    if (!permission) return null;
+    const [, [fork]] = await adminDb.batch([
+        unchangedRow(adminDb,chatConversations,and(eq(chatConversations.id,conversationId),eq(chatConversations.revision,permission.revision))!),
+        adminDb.insert(chatConversations).values({id:forkId,forkedFromId:source.conversation.id,
+            lastMessageAt:source.conversation.lastMessageAt,ownerDisplayName:actor.displayName,
+            ownerUserId:actor.id,title:`${source.conversation.title} · Bản sao`}).returning(),
+        ...source.messages.map(message => adminDb.insert(chatMessages).values({
+            actorDisplayName:message.role === "user" ? actor.displayName : null,
+            actorUserId:message.role === "user" ? actor.id : null,conversationId:forkId,
+            metadata:(message.metadata ?? {}) as Record<string,unknown>,parts:message.parts,role:message.role,
+        })),
+    ]);
+    if (!fork) throw new Error("Không thể sao chép cuộc trò chuyện.");
+    return fork;
 }
 
 export async function persistChatMessage(

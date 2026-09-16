@@ -124,7 +124,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch;
 });
 
-describe("Vercel Cron scan pipeline e2e", () => {
+describe("Cloudflare Cron scan pipeline e2e", () => {
 	test("the daily job enqueues, drains and reports through status and history", async () => {
 		const { GET: dailyGET } = await import(
 			"@/app/api/cron/scans/run-daily/route"
@@ -165,7 +165,7 @@ describe("Vercel Cron scan pipeline e2e", () => {
 		expect(statusBody).toMatchObject({
 			configured: true,
 			enabled: true,
-			schedulerProvider: "vercel-cron",
+			schedulerProvider: "cloudflare-cron",
 			setupDisabled: false,
 		});
 		expect(statusBody.jobs).toEqual(

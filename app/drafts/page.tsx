@@ -4,8 +4,6 @@ import { DraftsWorkspace } from "@/components/dashboard/drafts-workspace";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { QueryProvider } from "@/components/providers/query-provider";
 
-export const instant = true;
-
 export default function DraftsPage() {
 	return (
 		<div className="space-y-5">

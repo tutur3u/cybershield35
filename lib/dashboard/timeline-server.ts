@@ -1,3 +1,4 @@
+import { cachedData } from "@/lib/cache/data";
 import "server-only";
 
 import {
@@ -7,14 +8,14 @@ import {
 	eq,
 	gt,
 	gte,
-	ilike,
+
 	isNull,
 	lt,
 	or,
 	sql,
 	type SQL,
 } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+import { containsInsensitive } from "@/lib/db/sqlite-search";
 import { z } from "zod";
 
 import type {
@@ -108,16 +109,13 @@ async function getCachedTimeline(
 	limit: number,
 	cursor: TimelineCursor | null,
 ): Promise<TimelinePage> {
-	"use cache";
-	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("timeline"));
-
-	const sort = filters.sort;
-	if (cursor && cursor.sort !== sort) throw new Error("Con trỏ không khớp kiểu sắp xếp.");
-	const baseConditions = timelineConditions(filters);
-	const cursorCondition = cursor ? timelineCursorCondition(sort, cursor) : undefined;
-	const where = and(...baseConditions, cursorCondition);
-	const rowsQuery = adminDb
+ return cachedData("lib/dashboard/timeline-server.ts:getCachedTimeline", [filters, limit, cursor], {revalidate: 30, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("timeline")]}, async () => {
+const sort = filters.sort;
+if (cursor && cursor.sort !== sort) throw new Error("Con trỏ không khớp kiểu sắp xếp.");
+const baseConditions = timelineConditions(filters);
+const cursorCondition = cursor ? timelineCursorCondition(sort, cursor) : undefined;
+const where = and(...baseConditions, cursorCondition);
+const rowsQuery = adminDb
 		.select(timelinePostSelection)
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
@@ -125,18 +123,17 @@ async function getCachedTimeline(
 		.where(where)
 		.orderBy(...timelineOrderBy(sort))
 		.limit(limit + 1);
-	const totalQuery = adminDb
-		.select({ count: sql<number>`count(*)::int` })
+const totalQuery = adminDb
+		.select({ count: sql<number>`count(*)` })
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
 		.where(and(...baseConditions));
-	const [rows, totalRows] = await Promise.all([rowsQuery, totalQuery]);
-	const pageRows = rows.slice(0, limit);
-	const topicMap = await topicsForEvidence(pageRows.map((row) => row.id));
-	const last = pageRows.at(-1);
-
-	return {
+const [rows, totalRows] = await Promise.all([rowsQuery, totalQuery]);
+const pageRows = rows.slice(0, limit);
+const topicMap = await topicsForEvidence(pageRows.map((row) => row.id));
+const last = pageRows.at(-1);
+return {
 		hasNextPage: rows.length > limit,
 		items: pageRows.map((row) => mapTimelinePost(row, topicMap.get(row.id) ?? [])),
 		limit,
@@ -147,6 +144,7 @@ async function getCachedTimeline(
 		refreshedAt: new Date().toISOString(),
 		total: totalRows[0]?.count ?? 0,
 	};
+ });
 }
 
 export async function getTimelinePostById(
@@ -158,21 +156,19 @@ export async function getTimelinePostById(
 async function getCachedTimelinePostById(
 	evidenceId: string,
 ): Promise<TimelinePost | null> {
-	"use cache";
-	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("evidence"));
-
-	const rows = await adminDb
+ return cachedData("lib/dashboard/timeline-server.ts:getCachedTimelinePostById", [evidenceId], {revalidate: 30, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("evidence")]}, async () => {
+const rows = await adminDb
 		.select(timelinePostSelection)
 		.from(evidenceItems)
 		.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 		.leftJoin(facebookPageProfiles, facebookPageProfileJoin)
 		.where(eq(evidenceItems.id, evidenceId))
 		.limit(1);
-	const row = rows[0];
-	if (!row) return null;
-	const topicMap = await topicsForEvidence([row.id]);
-	return mapTimelinePost(row, topicMap.get(row.id) ?? []);
+const row = rows[0];
+if (!row) return null;
+const topicMap = await topicsForEvidence([row.id]);
+return mapTimelinePost(row, topicMap.get(row.id) ?? []);
+ });
 }
 
 export async function getTimelineHead(
@@ -192,12 +188,9 @@ async function getCachedTimelineHead(
 	filters: NormalizedTimelineFilters,
 	since: string | null,
 ): Promise<TimelineHead> {
-	"use cache";
-	cacheLife({ stale: 30, revalidate: 30, expire: 300 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("timeline"));
-
-	const conditions = timelineConditions(filters);
-	const [newest, totalRows, triageVersion, noteVersion, collected] =
+ return cachedData("lib/dashboard/timeline-server.ts:getCachedTimelineHead", [filters, since], {revalidate: 30, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("timeline")]}, async () => {
+const conditions = timelineConditions(filters);
+const [newest, totalRows, triageVersion, noteVersion, collected] =
 		await Promise.all([
 			adminDb
 				.select({ id: evidenceItems.id, publishedAt: effectivePublishedAt })
@@ -207,7 +200,7 @@ async function getCachedTimelineHead(
 				.orderBy(desc(effectivePublishedAt), desc(evidenceItems.id))
 				.limit(1),
 			adminDb
-				.select({ count: sql<number>`count(*)::int` })
+				.select({ count: sql<number>`count(*)` })
 				.from(evidenceItems)
 				.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 				.where(and(...conditions)),
@@ -216,8 +209,8 @@ async function getCachedTimelineHead(
 			adminDb
 				.select({
 					newCount: since
-						? sql<number>`count(*) filter (where ${evidenceItems.createdAt} > ${since}::timestamptz)::int`
-						: sql<number>`0::int`,
+						? sql<number>`count(*) filter (where ${evidenceItems.createdAt} > ${since})`
+						: sql<number>`0`,
 					newestCollectedAt: sql<Date | null>`max(${evidenceItems.createdAt})`.mapWith(
 						evidenceItems.createdAt,
 					),
@@ -226,9 +219,8 @@ async function getCachedTimelineHead(
 				.leftJoin(evidenceTriage, eq(evidenceTriage.evidenceItemId, evidenceItems.id))
 				.where(and(...conditions)),
 		]);
-	const latestTriage = maxDate(triageVersion[0]?.value, noteVersion[0]?.value);
-
-	return {
+const latestTriage = maxDate(triageVersion[0]?.value, noteVersion[0]?.value);
+return {
 		latestTriageUpdatedAt: latestTriage?.toISOString() ?? null,
 		newSinceCount: Number(collected[0]?.newCount ?? 0),
 		newestCollectedAt: collected[0]?.newestCollectedAt?.toISOString() ?? null,
@@ -237,6 +229,7 @@ async function getCachedTimelineHead(
 		refreshedAt: new Date().toISOString(),
 		total: totalRows[0]?.count ?? 0,
 	};
+ });
 }
 
 type NormalizedTimelineFilters = {
@@ -308,7 +301,7 @@ function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
 		range.from ? atOrAfter(effectivePublishedAt, range.from) : undefined,
 		range.to ? before(effectivePublishedAt, range.to) : undefined,
 		filters.risk !== "all" ? eq(evidenceItems.riskLevel, filters.risk) : undefined,
-		filters.provider ? sql`${evidenceItems.provider}::text = ${filters.provider}` : undefined,
+		filters.provider ? sql`${evidenceItems.provider} = ${filters.provider}` : undefined,
 		filters.sentiment ? eq(evidenceItems.sentiment, filters.sentiment) : undefined,
 		filters.stance ? eq(evidenceItems.stance, filters.stance) : undefined,
 		filters.triageStatus !== "all" ? eq(effectiveTriageStatus, filters.triageStatus) : undefined,
@@ -320,16 +313,16 @@ function timelineConditions(filters: NormalizedTimelineFilters): SQL[] {
 		filters.isPinned === null ? undefined : eq(effectivePinned, filters.isPinned),
 		filters.query
 			? or(
-					ilike(evidenceItems.quote, `%${filters.query}%`),
-					ilike(evidenceItems.summary, `%${filters.query}%`),
-					ilike(evidenceItems.author, `%${filters.query}%`),
-					ilike(evidenceItems.sourceLabel, `%${filters.query}%`),
+					containsInsensitive(evidenceItems.quote, filters.query),
+					containsInsensitive(evidenceItems.summary, filters.query),
+					containsInsensitive(evidenceItems.author, filters.query),
+					containsInsensitive(evidenceItems.sourceLabel, filters.query),
 				)
 			: undefined,
 		filters.facebookPage
 			? or(
-					ilike(evidenceItems.sourceLabel, `%${filters.facebookPage}%`),
-					ilike(evidenceItems.author, `%${filters.facebookPage}%`),
+					containsInsensitive(evidenceItems.sourceLabel, filters.facebookPage),
+					containsInsensitive(evidenceItems.author, filters.facebookPage),
 					sql`${evidenceItems.metadata}->>'facebookId' = ${filters.facebookPage}`,
 				)
 			: undefined,

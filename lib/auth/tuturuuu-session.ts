@@ -754,7 +754,7 @@ function diagnoseRequiredEnv(
 ): EnvironmentDiagnostic {
 	if (!cleanEnv(process.env[name])) {
 		return {
-			message: "Missing. Set this server-side in Vercel and redeploy.",
+			message: "Missing. Set this as a Cloudflare Worker secret and redeploy.",
 			name,
 			required: true,
 			status: "missing",

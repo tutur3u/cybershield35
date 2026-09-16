@@ -121,7 +121,7 @@ export function CentralizedLoginScreen({
 									<SetupCard
 										icon={Server}
 										title="Tuturuuu Auth"
-										description="Trong Vercel, vào Project Settings, Environment Variables, đặt các secret bắt buộc cho Production và Preview rồi redeploy."
+										description="Trong Cloudflare, vào Worker, Settings, Variables and Secrets, đặt các secret bắt buộc rồi triển khai lại."
 										items={authIssues}
 									/>
 								) : null}
@@ -165,7 +165,7 @@ function SetupAlert({
 				</p>
 				<p className="mt-1 text-[12px] leading-5 opacity-85">
 					{error && !configured ? `${error}. ` : ""}
-					Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Vercel env
+					Xem các dòng Thiếu hoặc Sai cấu hình bên dưới, cập nhật Cloudflare secrets
 					rồi redeploy.
 				</p>
 			</div>
@@ -359,7 +359,7 @@ function getRuntimeDiagnostics(): EnvironmentDiagnostic[] {
 function diagnoseRuntimeEnv(name: string, configuredMessage: string): EnvironmentDiagnostic {
 	if (!cleanEnv(process.env[name])) {
 		return {
-			message: "Missing. Set this server-side in Vercel and redeploy.",
+			message: "Missing. Set this as a Cloudflare Worker secret and redeploy.",
 			name,
 			required: true,
 			status: "missing",

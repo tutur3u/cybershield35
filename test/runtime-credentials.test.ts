@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe("runtime credential precedence", () => {
 	test("server credentials are the only accepted credential source", () => {
-		expect(resolveCredential("server-key", "browser-key")).toEqual({
+		expect(resolveCredential("server-key")).toEqual({
 			value: "server-key",
 			source: "server",
 		});

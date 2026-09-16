@@ -1,5 +1,7 @@
 import { loadLocalEnvFile } from "@/lib/env/load-local-env";
 
+export async function run() {
+
 loadLocalEnvFile();
 
 const { adminSqlClient } = await import("@/lib/db/client");
@@ -41,4 +43,6 @@ try {
 	process.exitCode = 1;
 } finally {
 	await adminSqlClient.end({ timeout: 5 });
+}
+
 }

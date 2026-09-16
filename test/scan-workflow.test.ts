@@ -1,89 +1,34 @@
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-
-const read = (path: string) => readFileSync(path, "utf8");
-
-describe("scans run as a durable workflow", () => {
-	const workflow = read("workflows/scan-pipeline.ts");
-	const stages = read("lib/workers/scan-stages.ts");
-	const scans = read("lib/workers/scans.ts");
-	const vercel = JSON.parse(read("vercel.json"));
-	const nextConfig = read("next.config.ts");
-
-	test("every stage of the pipeline is its own durable step", () => {
-		expect(workflow).toContain('"use workflow"');
-		// The pipeline's shape, in order. A stage that is not a step shares the
-		// budget and the failure of whatever step it was folded into.
-		for (const step of [
-			"claimStep",
-			"collectStep",
-			"riskStep",
-			"analysisStep",
-			"topicsStep",
-			"completeStep",
-			"failStep",
-		]) {
-			expect(workflow).toContain(`async function ${step}(`);
-		}
-		expect(workflow.match(/"use step"/g)?.length).toBeGreaterThanOrEqual(7);
-	});
-
-	test("stages carry ids, not payloads", () => {
-		// A step boundary only carries what can be written down. Passing the
-		// provider's output between steps would put the whole crawl in the event
-		// log; every stage reads what it needs from the database instead.
-		expect(stages).toContain("export async function scoreEvidenceRisk(scanJobId: string)");
-		expect(stages).toContain("export async function analyzeScan(scanJobId: string)");
-		expect(stages).toContain("export async function syncScanTopics(scanJobId: string)");
-		expect(workflow).toContain("await riskStep(job.id)");
-		expect(workflow).toContain("await analysisStep(job.id)");
-	});
-
-	test("a terminal provider fault does not spend the retry budget", () => {
-		// Retrying an exhausted account quota cannot succeed, and leaves every
-		// scan in a state that reads like recovery in progress.
-		expect(workflow).toContain("if (!isRetryableCollectionError(error))");
-		expect(workflow).toContain("throw new FatalError(");
-		expect(workflow).toContain("retryable: !(error instanceof FatalError)");
-		// The decision is passed as a flag, because an error does not survive the
-		// step boundary intact.
-		expect(stages).toContain("retryable?: boolean;");
-		expect(stages).toContain(
-			"const retryable = input.retryable ?? isRetryableCollectionError(input.error);",
-		);
-	});
-
-	test("a workflow that cannot start degrades to the old path", () => {
-		// A problem with the workflow platform must not stop scanning.
-		expect(scans).toContain("const started = await startScanPipelineRun(claimed);");
-		expect(scans).toContain("return processClaimedJobInline(claimed);");
-		expect(scans).toContain("scan_run_fallback");
-	});
-
-	test("the queue is bounded so a drain cannot stampede the provider", () => {
-		// Inline processing was self-limiting; a durable run returns as soon as it
-		// starts, so without a cap one drain fires every queued scan at once.
-		expect(scans).toContain("export const MAX_CONCURRENT_SCAN_RUNS");
-		expect(scans).toContain("export async function scanCapacityRemaining()");
-		const scheduler = read("lib/managed-scheduler/server.ts");
-		expect(scheduler).toContain("await scanCapacityRemaining()");
-		// A capped queue needs a regular tick, or the remainder waits a full day.
-		expect(scheduler).toContain("const scans = await drainScanQueue();");
-	});
-
-	test("a queue with a cap can reclaim its own locks", () => {
-		// A stalled `running` row used to be untidy but harmless. Against a cap it
-		// holds a slot for good, so six of them would stop scanning altogether.
-		expect(scans).toContain("export async function reclaimStalledScans()");
-		expect(scans).toContain("await reclaimStalledScans();");
-		expect(scans).toContain("lt(scanJobs.lockedAt,");
-		expect(scans).toContain('status: "retrying",');
-	});
-
-	test("the build compiles workflows and the step route has room to work", () => {
-		expect(nextConfig).toContain("withWorkflow(nextConfig)");
-		expect(
-			vercel.functions["app/.well-known/workflow/v1/step/route.js"].maxDuration,
-		).toBe(300);
-	});
+import {describe,expect,test} from "bun:test";
+import {readFileSync} from "node:fs";
+const read=(file:string)=>readFileSync(file,"utf8");
+describe("Cloudflare scan durability",()=>{
+ const workflow=read("workflows/scan-pipeline.ts"),scans=read("lib/workers/scans.ts"),route=read("app/api/internal/scans/stage/route.ts");
+ test("all pipeline stages have durable checkpoints",()=>{
+  expect(workflow).toContain("extends WorkflowEntrypoint");
+  for(const stage of ["claim","collect","risk","analyze","topics","complete","record-failure"]) expect(workflow).toContain(`step.do("${stage}"`);
+  expect(JSON.parse(read("wrangler.jsonc")).workflows[0].class_name).toBe("ScanPipeline");
+ });
+ test("each step authenticates and rejects stale scan attempts",()=>{
+  expect(route).toContain("timingSafeEqual");
+  expect(route).toContain("eq(scanJobs.attempts,input.attempt)");
+  expect(route).toContain('job.status!=="running"');
+  expect(workflow).toContain("scanId:job.id,attempt:job.attempts");
+ });
+ test("terminal collection failures stop retries",()=>{
+  expect(route).toContain('input.stage!=="collect" || isRetryableCollectionError(error)');
+  expect(workflow).toContain("throw new NonRetryableError");
+  expect(workflow).toContain("retryable:!(error instanceof NonRetryableError)");
+ });
+ test("uncertain creation resolves the deterministic instance without duplicate inline collection",()=>{
+  expect(scans).toContain('`scan-${claimed.id}-${claimed.attempts}`');
+  expect(scans).toContain("await (await binding.get(id)).status()");
+  expect(scans).not.toContain("processClaimedJobInline");
+ });
+ test("queue capacity and stale-lock recovery remain enabled",()=>{
+  expect(scans).toContain("export const MAX_CONCURRENT_SCAN_RUNS");
+  expect(scans).toContain("export async function reclaimStalledScans()");
+  const scheduler=read("lib/managed-scheduler/server.ts");
+  expect(scheduler).toContain("await scanCapacityRemaining()");
+  expect(scheduler).toContain("const scans = await drainScanQueue();");
+ });
 });

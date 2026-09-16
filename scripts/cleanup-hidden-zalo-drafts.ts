@@ -1,5 +1,7 @@
 import { loadLocalEnvFile } from "@/lib/env/load-local-env";
 
+export async function run() {
+
 loadLocalEnvFile();
 
 const { removeHiddenZaloDrafts } = await import(
@@ -37,3 +39,5 @@ try {
 }
 
 process.exit(process.exitCode ?? 0);
+
+}

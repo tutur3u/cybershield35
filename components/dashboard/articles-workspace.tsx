@@ -20,7 +20,7 @@ import {
 	Send,
 } from "lucide-react";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { QueryFeedback } from "./query-feedback";
 import { useConfirmDialog } from "@/components/dashboard/confirm-dialog";
@@ -44,7 +44,12 @@ import {
 
 type RemoteArticle = ArticleCatalogPage["zaloArticles"][number];
 
+const subscribeHydration = () => () => {};
+const hydratedSnapshot = () => true;
+const serverHydratedSnapshot = () => false;
+
 export function ArticlesWorkspace() {
+	const hydrated = useSyncExternalStore(subscribeHydration, hydratedSnapshot, serverHydratedSnapshot);
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
 	const deferredSearch = useDeferredValue(search.trim());
@@ -179,6 +184,7 @@ export function ArticlesWorkspace() {
 						value={search}
 						onChange={(event) => setSearch(event.target.value)}
 						aria-label="Tìm bài viết"
+						disabled={!hydrated}
 						placeholder="Tìm tiêu đề, mô tả hoặc tác giả…"
 						className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] pl-9 pr-3 text-sm font-semibold outline-none focus:border-[var(--accent)]"
 					/>
@@ -762,6 +768,7 @@ function StatusTrack({
 
 function formatDate(value: string) {
 	return new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 		dateStyle: "short",
 		timeStyle: "short",
 	}).format(new Date(value));

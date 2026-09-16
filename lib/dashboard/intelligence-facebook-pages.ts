@@ -19,7 +19,7 @@ export async function listIntelligenceFacebookPages(): Promise<
 	const [evidenceRows, trackedRows, profiles] = await Promise.all([
 		adminDb
 			.select({
-				evidenceCount: sql<number>`count(*)::int`,
+				evidenceCount: sql<number>`count(*)`,
 				facebookId: facebookIdExpr,
 				lastSeenAt: sql<Date | null>`max(${evidenceItems.createdAt})`,
 				username: evidenceItems.author,

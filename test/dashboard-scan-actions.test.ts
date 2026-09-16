@@ -195,7 +195,7 @@ describe("dashboard scan actions", () => {
 			progress: 0,
 			provider: "local_text",
 			riskLevel: "medium",
-			sourceLabel: "Văn bản",
+			sourceLabel: "Văn bản", sourceHandle:null,
 			sourceType: "text",
 			status: "queued",
 			title: "Manual scan",
@@ -237,7 +237,7 @@ describe("dashboard scan actions", () => {
 			{ method: "POST" },
 		);
 		expect(scans).toEqual([nextScan]);
-		expect(detail).toEqual(nextDetail);
+		expect(detail as ScanDetail | null).toEqual(nextDetail);
 		expect(notice).toBe("Đã chạy scan thủ công.");
 	});
 });

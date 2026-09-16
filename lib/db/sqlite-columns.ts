@@ -1,9 +1,10 @@
+import { utcTimestamp } from "./utc-timestamp.ts";
 import { customType, text } from "drizzle-orm/sqlite-core";
 
 /** The D1 snapshot stores UTC timestamps as ISO text, rather than epoch numbers. */
 export const isoTimestamp = customType<{ data: Date; driverData: string }>({
 	dataType: () => "text",
-	toDriver: (value) => value.toISOString(),
+	toDriver: (value) => utcTimestamp(value),
 	fromDriver: (value) => new Date(value),
 });
 

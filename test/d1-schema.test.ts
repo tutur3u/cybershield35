@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -11,7 +12,7 @@ test("native SQLite mappings cover every source table and column", () => {
 	expect(tables).toHaveLength(migrationTables.length);
 	for (const source of migrationTables) {
 		const target = tables.find((table) => table.name === source.name);
-		expect(target?.columns.map((column) => column.name).sort()).toEqual(source.columns.map((column) => column.name).sort());
+		expect(target?.columns.filter((column) => column.name !== "_revision").map((column) => column.name).sort()).toEqual(source.columns.map((column) => column.name).sort());
 	}
 });
 
@@ -20,6 +21,7 @@ test("native ORM round trips UUID defaults, UTC dates, JSON and booleans", () =>
 	try {
 		sqlite.exec("PRAGMA foreign_keys=ON");
 		sqlite.exec(createD1StagingSchema());
+		sqlite.exec(readFileSync("drizzle-d1/0001_revisions.sql", "utf8"));
 		const db = drizzle(sqlite, { schema });
 		const [source] = db.insert(schema.sources).values({
 			type: "text", originalInput: "Nội dung kiểm tra", metadata: { nested: ["Tiếng Việt", null, 3] },

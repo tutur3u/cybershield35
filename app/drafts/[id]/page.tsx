@@ -3,8 +3,6 @@ import { permanentRedirect } from "next/navigation";
 
 import { findArticleIdByOriginDraftId } from "@/lib/articles/store";
 
-export const instant = true;
-
 export default function DraftDetailPage({
 	params,
 	searchParams,

@@ -1,7 +1,9 @@
+import { cachedData } from "@/lib/cache/data";
+import { inJsonArray } from "@/lib/db/sqlite-lists";
 import "server-only";
 
-import { and, asc, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
+import { and, asc, desc, eq, gte,  or, sql } from "drizzle-orm";
+import { containsInsensitive } from "@/lib/db/sqlite-search";
 
 import type {
 	IntelligenceActivityRow,
@@ -54,11 +56,8 @@ export async function getIntelligenceOverview(
 }
 
 async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("overview"));
-
-	const [dailyRows, topTopics, topEvidence, topClaims, sourceHealth, providerHealth] =
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceOverview", [filters], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("overview")]}, async () => {
+const [dailyRows, topTopics, topEvidence, topClaims, sourceHealth, providerHealth] =
 		await Promise.all([
 			getDailyTrend(filters),
 			listIntelligenceTopics({ filters, limit: 8 }),
@@ -67,7 +66,7 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 			listIntelligenceSources({ filters, limit: 8 }),
 			listProviderHealth(),
 		]);
-	const totals = dailyRows.reduce(
+const totals = dailyRows.reduce(
 		(acc, row) => ({
 			approvedDrafts: acc.approvedDrafts + row.approvedDraftCount,
 			claimCount: acc.claimCount + row.claimCount,
@@ -92,7 +91,7 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 			scanCount: 0,
 		},
 	);
-	const readiness: IntelligenceReadiness = {
+const readiness: IntelligenceReadiness = {
 		approvedDrafts: totals.approvedDrafts,
 		approvedDraftRate: Math.round(
 			(totals.approvedDrafts / Math.max(1, totals.draftCount)) * 100,
@@ -104,8 +103,7 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 				: "Cần thêm bằng chứng",
 		readyReports: totals.reportReadyCount,
 	};
-
-	return {
+return {
 		actions: buildActionItems({
 			claims: topClaims.items,
 			providers: providerHealth,
@@ -128,6 +126,7 @@ async function getCachedIntelligenceOverview(filters: NormalizedFilters) {
 			scans: row.scanCount,
 		})),
 	} satisfies IntelligenceOverviewView;
+ });
 }
 
 export async function listIntelligenceEvidence({
@@ -151,14 +150,8 @@ async function getCachedIntelligenceEvidence(
 	pageLimit: number,
 	offset: number,
 ): Promise<IntelligencePage<IntelligenceEvidenceRow>> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(
-		DASHBOARD_INTELLIGENCE_TAG,
-		dashboardIntelligenceTag("evidence"),
-	);
-
-	const conditions = [
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceEvidence", [normalized, pageLimit, offset], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("evidence")]}, async () => {
+const conditions = [
 		timeCondition(evidenceItems.createdAt, normalized),
 		facebookEvidenceCondition(normalized),
 		normalized.risk && normalized.risk !== "all"
@@ -167,20 +160,20 @@ async function getCachedIntelligenceEvidence(
 		normalized.provider ? eq(evidenceItems.provider, normalized.provider) : undefined,
 		normalized.source
 			? or(
-					ilike(evidenceItems.sourceLabel, `%${normalized.source}%`),
-					ilike(evidenceItems.sourceUrl, `%${normalized.source}%`),
+					containsInsensitive(evidenceItems.sourceLabel, normalized.source),
+					containsInsensitive(evidenceItems.sourceUrl, normalized.source),
 				)
 			: undefined,
 		normalized.query
 			? or(
-					ilike(evidenceItems.quote, `%${normalized.query}%`),
-					ilike(evidenceItems.summary, `%${normalized.query}%`),
-					ilike(evidenceItems.sourceLabel, `%${normalized.query}%`),
+					containsInsensitive(evidenceItems.quote, normalized.query),
+					containsInsensitive(evidenceItems.summary, normalized.query),
+					containsInsensitive(evidenceItems.sourceLabel, normalized.query),
 				)
 			: undefined,
 		normalized.topic ? eq(topics.slug, normalized.topic) : undefined,
 	].filter(Boolean);
-	const rows = await adminDb
+const rows = await adminDb
 		.select({
 			author: evidenceItems.author,
 			createdAt: evidenceItems.createdAt,
@@ -205,10 +198,9 @@ async function getCachedIntelligenceEvidence(
 		.orderBy(normalized.order === "oldest" ? asc(evidenceItems.createdAt) : desc(evidenceItems.createdAt))
 		.limit(pageLimit + 1)
 		.offset(offset);
-	const pageRows = rows.slice(0, pageLimit);
-	const topicMap = await topicsForEvidence(pageRows.map((row) => row.id));
-
-	return {
+const pageRows = rows.slice(0, pageLimit);
+const topicMap = await topicsForEvidence(pageRows.map((row) => row.id));
+return {
 		hasNextPage: rows.length > pageLimit,
 		items: pageRows.map((row) => ({
 			author: row.author,
@@ -234,6 +226,7 @@ async function getCachedIntelligenceEvidence(
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+ });
 }
 
 export async function listIntelligenceTopics({
@@ -257,11 +250,8 @@ async function getCachedIntelligenceTopics(
 	pageLimit: number,
 	offset: number,
 ): Promise<IntelligencePage<IntelligenceTopicRow>> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("topics"));
-
-	const conditions = [
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceTopics", [normalized, pageLimit, offset], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("topics")]}, async () => {
+const conditions = [
 		facebookTopicCondition(normalized),
 		normalized.risk && normalized.risk !== "all"
 			? eq(intelligenceTopicRollups.riskLevel, normalized.risk)
@@ -269,12 +259,12 @@ async function getCachedIntelligenceTopics(
 		normalized.topic ? eq(intelligenceTopicRollups.slug, normalized.topic) : undefined,
 		normalized.query
 			? or(
-					ilike(intelligenceTopicRollups.name, `%${normalized.query}%`),
-					ilike(intelligenceTopicRollups.slug, `%${normalized.query}%`),
+					containsInsensitive(intelligenceTopicRollups.name, normalized.query),
+					containsInsensitive(intelligenceTopicRollups.slug, normalized.query),
 				)
 			: undefined,
 	].filter(Boolean);
-	const rows = await adminDb
+const rows = await adminDb
 		.select()
 		.from(intelligenceTopicRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
@@ -285,8 +275,7 @@ async function getCachedIntelligenceTopics(
 		)
 		.limit(pageLimit + 1)
 		.offset(offset);
-
-	return {
+return {
 		hasNextPage: rows.length > pageLimit,
 		items: rows.slice(0, pageLimit).map((row) => ({
 			claimCount: row.claimCount,
@@ -307,6 +296,7 @@ async function getCachedIntelligenceTopics(
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+ });
 }
 
 export async function listIntelligenceClaims({
@@ -330,18 +320,15 @@ async function getCachedIntelligenceClaims(
 	pageLimit: number,
 	offset: number,
 ): Promise<IntelligencePage<IntelligenceClaimRow>> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("claims"));
-
-	const conditions = [
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceClaims", [normalized, pageLimit, offset], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("claims")]}, async () => {
+const conditions = [
 		normalized.risk && normalized.risk !== "all"
 			? eq(intelligenceClaimIndex.riskLevel, normalized.risk)
 			: undefined,
 		normalized.query
 			? or(
-					ilike(intelligenceClaimIndex.claim, `%${normalized.query}%`),
-					ilike(intelligenceClaimIndex.stance, `%${normalized.query}%`),
+					containsInsensitive(intelligenceClaimIndex.claim, normalized.query),
+					containsInsensitive(intelligenceClaimIndex.stance, normalized.query),
 				)
 			: undefined,
 		normalized.topic
@@ -351,7 +338,7 @@ async function getCachedIntelligenceClaims(
 			? sql`${intelligenceClaimIndex.sourceLabels} ? ${normalized.facebookPage}`
 			: undefined,
 	].filter(Boolean);
-	const rows = await adminDb
+const rows = await adminDb
 		.select()
 		.from(intelligenceClaimIndex)
 		.where(conditions.length ? and(...conditions) : undefined)
@@ -362,8 +349,7 @@ async function getCachedIntelligenceClaims(
 		)
 		.limit(pageLimit + 1)
 		.offset(offset);
-
-	return {
+return {
 		hasNextPage: rows.length > pageLimit,
 		items: rows.slice(0, pageLimit).map((row) => ({
 			claim: row.claim,
@@ -383,6 +369,7 @@ async function getCachedIntelligenceClaims(
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+ });
 }
 
 export async function listIntelligenceSources({
@@ -406,11 +393,8 @@ async function getCachedIntelligenceSources(
 	pageLimit: number,
 	offset: number,
 ): Promise<IntelligencePage<IntelligenceSourceRow>> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("sources"));
-
-	const conditions = [
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceSources", [normalized, pageLimit, offset], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("sources")]}, async () => {
+const conditions = [
 		normalized.provider
 			? eq(intelligenceSourceRollups.provider, normalized.provider)
 			: undefined,
@@ -418,19 +402,19 @@ async function getCachedIntelligenceSources(
 			? eq(intelligenceSourceRollups.health, normalized.status)
 			: undefined,
 		normalized.facebookPage
-			? ilike(
+			? containsInsensitive(
 					intelligenceSourceRollups.sourceLabel,
-					`%${normalized.facebookPage}%`,
+					normalized.facebookPage,
 				)
 			: undefined,
 		normalized.source
-			? ilike(intelligenceSourceRollups.sourceLabel, `%${normalized.source}%`)
+			? containsInsensitive(intelligenceSourceRollups.sourceLabel, normalized.source)
 			: undefined,
 		normalized.query
-			? ilike(intelligenceSourceRollups.sourceLabel, `%${normalized.query}%`)
+			? containsInsensitive(intelligenceSourceRollups.sourceLabel, normalized.query)
 			: undefined,
 	].filter(Boolean);
-	const rows = await adminDb
+const rows = await adminDb
 		.select()
 		.from(intelligenceSourceRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
@@ -440,13 +424,13 @@ async function getCachedIntelligenceSources(
 		)
 		.limit(pageLimit + 1)
 		.offset(offset);
-
-	return {
+return {
 		hasNextPage: rows.length > pageLimit,
 		items: rows.slice(0, pageLimit).map(toSourceRow),
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+ });
 }
 
 
@@ -472,31 +456,27 @@ async function getCachedIntelligenceActivity(
 	pageLimit: number,
 	offset: number,
 ): Promise<IntelligencePage<IntelligenceActivityRow>> {
-	"use cache";
-	cacheLife({ stale: 300, revalidate: 300, expire: 3600 });
-	cacheTag(DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("activity"));
-
-	const conditions = [
+ return cachedData("lib/dashboard/intelligence-server.ts:getCachedIntelligenceActivity", [normalized, pageLimit, offset], {revalidate: 300, tags: [DASHBOARD_INTELLIGENCE_TAG, dashboardIntelligenceTag("activity")]}, async () => {
+const conditions = [
 		timeCondition(intelligenceActivityRollups.occurredAt, normalized),
 		normalized.risk && normalized.risk !== "all"
 			? eq(intelligenceActivityRollups.severity, normalized.risk)
 			: undefined,
 		normalized.query
 			? or(
-					ilike(intelligenceActivityRollups.title, `%${normalized.query}%`),
-					ilike(intelligenceActivityRollups.description, `%${normalized.query}%`),
+					containsInsensitive(intelligenceActivityRollups.title, normalized.query),
+					containsInsensitive(intelligenceActivityRollups.description, normalized.query),
 				)
 			: undefined,
 	].filter(Boolean);
-	const rows = await adminDb
+const rows = await adminDb
 		.select()
 		.from(intelligenceActivityRollups)
 		.where(conditions.length ? and(...conditions) : undefined)
 		.orderBy(normalized.order === "oldest" ? asc(intelligenceActivityRollups.occurredAt) : desc(intelligenceActivityRollups.occurredAt))
 		.limit(pageLimit + 1)
 		.offset(offset);
-
-	return {
+return {
 		hasNextPage: rows.length > pageLimit,
 		items: rows.slice(0, pageLimit).map((row) => ({
 			action: row.action,
@@ -512,6 +492,7 @@ async function getCachedIntelligenceActivity(
 		limit: pageLimit,
 		nextCursor: rows.length > pageLimit ? String(offset + pageLimit) : null,
 	};
+ });
 }
 
 async function getDailyTrend(filters: NormalizedFilters) {
@@ -577,7 +558,7 @@ async function topicsForEvidence(ids: string[]) {
 		})
 		.from(evidenceTopics)
 		.innerJoin(topics, eq(topics.id, evidenceTopics.topicId))
-		.where(inArray(evidenceTopics.evidenceItemId, ids));
+		.where(inJsonArray(evidenceTopics.evidenceItemId, ids));
 	const map = new Map<string, string[]>();
 	for (const row of rows) {
 		const current = map.get(row.evidenceItemId) ?? [];
@@ -754,7 +735,7 @@ function facebookEvidenceCondition(filters: NormalizedFilters) {
 	return or(
 		eq(evidenceItems.author, value),
 		sql`${evidenceItems.metadata}->>'facebookId' = ${value}`,
-		ilike(evidenceItems.sourceUrl, `%facebook.com/${value}%`),
+		containsInsensitive(evidenceItems.sourceUrl, `facebook.com/${value}`),
 	);
 }
 
@@ -764,7 +745,7 @@ function facebookTopicCondition(filters: NormalizedFilters) {
 	const evidenceCondition = or(
 		eq(evidenceItems.author, value),
 		sql`${evidenceItems.metadata}->>'facebookId' = ${value}`,
-		ilike(evidenceItems.sourceUrl, `%facebook.com/${value}%`),
+		containsInsensitive(evidenceItems.sourceUrl, `facebook.com/${value}`),
 	);
 	return sql`${intelligenceTopicRollups.slug} in (
 		select ${topics.slug}

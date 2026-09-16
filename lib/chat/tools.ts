@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq,  or } from "drizzle-orm";
+import { containsInsensitive } from "@/lib/db/sqlite-search";
 import { tool } from "ai";
 import { z } from "zod";
 
@@ -62,10 +63,10 @@ export function createChatTools(context: ToolContext) {
 						.from(evidenceItems)
 						.where(
 							or(
-								ilike(evidenceItems.quote, `%${query}%`),
-								ilike(evidenceItems.summary, `%${query}%`),
-								ilike(evidenceItems.sourceLabel, `%${query}%`),
-								ilike(evidenceItems.author, `%${query}%`),
+								containsInsensitive(evidenceItems.quote, query),
+								containsInsensitive(evidenceItems.summary, query),
+								containsInsensitive(evidenceItems.sourceLabel, query),
+								containsInsensitive(evidenceItems.author, query),
 							),
 						)
 						.orderBy(desc(evidenceItems.publishedAt), desc(evidenceItems.createdAt))
@@ -206,10 +207,13 @@ export function createChatTools(context: ToolContext) {
 						scanJobId = evidence.scanJobId;
 					}
 					if (!scanJobId) throw new Error("Scan không tồn tại");
-					const draft = await adminDb.transaction(async (tx) => {
-						const [created] = await tx
+					const draft = await (async () => {
+                        const tx = adminDb;
+                        const draftId = crypto.randomUUID();
+						const write = tx
 							.insert(counterArgumentDrafts)
 							.values({
+                                id: draftId,
 								audience: input.audience,
 								body: input.body,
 								createdByDisplayName: context.actor.displayName,
@@ -227,24 +231,25 @@ export function createChatTools(context: ToolContext) {
 								updatedByUserId: context.actor.id,
 							})
 							.returning();
-						if (!created) throw new Error("Không thể lưu bản nháp");
-						await Promise.all([
+
+						const [[created]] = await adminDb.batch([write,
 							tx.insert(counterArgumentDraftVersions).values({
 								actorDisplayName: context.actor.displayName,
 								actorUserId: context.actor.id,
 								body: input.body,
-								draftId: created.id,
+								draftId: draftId,
 								version: 1,
 							}),
 							tx.insert(auditEvents).values({
 								action: "draft_created_from_chat",
-								entityId: created.id,
+								entityId: draftId,
 								entityType: "counter_argument_draft",
 								payload: { actorId: context.actor.id, draftKind: input.draftKind, evidenceId: input.evidenceId, scanJobId },
 							}),
 						]);
-						return created;
-					});
+						if (!created) throw new Error("Không thể lưu bản nháp");
+                        return created;
+					})();
 					revalidateDashboardIntelligence("activity");
 					return { draftId: draft.id, href: `/drafts/${draft.id}`, status: draft.status };
 				}),

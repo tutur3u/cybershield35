@@ -36,16 +36,15 @@ export async function reconcileApifyAccountHistory(
 	}
 	const observedAt = new Date();
 	if (apply) {
-		await sql.begin(async (tx) => {
-			for (const [day, amount] of daily) {
-				const id = `account-${account.id}-${day}`;
-				await tx`insert into provider_account_costs (id, provider, account_id, day, amount_usd, observed_at)
-          values (${id}, 'apify', ${account.id}, ${day}, ${amount.toFixed(12)}, ${observedAt.toISOString()}::timestamptz)
-          on conflict (id) do update set amount_usd=excluded.amount_usd, observed_at=excluded.observed_at,
-            synced_at=null, synced_workspace_id=null
-          where provider_account_costs.amount_usd is distinct from excluded.amount_usd`;
-			}
-		});
+        const writes = [...daily].map(([day, amount]) => {
+            const id = `account-${account.id}-${day}`;
+            return sql`insert into provider_account_costs (id, provider, account_id, day, amount_usd, observed_at)
+              values (${id}, 'apify', ${account.id}, ${day}, ${amount.toFixed(12)}, ${observedAt.toISOString()})
+              on conflict (id) do update set amount_usd=excluded.amount_usd, observed_at=excluded.observed_at,
+              synced_at=null, synced_workspace_id=null
+              where provider_account_costs.amount_usd is distinct from excluded.amount_usd`;
+        });
+        if (writes.length) await sql.batch(writes);
 	}
 	const months = new Map<string, number>();
 	for (const [day, amount] of daily)
@@ -72,7 +71,7 @@ export async function syncAccountCosts(
 			observed_at: string;
 		}>
 	>`
-    select id, provider, account_id, day::text, amount_usd::text, observed_at::text from provider_account_costs
+    select id, provider, account_id, day, amount_usd, observed_at from provider_account_costs
     where synced_at is null or synced_workspace_id is distinct from ${workspace}
     order by day limit 100
   `;
@@ -95,8 +94,8 @@ export async function syncAccountCosts(
 		const receipt = await response.json().catch(() => null);
 		if (receipt?.accepted !== true || receipt.externalRunId !== row.id)
 			return { synced, status: "invalid_receipt" };
-		await sql`update provider_account_costs set synced_at=now(), synced_workspace_id=${workspace}
-      where id=${row.id} and observed_at=${row.observed_at}::timestamptz`;
+		await sql`update provider_account_costs set synced_at=(strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000Z'), synced_workspace_id=${workspace}
+      where id=${row.id} and observed_at=${row.observed_at}`;
 		synced++;
 	}
 	return { synced, status: "ready" };

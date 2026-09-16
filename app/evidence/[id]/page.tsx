@@ -8,8 +8,6 @@ import {
 } from "@/components/dashboard/dashboard-route";
 import { getTimelinePostById } from "@/lib/dashboard/timeline-server";
 
-export const instant = true;
-
 export default function EvidenceDetailPage({
 	params,
 }: {

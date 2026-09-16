@@ -42,7 +42,7 @@ describe("the classification vocabulary is shared", () => {
 	test("unknown values pass through rather than vanish", () => {
 		expect(sentimentLabel("negative")).toBe("Tiêu cực");
 		expect(stanceLabel("critical")).toBe("Phản đối");
-		expect(stanceLabel("something-new")).toBe("something-new");
+		expect<string>(stanceLabel("something-new")).toBe("something-new");
 	});
 });
 
@@ -79,7 +79,7 @@ describe("the classifier judges sentiment and stance", () => {
 		// `riskClassifier` was no better, because every row scored before sentiment
 		// existed is marked "llm" while the field still holds a provider default.
 		expect(worker).toContain("const CLASSIFIER_VERSION = 2;");
-		expect(worker).toContain("(metadata->>'classifierVersion')::int");
+		expect(worker).toContain("cast(metadata->>'classifierVersion' as integer)");
 		expect(worker).toContain(
 			'classifierVersion: assessment.source === "llm" ? CLASSIFIER_VERSION : 0,',
 		);

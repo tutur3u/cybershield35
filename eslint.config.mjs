@@ -35,6 +35,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".open-next/**",
+    ".wrangler/**",
+    "migration-private/**",
     "out/**",
     "build/**",
     "playwright-report/**",

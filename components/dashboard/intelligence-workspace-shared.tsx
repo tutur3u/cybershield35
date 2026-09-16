@@ -337,6 +337,7 @@ export function intelligenceProviderLabel(provider?: string | null) {
 export function formatIntelligenceDate(value?: string | null) {
 	if (!value) return "Chưa có";
 	return new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 		day: "2-digit",
 		hour: "2-digit",
 		minute: "2-digit",

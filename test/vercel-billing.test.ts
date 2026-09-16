@@ -18,7 +18,7 @@ test("omits empty charges but retains zero-dollar corrections for existing ledge
 		{ accountId: "network", day: "2026-09-07", amountUsd: 0.1 },
 	];
 	expect(selectVercelCostsForImport(rows, new Set(["cpu:2026-09-07"]))).toEqual(
-		[rows[0], rows[2]],
+		[rows[0]!, rows[2]!],
 	);
 });
 test("attributes only matching project, sums billed cost once and keeps service dimensions", () => {

@@ -137,6 +137,7 @@ export const evidenceTriageStatusEnum = sqliteEnum("evidence_triage_status", [
 ]);
 
 export const sources = sqliteTable("sources", {
+		revision: integer("_revision").notNull().default(0),
 	id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 	type: sourceTypeEnum("type").notNull(),
 	originalInput: text("original_input").notNull(),
@@ -152,6 +153,7 @@ export const sources = sqliteTable("sources", {
 export const scanJobs = sqliteTable(
 	"scan_jobs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		sourceId: text("source_id")
 			.notNull()
@@ -191,6 +193,7 @@ export const scanJobs = sqliteTable(
 export const trackedSources = sqliteTable(
 	"tracked_sources",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		displayName: text("display_name").notNull(),
 		normalizedUrl: text("normalized_url").notNull(),
@@ -216,6 +219,7 @@ export const trackedSources = sqliteTable(
 export const facebookPageProfiles = sqliteTable(
 	"facebook_page_profiles",
 	{
+		revision: integer("_revision").notNull().default(0),
 		pageKey: text("page_key").primaryKey(),
 		facebookPageId: text("facebook_page_id"),
 		username: text("username"),
@@ -250,6 +254,7 @@ export const facebookPageProfiles = sqliteTable(
 export const providerRuns = sqliteTable(
 	"provider_runs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		scanJobId: text("scan_job_id")
 			.notNull()
@@ -271,6 +276,7 @@ export const providerRuns = sqliteTable(
 export const scanJobEvents = sqliteTable(
 	"scan_job_events",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		scanJobId: text("scan_job_id")
 			.notNull()
@@ -296,6 +302,7 @@ export const scanJobEvents = sqliteTable(
 export const evidenceItems = sqliteTable(
 	"evidence_items",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		scanJobId: text("scan_job_id")
 			.notNull()
@@ -345,6 +352,7 @@ export const evidenceItems = sqliteTable(
 export const evidenceSemanticProfiles = sqliteTable(
 	"evidence_semantic_profiles",
 	{
+		revision: integer("_revision").notNull().default(0),
 		evidenceItemId: text("evidence_item_id")
 			.primaryKey()
 			.references(() => evidenceItems.id, { onDelete: "cascade" }),
@@ -362,6 +370,7 @@ export const evidenceSemanticProfiles = sqliteTable(
 export const evidenceTriage = sqliteTable(
 	"evidence_triage",
 	{
+		revision: integer("_revision").notNull().default(0),
 		evidenceItemId: text("evidence_item_id")
 			.primaryKey()
 			.references(() => evidenceItems.id, { onDelete: "cascade" }),
@@ -392,6 +401,7 @@ export const evidenceTriage = sqliteTable(
 export const evidenceTriageNotes = sqliteTable(
 	"evidence_triage_notes",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		evidenceItemId: text("evidence_item_id")
 			.notNull()
@@ -412,6 +422,7 @@ export const evidenceTriageNotes = sqliteTable(
 export const analyses = sqliteTable(
 	"analyses",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		scanJobId: text("scan_job_id")
 			.notNull()
@@ -431,6 +442,7 @@ export const analyses = sqliteTable(
 export const topics = sqliteTable(
 	"topics",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		slug: text("slug").notNull(),
 		name: text("name").notNull(),
@@ -455,6 +467,7 @@ export const topics = sqliteTable(
 export const evidenceTopics = sqliteTable(
 	"evidence_topics",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		evidenceItemId: text("evidence_item_id")
 			.notNull()
@@ -487,6 +500,7 @@ export const evidenceTopics = sqliteTable(
 export const chatConversations = sqliteTable(
 	"chat_conversations",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		ownerUserId: text("owner_user_id").notNull(),
 		ownerDisplayName: text("owner_display_name"),
@@ -532,6 +546,7 @@ export const chatConversations = sqliteTable(
 export const aiPromptPresets = sqliteTable(
 	"ai_prompt_presets",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		ownerUserId: text("owner_user_id").notNull(),
 		ownerDisplayName: text("owner_display_name"),
@@ -559,6 +574,7 @@ export const aiPromptPresets = sqliteTable(
 export const chatMessages = sqliteTable(
 	"chat_messages",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		conversationId: text("conversation_id")
 			.notNull()
@@ -582,6 +598,7 @@ export const chatMessages = sqliteTable(
 export const chatAttachments = sqliteTable(
 	"chat_attachments",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		conversationId: text("conversation_id")
 			.notNull()
@@ -631,6 +648,7 @@ export const chatAttachments = sqliteTable(
 export const chatAttachmentChunks = sqliteTable(
 	"chat_attachment_chunks",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		attachmentId: text("attachment_id")
 			.notNull()
@@ -652,6 +670,7 @@ export const chatAttachmentChunks = sqliteTable(
 export const chatModelRuns = sqliteTable(
 	"chat_model_runs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		conversationId: text("conversation_id")
 			.notNull()
@@ -695,6 +714,7 @@ export const chatModelRuns = sqliteTable(
 export const chatToolRuns = sqliteTable(
 	"chat_tool_runs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		modelRunId: text("model_run_id")
 			.notNull()
@@ -721,6 +741,7 @@ export const chatToolRuns = sqliteTable(
 export const counterArgumentDrafts = sqliteTable(
 	"counter_argument_drafts",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		scanJobId: text("scan_job_id")
 			.notNull()
@@ -780,6 +801,7 @@ export const counterArgumentDrafts = sqliteTable(
 export const draftAutomationJobs = sqliteTable(
 	"draft_automation_jobs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		evidenceItemId: text("evidence_item_id")
 			.notNull()
@@ -826,6 +848,7 @@ export const draftAutomationJobs = sqliteTable(
 export const counterArgumentDraftVersions = sqliteTable(
 	"counter_argument_draft_versions",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		draftId: text("draft_id")
 			.notNull()
@@ -853,6 +876,7 @@ export const counterArgumentDraftVersions = sqliteTable(
 export const zaloOaConnections = sqliteTable(
 	"zalo_oa_connections",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		oaId: text("oa_id").notNull(),
 		displayName: text("display_name").notNull(),
@@ -889,6 +913,7 @@ export const zaloOaConnections = sqliteTable(
 export const articles = sqliteTable(
 	"articles",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		title: text("title").default("").notNull(),
 		author: text("author").default("").notNull(),
@@ -986,6 +1011,7 @@ export const articles = sqliteTable(
 export const articleVersions = sqliteTable(
 	"article_versions",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		articleId: text("article_id")
 			.notNull()
@@ -1013,6 +1039,7 @@ export const articleVersions = sqliteTable(
 export const articleMedia = sqliteTable(
 	"article_media",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		articleId: text("article_id")
 			.notNull()
@@ -1039,6 +1066,7 @@ export const articleMedia = sqliteTable(
 export const articleEvidence = sqliteTable(
 	"article_evidence",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		articleId: text("article_id")
 			.notNull()
@@ -1060,6 +1088,7 @@ export const articleEvidence = sqliteTable(
 export const articlePublicationJobs = sqliteTable(
 	"article_publication_jobs",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		articleId: text("article_id")
 			.notNull()
@@ -1100,6 +1129,7 @@ export const articlePublicationJobs = sqliteTable(
 export const auditEvents = sqliteTable(
 	"audit_events",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		entityType: text("entity_type").notNull(),
 		entityId: text("entity_id").notNull(),
@@ -1118,6 +1148,7 @@ export const auditEvents = sqliteTable(
 );
 
 export const cronHeartbeats = sqliteTable("cron_heartbeats", {
+		revision: integer("_revision").notNull().default(0),
 	serviceName: text("service_name").primaryKey(),
 	lastSeenAt: isoTimestamp("last_seen_at").$defaultFn(() => new Date()).notNull(),
 	metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>().default({}).notNull(),
@@ -1126,6 +1157,7 @@ export const cronHeartbeats = sqliteTable("cron_heartbeats", {
 export const managedSchedulerIntegrations = sqliteTable(
 	"managed_scheduler_integrations",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		provider: text("provider").default("managed-scheduler").notNull(),
 		tokenHash: text("token_hash").notNull(),
@@ -1162,6 +1194,7 @@ export const managedSchedulerIntegrations = sqliteTable(
 export const intelligenceSummaries = sqliteTable(
 	"intelligence_summaries",
 	{
+		revision: integer("_revision").notNull().default(0),
 		timeRange: text("time_range").primaryKey(),
 		fingerprint: text("fingerprint").notNull(),
 		payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
@@ -1176,6 +1209,7 @@ export const intelligenceSummaries = sqliteTable(
 export const intelligenceDailyRollups = sqliteTable(
 	"intelligence_daily_rollups",
 	{
+		revision: integer("_revision").notNull().default(0),
 		day: text("day").primaryKey(),
 		scanCount: integer("scan_count").default(0).notNull(),
 		queuedScanCount: integer("queued_scan_count").default(0).notNull(),
@@ -1203,6 +1237,7 @@ export const intelligenceDailyRollups = sqliteTable(
 export const intelligenceTopicRollups = sqliteTable(
 	"intelligence_topic_rollups",
 	{
+		revision: integer("_revision").notNull().default(0),
 		topicId: text("topic_id")
 			.primaryKey()
 			.references(() => topics.id, { onDelete: "cascade" }),
@@ -1234,6 +1269,7 @@ export const intelligenceTopicRollups = sqliteTable(
 export const intelligenceSourceRollups = sqliteTable(
 	"intelligence_source_rollups",
 	{
+		revision: integer("_revision").notNull().default(0),
 		sourceId: text("source_id")
 			.primaryKey()
 			.references(() => sources.id, { onDelete: "cascade" }),
@@ -1264,6 +1300,7 @@ export const intelligenceSourceRollups = sqliteTable(
 export const intelligenceProviderRollups = sqliteTable(
 	"intelligence_provider_rollups",
 	{
+		revision: integer("_revision").notNull().default(0),
 		provider: providerNameEnum("provider").primaryKey(),
 		health: text("health").default("unknown").notNull(),
 		scanCount: integer("scan_count").default(0).notNull(),
@@ -1285,6 +1322,7 @@ export const intelligenceProviderRollups = sqliteTable(
 export const intelligenceClaimIndex = sqliteTable(
 	"intelligence_claim_index",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		claimKey: text("claim_key").notNull(),
 		claim: text("claim").notNull(),
@@ -1318,6 +1356,7 @@ export const intelligenceClaimIndex = sqliteTable(
 export const intelligenceActivityRollups = sqliteTable(
 	"intelligence_activity_rollups",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		entityType: text("entity_type").notNull(),
 		entityId: text("entity_id").notNull(),
@@ -1343,6 +1382,7 @@ export const intelligenceActivityRollups = sqliteTable(
 export const localAccounts = sqliteTable(
 	"local_accounts",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		// Usernames are normalized to lowercase before they ever reach the database
 		// so the unique index doubles as the case-insensitive login lookup.
@@ -1373,6 +1413,7 @@ export const localAccounts = sqliteTable(
 export const localAccountSessions = sqliteTable(
 	"local_account_sessions",
 	{
+		revision: integer("_revision").notNull().default(0),
 		id: text("id").$defaultFn(() => crypto.randomUUID()).primaryKey(),
 		accountId: text("account_id")
 			.notNull()
@@ -1434,6 +1475,7 @@ export type IntelligenceActivityRollupRow =
 
 /** Dedicated provider-account daily totals, independent of scan retention. */
 export const providerAccountCosts = sqliteTable("provider_account_costs", {
+		revision: integer("_revision").notNull().default(0),
   id: text("id").primaryKey(),
   provider: text("provider").notNull(),
   accountId: text("account_id").notNull(),

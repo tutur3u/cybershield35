@@ -128,16 +128,16 @@ describe("dashboard server performance", () => {
 		);
 
 		expect(source).toContain(
-			"cacheLife({ stale: 30, revalidate: 30, expire: 300 })",
+			"revalidate: 30",
 		);
 		expect(detailCache).toContain(
-			"? { stale: 30, revalidate: 15, expire: 60 }",
+			"revalidate: 15",
 		);
 		expect(source).toContain(
-			"cacheLife({ stale: 300, revalidate: 300, expire: 3600 })",
+			"revalidate: 300",
 		);
-		expect(detailCache).toContain("cacheTag(dashboardScanDetailTag(scanId))");
-		expect(detailCache).not.toContain("cacheTag(DASHBOARD_SCANS_TAG");
+		expect(detailCache).toContain("tags: [dashboardScanDetailTag(scanId)]");
+		expect(detailCache).not.toContain("tags: [DASHBOARD_SCANS_TAG");
 		expect(detailRoute).toContain("getCachedDashboardScanDetail(id)");
 		expect(detailRoute).not.toContain("getScanDetail(id)");
 	});
@@ -174,37 +174,12 @@ describe("dashboard server performance", () => {
 		expect(overviewPrefetch).not.toContain('"sources"');
 	});
 
-	test("clears rollup tables before rebuilding independent projections concurrently", () => {
-		const source = read("lib/dashboard/intelligence-rollups.ts");
-		const refresh = source.slice(
-			source.indexOf("export async function refreshIntelligenceRollups"),
-			source.indexOf("export async function refreshIntelligenceRollupsBestEffort"),
-		);
-		const clear = source.slice(
-			source.indexOf("async function clearRollups"),
-			source.indexOf("async function refreshDailyRollups"),
-		);
-		const claimIndex = source.slice(
-			source.indexOf("async function refreshClaimIndex"),
-			source.indexOf("async function refreshActivityRollups"),
-		);
-
-		expect(refresh.indexOf("await clearRollups()"))
-			.toBeLessThan(refresh.indexOf("await Promise.all(["));
-		for (const projection of [
-			"refreshDailyRollups()",
-			"refreshTopicRollups()",
-			"refreshSourceRollups()",
-			"refreshProviderRollups()",
-			"refreshClaimIndex()",
-			"refreshActivityRollups(reason)",
-		]) {
-			expect(refresh).toContain(projection);
-		}
-		expect(clear).toContain("await Promise.all([");
-		expect(clear.match(/adminSqlClient`delete from intelligence_/gu)).toHaveLength(6);
-		expect(claimIndex).toContain("const [analysesRows, contextRows] = await Promise.all([");
-	});
+	test("replaces all rollups atomically in one D1 batch", () => {
+        const source=read("lib/dashboard/intelligence-rollups.ts");
+        expect(source).toContain("await adminSqlClient.batch([");
+        expect(source.match(/adminSqlClient`delete from intelligence_/gu)).toHaveLength(6);
+        expect(source).toContain("const claims = await buildClaimIndex()");
+    });
 
 	test("loads independent scan-detail children concurrently and scopes audit rows", () => {
 		const source = read("lib/workers/scans.ts");
@@ -236,7 +211,7 @@ describe("dashboard server performance", () => {
 	});
 
 	test("declares indexes for each hot dashboard ordering path", () => {
-		const schema = read("lib/db/schema.ts");
+		const schema = read("lib/db/schema.d1.ts");
 		const migration = read("drizzle/0008_blue_zemo.sql");
 		const indexes = [
 			"scan_jobs_created_at_idx",

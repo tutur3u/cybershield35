@@ -1,7 +1,9 @@
+import { unchangedRow } from "@/lib/db/d1-guard";
 import "server-only";
 
 import { Firecrawl } from "firecrawl";
-import { and, eq, ilike, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq,  isNull, ne, or, sql } from "drizzle-orm";
+import { containsInsensitive } from "@/lib/db/sqlite-search";
 import { generateText } from "ai";
 
 import { adminDb } from "@/lib/db/client";
@@ -85,7 +87,7 @@ export async function processChatAttachment(
 	if (!attachment?.drivePath || !attachment.storageProvider) return;
 
 	const startedAt = new Date();
-	await adminDb
+	const [claimed] = await adminDb
 		.update(chatAttachments)
 		.set({
 			attempts: sql`${chatAttachments.attempts} + 1`,
@@ -94,7 +96,12 @@ export async function processChatAttachment(
 			status: "processing",
 			updatedAt: startedAt,
 		})
-		.where(eq(chatAttachments.id, attachment.id));
+		.where(and(eq(chatAttachments.id, attachment.id),
+            ne(chatAttachments.status,"deleting"),ne(chatAttachments.status,"deleted"),
+            or(ne(chatAttachments.status,"processing"), sql`${chatAttachments.lockedAt} < ${new Date(Date.now()-15*60*1000).toISOString()}`),
+        )).returning({id:chatAttachments.id});
+    if (!claimed) return;
+    const ownsClaim = and(eq(chatAttachments.id,attachment.id),eq(chatAttachments.status,"processing"),eq(chatAttachments.lockedAt,startedAt))!;
 
 	try {
 		const read = await createTuturuuuDriveReadUrl(accessToken, {
@@ -114,35 +121,13 @@ export async function processChatAttachment(
 			fileName: attachment.fileName,
 		});
 		const chunks = chunkText(extracted.text);
-		await adminDb.transaction(async (tx) => {
-			await tx
-				.delete(chatAttachmentChunks)
-				.where(eq(chatAttachmentChunks.attachmentId, attachment.id));
-			if (chunks.length > 0) {
-				await tx.insert(chatAttachmentChunks).values(
-					chunks.map((content, ordinal) => ({
-						attachmentId: attachment.id,
-						content,
-						metadata: { extractor: extracted.extractor },
-						ordinal,
-					})),
-				);
-			}
-			await tx
-				.update(chatAttachments)
-				.set({
-					extractionMetadata: {
-						characters: extracted.text.length,
-						chunks: chunks.length,
-						extractor: extracted.extractor,
-					},
-					lockedAt: null,
-					processedAt: new Date(),
-					status: "ready",
-					updatedAt: new Date(),
-				})
-				.where(eq(chatAttachments.id, attachment.id));
-		});
+        await adminDb.batch([
+            unchangedRow(adminDb,chatAttachments,ownsClaim),
+            adminDb.delete(chatAttachmentChunks).where(eq(chatAttachmentChunks.attachmentId,attachment.id)),
+            ...chunks.map((content,ordinal)=>adminDb.insert(chatAttachmentChunks).values({attachmentId:attachment.id,content,metadata:{extractor:extracted.extractor},ordinal})),
+            adminDb.update(chatAttachments).set({extractionMetadata:{characters:extracted.text.length,chunks:chunks.length,extractor:extracted.extractor},
+                lockedAt:null,processedAt:new Date(),status:"ready",updatedAt:new Date()}).where(ownsClaim),
+        ]);
 	} catch (error) {
 		await adminDb
 			.update(chatAttachments)
@@ -153,7 +138,7 @@ export async function processChatAttachment(
 				status: "failed",
 				updatedAt: new Date(),
 			})
-			.where(eq(chatAttachments.id, attachment.id));
+			.where(ownsClaim);
 	}
 }
 
@@ -170,21 +155,10 @@ export async function deleteChatAttachment(
 	if (attachment.drivePath) {
 		await deleteTuturuuuDriveObject(accessToken, { path: attachment.drivePath });
 	}
-	await adminDb.transaction(async (tx) => {
-		await tx
-			.delete(chatAttachmentChunks)
-			.where(eq(chatAttachmentChunks.attachmentId, attachment.id));
-		await tx
-			.update(chatAttachments)
-			.set({
-				deletedAt: new Date(),
-				driveFullPath: null,
-				drivePath: null,
-				status: "deleted",
-				updatedAt: new Date(),
-			})
-			.where(eq(chatAttachments.id, attachment.id));
-	});
+    await adminDb.batch([
+        adminDb.delete(chatAttachmentChunks).where(eq(chatAttachmentChunks.attachmentId,attachment.id)),
+        adminDb.update(chatAttachments).set({deletedAt:new Date(),driveFullPath:null,drivePath:null,status:"deleted",lockedAt:null,updatedAt:new Date()}).where(eq(chatAttachments.id,attachment.id)),
+    ]);
 	return true;
 }
 
@@ -217,7 +191,7 @@ export async function cleanupDeletedConversation(
 		}
 	}
 	const [remaining] = await adminDb
-		.select({ count: sql<number>`count(*)::int` })
+		.select({ count: sql<number>`count(*)` })
 		.from(chatAttachments)
 		.where(
 			and(
@@ -287,9 +261,12 @@ export async function getChatAttachmentContext(conversationId: string, attachmen
 }
 
 function orTextSearch(query: string) {
-	return query.split(/\s+/u).filter(Boolean).length > 1
-		? sql`to_tsvector('simple', ${chatAttachmentChunks.content}) @@ plainto_tsquery('simple', ${query})`
-		: ilike(chatAttachmentChunks.content, `%${query}%`);
+    const tokens = query.match(/[\p{L}\p{N}_]+/gu) ?? [];
+    if (tokens.length > 1) {
+        const match = tokens.map(token=>`"${token.replaceAll('"','""')}"`).join(" AND ");
+        return sql`${chatAttachmentChunks.id} in (select c.id from chat_attachment_chunks c join chat_attachment_chunks_fts f on f.rowid=c.rowid where chat_attachment_chunks_fts match ${match})`;
+    }
+    return containsInsensitive(chatAttachmentChunks.content, query);
 }
 
 async function extractAttachmentText(input: {

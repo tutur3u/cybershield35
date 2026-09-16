@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cs35-production-maintenance",
+  "account_id": "e8912e2867beecc673d171907bf09649",
+  "compatibility_date": "2026-09-15",
+  "d1_databases": [
+    {
+      "binding": "CS35_DB",
+      "database_name": "cs35-production",
+      "database_id": "991e3c70-d792-4597-b40a-b9c7a677f17b",
+      "remote": true
+    }
+  ]
+}

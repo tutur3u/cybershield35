@@ -1,7 +1,7 @@
 import {
 	json,
 	runLegacyManagedSchedulerRoute,
-	runVercelCronRoute,
+	runCloudflareCronRoute,
 } from "@/lib/managed-scheduler/server";
 import { managedSchedulerCallbackFailureBody } from "@/lib/managed-scheduler/callback";
 
@@ -10,7 +10,7 @@ const JOB_KEY = "daily-scans";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-	return runVercelCronRoute(request, JOB_KEY);
+	return runCloudflareCronRoute(request, JOB_KEY);
 }
 
 export async function POST(request: Request) {

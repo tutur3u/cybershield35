@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -78,7 +78,7 @@ afterEach(() => {
 describe("dashboard auth gate", () => {
 	test("rejects unauthenticated production requests even when bypass env is true", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 
 		const auth = await resolveDashboardAuthFromRequest(
 			new Request("https://cybershield.example.com"),
@@ -92,7 +92,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("does not allow localhost dev access unless bypass is explicit", async () => {
-		process.env.NODE_ENV = "development";
+		Object.assign(process.env, {NODE_ENV: "development"});
 		delete process.env.AUTH_LOCAL_BYPASS;
 
 		const auth = await resolveDashboardAuthFromRequest(
@@ -107,7 +107,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("returns auth environment diagnostics for blocked requests", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -133,7 +133,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("returns a centralized Tuturuuu login href for configured blocked requests", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -159,7 +159,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("allows the verify-token callback route to render before authentication", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -177,7 +177,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("verify-token route returns scope approval href for scope-denied exchanges", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -190,7 +190,7 @@ describe("dashboard auth gate", () => {
 					{ error: "Requested scope is not allowed for this app" },
 					{ status: 403 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await verifyAppToken(
@@ -214,7 +214,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("verify-token route stores pending invitation action in an encrypted cookie", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -241,7 +241,7 @@ describe("dashboard auth gate", () => {
 					},
 					{ status: 403 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await verifyAppToken(
@@ -293,7 +293,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("verify-token route does not create invitation actions without a Tuturuuu action token", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -313,7 +313,7 @@ describe("dashboard auth gate", () => {
 					},
 					{ status: 403 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await verifyAppToken(
@@ -336,14 +336,14 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("verify-token route reports forbidden access distinctly from invalid links", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
 		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = (() =>
-			Promise.resolve(Response.json({ error: "Forbidden" }, { status: 403 }))) as typeof fetch;
+			Promise.resolve(Response.json({ error: "Forbidden" }, { status: 403 }))) as unknown as typeof fetch;
 
 		try {
 			const response = await verifyAppToken(
@@ -368,7 +368,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("pending invitation route accepts through Tuturuuu and creates a CS35 session", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -389,7 +389,7 @@ describe("dashboard auth gate", () => {
 			workspaceId: pending.workspaceId,
 		});
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = (async (_url, init) => {
+		globalThis.fetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
 			const requestBody = JSON.parse(String(init?.body));
 			expect(requestBody).toMatchObject({
 				action: "accept",
@@ -399,7 +399,7 @@ describe("dashboard auth gate", () => {
 				workspaceId: "workspace-1",
 			});
 			return Response.json(session());
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 
 		try {
 			const response = await pendingInvitationDecision(
@@ -437,7 +437,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("pending invitation route rejects through Tuturuuu and clears pending state", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -452,11 +452,11 @@ describe("dashboard auth gate", () => {
 			workspaceId: "workspace-1",
 		});
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = (async (_url, init) => {
+		globalThis.fetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
 			const requestBody = JSON.parse(String(init?.body));
 			expect(requestBody.action).toBe("reject");
 			return Response.json({ status: "rejected" });
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 
 		try {
 			const response = await pendingInvitationDecision(
@@ -486,7 +486,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("pending invitation route clears stale Tuturuuu action tokens and returns a reload redirect", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -510,7 +510,7 @@ describe("dashboard auth gate", () => {
 					},
 					{ status: 409 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await pendingInvitationDecision(
@@ -545,7 +545,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("pending invitation route classifies legacy Tuturuuu already-used action token responses", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -568,7 +568,7 @@ describe("dashboard auth gate", () => {
 					},
 					{ status: 409 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await pendingInvitationDecision(
@@ -602,7 +602,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("pending invitation route keeps retryable replay-store failures actionable", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -626,7 +626,7 @@ describe("dashboard auth gate", () => {
 					},
 					{ status: 503 },
 				),
-			)) as typeof fetch;
+			)) as unknown as typeof fetch;
 
 		try {
 			const response = await pendingInvitationDecision(
@@ -658,7 +658,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("allows the login page to render before authentication", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -684,7 +684,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy redirects unauthenticated protected routes to /login", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 
 		const response = await proxy(
 			new NextRequest("https://cybershield.example.com/sources?tab=facebook"),
@@ -698,7 +698,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy lets public auth routes render without a session", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 
 		const loginResponse = await proxy(
 			new NextRequest("https://cybershield.example.com/login?nextUrl=/sources"),
@@ -716,7 +716,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy allows valid sessions and skips the login page for them", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		const cookie = createSessionCookie(session());
 
 		const protectedResponse = await proxy(
@@ -742,7 +742,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy sends scope-incomplete sessions to the centralized scope login state", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -786,7 +786,7 @@ describe("dashboard auth gate", () => {
 
 	test("allows explicit localhost dev bypass", async () => {
 		process.env.AUTH_LOCAL_BYPASS = "true";
-		process.env.NODE_ENV = "development";
+		Object.assign(process.env, {NODE_ENV: "development"});
 
 		const auth = await resolveDashboardAuthFromRequest(
 			new Request("http://localhost:3000"),
@@ -800,7 +800,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("accepts a valid encrypted Tuturuuu session cookie", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		const cookie = createSessionCookie(session());
 
 		const auth = await resolveDashboardAuthFromRequest(
@@ -828,7 +828,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("local dashboard auth accepts stale access without a Tuturuuu exchange", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		const staleSession = session();
 		staleSession.expiresAt = new Date(Date.now() - 60_000).toISOString();
 		const cookie = createSessionCookie(staleSession);
@@ -848,7 +848,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy refreshes once and persists the cookie for the current render", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -880,7 +880,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("proxy clears a failed refresh session before redirecting", async () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -997,7 +997,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("configured unauthenticated screen hides admin setup diagnostics", () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -1079,7 +1079,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("misconfigured unauthenticated screen names blocking envs", () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -1106,7 +1106,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("centralized login renders scope approval only when provided", () => {
-		process.env.NODE_ENV = "production";
+		Object.assign(process.env, {NODE_ENV: "production"});
 		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
 		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
 		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
@@ -1662,7 +1662,7 @@ describe("dashboard auth gate", () => {
 	});
 
 	test("dashboard persists topics and exposes dedicated related-post APIs", () => {
-		const schema = readFileSync("lib/db/schema.ts", "utf8");
+		const schema = readFileSync("lib/db/schema.d1.ts", "utf8");
 		const topicWorker = readFileSync("lib/workers/topics.ts", "utf8");
 		const scanWorker = readFileSync("lib/workers/scans.ts", "utf8");
 		const scanStages = readFileSync("lib/workers/scan-stages.ts", "utf8");
@@ -1725,8 +1725,8 @@ describe("dashboard auth gate", () => {
 		);
 
 		expect(layout).toContain("<Telemetry />");
-		expect(telemetry).toContain("@vercel/analytics/next");
-		expect(telemetry).toContain("@vercel/speed-insights/next");
+		expect(telemetry).toContain("https://static.cloudflareinsights.com/beacon.min.js");
+		expect(telemetry).toContain("NEXT_PUBLIC_CLOUDFLARE_ANALYTICS_TOKEN");
 		// The overview is the operational surface; the analysis charts live on the
 		// intelligence workspace so the two pages never render the same thing.
 		expect(overviewPage).toContain("<WorkflowStrip");
@@ -1821,7 +1821,7 @@ describe("dashboard auth gate", () => {
 		expect(pages).not.toContain("function SourceAutomationPanel");
 	});
 
-	test("managed scheduler uses Vercel Cron instead of Tuturuuu managed-cron", () => {
+	test("managed scheduler uses Cloudflare Cron instead of Tuturuuu managed-cron", () => {
 		const panel = readFileSync(
 			"components/dashboard/managed-scheduler-panel.tsx",
 			"utf8",
@@ -1836,14 +1836,14 @@ describe("dashboard auth gate", () => {
 			"app/api/cron/articles/process-publication-queue/route.ts",
 			"utf8",
 		);
-		const vercelConfig = readFileSync("vercel.json", "utf8");
+		const vercelConfig = readFileSync("wrangler.jsonc", "utf8");
 
 		expect(queries).toContain("parseManagedSchedulerStatusResponse");
 		expect(queries).not.toContain('return fetchJson("/api/workspace/cron")');
 		expect(panel).toContain("queryUnavailable");
 		expect(panel).toContain("query.refetch()");
 		expect(panel).toContain("Không thể kiểm tra managed scheduler");
-		expect(panel).toContain("Vercel Cron scheduler");
+		expect(panel).toContain("Cloudflare Cron scheduler");
 		expect(panel).toContain("CRON_SECRET");
 		expect(panel).toContain("ImmediateCronActions");
 		// Every job key the panel can post must be one the scheduler defines.
@@ -1857,7 +1857,7 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("Quét ngay");
 		expect(panel).toContain("Xuất bản ngay");
 		expect(panel).toContain("lockedByDeployment");
-		expect(panel).toContain("vercel.json");
+		expect(panel).toContain("wrangler.jsonc");
 		expect(panel).toContain("status?.approvalHref && !controlsDisabled");
 		expect(panel).toContain("href={status.approvalHref}");
 		expect(panel).toContain("Duyệt thiết lập");
@@ -1881,25 +1881,20 @@ describe("dashboard auth gate", () => {
 		expect(panel).toContain("missingApprovalItems");
 		expect(panel).toContain("setupDisabledReason");
 		expect(panel).toContain("!status?.setupDisabledReason");
-		expect(server).toContain("VERCEL_CRON_SECRET_MISSING");
-		expect(server).toContain("runVercelCronRoute");
+		expect(server).toContain("CLOUDFLARE_CRON_SECRET_MISSING");
+		expect(server).toContain("runCloudflareCronRoute");
 		expect(server).toContain("CRON_SECRET");
 		expect(server).not.toContain("buildManagedSchedulerUrl");
 		expect(dailyRoute).toContain("export async function GET");
-		expect(dailyRoute).toContain("runVercelCronRoute");
+		expect(dailyRoute).toContain("runCloudflareCronRoute");
 		expect(publicationRoute).toContain("export async function GET");
-		expect(publicationRoute).toContain("runVercelCronRoute");
-		// Every scheduled path in vercel.json must resolve to a route that exists,
-		// or the cron fires into a 404 every day with nothing to show for it.
-		for (const path of cronPaths(vercelConfig)) {
-			expect(existsSync(`app${path}/route.ts`)).toBe(true);
-		}
-		expect(vercelConfig).toContain("/api/cron/scans/run-daily");
-		expect(vercelConfig).toContain("0 0 * * *");
-		expect(vercelConfig).toContain(
-			"/api/cron/articles/process-publication-queue",
-		);
-		expect(vercelConfig).toContain("*/5 * * * *");
+		expect(publicationRoute).toContain("runCloudflareCronRoute");
+        const worker=readFileSync("worker.ts","utf8");
+        expect(worker).toContain("/api/cron/scans/run-daily");
+        expect(worker).toContain("/api/cron/articles/process-publication-queue");
+        expect(server).toContain("0 0 * * *");
+        expect(server).toContain("*/5 * * * *");
+        expect(JSON.parse(vercelConfig).main).toBe("worker.ts");
 	});
 
 	test("managed scheduler callbacks return sanitized structured failures", () => {
@@ -1922,7 +1917,7 @@ describe("dashboard auth gate", () => {
 		// The publication route is Vercel-Cron only and has no legacy POST callback,
 		// so it needs no sanitized failure body — but it must still name a job key
 		// the scheduler actually defines.
-		expect(publicationRoute).toContain("runVercelCronRoute");
+		expect(publicationRoute).toContain("runCloudflareCronRoute");
 		expect(publicationRoute).toContain('"process-article-publications"');
 		expect(publicationRoute).not.toContain("export async function POST");
 		expect(callback).toContain("CS35_MANAGED_SCHEDULER_CALLBACK_FAILED");
@@ -1930,18 +1925,12 @@ describe("dashboard auth gate", () => {
 		expect(callback).not.toContain("stack");
 	});
 
-	test("database client prefers pooled production connection URLs", () => {
-		const client = readFileSync("lib/db/client.ts", "utf8");
-
-		expect(client).toContain("firstConfiguredEnv");
-		expect(client).toContain('"CS35_DATABASE_URL"');
-		expect(client).toContain('"POSTGRES_URL"');
-		expect(client).toContain('"POSTGRES_PRISMA_URL"');
-		expect(client).toContain('"DATABASE_URL"');
-		expect(client.indexOf('"POSTGRES_URL"')).toBeLessThan(
-			client.indexOf('"DATABASE_URL"'),
-		);
-	});
+	test("database client resolves the request D1 binding", () => {
+        const client=readFileSync("lib/db/client.ts","utf8");
+        expect(client).toContain("getCloudflareContext().env.CS35_DB");
+        expect(client).toContain("createD1Client");
+        expect(client).not.toContain("DATABASE_URL");
+    });
 
 	test("notification dropdown has no mock operational items", () => {
 		const shell = readFileSync("components/dashboard/shell.tsx", "utf8");
@@ -2153,17 +2142,6 @@ function panelJobKeys(panel: string) {
 	return [
 		...new Set(
 			[...panel.matchAll(/runMutation\.mutate\(\s*"([a-z0-9-]+)"/gu)].map(
-				(match) => match[1] as string,
-			),
-		),
-	];
-}
-
-/** Every path Vercel is configured to call on a schedule. */
-function cronPaths(vercelConfig: string) {
-	return [
-		...new Set(
-			[...vercelConfig.matchAll(/"path":\s*"(\/api\/[^"]+)"/gu)].map(
 				(match) => match[1] as string,
 			),
 		),

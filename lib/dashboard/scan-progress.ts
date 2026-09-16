@@ -109,8 +109,8 @@ export async function getScanProgress(
 
 	const [counts] = await adminDb
 		.select({
-			evidenceCount: sql<number>`count(*)::int`,
-			highRiskCount: sql<number>`count(*) filter (where ${evidenceItems.riskLevel} = 'high')::int`,
+			evidenceCount: sql<number>`count(*)`,
+			highRiskCount: sql<number>`count(*) filter (where ${evidenceItems.riskLevel} = 'high')`,
 		})
 		.from(evidenceItems)
 		.where(eq(evidenceItems.scanJobId, scanId));

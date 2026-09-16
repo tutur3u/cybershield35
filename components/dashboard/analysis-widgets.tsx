@@ -709,6 +709,7 @@ function TopicMetric({ label, value }: { label: string; value: string }) {
 function formatTopicDate(value?: string | null) {
 	if (!value) return "Chưa có";
 	return new Intl.DateTimeFormat("vi-VN", {
+		timeZone: "Asia/Ho_Chi_Minh",
 		hour: "2-digit",
 		minute: "2-digit",
 		day: "2-digit",

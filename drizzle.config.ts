@@ -1,19 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 
-import { loadLocalEnvFile } from "./lib/env/load-local-env";
-
-loadLocalEnvFile();
-
+// Generate reviewed SQLite migration proposals. Apply through Wrangler/D1.
 export default defineConfig({
-	schema: "./lib/db/schema.ts",
-	out: "./drizzle",
-	dialect: "postgresql",
-	dbCredentials: {
-		url:
-			process.env.CS35_DATABASE_URL ??
-			process.env.DATABASE_URL ??
-			"postgres://cybershield:cybershield@localhost:5432/cybershield35",
-	},
-	verbose: true,
-	strict: true,
+ schema: "./lib/db/schema.d1.ts",
+ out: "./drizzle-d1-generated",
+ dialect: "sqlite",
+ verbose: true,
+ strict: true,
 });

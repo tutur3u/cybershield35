@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("operations observability", () => {
-	const schema = read("lib/db/schema.ts");
+	const schema = read("lib/db/schema.d1.ts");
 	const migration = read("drizzle/0010_nasty_jamie_braddock.sql");
 	const server = read("lib/operations/server.ts");
 	const telemetry = read("lib/operations/telemetry.ts");
@@ -47,7 +47,7 @@ describe("operations observability", () => {
 
 	test("loads independent operations projections concurrently with short cache lifetime", () => {
 		expect(server).toContain(
-			"cacheLife({ stale: 10, revalidate: 10, expire: 60 })",
+			"revalidate: 10",
 		);
 		expect(server).toContain("await Promise.all([");
 		expect(server).toContain("oldestQueuedAgeSeconds");

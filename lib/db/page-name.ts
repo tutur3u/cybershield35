@@ -22,12 +22,21 @@ import { trackedSources } from "@/lib/db/schema";
 
 /** The handle out of a Facebook page URL — `.../viettan` becomes `viettan`. */
 export function facebookHandleFromUrl(urlExpression: SQL | unknown) {
-	return sql<string | null>`nullif(lower(split_part(regexp_replace(${urlExpression}, '^https?://(www\\.)?facebook\\.com/', '', 'i'), '/', 1)), '')`;
+    return sql<string | null>`(select nullif(substr(path,1,instr(path || '/', '/')-1),'') from (
+        select case when lower(${urlExpression}) like 'https://facebook.com/%'
+            or lower(${urlExpression}) like 'http://facebook.com/%'
+            or lower(${urlExpression}) like 'https://www.facebook.com/%'
+            or lower(${urlExpression}) like 'http://www.facebook.com/%'
+        then substr(lower(${urlExpression}),instr(lower(${urlExpression}),'facebook.com/')+13)
+        else lower(${urlExpression}) end as path
+    ))`;
 }
 
-/** A handle written as an author string — `@Viet Tan` becomes `viettan`. */
+/** A handle written as an author string — @Viet Tan becomes viettan. */
 export function facebookHandleFromAuthor(authorExpression: SQL | unknown) {
-	return sql<string | null>`nullif(lower(regexp_replace(trim(coalesce(${authorExpression}, '')), '^@|\\s+', '', 'g')), '')`;
+    return sql<string | null>`nullif(lower(replace(replace(replace(replace(replace(replace(replace(
+        case when substr(trim(coalesce(${authorExpression},'')),1,1)='@' then substr(trim(${authorExpression}),2) else trim(coalesce(${authorExpression},'')) end,
+        ' ',''),char(9),''),char(10),''),char(11),''),char(12),''),char(13),''),char(160),'')),'')`;
 }
 
 /**

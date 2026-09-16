@@ -61,7 +61,7 @@ describe("content exports", () => {
 					],
 				},
 			});
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 		const { generateVietnameseSpeech } = await import(
 			"@/lib/exports/google-tts"
 		);
@@ -93,7 +93,7 @@ describe("content exports", () => {
 			return new Response(wav, {
 				headers: { "Content-Type": "audio/wav" },
 			});
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 		const { generateVietnameseSpeech } = await import(
 			"@/lib/exports/google-tts"
 		);
@@ -127,7 +127,7 @@ describe("content exports", () => {
 			return attempts === 1
 				? new Response("upstream unavailable", { status: 502 })
 				: new Response(wav, { headers: { "Content-Type": "audio/wav" } });
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 		const { generateVietnameseSpeech } = await import(
 			"@/lib/exports/google-tts"
 		);
@@ -158,7 +158,7 @@ describe("content exports", () => {
 			return new Response(pcmToWav(Buffer.from([index, index + 1])), {
 				headers: { "Content-Type": "audio/wav" },
 			});
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 
 		const result = await generateVietnameseSpeech(content, {
 			accessToken: "ttr_app_session-token",

@@ -9,14 +9,22 @@ import {
 	orderedMigrationTables,
 } from "../lib/db/d1-migration.ts";
 
-if (!process.argv.includes("--apply-staging"))
+const localOnly = process.argv.includes("--local");
+const production = process.argv.includes("--apply-production");
+const configPath = production ? "wrangler.production-db.jsonc" : "wrangler.migration.jsonc";
+if (production) {
+ const freeze = JSON.parse(await readFile("migration-private/source-freeze.json", "utf8"));
+ const snapshot = JSON.parse(await readFile("migration-private/manifest.json", "utf8"));
+ if (!freeze.verifiedAt || freeze.restoredAt || !freeze.frozenAt || Date.parse(snapshot.capturedAt) < Date.parse(freeze.frozenAt)) throw new Error("Production requires a snapshot captured after the source write freeze");
+}
+if (!localOnly && !production && !process.argv.includes("--apply-staging"))
 	throw new Error(
 		"Pass --apply-staging to populate and verify the isolated D1 copy",
 	);
-const config = JSON.parse(await readFile("wrangler.migration.jsonc", "utf8"));
+const config = JSON.parse(await readFile(configPath, "utf8"));
 if (
 	config.d1_databases?.[0]?.database_id !==
-	"5ecf345c-e585-480a-a746-71a1a3624d06"
+	(production ? "991e3c70-d792-4597-b40a-b9c7a677f17b" : "5ecf345c-e585-480a-a746-71a1a3624d06")
 )
 	throw new Error("Refusing an unrecognized migration target");
 const manifest = JSON.parse(
@@ -28,13 +36,17 @@ local.exec("BEGIN; PRAGMA defer_foreign_keys=ON");
 local.exec(await readFile("migration-private/snapshot.sql", "utf8"));
 local.exec("COMMIT");
 const proxy = await getPlatformProxy<{ CS35_DB: D1Database }>({
-	configPath: "wrangler.migration.jsonc",
-	remoteBindings: true,
+	configPath: localOnly ? "wrangler.jsonc" : configPath,
+	remoteBindings: !localOnly,
 });
 const db = proxy.env.CS35_DB;
 const identifier = (name: string) => `"${name.replaceAll('"', '""')}"`;
 const verified: string[] = [];
 try {
+    if(localOnly) {
+        const exists=await db.prepare("SELECT name FROM sqlite_schema WHERE name='sources'").first();
+        if(!exists) for(const statement of createD1StagingSchema().split(";").filter(part=>part.trim())) await db.prepare(statement).run();
+    }
 	for (const table of orderedMigrationTables()) {
 		const expected = manifest.tables.find((row) => row.table === table.name);
 		if (!expected)
@@ -80,7 +92,7 @@ try {
 	if (foreignKeys.results.length)
 		throw new Error("D1 foreign key verification failed");
 	await writeFile(
-		"migration-private/d1-verification.json",
+		localOnly ? "migration-private/local-d1-verification.json" : production ? "migration-private/production-d1-verification.json" : "migration-private/d1-verification.json",
 		JSON.stringify(
 			{
 				verifiedAt: new Date().toISOString(),
@@ -93,12 +105,16 @@ try {
 		),
 		{ mode: 0o600 },
 	);
+    if(localOnly) for(const file of ["0001_revisions.sql","0002_attachment_search.sql","0003_timestamp_precision.sql"]) {
+        const sql=(await readFile(`drizzle-d1/${file}`,"utf8")).replace(/^--.*$/gm,"").replaceAll("\n"," ");
+        await db.exec(sql);
+    }
 	console.log(
 		`Verified ${verified.length} D1 tables against the captured snapshot. This does not establish live replication or application compatibility.`,
 	);
 } catch (error) {
 	console.error(
-		"Staging transfer stopped. No production changes were made.",
+		"Transfer stopped. The target must not receive production traffic until verification passes.",
 		error instanceof Error && error.message.startsWith("D1 parity mismatch:")
 			? error.message
 			: "Inspect the failed table before retrying.",

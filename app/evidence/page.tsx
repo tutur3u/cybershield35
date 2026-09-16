@@ -9,8 +9,6 @@ import { type DashboardSearchParams } from "@/lib/dashboard/query-keys";
 import { timelineFiltersFromRecord } from "@/lib/dashboard/timeline-query";
 import { getQueryClient } from "@/lib/query-client";
 
-export const instant = true;
-
 export default function EvidencePage({
 	searchParams,
 }: {

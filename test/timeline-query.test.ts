@@ -73,7 +73,7 @@ describe("timeline implementation safety", () => {
 	test("uses stable keyset ordering and safe engagement parsing", () => {
 		expect(server).toContain("effectivePublishedAt");
 		expect(server).toContain("timelineCursorCondition");
-		expect(server).toContain("~ '^\\\\d+$'");
+		expect(server).toContain("not glob '*[^0-9]*'");
 		expect(server).not.toContain(".offset(");
 	});
 
@@ -83,7 +83,7 @@ describe("timeline implementation safety", () => {
 		const auditPayload = noteAudit.slice(0, noteAudit.indexOf("tx.insert(intelligenceActivityRollups)"));
 		const activityPayload = noteAudit.slice(
 			noteAudit.indexOf("tx.insert(intelligenceActivityRollups)"),
-			noteAudit.indexOf("return created"),
+			noteAudit.indexOf("return saved"),
 		);
 		expect(auditPayload).not.toContain("body:");
 		expect(activityPayload).not.toContain("body:");

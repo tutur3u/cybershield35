@@ -250,7 +250,7 @@ export type ManagedSchedulerStatusView = {
 	missingApprovalItems?: string[];
 	remoteConfigured?: boolean;
 	remoteStatusAvailable?: boolean;
-	schedulerProvider?: "managed-scheduler" | "vercel-cron";
+	schedulerProvider?: "managed-scheduler" | "cloudflare-cron";
 	setupDisabled?: boolean;
 	setupDisabledReason?: string;
 	setupOrigin?: string;
