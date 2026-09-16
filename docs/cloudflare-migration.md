@@ -8,14 +8,15 @@
 | Production | cs35-production | 991e3c70-d792-4597-b40a-b9c7a677f17b | cs35-production-cache |
 
 The native application uses D1 through Drizzle SQLite, Cloudflare Workflows for
-scan checkpoints, and Cron Triggers for scheduled scans and article publication.
+scan checkpoints, and Durable Object alarms for scheduled scans and article publication.
 R2 stores the Next cache; D1 cache tags invalidate shared results and a Durable
 Object queues cache revalidation. External business integrations (Tuturuuu
 identity/AI/Drive, crawlers, and Zalo) retain their existing contracts.
 
 `wrangler.jsonc` targets the isolated candidate. `wrangler.production.jsonc`
-targets production. Production domains and cron triggers must only be added after
-the final data copy passes verification. Resource creation alone is not cutover.
+targets production. The final verified copy and production cutover completed on
+September 16, 2026; see [verification evidence](cloudflare-parity-verification.md).
+For future transfers, attach domains and start the scheduler only after data verification.
 
 ## Validate and deploy
 
@@ -23,7 +24,7 @@ the final data copy passes verification. Resource creation alone is not cutover.
 bun install --frozen-lockfile
 bun run lint
 bun run typecheck:test
-bun test
+bun run test
 node --experimental-strip-types scripts/verify-d1-runtime.ts
 bun run build:cloudflare
 CLOUDFLARE_ACCOUNT_ID=e8912e2867beecc673d171907bf09649 bun run deploy:cloudflare
@@ -71,7 +72,7 @@ bulk inserts respect D1's 100-parameter limit. Attachment text search uses FTS5.
    and Zalo token encryption key. Never replace a sensitive setting with an empty
    value from an environment export. Database credentials are not transferred.
 7. Verify the production Worker before attaching canonical domains. Enable its
-   two cron schedules and disable the previous scheduler/deployment ownership.
+   alarm scheduler and disable the previous scheduler/deployment ownership.
 8. Verify canonical authenticated behavior, actual deployment version, logs, and
    data persistence before declaring cutover complete.
 
@@ -108,3 +109,53 @@ account. It forwards requests to the production Worker over HTTPS with a shared
 public hostname before restoring canonical request URLs and stripping the
 internal credential. Cookies, request bodies, redirects, and response streams
 are preserved. Deploy the application before the gateway when changing ingress.
+
+
+## Recovery archive and Neon retirement
+
+Before disabling Neon compute, retain both the verified D1 transfer snapshot and
+an independent PostgreSQL custom-format archive. On September 16, PostgreSQL 18
+`pg_dump` captured the frozen source; `pg_restore` decoded the complete archive
+successfully (43 table-data sections, including migration metadata). An isolated
+PostgreSQL 18 restore with pgvector then reproduced all 42 application tables
+and 54,799 rows from the final source manifest. The temporary restore container
+was removed. Files and
+checksums are in the ignored private migration directory and must not be committed.
+
+The authenticated Neon billing page showed the CS35 organization on Free at
+$0/month, with 0.5 GB storage included; the project retained about 0.11 GB.
+The only compute endpoint, `ep-divine-scene-ao8bdq5b`, was deleted after validation
+at 2026-09-16T18:14:17.579Z. The console now shows no compute, and the old
+connection is rejected. Old connection strings cannot wake the removed endpoint.
+The frozen branch can remain within that free allowance as a recovery copy.
+Recheck the plan before any future change; historical invoices are independent
+of future compute use.
+
+
+## Persistent scheduled jobs
+
+`wrangler.scheduler.jsonc` deploys `cs35-scheduler` in the application account.
+Each recurring job owns a SQLite-backed Durable Object: daily scans at 00:00 UTC,
+and publication/queue maintenance at five-minute UTC boundaries. The scheduler
+calls the application through a service binding with `CRON_SECRET`. The same
+secret must be installed in both Workers. No database credentials are needed.
+
+Deploy the application first, then `bunx wrangler deploy --config
+wrangler.scheduler.jsonc`. With `CRON_SECRET` supplied through private runtime
+configuration, run `node scripts/bootstrap-cloudflare-scheduler.mjs`. Bootstrap
+is idempotent: it preserves existing timers and retry state. The first maintenance
+alarm runs promptly to verify the path; daily collection waits for midnight.
+`--status` reads persisted state without changing it. Control endpoints require
+authentication. Application Cron Triggers are empty to keep one scheduling owner.
+
+Failed jobs retry with a 30-second exponential backoff capped at five minutes;
+success returns to the next UTC boundary. The alarm is re-armed before external
+I/O and after each result. Alarms are at-least-once, so existing database job claims
+and provider checkpoints remain necessary to prevent duplicate business writes.
+Historical `cloudflare-cron` heartbeat/provider IDs are preserved for continuity.
+
+The standalone alarm runtime test verifies authenticated control, repeated startup,
+automatic invocation, persisted failure and automatic recovery:
+`node scripts/verify-scheduler-runtime.mjs`. Native Cron Triggers did not produce
+an invocation during the cutover observation window, so completion depends on a
+verified production alarm heartbeat rather than trigger registration alone.
