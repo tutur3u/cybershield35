@@ -1,3 +1,4 @@
+import { CS35_USER_AGENT } from "@/lib/http/client-identity";
 import "server-only";
 import { getTuturuuuMachineToken } from "@/lib/tuturuuu/machine-credential";
 import { aiUsageSchema, type AiUsage } from "./ai-usage";
@@ -18,6 +19,7 @@ export async function readAiUsage(
 		).replace(/\/$/, "");
 		const response = await fetch(`${base}/usage`, {
 			headers: {
+                "User-Agent": CS35_USER_AGENT,
 				Authorization: `Bearer ${token}`,
 				"x-tuturuuu-workspace-id": workspace,
 			},

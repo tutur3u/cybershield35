@@ -8,6 +8,7 @@ import {
 	allowLocalAuthBypass,
 	createSessionCookie,
 	exchangeTuturuuuAppToken,
+	fetchTuturuuuWithBearer,
 	getRequestedScopes,
 	getTuturuuuAuthDiagnostics,
 	isTuturuuuAuthConfigured,
@@ -434,4 +435,16 @@ describe("Tuturuuu encrypted admin session", () => {
   return Response.json(session());
  }) as unknown as typeof fetch;
  expect((await exchangeTuturuuuAppToken({token:"test-token"})).user.id).toBe("user-1");
+ });
+
+ test("authenticated platform requests retain credentials and identify the Worker client", async () => {
+ globalThis.fetch = mock(async (_input: unknown, init?: RequestInit) => {
+  const headers = new Headers(init?.headers);
+  expect(headers.get("User-Agent")).toBe("CyberShield35/1.0 (+https://cybershield35.ttr.gg)");
+  expect(headers.get("Authorization")).toBe("Bearer test-token");
+  expect(headers.get("X-Request-Test")).toBe("preserved");
+  return Response.json({ok:true});
+ }) as unknown as typeof fetch;
+ const result=await fetchTuturuuuWithBearer({authorization:"Bearer test-token",session:session(),setCookie:null},"https://tuturuuu.com/api/v1/users/profile",{headers:{"X-Request-Test":"preserved"}});
+ expect(result.response.status).toBe(200);
  });

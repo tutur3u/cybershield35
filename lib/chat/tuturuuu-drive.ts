@@ -1,3 +1,4 @@
+import { CS35_USER_AGENT } from "@/lib/http/client-identity";
 import "server-only";
 
 import { z } from "zod";
@@ -52,6 +53,7 @@ async function driveRequest(
 			body: JSON.stringify(payload),
 			cache: "no-store",
 			headers: {
+                "User-Agent": CS35_USER_AGENT,
 				Authorization: `Bearer ${accessToken}`,
 				"Content-Type": "application/json",
 			},

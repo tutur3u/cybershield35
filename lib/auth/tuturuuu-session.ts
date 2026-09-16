@@ -1,3 +1,4 @@
+import { CS35_USER_AGENT } from "@/lib/http/client-identity";
 import { createHash, randomBytes } from "node:crypto";
 
 import { z } from "zod";
@@ -235,7 +236,7 @@ export async function exchangeTuturuuuAppToken(input: {
 			workspaceId: config.workspaceId,
 		}),
 		cache: "no-store",
-		headers: { "Content-Type": "application/json", "User-Agent": "CyberShield35/1.0 (+https://cybershield35.ttr.gg)" },
+		headers: { "Content-Type": "application/json", "User-Agent": CS35_USER_AGENT },
 		method: "POST",
 	});
 
@@ -276,7 +277,7 @@ export async function decideTuturuuuPendingInvitation(
 			workspaceId: pendingInvitation.workspaceId,
 		}),
 		cache: "no-store",
-		headers: { "Content-Type": "application/json", "User-Agent": "CyberShield35/1.0 (+https://cybershield35.ttr.gg)" },
+		headers: { "Content-Type": "application/json", "User-Agent": CS35_USER_AGENT },
 		method: "POST",
 	});
 	const body = await response.json().catch(() => null);
@@ -608,6 +609,7 @@ function fetchWithAuthorization(
 ) {
 	const headers = new Headers(init.headers);
 	headers.set("Authorization", auth.authorization);
+	headers.set("User-Agent", CS35_USER_AGENT);
 
 	return fetch(input, {
 		...init,
