@@ -1,5 +1,5 @@
 import "server-only";
-import { cronOverdueWindowMs } from "./health";
+import { cronOverdueWindowMs, nextRunForSchedule } from "./health";
 
 import { createHash, timingSafeEqual } from "node:crypto";
 
@@ -734,29 +734,7 @@ function findCloudflareCronJob(jobKey: string) {
 	return CLOUDFLARE_CRON_JOBS.find((job) => job.jobKey === jobKey);
 }
 
-function nextRunForSchedule(schedule: string, from: Date) {
-	const next = new Date(from.getTime());
-	next.setUTCSeconds(0, 0);
 
-	if (schedule === "*/30 * * * *") {
-		const minutes = next.getUTCMinutes();
-		const remainder = minutes % 30;
-		next.setUTCMinutes(minutes + (remainder === 0 ? 30 : 30 - remainder));
-		return next;
-	}
-
-	if (schedule === "0 0 * * *") {
-		next.setUTCHours(0, 0, 0, 0);
-		if (next.getTime() <= from.getTime()) {
-			next.setUTCDate(next.getUTCDate() + 1);
-		}
-		return next;
-	}
-
-	next.setUTCMinutes(0, 0, 0);
-	next.setUTCHours(next.getUTCHours() + 1);
-	return next;
-}
 
 function safeCronError(error: unknown) {
 	if (!(error instanceof Error)) return "Cron job failed.";
