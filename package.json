@@ -62,7 +62,7 @@
 		"firecrawl": "^4.32.0",
 		"lucide-react": "^1.28.0",
 		"nanoid": "^6.0.1",
-		"next": "16.3.0",
+		"next": "16.3.3",
 		"pdfmake": "^0.3.11",
 		"postgres": "^3.4.9",
 		"radix-ui": "^1.6.7",
@@ -79,7 +79,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260915.1",
-		"@next/playwright": "16.3.0",
+		"@next/playwright": "16.3.3",
 		"@playwright/test": "^1.62.1",
 		"@tailwindcss/postcss": "^4.3.3",
 		"@tuturuuu/typescript-config": "^0.1.1",
@@ -91,13 +91,13 @@
 		"@typescript-eslint/typescript-estree": "^8.66.0",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^10.8.0",
-		"eslint-config-next": "16.3.0",
+		"eslint-config-next": "16.3.3",
 		"tailwindcss": "^4.3.3",
 		"typescript": "6.0.3",
 		"wrangler": "^4.131.2"
 	},
 	"overrides": {
-		"next": "16.3.0"
+		"next": "16.3.3"
 	},
 	"trustedDependencies": [
 		"@mongodb-js/zstd",
