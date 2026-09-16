@@ -16,9 +16,11 @@ Resources belong to the Tuturuuu account:
 The isolated candidate is available at
 <https://cs35-migration-staging.tuturuuu-e89.workers.dev>. Anonymous verification
 returned 200 for login, favicon and sampled JavaScript assets, 307 from `/usage`
-to login, and 401 from `/api/usage`. Staging secrets are not provisioned and the
-application still uses its PostgreSQL driver; these checks do not verify a login
-session or any authenticated D1-backed application flow.
+to login, and 401 from `/api/usage`. On September 16, staging authentication
+secrets were provisioned and the login gate was corrected so unrelated database
+and crawler configuration cannot disable centralized sign-in. The application
+still uses its PostgreSQL driver; these checks do not verify a login session or
+any authenticated D1-backed application flow.
 
 ## Build and validate
 

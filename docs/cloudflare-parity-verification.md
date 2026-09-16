@@ -2,6 +2,13 @@
 
 ## Release decision: blocked
 
+September 16 update: authentication secrets are now provisioned on the staging
+Worker. The login gate no longer requires unrelated PostgreSQL/crawler settings.
+The auth regression suite passes (65 tests), along with focused lint and both
+builds. This removes the disabled login control; it does not establish completed
+token exchange, authenticated persistence, or D1 feature parity. The September 15
+results below remain the historical baseline, not new cutover approval.
+
 Verification date: 2026-09-15. Baseline source:
 `ae185e4115a239693f916c55276d1414a844019d`, plus the Overview responsive-grid fix.
 Production remains on Vercel/PostgreSQL. This report does not authorize cutover.

@@ -39,7 +39,9 @@ export function CentralizedLoginScreen({
 	const runtimeDiagnostics = getRuntimeDiagnostics();
 	const authIssues = authDiagnostics.required.filter(isBlockingIssue);
 	const runtimeIssues = runtimeDiagnostics.filter(isBlockingIssue);
-	const setupIncomplete = authIssues.length > 0 || runtimeIssues.length > 0;
+	// Sign-in only depends on authentication configuration. A missing crawler or
+	// database connection must not prevent an operator from authenticating.
+	const setupIncomplete = authIssues.length > 0;
 	const copy = loginCopy(
 		reason,
 		setupIncomplete,

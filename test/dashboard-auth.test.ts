@@ -1033,6 +1033,26 @@ describe("dashboard auth gate", () => {
 		expect(markup).not.toContain("AUTH_LOCAL_BYPASS");
 	});
 
+	test("configured login stays available without database or crawler credentials", () => {
+		process.env.TUTURUUU_API_BASE_URL = "https://tuturuuu.com/api/v1";
+		process.env.TUTURUUU_CYBERSHIELD35_WORKSPACE_ID = "workspace-1";
+		process.env.CYBERSHIELD35_APP_ID = "cybershield35";
+		process.env.CYBERSHIELD35_APP_SECRET = "app-secret";
+		for (const name of ["DATABASE_URL", "LLM_API_KEY", "OPENAI_API_KEY",
+			"GOOGLE_GENERATIVE_AI_API_KEY", "APIFY_TOKEN", "FIRECRAWL_API_KEY",
+			"BROWSER_USE_API_KEY"]) delete process.env[name];
+		const diagnostics = getTuturuuuAuthDiagnostics();
+		const markup = renderToStaticMarkup(createElement(AuthRequiredScreen, {
+			authDiagnostics: diagnostics,
+			configured: diagnostics.configured,
+			loginHref: "https://tuturuuu.com/login",
+		}));
+		expect(markup).toContain("Tiếp tục với Tuturuuu");
+		expect(markup).not.toContain("Đăng nhập chưa khả dụng");
+		expect(markup).not.toContain("DATABASE_URL");
+		expect(markup).not.toContain("APIFY_TOKEN");
+	});
+
 	test("login route owns the customer-facing Tuturuuu login flow", () => {
 		const source = readFileSync("app/login/page.tsx", "utf8");
 
